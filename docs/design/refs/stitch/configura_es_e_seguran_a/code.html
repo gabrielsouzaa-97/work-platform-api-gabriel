@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Security Settings - API Console</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#004395",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-bright": "#31394d",
+                        "surface": "#0b1326",
+                        "outline": "#8c909f",
+                        "on-secondary-fixed": "#111c2d",
+                        "inverse-on-surface": "#283044",
+                        "on-primary": "#002e6a",
+                        "surface-container-lowest": "#060e20",
+                        "on-tertiary-fixed": "#311400",
+                        "surface-container-low": "#131b2e",
+                        "tertiary": "#ffb786",
+                        "on-error-container": "#ffdad6",
+                        "surface-variant": "#2d3449",
+                        "secondary-container": "#3e495d",
+                        "on-primary-container": "#00285d",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface-container-highest": "#2d3449",
+                        "error-container": "#93000a",
+                        "on-secondary-container": "#aeb9d0",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "primary": "#adc6ff",
+                        "on-tertiary": "#502400",
+                        "primary-fixed": "#d8e2ff",
+                        "outline-variant": "#424754",
+                        "secondary": "#bcc7de",
+                        "surface-container-high": "#222a3d",
+                        "on-surface": "#dae2fd",
+                        "on-background": "#dae2fd",
+                        "primary-container": "#4d8eff",
+                        "tertiary-container": "#df7412",
+                        "secondary-fixed": "#d8e3fb",
+                        "surface-container": "#171f33",
+                        "on-tertiary-container": "#461f00",
+                        "on-primary-fixed": "#001a42",
+                        "on-secondary": "#263143",
+                        "inverse-primary": "#005ac2",
+                        "surface-tint": "#adc6ff",
+                        "tertiary-fixed": "#ffdcc6",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "background": "#0b1326",
+                        "inverse-surface": "#dae2fd",
+                        "on-error": "#690005",
+                        "surface-dim": "#0b1326"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "gutter": "16px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "xl": "48px",
+                        "unit": "4px",
+                        "margin": "24px"
+                    },
+                    "fontFamily": {
+                        "body-base": ["Inter"],
+                        "code-block": ["Fira Code"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-base": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "code-block": ["13px", {"lineHeight": "1.6", "fontWeight": "450"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "display-lg": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: theme('colors.background');
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.surface-variant');
+            border-radius: theme('borderRadius.full');
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: theme('colors.outline-variant');
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-base antialiased h-screen flex overflow-hidden">
+<!-- Shared Component: SideNavBar -->
+<nav class="bg-surface-container dark:bg-surface-container-low border-r border-outline-variant dark:border-outline-variant flex flex-col h-full py-lg flex-shrink-0 w-64 z-20">
+<!-- Header -->
+<div class="px-md mb-lg">
+<div class="flex items-center gap-sm mb-xs">
+<div class="w-8 h-8 rounded-DEFAULT bg-primary-container text-on-primary-container flex items-center justify-center font-bold" title="System Logo">
+<span class="material-symbols-outlined text-[20px]">hub</span>
+</div>
+<div class="font-headline-md text-headline-md font-extrabold text-on-surface">DevPortal</div>
+</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant ml-10">Enterprise API</div>
+</div>
+<!-- CTA -->
+<div class="px-md mb-lg">
+<button class="w-full bg-primary-container text-on-primary-container font-body-sm font-semibold py-sm px-md rounded-DEFAULT flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New API Key
+            </button>
+</div>
+<!-- Main Tabs -->
+<div class="flex-1 px-sm space-y-unit">
+<!-- Dashboard (Inactive) -->
+<a class="flex items-center gap-sm px-md py-sm cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+                Dashboard
+            </a>
+<!-- Credentials (Inactive) -->
+<a class="flex items-center gap-sm px-md py-sm cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined text-[20px]">vpn_key</span>
+                Credentials
+            </a>
+<!-- Request Logs (Inactive) -->
+<a class="flex items-center gap-sm px-md py-sm cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined text-[20px]">list_alt</span>
+                Request Logs
+            </a>
+<!-- Settings (Active) -->
+<a class="flex items-center gap-sm px-md py-sm cursor-pointer bg-secondary-container text-on-secondary-container rounded-lg font-semibold transition-all font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">settings</span>
+                Settings
+            </a>
+</div>
+<!-- Footer Tabs -->
+<div class="px-sm space-y-unit mt-auto">
+<a class="flex items-center gap-sm px-md py-sm cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined text-[20px]">contact_support</span>
+                Support
+            </a>
+<a class="flex items-center gap-sm px-md py-sm cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-caps text-label-caps" href="#">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+                Sign Out
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+<!-- Shared Component: TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline-variant flex justify-between items-center h-16 px-lg w-full sticky top-0 z-40 flex-shrink-0">
+<!-- Left: Brand/Context -->
+<div class="flex items-center gap-md">
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">
+                    API Console
+                </div>
+</div>
+<!-- Search (on_left in layout conceptually, but keeping it central/leftish) -->
+<div class="hidden md:flex flex-1 max-w-md ml-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-DEFAULT pl-xl pr-md py-sm text-body-sm font-body-sm text-on-surface focus:outline-none focus:border-primary-container placeholder-on-surface-variant transition-colors" placeholder="Search resources, endpoints..." type="text"/>
+<div class="absolute right-sm top-1/2 -translate-y-1/2 flex items-center gap-xs">
+<kbd class="font-code-block text-[10px] text-on-surface-variant bg-surface-variant px-1.5 py-0.5 rounded border border-outline-variant">⌘K</kbd>
+</div>
+</div>
+</div>
+<!-- Right: Actions & Profile -->
+<div class="flex items-center gap-md ml-auto">
+<button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors p-sm rounded-full cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors p-sm rounded-full cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-sm"></div>
+<button class="flex items-center cursor-pointer active:opacity-80 hover:bg-surface-container-high transition-colors p-xs rounded-full" title="Administrator Profile">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container border border-outline-variant overflow-hidden">
+<span class="material-symbols-outlined text-[20px]">person</span>
+</div>
+</button>
+</div>
+</header>
+<!-- Scrollable Canvas -->
+<main class="flex-1 overflow-y-auto p-lg lg:p-xl">
+<div class="max-w-5xl mx-auto space-y-xl pb-xl">
+<!-- Page Header -->
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface mb-sm">Security &amp; Settings</h1>
+<p class="font-body-base text-body-base text-on-surface-variant max-w-2xl">Configure your API access parameters, monitor rate limits across your infrastructure, and manage webhooks for real-time event streaming.</p>
+</div>
+<!-- Section: IP Restrictions -->
+<section class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="px-lg py-md border-b border-outline-variant bg-surface-container-highest flex justify-between items-center">
+<div>
+<h2 class="font-headline-md text-[18px] text-on-surface">IP Access Restrictions</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Whitelist or blacklist specific IP addresses or CIDR blocks for API access.</p>
+</div>
+<div class="flex items-center gap-sm bg-surface-container-lowest p-unit rounded-DEFAULT border border-outline-variant">
+<button class="px-md py-xs font-label-caps text-label-caps rounded-sm bg-surface-variant text-on-surface">Allowlist Mode</button>
+<button class="px-md py-xs font-label-caps text-label-caps rounded-sm text-on-surface-variant hover:text-on-surface transition-colors">Blocklist Mode</button>
+</div>
+</div>
+<div class="p-lg space-y-md">
+<!-- Add IP Form -->
+<div class="flex gap-md items-end">
+<div class="flex-1">
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-sm">IP Address or CIDR</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-DEFAULT px-md py-sm font-code-block text-code-block text-on-surface focus:outline-none focus:border-primary-container transition-colors" placeholder="e.g. 192.168.1.0/24" type="text"/>
+</div>
+<div class="w-48">
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-sm">Description (Optional)</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-DEFAULT px-md py-sm font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary-container transition-colors" placeholder="Office network..." type="text"/>
+</div>
+<button class="h-[38px] bg-primary-container text-on-primary-container font-body-sm font-semibold px-lg rounded-DEFAULT hover:opacity-90 transition-opacity">Add Rule</button>
+</div>
+<!-- Active Rules List -->
+<div class="border border-outline-variant rounded-DEFAULT overflow-hidden mt-lg">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-highest border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant">
+<tr>
+<th class="py-sm px-md font-semibold">IP / CIDR</th>
+<th class="py-sm px-md font-semibold">Description</th>
+<th class="py-sm px-md font-semibold">Added By</th>
+<th class="py-sm px-md font-semibold text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-md px-md font-code-block text-primary-fixed-dim">203.0.113.0/24</td>
+<td class="py-md px-md text-on-surface">Primary Datacenter Gateway</td>
+<td class="py-md px-md text-on-surface-variant">admin@system.local</td>
+<td class="py-md px-md text-right">
+<button class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-md px-md font-code-block text-primary-fixed-dim">198.51.100.14/32</td>
+<td class="py-md px-md text-on-surface">VPC NAT Gateway</td>
+<td class="py-md px-md text-on-surface-variant">devops_service_acc</td>
+<td class="py-md px-md text-right">
+<button class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- Section: Rate Limiting (Bento Grid Style) -->
+<section class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="px-lg py-md border-b border-outline-variant bg-surface-container-highest flex justify-between items-center">
+<div>
+<h2 class="font-headline-md text-[18px] text-on-surface">Rate Limiting &amp; Quotas</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Current usage and thresholds based on your Enterprise Tier.</p>
+</div>
+<div class="flex items-center gap-xs bg-tertiary-container/10 border border-tertiary-container text-tertiary-fixed-dim px-sm py-unit rounded-sm font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">verified</span>
+                            Enterprise Tier
+                        </div>
+</div>
+<div class="p-lg grid grid-cols-1 md:grid-cols-3 gap-md">
+<!-- Bento Box 1: Requests per minute -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-full h-1 bg-outline-variant">
+<div class="h-full bg-primary-container w-[15%]"></div>
+</div>
+<div class="flex justify-between items-start mb-lg mt-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Requests / Minute</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">speed</span>
+</div>
+<div class="mt-auto">
+<div class="font-headline-md text-[32px] text-on-surface">1,240 <span class="text-[16px] text-on-surface-variant font-body-base">/ 10,000</span></div>
+<div class="font-body-sm text-body-sm text-primary-fixed-dim mt-xs flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span> 12% Utilization
+                                </div>
+</div>
+</div>
+<!-- Bento Box 2: Concurrent Connections -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-full h-1 bg-outline-variant">
+<div class="h-full bg-tertiary-container w-[85%]"></div>
+</div>
+<div class="flex justify-between items-start mb-lg mt-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Concurrent Conns</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">cable</span>
+</div>
+<div class="mt-auto">
+<div class="font-headline-md text-[32px] text-on-surface">425 <span class="text-[16px] text-on-surface-variant font-body-base">/ 500</span></div>
+<div class="font-body-sm text-body-sm text-tertiary-fixed-dim mt-xs flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span> 85% Utilization (Warning)
+                                </div>
+</div>
+</div>
+<!-- Bento Box 3: Daily Data Transfer -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-full h-1 bg-outline-variant">
+<div class="h-full bg-primary-container w-[40%]"></div>
+</div>
+<div class="flex justify-between items-start mb-lg mt-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Daily Egress (GB)</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">swap_vert</span>
+</div>
+<div class="mt-auto">
+<div class="font-headline-md text-[32px] text-on-surface">42.1 <span class="text-[16px] text-on-surface-variant font-body-base">/ 100</span></div>
+<div class="font-body-sm text-body-sm text-primary-fixed-dim mt-xs flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span> 42% Utilization
+                                </div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: Webhooks -->
+<section class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="px-lg py-md border-b border-outline-variant bg-surface-container-highest flex justify-between items-center">
+<div>
+<h2 class="font-headline-md text-[18px] text-on-surface">Webhook Endpoints</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Configure endpoints to receive real-time event payloads.</p>
+</div>
+<button class="bg-surface-container-lowest border border-outline-variant text-on-surface font-body-sm font-semibold px-md py-sm rounded-DEFAULT flex items-center gap-xs hover:border-primary-container hover:text-primary-fixed-dim transition-colors">
+<span class="material-symbols-outlined text-[18px]">add_link</span>
+                            Add Endpoint
+                        </button>
+</div>
+<div class="p-0">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container font-label-caps text-label-caps text-on-surface-variant border-b border-outline-variant">
+<tr>
+<th class="py-md px-lg font-semibold w-1/3">Endpoint URL</th>
+<th class="py-md px-md font-semibold">Subscribed Events</th>
+<th class="py-md px-md font-semibold">Status</th>
+<th class="py-md px-lg font-semibold text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="py-md px-lg">
+<div class="font-code-block text-on-surface break-all">https://api.acme.corp/webhooks/billing</div>
+<div class="text-on-surface-variant text-[12px] mt-unit">ID: wh_8f92a1b</div>
+</td>
+<td class="py-md px-md">
+<div class="flex flex-wrap gap-xs">
+<span class="px-2 py-0.5 bg-surface-variant border border-outline-variant rounded font-code-block text-[11px] text-on-surface">invoice.created</span>
+<span class="px-2 py-0.5 bg-surface-variant border border-outline-variant rounded font-code-block text-[11px] text-on-surface">payment.failed</span>
+</div>
+</td>
+<td class="py-md px-md">
+<div class="inline-flex items-center gap-xs px-2 py-1 rounded bg-primary/10 text-primary-fixed-dim font-label-caps text-label-caps">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed-dim"></span> Active
+                                        </div>
+</td>
+<td class="py-md px-lg text-right">
+<div class="flex items-center justify-end gap-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="px-sm py-unit border border-outline-variant rounded text-on-surface-variant hover:text-on-surface hover:border-on-surface-variant transition-colors font-semibold bg-surface-container-lowest">Edit</button>
+<button class="px-sm py-unit border border-primary-container/30 rounded text-primary-fixed-dim hover:bg-primary-container/10 transition-colors font-semibold flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">bolt</span> Test
+                                            </button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="py-md px-lg">
+<div class="font-code-block text-on-surface break-all">https://hooks.slack.com/services/T000/B000/XXX</div>
+<div class="text-on-surface-variant text-[12px] mt-unit">ID: wh_3c4d5e6</div>
+</td>
+<td class="py-md px-md">
+<div class="flex flex-wrap gap-xs">
+<span class="px-2 py-0.5 bg-surface-variant border border-outline-variant rounded font-code-block text-[11px] text-on-surface">system.alert</span>
+</div>
+</td>
+<td class="py-md px-md">
+<div class="inline-flex items-center gap-xs px-2 py-1 rounded bg-error/10 text-error font-label-caps text-label-caps">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span> Failing (404)
+                                        </div>
+</td>
+<td class="py-md px-lg text-right">
+<div class="flex items-center justify-end gap-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="px-sm py-unit border border-outline-variant rounded text-on-surface-variant hover:text-on-surface hover:border-on-surface-variant transition-colors font-semibold bg-surface-container-lowest">Edit</button>
+<button class="px-sm py-unit border border-primary-container/30 rounded text-primary-fixed-dim hover:bg-primary-container/10 transition-colors font-semibold flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">bolt</span> Test
+                                            </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,29 @@
+---
+description: Regras para banco de dados e ORM
+globs: ["database/migrations/**", "database/seeders/**", "app/Models/**"]
+alwaysApply: false
+---
+
+# Banco de Dados — PostgreSQL 16 + Eloquent
+
+## Convenções
+- Tabelas: snake_case, plural (ex: operators, cluster_servers)
+- Colunas: snake_case
+- PKs: UUID (uuid_generate_v4()) via trait `HasUuids`, exceto `customers` que usa `slug` (string)
+- Timestamps obrigatórios: created_at, updated_at
+- Soft delete: deleted_at (nullable) onde aplicável (operators, cluster_servers, customers)
+
+## Queries
+- Sempre usar ORM/query builder — nunca SQL raw sem justificativa
+- Sempre paginar listas
+- Eager loading explícito (`with()`) para evitar N+1
+- Índices em campos de WHERE, ORDER BY, JOIN (ex: status, cluster_server_id)
+
+## Migrations
+- Uma migration por mudança lógica
+- Sempre reversíveis (`down()` implementado)
+- Nomes descritivos
+
+## Tipos de Dados
+- Usar `jsonb` para payloads de audit logs, summaries de jobs e branding_meta
+- Usar campos encriptados (Laravel Encrypted Storage) para chaves SSH e webhook secrets

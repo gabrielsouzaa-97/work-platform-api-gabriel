@@ -1,0 +1,31 @@
+---
+description: Regras para desenvolvimento Livewire/Blade — Laravel
+globs: ["resources/views/**/*.blade.php", "app/Livewire/**/*.php", "app/View/**/*.php"]
+alwaysApply: false
+---
+
+# Livewire & Blade — Laravel
+
+## Arquitetura de Componentes
+- Blade component para renderização pura (sem estado, sem server round-trip)
+- Livewire component APENAS quando precisa de estado de servidor + interatividade
+- Max 1 nível de nesting Livewire (profundidade > 1 → converter para Blade component)
+- Interação simples (toggle, dropdown) → Alpine.js, não Livewire
+
+## Composição
+- Named slots ($slot, $header, $footer) em vez de props HTML string
+- $attributes->merge() obrigatório em componentes base
+- Form Objects obrigatórios para formulários (nunca rules inline no componente)
+- #[Computed] para queries memoizadas — nunca query no render
+- #[Lazy] para componentes pesados não visíveis imediatamente
+- #[Locked] para propriedades sensíveis (IDs, roles, permissions)
+
+## Service Layer
+- ZERO queries Eloquent em componentes Livewire — tudo via Service
+- Injeção via mount() + hydrate() — nunca app()
+- Auth::user() passado ao Service — Service verifica permissões (admin, operador, suporte)
+
+## Design System
+- Livewire 3 + Tailwind puro
+- Tema High-Tech Professional, Dark mode default
+- Status híbridos (sucesso verde, erro coral, aviso laranja)

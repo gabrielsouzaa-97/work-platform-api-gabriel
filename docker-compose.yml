@@ -1,0 +1,132 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: mework360-deployer-app
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-mework360_deployer}
+      DB_USERNAME: ${DB_USERNAME:-mework360_deployer}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t > /dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - mework360
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mework360-deployer-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - .:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mework360
+
+  database:
+    image: postgres:16-alpine
+    container_name: mework360-deployer-db
+    restart: unless-stopped
+    ports:
+      - "${DB_EXTERNAL_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-mework360_deployer}
+      POSTGRES_USER: ${DB_USERNAME:-mework360_deployer}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mework360_deployer} -d ${DB_DATABASE:-mework360_deployer}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mework360
+
+  redis:
+    image: redis:7-alpine
+    container_name: mework360-deployer-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mework360
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mework360-deployer-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAIL_EXTERNAL_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8025/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mework360
+
+volumes:
+  db_data:
+    driver: local
+  redis_data:
+    driver: local
+  vendor_data:
+    driver: local
+  mailpit_data:
+    driver: local
+
+networks:
+  mework360:
+    driver: bridge

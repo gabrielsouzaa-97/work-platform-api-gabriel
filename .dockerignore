@@ -1,0 +1,53 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# CI / IDE / framework metadata
+.github
+.cursor
+.cursorsession
+.cursorsession.lock
+.vscode
+.idea
+*.swp
+*.swo
+
+# Project-only docs and design references
+docs
+layout
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies (instaladas dentro do container)
+vendor
+node_modules
+
+# Build artifacts and runtime data
+storage/logs/*
+!storage/logs/.gitkeep
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+bootstrap/cache/*.php
+public/hot
+public/storage
+public/build
+
+# Tests (multi-stage build copia somente em dev)
+tests/.phpunit.result.cache
+.phpunit.result.cache
+
+# Logs and OS noise
+*.log
+.DS_Store
+Thumbs.db
+
+# Tooling
+docker-compose.override.yml
+*.md
+!README.md

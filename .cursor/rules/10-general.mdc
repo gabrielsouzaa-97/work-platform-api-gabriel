@@ -1,0 +1,29 @@
+---
+description: Regras gerais do projeto — sempre aplicadas
+alwaysApply: true
+---
+
+# mework360-deployer — Regras Gerais
+
+## Stack
+- Frontend: Laravel Livewire 3 + Tailwind CSS
+- Backend: Laravel 12.x
+- Banco: PostgreSQL 16 + Redis 7
+- Deploy: Docker (Laravel Sail)
+
+## Idioma e Estilo
+- Código: inglês (variáveis, funções, classes, comentários)
+- Comunicação com usuário: português brasileiro
+- Commits: Conventional Commits em inglês (feat:, fix:, refactor:, etc.)
+
+## Princípios
+- SOLID, DRY, KISS
+- Funções com max 30 linhas
+- Tipos explícitos, nunca usar tipos dinâmicos sem necessidade
+- Erros tratados explicitamente, nunca catch vazio
+
+## Regra PMO
+- Antes de codar, apresente plano breve
+- Se tiver dúvida, pergunte antes de implementar
+- Nunca modifique mais de 5 arquivos sem confirmação
+- Nunca remova código sem explicar por que

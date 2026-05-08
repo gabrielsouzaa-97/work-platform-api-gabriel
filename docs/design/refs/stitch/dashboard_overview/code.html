@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CloudAdmin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Fira+Code:wght@450&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#004395",
+                        "on-background": "#dae2fd",
+                        "secondary-fixed": "#d8e3fb",
+                        "surface-container-highest": "#2d3449",
+                        "on-surface": "#dae2fd",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface": "#0b1326",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed": "#001a42",
+                        "error": "#ffb4ab",
+                        "primary": "#adc6ff",
+                        "on-tertiary-container": "#461f00",
+                        "on-error": "#690005",
+                        "primary-container": "#4d8eff",
+                        "inverse-primary": "#005ac2",
+                        "tertiary-container": "#df7412",
+                        "on-primary-container": "#00285d",
+                        "on-tertiary-fixed": "#311400",
+                        "on-secondary": "#263143",
+                        "error-container": "#93000a",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "outline-variant": "#424754",
+                        "inverse-surface": "#dae2fd",
+                        "inverse-on-surface": "#283044",
+                        "surface-bright": "#31394d",
+                        "on-secondary-fixed": "#111c2d",
+                        "surface-tint": "#adc6ff",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "secondary-container": "#3e495d",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-container-low": "#131b2e",
+                        "surface-container": "#171f33",
+                        "background": "#0b1326",
+                        "on-primary": "#002e6a",
+                        "outline": "#8c909f",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-variant": "#2d3449",
+                        "surface-container-lowest": "#060e20",
+                        "secondary": "#bcc7de",
+                        "surface-container-high": "#222a3d",
+                        "on-secondary-container": "#aeb9d0",
+                        "tertiary": "#ffb786",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "surface-dim": "#0b1326",
+                        "on-tertiary": "#502400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "xl": "48px",
+                        "margin": "24px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "gutter": "16px",
+                        "md": "16px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Inter"],
+                        "body-base": ["Inter"],
+                        "code-block": ["Fira Code"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["11px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-base": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "code-block": ["13px", { "lineHeight": "1.6", "fontWeight": "450" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "display-lg": ["36px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+        /* Subtle scrollbar for data tables/lists */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: theme('colors.surface-container'); }
+        ::-webkit-scrollbar-thumb { background: theme('colors.outline-variant'); border-radius: theme('borderRadius.full'); }
+        ::-webkit-scrollbar-thumb:hover { background: theme('colors.outline'); }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex">
+<!-- SideNavBar Component -->
+<nav class="bg-surface-container dark:bg-surface-container fixed left-0 top-0 h-full w-64 z-50 border-r border-outline-variant dark:border-outline-variant flex flex-col py-lg">
+<!-- Header -->
+<div class="px-margin mb-xl">
+<div class="flex items-center gap-md mb-lg">
+<div class="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-on-primary-container font-headline-md">
+<span class="material-symbols-outlined">api</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md text-on-surface dark:text-on-surface">System Core</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant mt-xs">v2.4.1-stable</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-body-base text-body-base py-sm px-md rounded hover:bg-primary-fixed transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                Generate API Key
+            </button>
+</div>
+<!-- Main Navigation Tabs -->
+<div class="px-md flex-1 flex flex-col gap-xs">
+<a class="bg-secondary-container dark:bg-secondary-container text-on-secondary-container dark:text-on-secondary-container rounded-lg px-md py-sm flex items-center gap-md active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant px-md py-sm flex items-center gap-md hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">vpn_key</span>
+<span class="font-label-caps text-label-caps">API Credentials</span>
+</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant px-md py-sm flex items-center gap-md hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">cloud_queue</span>
+<span class="font-label-caps text-label-caps">Provisioning</span>
+</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant px-md py-sm flex items-center gap-md hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-caps text-label-caps">Audit Logs</span>
+</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant px-md py-sm flex items-center gap-md hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</a>
+</div>
+<!-- Footer Navigation Tabs -->
+<div class="px-md mt-auto pt-lg border-t border-outline-variant flex flex-col gap-xs">
+<a class="text-on-surface-variant dark:text-on-surface-variant px-md py-sm flex items-center gap-md hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-caps text-label-caps">Documentation</span>
+</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant px-md py-sm flex items-center gap-md hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-caps text-label-caps">System Status</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar Component -->
+<header class="bg-surface dark:bg-surface fixed top-0 w-full z-40 border-b border-outline-variant dark:border-outline-variant flex items-center justify-between px-margin h-16 ml-64" style="width: calc(100% - 16rem);">
+<div class="flex items-center gap-lg">
+<span class="text-headline-md font-headline-md text-primary dark:text-primary">CloudAdmin</span>
+<!-- Search Bar -->
+<div class="relative hidden md:block w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size: 20px;">search</span>
+<input class="w-full bg-surface-container-highest border border-outline-variant rounded py-1.5 pl-10 pr-12 text-body-sm font-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Search resources..." type="text"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+<kbd class="font-code-block text-code-block text-on-surface-variant text-[10px] bg-surface rounded px-1 border border-outline-variant">⌘K</kbd>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<!-- Trailing Actions -->
+<button class="text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors p-sm rounded active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors p-sm rounded active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-px h-6 bg-outline-variant mx-sm"></div>
+<button class="font-body-base text-body-base text-on-surface-variant hover:text-on-surface transition-colors px-sm">
+                    Support
+                </button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden ml-sm cursor-pointer">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A close-up studio portrait of a professional system administrator. The lighting is moody and high-tech, with subtle blue and cyan rim lights hitting the subject's face against a dark slate background. The aesthetic matches a modern, clean corporate identity, conveying focus and technical expertise." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLO4VAKcluRAD2irT2EvzHE8ObBKT5_t_0EJvF7btBZHkgX9FElkMI56bVAip2eBgO-ZfCJKuwlNO6voIByXlQXv_Kk91DoghOkNpLLxN57Y3g6SwM6CclOmYIoQscm4JyqZRO_dp_yna6GQPSbiBov9KvZexSfRW0-8egSnrEDS8Srw5dQlO2NI7xpIz9w8imFk-vXoBT0Dzox33CBtRxS9K-o34Bl6loV0fcZ0KZg1EHdiQEU3SGBBU2Toaubu9uv7aaH0-WA04i"/>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<main class="flex-1 mt-16 p-margin overflow-y-auto">
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-gutter max-w-[1440px] mx-auto">
+<!-- Welcome/Status Card (Spans 8 columns) -->
+<div class="col-span-12 lg:col-span-8 bg-surface border border-outline-variant rounded-lg p-lg relative overflow-hidden flex flex-col justify-between min-h-[240px]">
+<!-- Abstract Background Graphic -->
+<div class="absolute right-0 top-0 w-1/2 h-full opacity-20 pointer-events-none" style="background: radial-gradient(circle at 100% 0%, theme('colors.primary-container'), transparent 70%);"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-sm mb-xs">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<span class="font-label-caps text-label-caps text-primary">System Operational</span>
+</div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-sm">API Infrastructure Status</h2>
+<p class="font-body-base text-body-base text-on-surface-variant max-w-xl">All core services are routing normally. Provisioning queue is currently processing standard load. No anomalies detected in the last 24 hours.</p>
+</div>
+<div class="relative z-10 flex gap-md mt-lg">
+<button class="bg-surface-container border border-outline-variant hover:border-primary text-on-surface font-body-base text-body-base py-sm px-md rounded transition-colors">View Alert Rules</button>
+<button class="bg-transparent border border-outline-variant hover:bg-surface-container-highest text-on-surface font-body-base text-body-base py-sm px-md rounded transition-colors">Download Report</button>
+</div>
+</div>
+<!-- Queue Health Summary (Spans 4 columns) -->
+<div class="col-span-12 lg:col-span-4 bg-surface border border-outline-variant rounded-lg p-lg flex flex-col">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-md flex items-center gap-sm">
+<span class="material-symbols-outlined" style="font-size: 16px;">dynamic_feed</span>
+                        Provisioning Queue
+                    </h3>
+<div class="flex-1 flex flex-col justify-center">
+<div class="flex items-end justify-between mb-sm">
+<span class="font-display-lg text-display-lg text-on-surface">42</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mb-1">Pending Tasks</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden mb-sm">
+<div class="bg-primary h-full rounded-full" style="width: 65%;"></div>
+</div>
+<div class="flex justify-between font-label-caps text-label-caps text-on-surface-variant">
+<span>Processing Load: 65%</span>
+<span class="text-primary">Healthy</span>
+</div>
+</div>
+<div class="mt-md pt-md border-t border-surface-container-highest grid grid-cols-2 gap-sm">
+<div>
+<span class="block font-label-caps text-label-caps text-on-surface-variant mb-xs">Avg Wait Time</span>
+<span class="font-body-base text-body-base text-on-surface">1.2 mins</span>
+</div>
+<div>
+<span class="block font-label-caps text-label-caps text-on-surface-variant mb-xs">Failed Jobs (24h)</span>
+<span class="font-body-base text-body-base text-error">3</span>
+</div>
+</div>
+</div>
+<!-- KPI: Active Instances -->
+<div class="col-span-12 md:col-span-4 bg-surface border border-outline-variant rounded-lg p-md flex flex-col justify-between h-[160px]">
+<div class="flex justify-between items-start">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant">Active Instances</h3>
+<span class="material-symbols-outlined text-primary">dns</span>
+</div>
+<div>
+<div class="flex items-end gap-sm">
+<span class="font-display-lg text-display-lg text-on-surface leading-none">1,204</span>
+<span class="font-label-caps text-label-caps text-primary bg-primary/10 px-xs py-0.5 rounded mb-1">+12%</span>
+</div>
+<div class="mt-sm w-full h-8 relative">
+<!-- Sparkline representation -->
+<svg class="w-full h-full overflow-visible preserve-3d" preserveaspectratio="none" viewbox="0 0 100 20">
+<polyline fill="none" points="0,15 10,12 20,18 30,8 40,10 50,2 60,14 70,8 80,12 90,4 100,6" stroke="theme('colors.primary')" stroke-width="2"></polyline>
+</svg>
+</div>
+</div>
+</div>
+<!-- KPI: Total Requests -->
+<div class="col-span-12 md:col-span-4 bg-surface border border-outline-variant rounded-lg p-md flex flex-col justify-between h-[160px]">
+<div class="flex justify-between items-start">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant">Total Requests (24h)</h3>
+<span class="material-symbols-outlined text-tertiary">swap_vert</span>
+</div>
+<div>
+<div class="flex items-end gap-sm">
+<span class="font-display-lg text-display-lg text-on-surface leading-none">8.4M</span>
+<span class="font-label-caps text-label-caps text-tertiary bg-tertiary/10 px-xs py-0.5 rounded mb-1">Stable</span>
+</div>
+<div class="mt-sm w-full h-8 flex items-end gap-[2px]">
+<!-- Bar chart representation -->
+<div class="w-full bg-surface-container-highest rounded-t h-[40%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[60%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[30%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[80%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[50%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[90%]"></div>
+<div class="w-full bg-tertiary rounded-t h-[75%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[40%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[50%]"></div>
+<div class="w-full bg-surface-container-highest rounded-t h-[60%]"></div>
+</div>
+</div>
+</div>
+<!-- KPI: Error Rate -->
+<div class="col-span-12 md:col-span-4 bg-surface border border-outline-variant rounded-lg p-md flex flex-col justify-between h-[160px]">
+<div class="flex justify-between items-start">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant">API Error Rate</h3>
+<span class="material-symbols-outlined text-error">warning</span>
+</div>
+<div>
+<div class="flex items-end gap-sm">
+<span class="font-display-lg text-display-lg text-on-surface leading-none">0.02%</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant bg-surface-container-highest px-xs py-0.5 rounded mb-1">-0.01%</span>
+</div>
+<div class="mt-md font-body-sm text-body-sm text-on-surface-variant">
+                            Well below the 0.1% SLA threshold.
+                        </div>
+</div>
+</div>
+<!-- Recent Activity Table (Spans 12 columns) -->
+<div class="col-span-12 bg-surface border border-outline-variant rounded-lg overflow-hidden flex flex-col">
+<div class="p-md border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md text-on-surface" style="font-size: 18px;">Recent Activity</h3>
+<button class="font-label-caps text-label-caps text-primary hover:text-primary-fixed transition-colors flex items-center gap-xs">
+                            View All <span class="material-symbols-outlined" style="font-size: 14px;">arrow_forward</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface border-b border-outline-variant">
+<th class="font-label-caps text-label-caps text-on-surface-variant p-md w-12">Status</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant p-md">Event</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant p-md">Resource ID</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant p-md">User / Service</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant p-md text-right">Time</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-on-surface">
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors">
+<td class="p-md">
+<div class="w-2 h-2 rounded-full bg-primary mx-auto"></div>
+</td>
+<td class="p-md font-body-base text-body-base">Instance Provisioned</td>
+<td class="p-md font-code-block text-code-block text-on-surface-variant">i-0a1b2c3d4e5f6g</td>
+<td class="p-md">ci-runner-prod</td>
+<td class="p-md text-right text-on-surface-variant">2 mins ago</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors bg-surface-container-lowest">
+<td class="p-md">
+<div class="w-2 h-2 rounded-full bg-primary mx-auto"></div>
+</td>
+<td class="p-md font-body-base text-body-base">API Key Rotated</td>
+<td class="p-md font-code-block text-code-block text-on-surface-variant">key_live_9f8e...</td>
+<td class="p-md">admin@cloudcore.io</td>
+<td class="p-md text-right text-on-surface-variant">15 mins ago</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors">
+<td class="p-md">
+<div class="w-2 h-2 rounded-full bg-tertiary mx-auto"></div>
+</td>
+<td class="p-md font-body-base text-body-base">Rate Limit Exceeded</td>
+<td class="p-md font-code-block text-code-block text-on-surface-variant">gw-eu-west-1</td>
+<td class="p-md text-on-surface-variant">service-account-analytics</td>
+<td class="p-md text-right text-on-surface-variant">1 hour ago</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors bg-surface-container-lowest">
+<td class="p-md">
+<div class="w-2 h-2 rounded-full bg-primary mx-auto"></div>
+</td>
+<td class="p-md font-body-base text-body-base">Database Backup Complete</td>
+<td class="p-md font-code-block text-code-block text-on-surface-variant">db-cluster-main</td>
+<td class="p-md">system-automated</td>
+<td class="p-md text-right text-on-surface-variant">3 hours ago</td>
+</tr>
+<tr class="hover:bg-surface-container-highest transition-colors">
+<td class="p-md">
+<div class="w-2 h-2 rounded-full bg-error mx-auto"></div>
+</td>
+<td class="p-md font-body-base text-body-base text-error">Node Health Check Failed</td>
+<td class="p-md font-code-block text-code-block text-on-surface-variant">node-pool-alpha-04</td>
+<td class="p-md">health-monitor</td>
+<td class="p-md text-right text-on-surface-variant">5 hours ago</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

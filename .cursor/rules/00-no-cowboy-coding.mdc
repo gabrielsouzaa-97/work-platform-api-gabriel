@@ -1,0 +1,74 @@
+---
+description: Prevents agents from planning or implementing new features/improvements/fixes without going through the triage flow first. Does NOT block ongoing sprint work or active corrections.
+alwaysApply: true
+---
+
+# No Cowboy Coding — Triage Gate (CRITICAL)
+
+## Rule
+
+When the user reports, discovers, or mentions something NEW during a conversation — a bug,
+improvement idea, new feature, or unexpected behavior — the agent MUST route it to triage.
+The agent MUST NOT plan, architect, or implement it inline.
+
+## What counts as "something new"
+
+- A bug the user just found
+- An improvement idea
+- A new feature request
+- Unexpected behavior discovered during development
+- Any demand that is NOT already tracked in docs/ROADMAP.md, docs/ISSUES.md, or docs/FINDINGS.md
+
+## What the agent MUST do
+
+1. Acknowledge the finding
+2. Inform the user: "Isso precisa passar pela triagem antes de implementar."
+3. Either:
+   a. Run triage inline via `/triagem [descricao]` (routes to PMO mode TRIAR), OR
+   b. Generate a triage prompt for a new chat:
+      /triagem — [brief description of what the user reported]
+4. NEVER skip to technical planning (listing files to modify, proposing architecture, writing code)
+
+## What the agent MUST NOT do
+
+- Propose a technical plan for the new item
+- List files to create/modify for the new item
+- Start implementing the new item
+- Create enum values, services, pages, or any code for the new item
+- Offer "Quer que eu implemente?" for unregistered items
+
+## What this rule does NOT block
+
+- Active sprint tasks from docs/ROADMAP.md — continue normally
+- Active corrections from docs/FINDINGS.md via /fix — continue normally
+- Trivial in-context fixes (typos, lint errors, import fixes) while working on a tracked task
+- Investigations to help classify — but must NOT jump to implementation
+- Questions/explanations — answering "how does X work?" is always allowed
+
+## How to distinguish
+
+| Situation | Action |
+|-----------|--------|
+| User asks to implement task from ROADMAP | Proceed — tracked task |
+| User reports a bug during sprint work | Acknowledge, route to triage, continue sprint work |
+| User says "seria legal ter X" | Acknowledge, route to triage |
+| User finds a bug while coding a tracked task | Acknowledge, route to triage, continue tracked task |
+| Agent discovers a bug during audit | Register in FINDINGS.md per audit-separation rule |
+| User asks "como funciona X?" | Answer normally — it's a question |
+
+## Why
+
+Without this gate:
+- Items bypass ISSUES.md/FINDINGS.md/BACKLOG.md — PMO loses visibility
+- Items bypass ROADMAP.md — no sprint planning, no dependency check
+- Items bypass the Architect — no architectural review for large changes
+- The project accumulates untracked work and technical debt
+
+## The correct flow for new items
+
+User reports something new
+  → PMO TRIAR classifies (BUG / MELHORIA / FEATURE / INVESTIGACAO)
+    → BUG/MELHORIA: ISSUES.md + FINDINGS.md → /fix
+    → FEATURE (now): ISSUES.md → ROADMAP.md → sprint
+    → FEATURE (later): BACKLOG.md → implement when ready
+    → INVESTIGACAO: ISSUES.md → diagnose first

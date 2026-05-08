@@ -1,0 +1,21 @@
+---
+description: Regras para infraestrutura e deploy
+globs: ["Dockerfile", "docker-compose*", ".github/**", "infra/**"]
+alwaysApply: false
+---
+
+# DevOps
+
+## Docker
+- Laravel Sail para desenvolvimento local
+- Multi-stage builds para imagens de produção (se aplicável)
+- .dockerignore atualizado
+
+## CI/CD
+- Pipeline: lint → test → build
+- Verificação de segurança de dependências
+
+## Variáveis de Ambiente
+- Nunca hardcode secrets
+- .env.example commitado com todas as variáveis (sem valores sensíveis)
+- Validação de env vars no startup da aplicação

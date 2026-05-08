@@ -1,0 +1,1487 @@
+openapi: 3.0.3
+
+info:
+  title: Nextcloud Deployer API
+  description: |
+    API REST orquestradora (Laravel) que delega o provisionamento e a gestão de instâncias
+    Nextcloud para o sistema upstream `nextcloud-saas-manager` (Bash scripts + Redis worker)
+    via SSH (`manage.sh ... --async`) + Webhook HMAC-SHA256.
+
+    Esta API valida entradas, mantém réplica local de customers/jobs, audita operações
+    (LGPD, retenção 12 meses) e expõe os endpoints REST descritos abaixo. A lógica de
+    OCC, Docker e SSH para a instância Nextcloud vive no servidor scripts; esta API
+    NÃO implementa Nextcloud nativamente.
+
+    ## Autenticação
+    Todos os endpoints, exceto `GET /` e `GET /health`, exigem um Bearer token no header
+    `Authorization` (gestão de tokens prevista para sprint 2; no MVP, tokens são criados
+    via seeder/CLI). Painel admin interno usa sessão Laravel separada (não via Bearer).
+
+    ## Convenções de slug (customer)
+    - Pattern: `^[a-z0-9-]+$` (apenas letras minúsculas, dígitos e hífen)
+    - Tamanho: 3 a 64 caracteres
+    - Underscore (`_`) é **rejeitado com 422** antes de qualquer SSH (sem normalização)
+    - Alinhado com o contrato CLI do `nextcloud-saas-manager` (CONTRACTS.md C-1)
+
+    ## Formato das respostas
+    **Sucesso:** `{ "success": true, "message": "...", "data": {} }`
+    **Erro:** `{ "success": false, "message": "...", "errors": {} }`
+
+    ## Jobs assíncronos
+    A maioria das operações de escrita estrutural é delegada via SSH ao `manage.sh ... --async`
+    do upstream e retorna HTTP **202** com `job_id` (UUID v4) em <2s. A API sincroniza
+    estado via webhook HMAC-SHA256 (caminho preferido) ou polling SSH (fallback após 60s).
+    Use `GET /queue/{id}` para acompanhar o status na réplica local.
+
+    ## Anexos binários (logo, background)
+    - ≤ 256KB: inline via base64 (`logo_data_url`, `background_data_url`)
+    - \> 256KB: SCP staging para `/opt/nextcloud-customers/inbox/<staging-id>/` antes do SSH
+
+    **Content-Type:** `application/json`
+    **CORS:** `Access-Control-Allow-Origin: *` (inclui `OPTIONS`).
+  version: "2.0"
+  contact:
+    name: newwork360
+
+servers:
+  - url: https://deployer.mework360.com.br
+    description: Servidor de desenvolvimento / produção
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Public
+    description: Endpoints sem autenticação
+  - name: Customers
+    description: Provisionamento e remoção de instâncias Nextcloud (jobs assíncronos)
+  - name: Users
+    description: Gestão de usuários dentro de uma instância (via fila)
+  - name: Groups
+    description: Gestão de grupos dentro de uma instância (via fila)
+  - name: Apps
+    description: Habilitar / desabilitar apps dentro de uma instância (via fila)
+  - name: Queue
+    description: Consulta e gestão da fila global de jobs
+  - name: OCC
+    description: Operações síncronas via OCC (SSH + php occ na instância do cliente)
+
+# ============================================================
+# PATHS
+# ============================================================
+paths:
+  # ----------------------------------------------------------
+  # Public
+  # ----------------------------------------------------------
+
+  /:
+    get:
+      tags: [Public]
+      summary: API info
+      description: Catálogo resumido dos endpoints disponíveis.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiInfo"
+
+  /health:
+    get:
+      tags: [Public]
+      summary: Health check
+      description: |
+        Verifica conexão com o banco e existência do script `create-customer` em `SCRIPTS_PATH`.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /debug/php:
+    get:
+      tags: [Public]
+      summary: Debug PHP info
+      description: Retorna informações de debug do PHP. Disponível somente quando `API_DEBUG` está ativo.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # ----------------------------------------------------------
+  # Customers
+  # ----------------------------------------------------------
+
+  /customers:
+    post:
+      tags: [Customers]
+      summary: Criar customer (deploy Nextcloud)
+      description: |
+        Enfileira um job de deploy completo de uma nova instância Nextcloud.
+        O logo é opcional e enviado no **mesmo** body JSON via `logo_png_base64`.
+        Os campos `apps` e `full_apps` são mutuamente exclusivos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerRequest"
+            examples:
+              minimal:
+                summary: Sem apps extras
+                value:
+                  customer: empresaabc
+                  server: "172.17.0.2"
+              com_apps:
+                summary: Apps selecionados
+                value:
+                  customer: empresaabc
+                  server: "172.17.0.2"
+                  apps: [calendar, contacts, spreed]
+              full_apps:
+                summary: Todos os apps
+                value:
+                  customer: empresaabc
+                  server: "172.17.0.2"
+                  full_apps: true
+              com_logo:
+                summary: Apps e logo
+                value:
+                  customer: empresaabc
+                  server: "172.17.0.2"
+                  apps: [calendar, contacts, spreed]
+                  logo_png_base64: "data:image/png;base64,iVBORw0KGgo..."
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}:
+    delete:
+      tags: [Customers]
+      summary: Remover customer
+      description: Enfileira um job de remoção da instância Nextcloud.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  description: Força remoção mesmo com usuários ativos.
+                  default: false
+                backup:
+                  type: boolean
+                  description: Realiza backup antes de remover.
+                  default: false
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{customer}/jobs:
+    get:
+      tags: [Customers]
+      summary: Listar jobs do customer
+      description: Retorna todos os jobs da fila associados a um customer.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - name: status
+          in: query
+          description: Filtrar por status do job.
+          schema:
+            $ref: "#/components/schemas/JobStatus"
+      responses:
+        "200":
+          description: Lista de jobs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ----------------------------------------------------------
+  # Users (async)
+  # ----------------------------------------------------------
+
+  /customers/{customer}/users:
+    post:
+      tags: [Users]
+      summary: Criar usuário (fila)
+      description: Enfileira criação de usuário na instância Nextcloud.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/users/{username}:
+    delete:
+      tags: [Users]
+      summary: Remover usuário (fila)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/username"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  default: false
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Users]
+      summary: Modificar usuário (fila)
+      description: |
+        Pelo menos um campo de alteração deve ser informado:
+        `password`, `add_groups`, `remove_groups`, `quota`, `displayname`, `email`,
+        `enable`, `disable`, `subadmin`, `remove_subadmin`, `resend_welcome`.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/username"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModifyUserRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  # ----------------------------------------------------------
+  # Groups (async)
+  # ----------------------------------------------------------
+
+  /customers/{customer}/groups:
+    post:
+      tags: [Groups]
+      summary: Criar grupo (fila)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroupRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/groups/{group}:
+    delete:
+      tags: [Groups]
+      summary: Remover grupo (fila)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/group"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  default: false
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Groups]
+      summary: Modificar grupo (fila)
+      description: Renomeia o grupo e/ou retorna informações sobre ele.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/group"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModifyGroupRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  # ----------------------------------------------------------
+  # Apps (async)
+  # ----------------------------------------------------------
+
+  /customers/{customer}/apps/enable:
+    post:
+      tags: [Apps]
+      summary: Habilitar apps (fila)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppOperationRequest"
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/apps/disable:
+    post:
+      tags: [Apps]
+      summary: Desabilitar apps (fila)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AppOperationRequest"
+                - type: object
+                  properties:
+                    remove:
+                      type: boolean
+                      description: Remove o app além de desabilitá-lo.
+                      default: false
+      responses:
+        "202":
+          $ref: "#/components/responses/JobAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  # ----------------------------------------------------------
+  # Queue
+  # ----------------------------------------------------------
+
+  /queue:
+    get:
+      tags: [Queue]
+      summary: Listar jobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/JobStatus"
+        - name: customer
+          in: query
+          schema:
+            type: string
+        - name: job_type
+          in: query
+          schema:
+            type: string
+            enum:
+              - create-customer
+              - remove-customer
+              - create-user
+              - remove-user
+              - modify-user
+              - create-group
+              - remove-group
+              - modify-group
+              - enable-app
+              - disable-app
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Lista de jobs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /queue/stats:
+    get:
+      tags: [Queue]
+      summary: Estatísticas da fila
+      responses:
+        "200":
+          description: Estatísticas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          pending:
+                            type: integer
+                          running:
+                            type: integer
+                          done:
+                            type: integer
+                          failed:
+                            type: integer
+                          total:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /queue/{id}:
+    get:
+      tags: [Queue]
+      summary: Detalhe de um job
+      parameters:
+        - $ref: "#/components/parameters/jobId"
+      responses:
+        "200":
+          description: Job encontrado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Queue]
+      summary: Cancelar job pendente
+      description: Cancela um job com status `pending`.
+      parameters:
+        - $ref: "#/components/parameters/jobId"
+      responses:
+        "200":
+          description: Job cancelado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          job_id:
+                            type: integer
+                          status:
+                            type: string
+                            example: cancelled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ----------------------------------------------------------
+  # OCC – operações síncronas por customer
+  # ----------------------------------------------------------
+
+  /customers/{customer}/occ/branding:
+    post:
+      tags: [OCC]
+      summary: Atualizar theming / identidade visual (OCC)
+      description: |
+        Todos os campos são **opcionais**; apenas chaves presentes e não vazias são aplicadas.
+
+        | Campo JSON    | Comando OCC                                      |
+        |---------------|--------------------------------------------------|
+        | instanceName  | `config:system:set instance_name`                |
+        | color         | `config:app:set theming color`                   |
+        | logo          | `theming:config logo` (URL ou caminho no servidor)|
+        | logoHeader    | `theming:config logoheader`                      |
+        | background    | `theming:config background`                      |
+        | imprintUrl    | `config:app:set theming imprintUrl`              |
+        | privacyUrl    | `config:app:set theming privacyUrl`              |
+
+        A resposta inclui `data.results` com a lista de chaves aplicadas.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandingRequest"
+      responses:
+        "200":
+          description: Branding atualizado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                          results:
+                            type: array
+                            items:
+                              type: string
+                            description: Lista de chaves aplicadas.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/occ/users:
+    post:
+      tags: [OCC]
+      summary: Criar usuário (OCC)
+      description: Cria usuário diretamente via `occ user:add` (síncrono).
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OccCreateUserRequest"
+      responses:
+        "200":
+          description: Usuário criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/occ/users/{username}:
+    patch:
+      tags: [OCC]
+      summary: Atualizar quota do usuário (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/username"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaRequest"
+      responses:
+        "200":
+          description: Quota atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+    delete:
+      tags: [OCC]
+      summary: Remover usuário (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/username"
+      responses:
+        "200":
+          description: Usuário removido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{customer}/occ/users/{username}/quota:
+    get:
+      tags: [OCC]
+      summary: Obter quota do usuário (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/username"
+      responses:
+        "200":
+          description: Quota do usuário
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          quota:
+                            type: string
+                            example: "5 GB"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{customer}/occ/groups:
+    post:
+      tags: [OCC]
+      summary: Criar grupo (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OccCreateGroupRequest"
+      responses:
+        "200":
+          description: Grupo criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/occ/apps/{appId}/enable:
+    post:
+      tags: [OCC]
+      summary: Habilitar app (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: richdocuments
+      responses:
+        "200":
+          description: App habilitado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{customer}/occ/files/rescan:
+    post:
+      tags: [OCC]
+      summary: Rescan de arquivos (OCC)
+      description: |
+        Se `userId` for informado, escaneia apenas os arquivos desse usuário.
+        Caso contrário, `all: true` (default) escaneia todos os usuários.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                all:
+                  type: boolean
+                  description: Força rescan de todos os usuários.
+                  default: true
+                userId:
+                  type: string
+                  description: Escaneia apenas os arquivos deste usuário (se informado).
+      responses:
+        "200":
+          description: Rescan concluído
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{customer}/occ/maintenance:
+    post:
+      tags: [OCC]
+      summary: Alternar modo de manutenção (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enable]
+              properties:
+                enable:
+                  description: "`true`/`1` para ativar, `false`/`0` para desativar."
+                  oneOf:
+                    - type: boolean
+                    - type: integer
+                      enum: [0, 1]
+                  example: true
+      responses:
+        "200":
+          description: Modo de manutenção alterado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  # ---------- OCC Quotas ----------
+
+  /customers/{customer}/occ/quota/all:
+    post:
+      tags: [OCC]
+      summary: Definir quota para todos os usuários (OCC)
+      description: Aplica a quota a todos os usuários da instância. A resposta inclui `data.updated` por usuário.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaRequest"
+      responses:
+        "200":
+          description: Quota aplicada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/occ/quota/default:
+    get:
+      tags: [OCC]
+      summary: Obter quota padrão (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      responses:
+        "200":
+          description: Quota padrão
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          quota:
+                            type: string
+                            example: "10 GB"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      tags: [OCC]
+      summary: Definir quota padrão (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaRequest"
+      responses:
+        "200":
+          description: Quota padrão definida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/occ/quota/options:
+    get:
+      tags: [OCC]
+      summary: Obter opções de quota (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      responses:
+        "200":
+          description: Opções de quota
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          options:
+                            type: string
+                            example: "1 GB, 5 GB, 10 GB, 50 GB, none"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      tags: [OCC]
+      summary: Definir opções de quota (OCC)
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [options]
+              properties:
+                options:
+                  type: string
+                  maxLength: 512
+                  description: Opções de quota (string, até 512 caracteres).
+                  example: "1 GB, 5 GB, 10 GB, 50 GB"
+      responses:
+        "200":
+          description: Opções de quota definidas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/occ/quota/audit:
+    get:
+      tags: [OCC]
+      summary: Auditoria de quotas (OCC)
+      description: Retorna lista de usuários com quota, displayName e e-mail.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      responses:
+        "200":
+          description: Relatório de auditoria
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            username:
+                              type: string
+                            quota:
+                              type: string
+                            displayName:
+                              type: string
+                            email:
+                              type: string
+                              format: email
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{customer}/occ/groups/{groupName}/quota:
+    post:
+      tags: [OCC]
+      summary: Definir quota para membros do grupo (OCC)
+      description: Aplica a quota a todos os membros do grupo. A resposta inclui `data.updated` por usuário.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - name: groupName
+          in: path
+          required: true
+          schema:
+            type: string
+            example: financeiro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaRequest"
+      responses:
+        "200":
+          description: Quota aplicada ao grupo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+# ============================================================
+# COMPONENTS
+# ============================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  # ---------- Parameters ----------
+  parameters:
+    customer:
+      name: customer
+      in: path
+      required: true
+      description: |
+        Identificador único da instância Nextcloud (slug).
+        Aceita apenas letras minúsculas, dígitos e hífen (`-`); underscore (`_`) é rejeitado com 422.
+        Alinhado com o contrato CLI do `nextcloud-saas-manager` (`^[a-z0-9-]+$`, max 64 chars).
+      schema:
+        type: string
+        pattern: "^[a-z0-9-]+$"
+        minLength: 3
+        maxLength: 64
+        example: empresaabc
+
+    username:
+      name: username
+      in: path
+      required: true
+      schema:
+        type: string
+        example: joao.silva
+
+    group:
+      name: group
+      in: path
+      required: true
+      schema:
+        type: string
+        example: financeiro
+
+    jobId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        example: 42
+
+  # ---------- Responses ----------
+  responses:
+    JobAccepted:
+      description: Job enfileirado com sucesso (processamento assíncrono)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/SuccessResponse"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Job"
+
+    Unauthorized:
+      description: Token ausente ou inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: Recurso não encontrado (404)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    UnprocessableEntity:
+      description: Validação falhou (422)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  # ---------- Schemas ----------
+  schemas:
+    JobStatus:
+      type: string
+      enum: [pending, running, done, failed, cancelled]
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        job_type:
+          type: string
+          example: create-customer
+        customer:
+          type: string
+          example: empresaabc
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        payload:
+          type: object
+          description: Parâmetros do job (varia por tipo).
+        output:
+          type: string
+          nullable: true
+          description: Saída do processo quando concluído.
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success"
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        errors:
+          type: object
+          description: Mapa de campos com mensagens de erro (respostas 422).
+          additionalProperties:
+            type: string
+
+    ApiInfo:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            name:
+              type: string
+              example: Nextcloud Deployer API
+            version:
+              type: string
+              example: "1.0"
+            endpoints:
+              type: object
+              additionalProperties:
+                type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [healthy, degraded]
+            database:
+              type: string
+              enum: [ok, error]
+            scripts:
+              type: string
+              enum: [ok, missing]
+            timestamp:
+              type: string
+              format: date-time
+              description: ISO-8601
+
+    # ------ Request bodies ------
+
+    CreateCustomerRequest:
+      type: object
+      required: [customer, server]
+      properties:
+        customer:
+          type: string
+          description: |
+            Slug do customer. Apenas letras minúsculas, dígitos e hífen; underscore (`_`) é rejeitado com 422.
+            Padrão `^[a-z0-9-]+$`, 3–64 caracteres. Alinhado com o contrato CLI do `nextcloud-saas-manager`.
+          pattern: "^[a-z0-9-]+$"
+          minLength: 3
+          maxLength: 64
+          example: empresaabc
+        server:
+          type: string
+          description: IP do cluster de destino. Validação atual aceita apenas dígitos e pontos (`^[\d.]+$`).
+          pattern: "^[\\d.]+$"
+          example: "172.17.0.2"
+        full_apps:
+          type: boolean
+          description: Instala o conjunto completo de apps. Mutuamente exclusivo com `apps`.
+          default: false
+        apps:
+          type: array
+          description: |
+            Lista de apps a instalar. Mutuamente exclusivo com `full_apps`.
+            Valores aceitos: `spreed`, `richdocuments`, `calendar`, `contacts`, `mail`, `deck`, `unroundedcorners`.
+          items:
+            type: string
+            enum:
+              [
+                spreed,
+                richdocuments,
+                calendar,
+                contacts,
+                mail,
+                deck,
+                unroundedcorners,
+              ]
+          example: [calendar, contacts, spreed]
+        logo_png_base64:
+          type: string
+          description: |
+            Logo para theming enviado no **mesmo** POST. Aceita data URL
+            `data:image/png;base64,...` ou `data:image/jpeg;base64,...` (ou só o base64).
+            O worker grava em `/mnt/deployer/tmp/` e executa `create-customer --logo-path …`
+            para `occ theming:config logo`. Tamanho máximo ~5 MB decodificado.
+            Requer que a coluna `job_queue.payload` seja **MEDIUMTEXT** ou maior.
+          example: "data:image/png;base64,iVBORw0KGgo..."
+
+    CreateUserRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: Slug do usuário, 2–64 caracteres.
+          minLength: 2
+          maxLength: 64
+          example: joao.silva
+        password:
+          type: string
+          format: password
+          description: Senha do usuário, 6–256 caracteres.
+          minLength: 6
+          maxLength: 256
+          example: "S3cr3tP@ss!"
+        displayname:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: joao@empresa.com.br
+        quota:
+          type: string
+          description: "Quota no formato Nextcloud: `default`, `unlimited`, `1GB`, `5GB`, … `1TB`."
+          example: "5 GB"
+        groups:
+          type: array
+          items:
+            type: string
+          example: [financeiro, diretoria]
+        subadmin:
+          type: array
+          description: Grupos dos quais o usuário será subadmin.
+          items:
+            type: string
+
+    ModifyUserRequest:
+      type: object
+      minProperties: 1
+      description: Pelo menos um campo deve ser informado.
+      properties:
+        password:
+          type: string
+          format: password
+        displayname:
+          type: string
+        email:
+          type: string
+          format: email
+        quota:
+          type: string
+          example: "10 GB"
+        add_groups:
+          type: array
+          items:
+            type: string
+        remove_groups:
+          type: array
+          items:
+            type: string
+        subadmin:
+          type: array
+          items:
+            type: string
+        remove_subadmin:
+          type: array
+          items:
+            type: string
+        enable:
+          type: boolean
+          description: Reativa o usuário desabilitado.
+        disable:
+          type: boolean
+          description: Desabilita o usuário.
+        resend_welcome:
+          type: boolean
+          description: Reenvia o e-mail de boas-vindas.
+
+    CreateGroupRequest:
+      type: object
+      required: [group]
+      properties:
+        group:
+          type: string
+          description: Nome do grupo, 2–64 caracteres.
+          minLength: 2
+          maxLength: 64
+          example: financeiro
+
+    ModifyGroupRequest:
+      type: object
+      properties:
+        rename:
+          type: string
+          description: Novo nome do grupo.
+          example: financeiro_v2
+        info:
+          type: boolean
+          description: Retorna informações do grupo (ação de informação).
+
+    AppOperationRequest:
+      type: object
+      required: [apps]
+      properties:
+        apps:
+          type: array
+          description: Array não vazio de IDs/nomes de app.
+          minItems: 1
+          items:
+            type: string
+          example: [richdocuments, calendar]
+
+    BrandingRequest:
+      type: object
+      description: Todos os campos são opcionais; apenas os presentes e não vazios são aplicados.
+      properties:
+        instanceName:
+          type: string
+          description: Nome da instância — `config:system:set instance_name`.
+          example: "Empresa ABC Cloud"
+        color:
+          type: string
+          description: Cor primária em hex — `config:app:set theming color`.
+          pattern: "^#[0-9a-fA-F]{6}$"
+          example: "#00679e"
+        logo:
+          type: string
+          description: URL ou caminho absoluto do logo no servidor — `theming:config logo`.
+          example: "/mnt/customer/empresaabc/logo.png"
+        logoHeader:
+          type: string
+          description: URL ou caminho absoluto do logo do cabeçalho — `theming:config logoheader`.
+        background:
+          type: string
+          description: URL ou caminho absoluto do background — `theming:config background`.
+        imprintUrl:
+          type: string
+          format: uri
+          description: URL do aviso legal — `config:app:set theming imprintUrl`.
+          example: "https://empresa.com.br/legal"
+        privacyUrl:
+          type: string
+          format: uri
+          description: URL da política de privacidade — `config:app:set theming privacyUrl`.
+          example: "https://empresa.com.br/privacidade"
+
+    OccCreateUserRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: maria.souza
+        password:
+          type: string
+          format: password
+        displayName:
+          type: string
+          example: "Maria Souza"
+        email:
+          type: string
+          format: email
+          example: maria@empresa.com.br
+
+    OccCreateGroupRequest:
+      type: object
+      required: [groupName]
+      properties:
+        groupName:
+          type: string
+          example: rh
+
+    QuotaRequest:
+      type: object
+      required: [quota]
+      properties:
+        quota:
+          type: string
+          description: "Quota no formato Nextcloud (ex: `5 GB`, `10 GB`, `none`, `unlimited`)."
+          example: "5 GB"

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Provisioning Logs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Fira+Code:wght@450&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#004395",
+                        "on-background": "#dae2fd",
+                        "secondary-fixed": "#d8e3fb",
+                        "surface-container-highest": "#2d3449",
+                        "on-surface": "#dae2fd",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface": "#0b1326",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed": "#001a42",
+                        "error": "#ffb4ab",
+                        "primary": "#adc6ff",
+                        "on-tertiary-container": "#461f00",
+                        "on-error": "#690005",
+                        "primary-container": "#4d8eff",
+                        "inverse-primary": "#005ac2",
+                        "tertiary-container": "#df7412",
+                        "on-primary-container": "#00285d",
+                        "on-tertiary-fixed": "#311400",
+                        "on-secondary": "#263143",
+                        "error-container": "#93000a",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "outline-variant": "#424754",
+                        "inverse-surface": "#dae2fd",
+                        "inverse-on-surface": "#283044",
+                        "surface-bright": "#31394d",
+                        "on-secondary-fixed": "#111c2d",
+                        "surface-tint": "#adc6ff",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "secondary-container": "#3e495d",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-container-low": "#131b2e",
+                        "surface-container": "#171f33",
+                        "background": "#0b1326",
+                        "on-primary": "#002e6a",
+                        "outline": "#8c909f",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-variant": "#2d3449",
+                        "surface-container-lowest": "#060e20",
+                        "secondary": "#bcc7de",
+                        "surface-container-high": "#222a3d",
+                        "on-secondary-container": "#aeb9d0",
+                        "tertiary": "#ffb786",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "surface-dim": "#0b1326",
+                        "on-tertiary": "#502400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "xl": "48px",
+                        "margin": "24px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "gutter": "16px",
+                        "md": "16px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Inter"],
+                        "body-base": ["Inter"],
+                        "code-block": ["Fira Code"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["11px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-base": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "code-block": ["13px", { "lineHeight": "1.6", "fontWeight": "450" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "display-lg": ["36px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased font-body-base text-body-base overflow-x-hidden">
+<nav class="fixed left-0 top-0 h-full w-64 z-50 border-r border-outline-variant dark:border-outline-variant bg-surface-container dark:bg-surface-container">
+<div class="flex flex-col h-full py-lg">
+<div class="px-md mb-xl flex items-center gap-md">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-primary-container icon-fill">dns</span>
+</div>
+<div>
+<h1 class="font-display-lg text-[18px] text-on-surface dark:text-on-surface m-0 leading-tight">System Core</h1>
+<span class="font-label-caps text-label-caps text-on-surface-variant">v2.4.1-stable</span>
+</div>
+</div>
+<div class="px-md mb-lg">
+<button class="w-full flex items-center justify-center gap-sm bg-primary text-on-primary rounded-DEFAULT py-sm font-label-caps text-label-caps hover:bg-primary-container hover:text-on-primary-container transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span>
+                    Generate API Key
+                </button>
+</div>
+<div class="flex-1 px-sm space-y-xs overflow-y-auto font-label-caps text-label-caps">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]">dashboard</span>
+                    Dashboard
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]">vpn_key</span>
+                    API Credentials
+                </a>
+<a class="flex items-center gap-md bg-secondary-container dark:bg-secondary-container text-on-secondary-container dark:text-on-secondary-container rounded-lg px-md py-sm active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[18px] icon-fill">cloud_queue</span>
+                    Provisioning
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]">history</span>
+                    Audit Logs
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg active:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                    Settings
+                </a>
+</div>
+<div class="mt-auto px-sm pt-md border-t border-outline-variant font-label-caps text-label-caps">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[18px]">description</span>
+                    Documentation
+                </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[18px]">analytics</span>
+                    System Status
+                </a>
+</div>
+</div>
+</nav>
+<header class="fixed top-0 w-full z-40 border-b border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface font-body-base text-body-base text-primary dark:text-primary">
+<div class="flex items-center justify-between px-margin h-16 w-[calc(100%-16rem)] ml-64">
+<div class="text-headline-md font-headline-md text-primary dark:text-primary">
+                CloudAdmin
+            </div>
+<div class="flex-1 max-w-md mx-lg hidden lg:block relative">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-DEFAULT py-[6px] pl-[32px] pr-sm text-on-surface text-body-sm font-body-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-on-surface-variant" placeholder="Search resources... (CMD+K)" type="text"/>
+</div>
+<div class="flex items-center gap-sm">
+<button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-100 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-100 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">help_outline</span>
+</button>
+<div class="w-px h-6 bg-outline-variant mx-sm"></div>
+<button class="text-body-sm font-body-sm text-on-surface-variant hover:text-on-surface transition-colors">
+                    Support
+                </button>
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline-variant ml-sm flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">person</span>
+</div>
+</div>
+</div>
+</header>
+<main class="ml-64 pt-16 min-h-screen p-lg flex flex-col gap-lg">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-md">
+<div>
+<div class="flex items-center gap-md mb-xs">
+<h2 class="font-headline-md text-headline-md text-on-surface m-0">Provisioning Logs: Nextcloud Instance</h2>
+<span class="bg-surface-container-high border border-outline-variant text-on-surface px-sm py-[2px] rounded-DEFAULT font-code-block text-code-block text-[11px]">#PROV-8832-NC</span>
+</div>
+<div class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant">
+<div class="flex items-center gap-xs">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-primary font-label-caps text-label-caps">In Progress</span>
+</div>
+<span class="mx-xs text-outline-variant">•</span>
+<span>Started: 2 mins ago</span>
+<span class="mx-xs text-outline-variant">•</span>
+<span>Target: Node-Alpha-04</span>
+</div>
+</div>
+<div class="flex items-center gap-sm shrink-0">
+<button class="px-md py-[6px] border border-outline-variant text-on-surface rounded-DEFAULT font-label-caps text-label-caps hover:bg-surface-container transition-colors flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                    Export Log
+                </button>
+<button class="px-md py-[6px] bg-primary text-on-primary rounded-DEFAULT font-label-caps text-label-caps hover:bg-primary-container hover:text-on-primary-container transition-colors flex items-center gap-xs shadow-sm">
+<span class="material-symbols-outlined text-[16px]">arrow_downward</span>
+                    Scroll to Bottom
+                </button>
+</div>
+</div>
+<div class="flex-1 bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex flex-col shadow-[0px_4px_24px_-8px_rgba(0,0,0,0.5)]">
+<div class="bg-surface-container px-md py-sm border-b border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">terminal</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">tty1 / root@node-alpha-04</span>
+</div>
+<div class="flex gap-[6px]">
+<div class="w-2.5 h-2.5 rounded-full bg-outline-variant/50"></div>
+<div class="w-2.5 h-2.5 rounded-full bg-outline-variant/50"></div>
+<div class="w-2.5 h-2.5 rounded-full bg-outline-variant/50"></div>
+</div>
+</div>
+<div class="p-md overflow-y-auto flex-1 font-code-block text-code-block text-on-surface space-y-1 bg-[#050B14]">
+<div class="flex">
+<span class="text-primary w-[60px] shrink-0">[INFO]</span>
+<span>Initializing provisioning sequence for Nextcloud...</span>
+</div>
+<div class="flex">
+<span class="text-primary w-[60px] shrink-0">[INFO]</span>
+<span>Target OS verified: Ubuntu 22.04 LTS (Jammy Jellyfish)</span>
+</div>
+<div class="flex">
+<span class="text-primary w-[60px] shrink-0">[INFO]</span>
+<span>Allocating resources: 4 vCPU, 8GB RAM, 100GB NVMe</span>
+</div>
+<div class="flex mt-sm">
+<span class="text-tertiary w-[60px] shrink-0">[TASK]</span>
+<span>Updating system package repositories...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Get:1 http://security.ubuntu.com/ubuntu jammy-security InRelease [110 kB]</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Hit:2 http://archive.ubuntu.com/ubuntu jammy InRelease</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Get:3 http://archive.ubuntu.com/ubuntu jammy-updates InRelease [119 kB]</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Fetched 229 kB in 1s (204 kB/s)</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Reading package lists... Done</span>
+</div>
+<div class="flex mt-sm">
+<span class="text-tertiary w-[60px] shrink-0">[TASK]</span>
+<span>Installing required dependencies (apache2, mariadb-server, libapache2-mod-php...)</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Reading package lists... Done</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Building dependency tree... Done</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>The following additional packages will be installed:</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span class="text-outline">  apache2-bin apache2-data apache2-utils galera-4 libcgi-fast-perl libcgi-pm-perl</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Setting up apache2 (2.4.52-1ubuntu4.6) ...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Setting up mariadb-server-10.6 (1:10.6.12-0ubuntu0.22.04.1) ...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Created symlink /etc/systemd/system/multi-user.target.wants/mariadb.service → /lib/systemd/system/mariadb.service.</span>
+</div>
+<div class="flex mt-sm">
+<span class="text-tertiary w-[60px] shrink-0">[TASK]</span>
+<span>Downloading Nextcloud latest stable release...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Resolving download.nextcloud.com (download.nextcloud.com)... 95.217.64.181</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Connecting to download.nextcloud.com (download.nextcloud.com)|95.217.64.181|:443... connected.</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>HTTP request sent, awaiting response... 200 OK</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Length: 182736453 (174M) [application/zip]</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Saving to: ‘/tmp/nextcloud.zip’</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>100%[=========================================================================================&gt;] 182,736,453  45.2MB/s   in 3.9s</span>
+</div>
+<div class="flex mt-sm">
+<span class="text-tertiary w-[60px] shrink-0">[TASK]</span>
+<span>Extracting archive to /var/www/html/nextcloud...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Archive:  /tmp/nextcloud.zip</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>  inflating: /var/www/html/nextcloud/index.php</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>  inflating: /var/www/html/nextcloud/status.php</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>  creating: /var/www/html/nextcloud/core/</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>  ... (14,203 files extracted)</span>
+</div>
+<div class="flex mt-sm">
+<span class="text-error w-[60px] shrink-0">[WARN]</span>
+<span class="text-error-container bg-error/10 px-xs rounded-sm">Found existing database user 'nextcloud'. Proceeding with password overwrite.</span>
+</div>
+<div class="flex mt-sm">
+<span class="text-tertiary w-[60px] shrink-0">[TASK]</span>
+<span>Configuring MariaDB database and user permissions...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Executing SQL schema setup...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>Database 'nextcloud_db' created successfully.</span>
+</div>
+<div class="flex mt-sm">
+<span class="text-tertiary w-[60px] shrink-0">[TASK]</span>
+<span>Applying directory ownership (www-data:www-data) and permissions...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>chown -R www-data:www-data /var/www/html/nextcloud/</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>find /var/www/html/nextcloud/ -type d -exec chmod 750 {} \;</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>find /var/www/html/nextcloud/ -type f -exec chmod 640 {} \;</span>
+</div>
+<div class="flex mt-sm animate-pulse">
+<span class="text-primary w-[60px] shrink-0">[EXEC]</span>
+<span>Running occ installation script (this may take a few minutes)...</span>
+</div>
+<div class="flex text-on-surface-variant">
+<span class="w-[60px] shrink-0"></span>
+<span>_</span>
+</div>
+</div>
+</div>
+</main>
+</body></html>

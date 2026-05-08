@@ -1,0 +1,25 @@
+---
+description: Regras para testes automatizados
+globs: ["tests/**/*.php"]
+alwaysApply: false
+---
+
+# Testes
+
+## Framework
+- Pest / PHPUnit para testes unitários e de integração
+- Livewire testing helpers para componentes do painel
+
+## Cobertura
+- Mínimo 80% para services/lógica de negócio
+- Mínimo 60% para controllers/routes
+- 100% para tradutores de vocabulário (`JobTypeTranslator`, `StateTranslator`)
+
+## Padrões
+- Arrange-Act-Assert (AAA)
+- Mocks apenas para dependências externas (ex: Cliente SSH, envio de emails)
+- Nomes descritivos
+- Um assert principal por teste (preferencialmente)
+
+## Mocks Específicos
+- NUNCA executar SSH real em testes automatizados. Usar interface do cliente SSH e mockar os retornos esperados (JSON stdout, exit codes).

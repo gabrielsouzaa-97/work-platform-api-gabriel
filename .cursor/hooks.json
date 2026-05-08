@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": ".cursor/hooks/pmo-update.sh"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/safety-guard.sh",
+        "matcher": "rm -rf|git push --force|git push -f|DROP DATABASE|drop database|DROP TABLE|drop table|truncate|mkfs|migrate:fresh --force|migrate:fresh -f|db:wipe|docker compose down -v|docker-compose down -v|docker volume rm"
+      }
+    ]
+  }
+}

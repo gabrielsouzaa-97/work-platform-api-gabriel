@@ -1,0 +1,152 @@
+{
+  "projeto": "mework360-deployer",
+  "descricao": "API Laravel ORQUESTRADORA + painel admin interno meWork360. Expoe REST conforme docs/openapi.yaml e delega provisionamento/gestao de Nextcloud para o sistema upstream nextcloud-saas-manager (Bash scripts + Redis worker) via SSH + Webhook HMAC-SHA256.",
+  "cenario": "PROTOTIPO",
+  "perfil": "laravel",
+  "perfil*usuario": "tecnico",
+  "principal_preocupacao": "Orquestrar nextcloud-saas-manager com seguranca (SSH+webhook HMAC), audit completo, slug validation rigorosa, e UX clara para 80% dos chamados sem SSH",
+  "referencias": [
+    {
+      "tipo": "openapi",
+      "path": "docs/openapi.yaml",
+      "descricao": "Contrato Nextcloud Deployer API v2.0 (atualizado em 2026-05-07 via /analista escopo). 33 ops em 31 paths. Bearer auth. Slug pattern: ^[a-z0-9-]+$ (3-64 chars; underscore rejeitado com 422). Description atualizada refletindo arquitetura orquestradora (delega via SSH ao nextcloud-saas-manager). Validado com redocly lint (0 errors, 38 warnings pre-existentes de operationId)."
+    },
+    {
+      "tipo": "prototipo_ui",
+      "path": "docs/design/refs/stitch/",
+      "descricao": "8 telas HTML Stitch + DESIGN.md (high-tech professional). Mapeadas em REQUIREMENTS.md secao 10. Painel unico unificado (consolidando CloudAdmin+DevPortal)."
+    },
+    {
+      "tipo": "requirements_upstream",
+      "path": "../nextcloud-saas-manager/docs/REQUIREMENTS.md",
+      "descricao": "Sistema UPSTREAM que ESTA API CONSOME via SSH. v0.3 com Features N/A/B/C/D/M/O/P. CLI manage.sh, fila Redis, worker systemd, webhook HMAC-SHA256. Nextcloud >=31 nos clusters."
+    },
+    {
+      "tipo": "requirements",
+      "path": "docs/REQUIREMENTS.md",
+      "descricao": "Requisitos consolidados. v0.2 (apos pivot arquitetural via /analista escopo). 7 features must-have originais + F8 (webhook receiver) + F9 (cluster_servers+secrets) + F10 (traducao state/cmd; slug validation rigorosa)."
+    },
+    {
+      "tipo": "design_system",
+      "path": "docs/design/DESIGN.md",
+      "descricao": "Design System consolidado. Tema High-Tech Professional, Dark mode default (Light opcional), status hibridos. Livewire + Tailwind puro."
+    }
+  ],
+  "fase_atual": "9",
+  "fase_nome": "Planejamento tecnico concluido",
+  "sprint_atual": "D1",
+  "beesy_version": "4.16.17-beta",
+  "decisions_applied_until": 176,
+  "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
+  "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
+  "prazo": "MVP em 4-6 semanas com 1-2 devs",
+  "ultimo_update": "2026-05-08T00:56:11Z",
+  "modulos": [
+    "Core",
+    "ClusterServers",
+    "Auth",
+    "Audit",
+    "Jobs",
+    "Customers"
+  ],
+  "proximos_passos": [
+    "Aprovar docs/ROADMAP.md (8 sprints D, 44 tasks, 3 critica:true) e iniciar via /jarvis pipeline range=D1-D8 (modo autopilot escolhido)",
+    "OU executar manual: /pmo sprint D1 para iniciar Foundation (scaffold Laravel + migrations das 8 tabelas + Pest smoke)",
+    "Configurar GitHub Secrets necessarios (nenhum obrigatorio para CI atual; opcional: SENTRY_AUTH_TOKEN)",
+    "Provisionar a VM seguindo docs/INFRASTRUCTURE.md secao 6 (humano) antes de D8 deploy staging"
+  ],
+  "artefatos_atualizados_2026_05_07": [
+    "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
+    "docs/openapi.yaml v1.0 -> v2.0 (slug pattern [a-z0-9-]+ max 64; description atualizada para orquestrador)",
+    "docs/design/DESIGN.md (criado)",
+    "docs/design/exports/tokens.css (criado)",
+    "docs/design/exports/tokens.json (criado)",
+    "docs/design/wireframes.md (criado)",
+    "docs/ARCHITECTURE.md (criado/atualizado)",
+    "docs/DATABASE.md (criado)",
+    "docs/db-schema.dbml (criado)",
+    ".cursor/rules/*.mdc (gerados)",
+    ".cursor/skills/_ (gerados)",
+    "docs/INFRASTRUCTURE.md (criado)",
+    ".github/workflows/ci.yml (criado - lint+test+security, sem CD)",
+    "Dockerfile multi-stage base/development/build/production (criado)",
+    "docker-compose.yml dev: app+nginx+postgres16+redis7+mailpit (criado)",
+    "docker/nginx/default.conf (criado)",
+    ".dockerignore + .env.example + .gitignore (criados)",
+    ".cursor/hooks/{safety-guard,pmo-update}.sh + hooks.json (criados, chmod +x)",
+    "docs/CI-CD.md (criado)"
+  ],
+  "features_concluidas": null,
+  "features_pendentes": [
+    "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
+    "F2: Listar customers (replica local sincronizada via callbacks + sync diario manage.sh list)",
+    "F3: Provisionar customer (SSH manage.sh create --async --idempotency-key --callback + SCP staging anexos >256KB)",
+    "F4: Remover customer (SSH manage.sh remove --confirm=<slug> --backup-first; backup gerenciado upstream)",
+    "F5: Fila (replica local; manage.sh job list/status/logs/cancel + worker stats)",
+    "F6: OCC essenciais via occ-exec sync (Feature P) + lifecycle user/group/apps via async (Feature O.2)",
+    "F7: Audit log local 12m (LGPD); upstream tem journald 30d separado",
+    "F8: Webhook receiver POST /api/jobs/hook com HMAC-SHA256 + IP whitelist + replay protection 1h",
+    "F9: Gestao de cluster_servers (admin only): CRUD + testar conexao + rotacionar webhook secret",
+    "F10: Traducao state/cmd <-> job_type (15 verbs); slug e VALIDADO (rejeita _) nao traduzido"
+  ],
+  "decisions": [
+    "ARCH-1",
+    "ARCH-2",
+    "ARCH-3",
+    "DATA-1",
+    "DATA-2"
+  ],
+  "decisoes*tecnicas": {
+    "stack": "laravel",
+    "tipo": "API REST orquestradora + painel admin (mesmo Laravel)",
+    "dependencia_critica_upstream": "nextcloud-saas-manager v12.0+ (Bash scripts + Redis worker em servidor remoto)",
+    "auth_painel": "email + senha + sessao Laravel; cadastro manual; roles admin/operador/suporte",
+    "auth_api_externa": "Bearer token; gestao via UI fica para sprint 2",
+    "auth_ssh_upstream": "chave SSH dedicada par mework360-deployer -> ncsaas-api@<host>; uma chave por cluster_server; rotacao manual no MVP",
+    "auth_webhook_upstream": "HMAC-SHA256 com secret por cluster_server; IP whitelist; replay protection 1h; rotacao manual com grace period 24h (a confirmar)",
+    "padrao_assincrono": "SSH manage.sh --async retorna job_id UUID v4 em <2s; webhook HMAC-SHA256 caminho preferido; polling SSH manage.sh job <id> status fallback apos 60s sem webhook",
+    "estrategia_users_groups": "Sempre Feature O.2 async (multi-step atomico via fila); occ-exec sync (Feature P) reservado para read-only e operacoes pontuais quota/branding/maintenance/apps:enable individual",
+    "shell_unico": "Painel unificado (CloudAdmin + DevPortal consolidados em 18 telas)",
+    "compliance": "LGPD (dados de operadores), audit log API obrigatorio retencao 12 meses; upstream tem journald 30d separado",
+    "uptime_alvo_api": "99% (depende de uptime do upstream >= 99.9%)",
+    "escala_mvp": "1 cluster_server unico; ate 50 customers ativos (limite atual do servidor scripts); 1 job simultaneo por cluster (worker sequencial)",
+    "secrets_storage": "Laravel encrypted storage (criptografado em DB com APP_KEY) para SSH keys e webhook secrets",
+    "slug_validation": "Regex ^[a-z0-9-]+$ max 64 chars; rejeitar * com 422 (sem normalizacao)",
+    "threshold_anexos": "256KB por anexo: <=256KB inline base64 via --payload-stdin; >256KB via SCP staging em /opt/nextcloud-customers/inbox/<staging-id>/",
+    "schema_version_upstream": "trava em 1 no MVP; bloqueio se servidor scripts retornar versao diferente",
+    "nextcloud_version_minima": ">=31 (necessario para group:rename na Feature 6.2)",
+    "idempotency_key": "API gera UUID v4; armazenada em tabela idempotency_keys com TTL 24h",
+    "fila_local": "NAO ha fila Laravel para jobs Nextcloud; fila vive no upstream. Laravel Queue local apenas para retry de email",
+    "fora_escopo_mvp": "self-service customer, mobile, i18n, streaming logs terminal-like, SSO, dashboard com charts time-series, API keys UI (sprint 2), webhooks externos, IP allowlist, rate limit visual, multi-cluster_server real (estrutura pronta mas nao testado)",
+    "design_system": "Livewire + Tailwind puro. Tema High-Tech Professional. Dark mode default (Light derivado M3). Status hibridos (sucesso verde, erro coral, aviso laranja). Densidade afrouxada para 44px row height. Idioma pt-BR.",
+    "bd_principal": "PostgreSQL 16",
+    "tier_infra": "1",
+    "composicao_bd": "Nível 1"
+  },
+  "comandos_recentes": [
+    "/pmo novo",
+    "/analista planejar",
+    "/analista escopo",
+    "/designer planejar",
+    "/arquiteto planejar",
+    "/arquiteto dados",
+    "/devops infra",
+    "/devops planejar",
+    "/jarvis (CONCIERGE)",
+    "/pmo plan -> planejador-tarefas"
+  ],
+  "anchor": {
+    "persona": "planejador-tarefas",
+    "phase": "Planejamento tecnico concluido",
+    "intent": "Planejar sprints para mework360-deployer (perfil laravel, modo autopilot/Pipeline) — gerar docs/ROADMAP.md decompondo F1-F10 em sprints D1-D8 com gates executaveis, executor_prompt para tasks M e estrategia de auditoria conservadora",
+    "changes_made": "docs/ROADMAP.md gerado (1 sprint Foundation D1 + 7 sprints feature/polish D2-D8). 44 tasks total (25P + 19M + 0G). Cobertura: Core (D1-D2), Auth (D3), ClusterServers+Audit (D4), Jobs/Webhook (D5), Customers (D6), OCC (D7), Polish+Deploy (D8). Tasks com critica:true (Best-of-N): D2.1 SshClient, D5.1 Webhook receiver HMAC, D6.2 Provisionar customer. Mini design docs COMPLETOS em D2.1, D4.3, D5.1, D6.2, D6.3 (5 criterios). Estrategia de auditoria: D1=skip, D2-D7=senior+qa, D8=comprehensive (modo Pipeline).",
+    "decisions": "Modo execucao: Pipeline/autopilot (auditoria e o unico gate de qualidade entre sprints, sem revisao humana). Estrutura: 8 sprints D — caminho critico 6 sprints sequenciais (D1-D2-D4-D5-D6-D8); D3 (Auth) e D7 (OCC) podem rodar em paralelo. Tradutor JobType cobre 15 verbs do REQUIREMENTS §3; StateTranslator unidirectional upstream→canonical (5 estados). Webhook multi-secret durante grace 24h via webhook_secret_history table. Provisionar inline base64 < 256KB ou SCP staging > 256KB (per anexo). 3 tasks critica:true marcadas apos tentativa de decomposicao (genuinamente indivisivel). Fase 6.3 Preventive Audit skipped silently (codebase greenfield). Compliance LGPD: audit retention 12m via cron mensal. Polling fallback 5min para jobs sem callback >60s.",
+    "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
+    "updated_at": "2026-05-07T21:05:00-03:00"
+  },
+  "contexto_rapido": "Sessao criada via /jarvis CONCIERGE; PIVOT arquitetural: API e ORQUESTRADORA via SSH+webhook HMAC. Fase 9: docs/ROADMAP.md gerado (8 sprints D1-D8, 44 tasks, 19M com executor_prompt, 3 critica:true Best-of-N). Modo Pipeline escolhido (autopilot). Sprint atual: D1 (Foundation: scaffold Laravel + migrations + Pest smoke). Proximo passo: /jarvis pipeline range=D1-D8 ou /pmo sprint D1 manual.",
+  "autopilot": {
+    "active": false
+  },
+  "active_automation": "pipeline"
+}

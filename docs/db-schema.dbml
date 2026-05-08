@@ -1,0 +1,156 @@
+// Gerado pelo analista-sistema na Fase 5
+// Banco: PostgreSQL 16 conforme DATABASE.md e ARCHITECTURE.md
+
+Table operators {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  email varchar(255) [unique, not null]
+  name varchar(255) [not null]
+  role varchar(50) [not null, default: 'operador', note: 'admin|operador|suporte']
+  password_hash varchar(255) [not null]
+  status varchar(50) [not null, default: 'active', note: 'active|inactive']
+  last_login_at timestamp [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  deleted_at timestamp [null, note: 'soft delete']
+
+  indexes {
+    email [name: 'idx_operators_email']
+    role [name: 'idx_operators_role']
+  }
+}
+
+Table cluster_servers {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255) [not null]
+  ssh_host varchar(255) [not null]
+  ssh_port integer [not null, default: 22]
+  ssh_user varchar(100) [not null, default: 'ncsaas-api']
+  ssh_private_key_encrypted text [not null]
+  webhook_secret_encrypted text [not null]
+  webhook_secret_version integer [not null, default: 1]
+  nextcloud_version varchar(50) [null]
+  schema_version integer [not null, default: 1]
+  status varchar(50) [not null, default: 'active', note: 'active|unreachable|disabled']
+  last_health_at timestamp [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  deleted_at timestamp [null, note: 'soft delete']
+
+  indexes {
+    status [name: 'idx_cluster_servers_status']
+  }
+}
+
+Table customers {
+  slug varchar(64) [pk, note: '^[a-z0-9-]+$']
+  cluster_server_id uuid [not null, ref: > cluster_servers.id]
+  domain varchar(255) [not null]
+  status varchar(50) [not null, default: 'provisioning', note: 'provisioning|active|error|removing|removed']
+  branding_meta jsonb [null]
+  last_sync_at timestamp [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  deleted_at timestamp [null, note: 'soft delete']
+
+  indexes {
+    cluster_server_id [name: 'idx_customers_cluster_server_id']
+    status [name: 'idx_customers_status']
+  }
+}
+
+Table jobs {
+  job_id uuid [pk, default: `uuid_generate_v4()`]
+  customer_slug varchar(64) [not null, ref: > customers.slug]
+  cluster_server_id uuid [not null, ref: > cluster_servers.id]
+  cmd_canonical varchar(100) [not null]
+  job_type varchar(100) [not null]
+  state varchar(50) [not null, default: 'queued', note: 'queued|running|success|failed|cancelled']
+  idempotency_key uuid [not null, unique]
+  payload_sanitized jsonb [null]
+  summary jsonb [null]
+  exit_code integer [null]
+  queued_at timestamp [null]
+  started_at timestamp [null]
+  finished_at timestamp [null]
+  callback_received_at timestamp [null]
+  last_poll_at timestamp [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    customer_slug [name: 'idx_jobs_customer_slug']
+    cluster_server_id [name: 'idx_jobs_cluster_server_id']
+    state [name: 'idx_jobs_state']
+    job_type [name: 'idx_jobs_job_type']
+  }
+}
+
+Table audit_logs {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  actor_id uuid [not null, ref: > operators.id]
+  action varchar(100) [not null]
+  resource_type varchar(100) [not null]
+  resource_id varchar(255) [not null]
+  payload jsonb [null]
+  cluster_server_id uuid [null, ref: > cluster_servers.id]
+  job_id uuid [null, ref: > jobs.job_id]
+  ip varchar(45) [null]
+  user_agent text [null]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    actor_id [name: 'idx_audit_logs_actor_id']
+    action [name: 'idx_audit_logs_action']
+    resource_type [name: 'idx_audit_logs_resource_type']
+    cluster_server_id [name: 'idx_audit_logs_cluster_server_id']
+    job_id [name: 'idx_audit_logs_job_id']
+    created_at [name: 'idx_audit_logs_created_at']
+  }
+}
+
+Table webhook_secret_history {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  cluster_server_id uuid [not null, ref: > cluster_servers.id]
+  secret_encrypted text [not null]
+  version integer [not null]
+  valid_from timestamp [not null]
+  valid_until timestamp [null, note: 'grace period 24h']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    cluster_server_id [name: 'idx_webhook_secret_history_cluster_server_id']
+  }
+}
+
+Table idempotency_keys {
+  key uuid [pk]
+  cmd varchar(100) [not null]
+  args_hash varchar(255) [not null]
+  customer_slug varchar(64) [null, ref: > customers.slug]
+  job_id uuid [null, ref: > jobs.job_id]
+  expires_at timestamp [not null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    customer_slug [name: 'idx_idempotency_keys_customer_slug']
+    job_id [name: 'idx_idempotency_keys_job_id']
+    expires_at [name: 'idx_idempotency_keys_expires_at']
+  }
+}
+
+Table api_keys {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  name varchar(255) [not null]
+  token_hash varchar(255) [not null, unique]
+  scopes jsonb [null]
+  last_used_at timestamp [null]
+  revoked_at timestamp [null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    token_hash [name: 'idx_api_keys_token_hash']
+  }
+}

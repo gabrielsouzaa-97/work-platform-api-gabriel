@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>API Credentials - System Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Fira+Code:wght@450&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#004395",
+                      "on-background": "#dae2fd",
+                      "secondary-fixed": "#d8e3fb",
+                      "surface-container-highest": "#2d3449",
+                      "on-surface": "#dae2fd",
+                      "on-surface-variant": "#c2c6d6",
+                      "surface": "#0b1326",
+                      "on-secondary-fixed-variant": "#3c475a",
+                      "on-primary-fixed": "#001a42",
+                      "error": "#ffb4ab",
+                      "primary": "#adc6ff",
+                      "on-tertiary-container": "#461f00",
+                      "on-error": "#690005",
+                      "primary-container": "#4d8eff",
+                      "inverse-primary": "#005ac2",
+                      "tertiary-container": "#df7412",
+                      "on-primary-container": "#00285d",
+                      "on-tertiary-fixed": "#311400",
+                      "on-secondary": "#263143",
+                      "error-container": "#93000a",
+                      "primary-fixed-dim": "#adc6ff",
+                      "on-tertiary-fixed-variant": "#723600",
+                      "outline-variant": "#424754",
+                      "inverse-surface": "#dae2fd",
+                      "inverse-on-surface": "#283044",
+                      "surface-bright": "#31394d",
+                      "on-secondary-fixed": "#111c2d",
+                      "surface-tint": "#adc6ff",
+                      "tertiary-fixed-dim": "#ffb786",
+                      "secondary-container": "#3e495d",
+                      "on-error-container": "#ffdad6",
+                      "primary-fixed": "#d8e2ff",
+                      "surface-container-low": "#131b2e",
+                      "surface-container": "#171f33",
+                      "background": "#0b1326",
+                      "on-primary": "#002e6a",
+                      "outline": "#8c909f",
+                      "tertiary-fixed": "#ffdcc6",
+                      "surface-variant": "#2d3449",
+                      "surface-container-lowest": "#060e20",
+                      "secondary": "#bcc7de",
+                      "surface-container-high": "#222a3d",
+                      "on-secondary-container": "#aeb9d0",
+                      "tertiary": "#ffb786",
+                      "secondary-fixed-dim": "#bcc7de",
+                      "surface-dim": "#0b1326",
+                      "on-tertiary": "#502400"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "lg": "24px",
+                      "xl": "48px",
+                      "margin": "24px",
+                      "sm": "8px",
+                      "xs": "4px",
+                      "gutter": "16px",
+                      "md": "16px",
+                      "unit": "4px"
+              },
+              "fontFamily": {
+                      "label-caps": ["Inter"],
+                      "body-base": ["Inter"],
+                      "code-block": ["Fira Code"],
+                      "headline-md": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "display-lg": ["Inter"]
+              },
+              "fontSize": {
+                      "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "body-base": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "code-block": ["13px", {"lineHeight": "1.6", "fontWeight": "450"}],
+                      "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                      "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "display-lg": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for high-tech feel */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #424754; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8c909f; }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased min-h-screen font-body-base text-body-base">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-40 border-b border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface">
+<div class="flex items-center justify-between px-margin h-16 w-full ml-64 pr-[17rem]">
+<!-- Search Bar (on_left) -->
+<div class="flex-1 flex items-center">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded pl-10 pr-lg py-1.5 text-body-sm font-body-sm text-on-surface focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none placeholder:text-on-surface-variant transition-all" placeholder="Search resources..." type="text"/>
+<span class="absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant font-code-block text-code-block opacity-70">⌘K</span>
+</div>
+</div>
+<!-- Trailing Actions & Brand -->
+<div class="flex items-center gap-margin">
+<span class="text-headline-md font-headline-md text-primary dark:text-primary tracking-tight">CloudAdmin</span>
+<div class="flex items-center gap-sm">
+<button class="font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface px-sm py-xs transition-colors">Support</button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-100">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-100">
+<span class="material-symbols-outlined text-[20px]">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-sm border border-outline-variant">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A minimalist, flat-vector style avatar of a system administrator with a confident expression. The avatar uses a high-contrast dark palette with subtle electric blue accents, matching the technical, modern corporate aesthetic of the interface. The background is a solid deep slate navy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhkmeh7lWRyhnol2_gsRZXDe6slyImJ8bhDZ4M9W69DRDSSVFSbSqrk_m-u-dOUw5KrMVW16uKdfLdjp6Lak16kkd9-8-IBH3RqpVug5Wl4x731he2zsUhRJXW4gHXKiFb-FhfuqNomrQiTLFbn5zavIs83s2WPJH3ctvxByNdO0kfIlEhx0Ri0i5iCugDL-ignKIrXEt46xB14dOBBPyT06yACpgHhSDJdyXN8bgXRuTjth2XBU9M5uc0mKzl1tYO0KVECkOtUni5"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 z-50 border-r border-outline-variant dark:border-outline-variant bg-surface-container dark:bg-surface-container flex flex-col h-full py-lg shadow-[4px_0_24px_-4px_rgba(0,0,0,0.5)]">
+<!-- Header -->
+<div class="px-margin mb-xl">
+<div class="flex items-center gap-md mb-lg">
+<div class="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[24px]">terminal</span>
+</div>
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface dark:text-on-surface leading-none mb-1">System Core</h1>
+<span class="font-code-block text-code-block text-on-surface-variant text-[11px]">v2.4.1-stable</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-label-caps text-label-caps rounded py-md hover:bg-primary-fixed transition-colors flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">add</span>
+                Generate API Key
+            </button>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex-1 overflow-y-auto px-sm flex flex-col gap-xs">
+<a class="flex items-center gap-md text-on-surface-variant dark:text-on-surface-variant px-md py-sm hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<a class="flex items-center gap-md bg-secondary-container dark:bg-secondary-container text-on-secondary-container dark:text-on-secondary-container rounded-lg px-md py-sm transition-all group shadow-[inset_2px_0_0_0_#adc6ff]" href="#">
+<span class="material-symbols-outlined text-[20px] text-primary">vpn_key</span>
+<span class="font-label-caps text-label-caps">API Credentials</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant dark:text-on-surface-variant px-md py-sm hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">cloud_queue</span>
+<span class="font-label-caps text-label-caps">Provisioning</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant dark:text-on-surface-variant px-md py-sm hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">history</span>
+<span class="font-label-caps text-label-caps">Audit Logs</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant dark:text-on-surface-variant px-md py-sm hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</a>
+</nav>
+<!-- Footer Tabs -->
+<div class="mt-auto px-sm flex flex-col gap-xs pt-lg border-t border-outline-variant/30">
+<a class="flex items-center gap-md text-on-surface-variant dark:text-on-surface-variant px-md py-sm hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">description</span>
+<span class="font-label-caps text-label-caps">Documentation</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant dark:text-on-surface-variant px-md py-sm hover:bg-surface-variant dark:hover:bg-surface-variant hover:text-on-surface dark:hover:text-on-surface transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">analytics</span>
+<span class="font-label-caps text-label-caps">System Status</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 pt-16 min-h-screen bg-background">
+<div class="max-w-[1400px] mx-auto p-xl">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-xl">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-2">API Credentials</h2>
+<p class="font-body-base text-body-base text-on-surface-variant max-w-2xl">
+                        Manage your organization's secret keys to authenticate requests to the System Core API. Keep these keys secure and rotate them periodically.
+                    </p>
+</div>
+<button class="bg-primary text-on-primary font-label-caps text-label-caps rounded px-lg py-md hover:bg-primary-fixed transition-all flex items-center gap-sm shadow-[0_0_15px_-3px_rgba(173,198,255,0.3)]">
+<span class="material-symbols-outlined text-[18px]">key</span>
+                    Generate New API Key
+                </button>
+</div>
+<!-- Data Table Card -->
+<div class="bg-surface border border-outline-variant rounded-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col backdrop-blur-sm">
+<!-- Table Controls / Filters -->
+<div class="px-lg py-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low/50">
+<div class="flex items-center gap-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Filter by status:</span>
+<select class="bg-surface border border-outline-variant rounded px-sm py-xs text-body-sm font-body-sm text-on-surface focus:ring-1 focus:ring-primary focus:outline-none">
+<option>All Keys</option>
+<option>Active</option>
+<option>Revoked</option>
+</select>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Showing 4 keys</span>
+</div>
+<!-- Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse whitespace-nowrap">
+<thead class="bg-surface-container border-b border-outline-variant sticky top-0 z-10">
+<tr>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-lg py-md font-medium tracking-wider">Name</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-lg py-md font-medium tracking-wider">Secret Key</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-lg py-md font-medium tracking-wider">Created Date</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-lg py-md font-medium tracking-wider">Last Used</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-lg py-md font-medium tracking-wider text-right">Status</th>
+<th class="px-lg py-md w-10"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/40">
+<!-- Row 1: Active -->
+<tr class="hover:bg-surface-container-low/80 transition-colors group">
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">api</span>
+<span class="font-body-base text-body-base text-on-surface font-medium">Production Gateway Main</span>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="inline-flex items-center gap-md bg-[#000000] border border-outline-variant/60 rounded px-sm py-xs group/code cursor-pointer hover:border-primary/50 transition-colors">
+<code class="font-code-block text-code-block text-secondary tracking-wider">sk_live_********************9a2F</code>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover/code:text-primary transition-colors">content_copy</span>
+</div>
+</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-on-surface-variant">Oct 12, 2023</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-on-surface-variant">2 mins ago</td>
+<td class="px-lg py-md text-right">
+<span class="inline-flex items-center px-2 py-1 rounded font-label-caps text-label-caps bg-primary/10 text-primary border border-primary/20">
+                                        Active
+                                    </span>
+</td>
+<td class="px-lg py-md text-right">
+<button class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: Active -->
+<tr class="bg-surface-container-lowest/30 hover:bg-surface-container-low/80 transition-colors group">
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">integration_instructions</span>
+<span class="font-body-base text-body-base text-on-surface font-medium">Staging Env Integration</span>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="inline-flex items-center gap-md bg-[#000000] border border-outline-variant/60 rounded px-sm py-xs group/code cursor-pointer hover:border-primary/50 transition-colors">
+<code class="font-code-block text-code-block text-secondary tracking-wider">sk_test_********************b4C1</code>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover/code:text-primary transition-colors">content_copy</span>
+</div>
+</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-on-surface-variant">Nov 05, 2023</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-on-surface-variant">1 hour ago</td>
+<td class="px-lg py-md text-right">
+<span class="inline-flex items-center px-2 py-1 rounded font-label-caps text-label-caps bg-primary/10 text-primary border border-primary/20">
+                                        Active
+                                    </span>
+</td>
+<td class="px-lg py-md text-right">
+<button class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Revoked -->
+<tr class="hover:bg-surface-container-low/80 transition-colors group opacity-75">
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">developer_board</span>
+<span class="font-body-base text-body-base text-on-surface font-medium line-through decoration-outline-variant">Legacy Auth V1</span>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="inline-flex items-center gap-md bg-[#000000] border border-outline-variant/30 rounded px-sm py-xs cursor-not-allowed opacity-60">
+<code class="font-code-block text-code-block text-on-surface-variant tracking-wider">sk_live_********************x0Z9</code>
+<span class="material-symbols-outlined text-[14px] text-outline-variant">block</span>
+</div>
+</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-on-surface-variant">Jan 15, 2022</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-on-surface-variant">Dec 01, 2023</td>
+<td class="px-lg py-md text-right">
+<span class="inline-flex items-center px-2 py-1 rounded font-label-caps text-label-caps bg-error/10 text-error border border-error/20">
+                                        Revoked
+                                    </span>
+</td>
+<td class="px-lg py-md text-right">
+<button class="text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 4: Active but unused recently (Warning indicator) -->
+<tr class="bg-surface-container-lowest/30 hover:bg-surface-container-low/80 transition-colors group">
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">webhook</span>
+<span class="font-body-base text-body-base text-on-surface font-medium">Billing Webhooks</span>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="inline-flex items-center gap-md bg-[#000000] border border-outline-variant/60 rounded px-sm py-xs group/code cursor-pointer hover:border-primary/50 transition-colors">
+<code class="font-code-block text-code-block text-secondary tracking-wider">sk_live_********************77pQ</code>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover/code:text-primary transition-colors">content_copy</span>
+</div>
+</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-on-surface-variant">Mar 22, 2023</td>
+<td class="px-lg py-md font-body-sm text-body-sm text-tertiary-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                    6 months ago
+                                </td>
+<td class="px-lg py-md text-right">
+<span class="inline-flex items-center px-2 py-1 rounded font-label-caps text-label-caps bg-primary/10 text-primary border border-primary/20">
+                                        Active
+                                    </span>
+</td>
+<td class="px-lg py-md text-right">
+<button class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination -->
+<div class="px-lg py-md border-t border-outline-variant bg-surface flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Page 1 of 1</span>
+<div class="flex items-center gap-sm">
+<button class="p-1 rounded text-on-surface-variant hover:bg-surface-container opacity-50 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="p-1 rounded text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

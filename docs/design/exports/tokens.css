@@ -1,0 +1,362 @@
+/*
+ * meWork360 Deployer — Design Tokens
+ *
+ * Origem: Stitch (Material Design 3 dark) + ajustes para light mode + status hibridos.
+ * Engine: Tailwind CSS v4 (@theme)
+ * Modo padrao: DARK. Light opcional via class="light" no <html>.
+ *
+ * Decisoes (ver DESIGN.md ADR-D001 a ADR-D006):
+ *   - Dark default + light opcional (Material 3 derivacao)
+ *   - Status hibrido: error=Stitch coral, success=verde de verdade, warning=laranja Stitch
+ *   - primary unificado (Stitch tinha primary=primary-fixed-dim com mesmo hex)
+ *   - Densidade afrouxada: row-height 44px (WCAG touch target em desktop)
+ *   - Idioma de UI: pt-BR
+ */
+
+@import "tailwindcss";
+
+/* =============================================================================
+ * MODO DARK (default)
+ * Paleta Material Design 3 com surface tonal layering.
+ * Mantem fidelidade ao Stitch para reuso direto dos 8 HTMLs entregues.
+ * ============================================================================= */
+
+@theme {
+  /* --- Cores: superficies (tonal layering M3) --- */
+  --color-background:                  oklch(20.5% 0.04 260);   /* #0b1326 - bg pagina  */
+  --color-on-background:               oklch(90% 0.03 270);     /* #dae2fd - texto base */
+  --color-surface:                     oklch(20.5% 0.04 260);   /* #0b1326 - alias bg   */
+  --color-on-surface:                  oklch(90% 0.03 270);     /* #dae2fd              */
+  --color-surface-dim:                 oklch(20.5% 0.04 260);   /* #0b1326              */
+  --color-surface-bright:              oklch(31% 0.02 270);     /* #31394d              */
+  --color-surface-container-lowest:    oklch(15% 0.04 260);     /* #060e20 - inputs     */
+  --color-surface-container-low:       oklch(22% 0.04 260);     /* #131b2e - sidebar    */
+  --color-surface-container:           oklch(24% 0.04 260);     /* #171f33 - cards      */
+  --color-surface-container-high:      oklch(28% 0.03 265);     /* #222a3d - hover row  */
+  --color-surface-container-highest:   oklch(31% 0.02 268);     /* #2d3449 - elevado    */
+  --color-surface-variant:             oklch(31% 0.02 268);     /* #2d3449 - alias      */
+  --color-on-surface-variant:          oklch(80% 0.02 270);     /* #c2c6d6 - muted text */
+  --color-inverse-surface:             oklch(90% 0.03 270);     /* #dae2fd              */
+  --color-inverse-on-surface:          oklch(28% 0.03 270);     /* #283044              */
+
+  /* --- Cores: outline (bordas, divisores) --- */
+  --color-outline:                     oklch(60% 0.01 270);     /* #8c909f - hover scrollbar */
+  --color-outline-variant:             oklch(34% 0.02 270);     /* #424754 - bordas/divisores */
+
+  /* --- Cores: primary (acao principal) --- */
+  /* Stitch tinha primary == primary-fixed-dim == #adc6ff. Unificado em --color-primary. */
+  --color-primary:                     oklch(82% 0.09 268);     /* #adc6ff - cta primario, links */
+  --color-on-primary:                  oklch(25% 0.13 268);     /* #002e6a - texto sobre primary */
+  --color-primary-container:           oklch(67% 0.18 265);     /* #4d8eff - cta vibrante, fill */
+  --color-on-primary-container:        oklch(22% 0.13 268);     /* #00285d                       */
+  --color-primary-fixed:               oklch(89% 0.05 268);     /* #d8e2ff - hover bg primary   */
+  --color-on-primary-fixed:            oklch(15% 0.12 268);     /* #001a42                       */
+  --color-on-primary-fixed-variant:    oklch(38% 0.18 268);     /* #004395                       */
+  --color-inverse-primary:             oklch(48% 0.18 263);     /* #005ac2 - link em surface clara */
+  --color-surface-tint:                oklch(82% 0.09 268);     /* alias primary - elevation tint */
+
+  /* --- Cores: secondary (lavanda azulada — auxiliar) --- */
+  --color-secondary:                   oklch(82% 0.03 268);     /* #bcc7de */
+  --color-on-secondary:                oklch(28% 0.04 268);     /* #263143 */
+  --color-secondary-container:         oklch(36% 0.03 268);     /* #3e495d - nav ativa */
+  --color-on-secondary-container:      oklch(78% 0.03 270);     /* #aeb9d0 */
+  --color-secondary-fixed:             oklch(91% 0.03 270);     /* #d8e3fb */
+  --color-on-secondary-fixed:          oklch(16% 0.04 268);     /* #111c2d */
+  --color-on-secondary-fixed-variant:  oklch(35% 0.03 268);     /* #3c475a */
+
+  /* --- Cores: tertiary (laranja-pessego — accent quente / warning hibrido) --- */
+  --color-tertiary:                    oklch(80% 0.10 60);      /* #ffb786 - HTTP POST, accent  */
+  --color-on-tertiary:                 oklch(30% 0.10 50);      /* #502400                      */
+  --color-tertiary-container:          oklch(63% 0.16 50);      /* #df7412 - warning forte       */
+  --color-on-tertiary-container:       oklch(28% 0.10 50);      /* #461f00                      */
+  --color-tertiary-fixed:              oklch(90% 0.07 60);      /* #ffdcc6                      */
+  --color-on-tertiary-fixed:           oklch(20% 0.10 50);      /* #311400                      */
+  --color-on-tertiary-fixed-variant:   oklch(40% 0.13 50);      /* #723600                      */
+
+  /* --- Cores: error (coral Stitch — mantido) --- */
+  --color-error:                       oklch(80% 0.10 25);      /* #ffb4ab - HTTP DELETE, falha */
+  --color-on-error:                    oklch(28% 0.16 25);      /* #690005                      */
+  --color-error-container:             oklch(40% 0.20 25);      /* #93000a - bg destructive     */
+  --color-on-error-container:          oklch(91% 0.04 25);      /* #ffdad6                      */
+
+  /* --- Cores: success (NOVO — verde-cyan, hibrido) --- */
+  /* Decisao ADR-D003: Stitch usa secondary-fixed (lavanda) para "Completed", o que e ambiguo.
+   * Operadores tecnicos esperam verde para sucesso. Adicionamos verde Material 3 que combina
+   * com a paleta fria (chroma baixo, hue 155 = verde-cyan, nao verde grama). */
+  --color-success:                     oklch(82% 0.13 155);     /* ~#a8e7cb - check, completed  */
+  --color-on-success:                  oklch(28% 0.13 155);     /* ~#003824                      */
+  --color-success-container:           oklch(40% 0.13 155);     /* ~#005239 - bg success forte  */
+  --color-on-success-container:        oklch(91% 0.07 155);     /* ~#bff5da                      */
+
+  /* --- Cores: warning (alias para tertiary — semantica legivel) --- */
+  /* Pelo hibrido escolhido, warning = tertiary do Stitch (laranja-pessego). */
+  --color-warning:                     var(--color-tertiary);
+  --color-on-warning:                  var(--color-on-tertiary);
+  --color-warning-container:           var(--color-tertiary-container);
+  --color-on-warning-container:        var(--color-on-tertiary-container);
+
+  /* --- Cores: info (alias para primary — info usa azul) --- */
+  --color-info:                        var(--color-primary);
+  --color-on-info:                     var(--color-on-primary);
+  --color-info-container:              var(--color-primary-container);
+  --color-on-info-container:           var(--color-on-primary-container);
+
+  /* --- Cores: tokens de uso especial --- */
+  --color-card:                        var(--color-surface-container);
+  --color-card-foreground:             var(--color-on-surface);
+  --color-popover:                     var(--color-surface-container-high);
+  --color-popover-foreground:          var(--color-on-surface);
+  --color-foreground:                  var(--color-on-background);
+  --color-muted:                       var(--color-surface-variant);
+  --color-muted-foreground:            var(--color-on-surface-variant);
+  --color-accent:                      var(--color-primary-container);
+  --color-accent-foreground:           var(--color-on-primary-container);
+  --color-destructive:                 var(--color-error);
+  --color-destructive-foreground:      var(--color-on-error-container);
+  --color-border:                      var(--color-outline-variant);
+  --color-input:                       var(--color-surface-container-lowest);
+  --color-ring:                        var(--color-primary);
+
+  /* --- Cores: utilitarias proprietarias (nao M3) --- */
+  --color-secret-bg:                   oklch(0% 0 0);           /* #000000 - bloco secret/key (api_credentials) */
+  --color-terminal-bg:                 oklch(13% 0.04 260);     /* #050B14 - terminal de logs (provisioning_logs) */
+
+  /* =========================================================================
+   * Tipografia
+   * ========================================================================= */
+
+  --font-sans:        "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:        "Fira Code", "JetBrains Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
+  --font-icon:        "Material Symbols Outlined";
+
+  /* Escala tipografica semantica (extraida do Stitch) */
+  --text-display-lg:        2.25rem;     /* 36px / 700 / -0.02em / 1.2 */
+  --text-display-lg--line-height: 1.2;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 700;
+
+  --text-headline-md:       1.5rem;      /* 24px / 600 / 1.3 */
+  --text-headline-md--line-height: 1.3;
+  --text-headline-md--font-weight: 600;
+
+  --text-body-base:         0.875rem;    /* 14px / 400 / 1.5 */
+  --text-body-base--line-height: 1.5;
+  --text-body-base--font-weight: 400;
+
+  --text-body-sm:           0.8125rem;   /* 13px / 400 / 1.5 */
+  --text-body-sm--line-height: 1.5;
+  --text-body-sm--font-weight: 400;
+
+  --text-code-block:        0.8125rem;   /* 13px / 450 / 1.6 (Fira Code) */
+  --text-code-block--line-height: 1.6;
+  --text-code-block--font-weight: 450;
+
+  --text-label-caps:        0.6875rem;   /* 11px / 600 / +0.05em / 1.0 (uppercase via .uppercase) */
+  --text-label-caps--line-height: 1;
+  --text-label-caps--letter-spacing: 0.05em;
+  --text-label-caps--font-weight: 600;
+
+  /* =========================================================================
+   * Espacamento (padronizacao Tailwind 4px-base + tokens semanticos do Stitch)
+   * ========================================================================= */
+
+  --spacing-unit:    0.25rem;   /* 4px - unidade base */
+  --spacing-xs:      0.25rem;   /* 4px */
+  --spacing-sm:      0.5rem;    /* 8px */
+  --spacing-md:      1rem;      /* 16px - padrao px-md/p-md (mais frequente) */
+  --spacing-lg:      1.5rem;    /* 24px - margem entre secoes */
+  --spacing-xl:      3rem;      /* 48px - separadores grandes */
+  --spacing-gutter:  1rem;      /* 16px - gap entre cards */
+  --spacing-margin:  1.5rem;    /* 24px - margem container */
+
+  /* Densidade afrouxada (decisao do usuario): row-height para WCAG touch target em desktop */
+  --spacing-row-height-table: 2.75rem; /* 44px - row de tabela (era ~36-40px no Stitch) */
+  --spacing-row-height-list:  3rem;    /* 48px - linha de lista densa (audit log, fila)  */
+
+  /* =========================================================================
+   * Border radius (Stitch usa raios discretos = visual "tech/sharp")
+   * ========================================================================= */
+
+  --radius-none:    0;
+  --radius-sm:      0.125rem;   /* 2px - DEFAULT do Stitch */
+  --radius-md:      0.25rem;    /* 4px - botoes, inputs (Stitch lg) */
+  --radius-lg:      0.5rem;     /* 8px - cards (Stitch xl) */
+  --radius-xl:      0.75rem;    /* 12px - cards grandes (Stitch full) */
+  --radius-full:    9999px;     /* avatares, dots de status, pill chips */
+
+  /* =========================================================================
+   * Shadows
+   * ========================================================================= */
+
+  --shadow-sm:        0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow:           0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+  --shadow-md:        0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg:        0 10px 15px -3px rgb(0 0 0 / 0.55), 0 4px 6px -4px rgb(0 0 0 / 0.55);
+  --shadow-xl:        0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.6);
+  --shadow-sidebar:   4px 0 24px -4px rgb(0 0 0 / 0.5);            /* da sidebar fixa  */
+  --shadow-elevated:  0 4px 24px -8px rgb(0 0 0 / 0.5);            /* card elevado     */
+  --shadow-glow-primary: 0 0 15px -3px oklch(82% 0.09 268 / 0.3);  /* halo primary     */
+  --shadow-modal:     0 10px 30px -10px rgb(0 0 0 / 0.8);          /* modal/dialog     */
+  --shadow-inset-primary-l: inset 2px 0 0 0 var(--color-primary);  /* nav item ativo   */
+
+  /* =========================================================================
+   * Layout / breakpoints / containers
+   * ========================================================================= */
+
+  --width-sidebar:       16rem;   /* 256px = w-64 */
+  --height-topbar:       4rem;    /* 64px = h-16 */
+  --max-width-content:   90rem;   /* 1440px - container padrao */
+  --max-width-wide:      100rem;  /* 1600px - dashboards */
+  --max-width-form:      48rem;   /* 768px - formularios       */
+
+  --breakpoint-sm:       40rem;   /* 640px */
+  --breakpoint-md:       48rem;   /* 768px */
+  --breakpoint-lg:       64rem;   /* 1024px */
+  --breakpoint-xl:       80rem;   /* 1280px */
+}
+
+/* =============================================================================
+ * MODO LIGHT (opcional via .light no <html>)
+ * Derivacao Material 3: troca tonal das superficies, mantem hue de primary.
+ * ============================================================================= */
+
+@layer base {
+  html.light {
+    /* Superficies invertem polaridade (claro/escuro) mantendo hue 270 azulado */
+    --color-background:                  oklch(99% 0.005 270);   /* #fdfcff */
+    --color-on-background:               oklch(15% 0.04 270);    /* #1a1c1f */
+    --color-surface:                     oklch(99% 0.005 270);
+    --color-on-surface:                  oklch(15% 0.04 270);
+    --color-surface-dim:                 oklch(91% 0.01 270);    /* #d8d9de */
+    --color-surface-bright:              oklch(99% 0.005 270);
+    --color-surface-container-lowest:    oklch(100% 0 0);        /* #ffffff - inputs   */
+    --color-surface-container-low:       oklch(96% 0.005 270);   /* #f3f3fa - sidebar */
+    --color-surface-container:           oklch(94% 0.008 270);   /* #ededf4 - cards   */
+    --color-surface-container-high:      oklch(91% 0.01 270);    /* #e7e7f0           */
+    --color-surface-container-highest:   oklch(89% 0.01 270);    /* #e1e1ea - elevado */
+    --color-surface-variant:             oklch(89% 0.01 270);
+    --color-on-surface-variant:          oklch(38% 0.03 270);    /* #45474e - muted text */
+    --color-inverse-surface:             oklch(28% 0.03 270);
+    --color-inverse-on-surface:          oklch(94% 0.008 270);
+
+    --color-outline:                     oklch(58% 0.02 270);    /* #757680 */
+    --color-outline-variant:             oklch(80% 0.015 270);   /* #c5c6cf */
+
+    /* Primary mantem hue 268 mas vira tonalidade media */
+    --color-primary:                     oklch(48% 0.18 263);    /* #005ac2 (era #adc6ff no dark) */
+    --color-on-primary:                  oklch(100% 0 0);        /* #ffffff */
+    --color-primary-container:           oklch(89% 0.05 268);    /* #d8e2ff */
+    --color-on-primary-container:        oklch(15% 0.12 268);    /* #001a42 */
+    --color-primary-fixed:               oklch(89% 0.05 268);
+    --color-on-primary-fixed:            oklch(15% 0.12 268);
+    --color-on-primary-fixed-variant:    oklch(38% 0.18 268);
+    --color-inverse-primary:             oklch(82% 0.09 268);    /* #adc6ff */
+    --color-surface-tint:                oklch(48% 0.18 263);
+
+    --color-secondary:                   oklch(38% 0.03 268);    /* #545b6f */
+    --color-on-secondary:                oklch(100% 0 0);
+    --color-secondary-container:         oklch(89% 0.02 270);    /* #d8dfe8 */
+    --color-on-secondary-container:      oklch(15% 0.04 270);
+    --color-secondary-fixed:             oklch(91% 0.03 270);
+    --color-on-secondary-fixed:          oklch(16% 0.04 268);
+    --color-on-secondary-fixed-variant:  oklch(35% 0.03 268);
+
+    --color-tertiary:                    oklch(48% 0.16 50);     /* #864700 */
+    --color-on-tertiary:                 oklch(100% 0 0);
+    --color-tertiary-container:          oklch(90% 0.07 60);     /* #ffdcc6 */
+    --color-on-tertiary-container:       oklch(28% 0.10 50);
+    --color-tertiary-fixed:              oklch(90% 0.07 60);
+    --color-on-tertiary-fixed:           oklch(20% 0.10 50);
+    --color-on-tertiary-fixed-variant:   oklch(40% 0.13 50);
+
+    --color-error:                       oklch(40% 0.20 25);     /* #ba1a1a */
+    --color-on-error:                    oklch(100% 0 0);
+    --color-error-container:             oklch(90% 0.04 25);     /* #ffdad6 */
+    --color-on-error-container:          oklch(28% 0.16 25);
+
+    --color-success:                     oklch(40% 0.13 155);    /* #006c4f */
+    --color-on-success:                  oklch(100% 0 0);
+    --color-success-container:           oklch(90% 0.07 155);    /* #87f8c8 */
+    --color-on-success-container:        oklch(20% 0.10 155);
+
+    --color-card:                        var(--color-surface-container);
+    --color-card-foreground:             var(--color-on-surface);
+    --color-popover:                     var(--color-surface-container-high);
+    --color-popover-foreground:          var(--color-on-surface);
+    --color-foreground:                  var(--color-on-background);
+    --color-muted:                       var(--color-surface-variant);
+    --color-muted-foreground:            var(--color-on-surface-variant);
+    --color-accent:                      var(--color-primary-container);
+    --color-accent-foreground:           var(--color-on-primary-container);
+    --color-destructive:                 var(--color-error);
+    --color-destructive-foreground:      var(--color-on-error);
+    --color-border:                      var(--color-outline-variant);
+    --color-input:                       var(--color-surface-container-lowest);
+    --color-ring:                        var(--color-primary);
+
+    --color-secret-bg:                   oklch(15% 0.04 270);     /* #1a1c1f - escuro inverso */
+    --color-terminal-bg:                 oklch(13% 0.04 260);     /* terminal sempre dark */
+
+    /* Shadows light: alpha bem mais baixa */
+    --shadow-sm:        0 1px 2px 0 rgb(0 0 0 / 0.04);
+    --shadow:           0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+    --shadow-md:        0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+    --shadow-lg:        0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+    --shadow-xl:        0 20px 25px -5px rgb(0 0 0 / 0.10), 0 8px 10px -6px rgb(0 0 0 / 0.10);
+    --shadow-sidebar:   4px 0 24px -4px rgb(0 0 0 / 0.06);
+    --shadow-elevated:  0 4px 24px -8px rgb(0 0 0 / 0.10);
+    --shadow-glow-primary: 0 0 15px -3px oklch(48% 0.18 263 / 0.3);
+    --shadow-modal:     0 10px 30px -10px rgb(0 0 0 / 0.20);
+  }
+}
+
+/* =============================================================================
+ * Aliases utilitarios (uso direto via class)
+ * ============================================================================= */
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    font-family: var(--font-sans);
+    font-size: var(--text-body-base);
+    line-height: var(--text-body-base--line-height);
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+    font-variant-ligatures: contextual;
+  }
+
+  /* Focus ring acessivel WCAG AA */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar tematizada (compat com Stitch) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface-container-low);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-outline-variant);
+    border-radius: var(--radius-full);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-outline);
+  }
+
+  /* Reduced motion respeitado */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

@@ -1,0 +1,33 @@
+---
+description: Regras para desenvolvimento backend — Laravel
+globs: ["app/**/*.php", "routes/**/*.php", "config/**/*.php"]
+alwaysApply: false
+---
+
+# Backend — Laravel 12.x
+
+## Estrutura de Módulos (Modular Monolith)
+- Módulos definidos: Core, ClusterServers, Auth, Audit, Jobs, Customers
+- Cada feature em seu módulo: Controller + Service + DTO + Models
+- Controllers: apenas roteamento e validação de input (Form Requests)
+- Services: lógica de negócio e orquestração
+- DTOs: validação e transferência de dados entre camadas
+
+## Padrões
+- Injeção de dependência para todos os serviços
+- Interfaces para abstrações de serviços externos (ex: cliente SSH)
+- Error handling centralizado com filtros/exceptions customizadas
+- Secrets (SSH keys, webhook secrets) SEMPRE via Laravel Encrypted Storage
+
+## API
+- RESTful com versionamento (/api/v1/)
+- Respostas padronizadas
+- Paginação para listas grandes (ex: customers, jobs)
+- Rate limiting em rotas públicas (ex: webhook receiver 100 req/min)
+
+## Service Composition
+- Service com > 200 linhas ou método > 30 linhas → decompor em Actions/UseCases
+- Controller NUNCA orquestra — delega para Service ou Action
+- Multi-step com side effects → usar transação (DB::transaction)
+- Integração externa (SSH) → isolar em adapter com interface no módulo Core
+- 3+ boolean flags controlando comportamento → extrair estratégia ou Action separada
