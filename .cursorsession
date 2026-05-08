@@ -35,12 +35,12 @@
   "fase_atual": "9",
   "fase_nome": "Planejamento tecnico concluido",
   "sprint_atual": "D4",
-  "beesy_version": "4.16.17-beta",
-  "decisions_applied_until": 176,
+  "beesy_version": "4.16.18-beta",
+  "decisions_applied_until": 178,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-08T17:37:45Z",
+  "ultimo_update": "2026-05-08T17:40:00Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -144,15 +144,15 @@
     "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
     "updated_at": "2026-05-07T21:05:00-03:00"
   },
-  "contexto_rapido": "Sprint D3 (Auth: Login + Operadores) CONCLUIDA. Livewire 3 instalado. Auth\\Login com RateLimiter 5/15min + redirect role-aware. Middleware EnsureRole + Gates manage-operators/manage-cluster-servers. Operators\\Index+Create com email convite signed URL 48h (ShouldQueue). Auth\\AcceptInvite com status=pending guard + signed middleware na rota. config/auth.php aponta para Operator model (hardcoded). 9 testes Feature Auth + 9 testes Feature Operators. 82 total, 0 failing. Pint clean. Proximo: Sprint D4 (ClusterServers + Audit).",
+  "contexto_rapido": "Sprint D3 (Auth: Login + Operadores) CONCLUIDA. Livewire 3 instalado. Auth\\Login com RateLimiter 5/15min + redirect role-aware. Middleware EnsureRole + Gates manage-operators/manage-cluster-servers. Operators\\Index+Create com email convite signed URL 48h (ShouldQueue). Auth\\AcceptInvite com status=pending guard + signed middleware na rota. config/auth.php aponta para Operator model (hardcoded). 9 testes Feature Auth + 9 testes Feature Operators. 82 total, 0 failing. Pint clean. Proximo: Sprint D4 (ClusterServers + Audit). Upgrade Beesy aplicado: 4.16.17-beta -> 4.16.18-beta; decisions_applied_until 176 -> 178 (#177 validation loop incremental, #178 installer db-migrate.py). Sem mudancas de codigo no projeto.",
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-08T13:58:09Z",
-    "usage_percent": 90.87650000000001,
-    "messages_lost": 457
+    "compacted_at": "2026-05-08T17:39:34Z",
+    "usage_percent": 92.24301470588236,
+    "messages_lost": 362
   },
   "compact_count": 1,
   "checkpoint": {

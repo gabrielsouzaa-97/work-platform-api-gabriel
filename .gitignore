@@ -32,6 +32,7 @@ Thumbs.db
 # --- Cursor session local state ---
 .cursorsession.lock
 .cursorsession.bak
+.cursorsession.bak-*
 .cursor/journal-*.jsonl
 .cursor/session-state-cache.json
 
