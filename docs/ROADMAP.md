@@ -30,7 +30,7 @@
 | Sprint | Categoria | Gate (resumo) | Status | Tasks | Modulos | Resumo | Linhas |
 |--------|-----------|---------------|--------|-------|---------|--------|--------|
 | D1 | D | App sobe via docker-compose; migrations das 8 tabelas aplicadas; smoke /health 200 | concluida | 6 | infra, database | Foundation: scaffold Laravel + DB + smoke test | 90-220 |
-| D2 | D | SshClient executa comando mockado; tradutores cobrem 15 verbs + 5 estados; slug `_` rejeitado 422 | pendente | 5 | Core | Core: SshClient + Tradutores + Slug Validator | 221-470 |
+| D2 | D | SshClient executa comando mockado; tradutores cobrem 15 verbs + 5 estados; slug `_` rejeitado 422 | concluida | 5 | Core | Core: SshClient + Tradutores + Slug Validator | 221-470 |
 | D3 | D | Admin convida operador → email enviado → operador define senha → loga; suporte sem opcoes de provisionar/remover | pendente | 5 | Auth | Auth: Login + cadastro de operadores (F1) | 471-680 |
 | D4 | D | Admin cria cluster_server (encrypted); rotate webhook secret aceita ambos por 24h; audit log registra acoes | pendente | 6 | ClusterServers, Audit | ClusterServers (F9) + Audit (F7 base) | 681-960 |
 | D5 | D | Webhook HMAC valido atualiza estado; HMAC invalido 401 + alerta; replay > 1h rejeitado | pendente | 5 | Jobs | Jobs: Webhook receiver (F8) + listagem fila (F5) | 961-1180 |
@@ -190,11 +190,11 @@ D1 [Scaffold + DB] ─┬─► D2 [Core: SSH + Tradutores] ─┬─► D4 [Clu
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | 2.1 — Implementar `SshClient` com pool + timeouts + retry exponencial + suporte a `--payload-stdin` e SCP staging | `laravel-api` | 1.4 (Models) `critica: true` |
-| [ ] | M | 2.2 — `JobTypeTranslator` (15 verbs cmd ↔ job_type) com testes unitarios full coverage | `laravel-api` | 1.4 |
-| [ ] | M | 2.3 — `StateTranslator` (5 estados upstream → canonical) com testes unitarios | `laravel-api` | 1.4 |
-| [ ] | P | 2.4 — `Rules\Slug` Form Request rule (`^[a-z0-9-]+$`, max 64) + Form Request `ProvisionCustomerRequest` reutilizando | `laravel-api` | — |
-| [ ] | P | 2.5 — Testes Feature do Core: SshClient mockado contra fixtures JSON; tradutores full coverage; Slug rule com 8 inputs validos/invalidos | `laravel-testing` | 2.1, 2.2, 2.3, 2.4 |
+| [x] | M | 2.1 — Implementar `SshClient` com pool + timeouts + retry exponencial + suporte a `--payload-stdin` e SCP staging | `laravel-api` | 1.4 (Models) `critica: true` |
+| [x] | M | 2.2 — `JobTypeTranslator` (15 verbs cmd ↔ job_type) com testes unitarios full coverage | `laravel-api` | 1.4 |
+| [x] | M | 2.3 — `StateTranslator` (5 estados upstream → canonical) com testes unitarios | `laravel-api` | 1.4 |
+| [x] | P | 2.4 — `Rules\Slug` Form Request rule (`^[a-z0-9-]+$`, max 64) + Form Request `ProvisionCustomerRequest` reutilizando | `laravel-api` | — |
+| [x] | P | 2.5 — Testes Feature do Core: SshClient mockado contra fixtures JSON; tradutores full coverage; Slug rule com 8 inputs validos/invalidos | `laravel-testing` | 2.1, 2.2, 2.3, 2.4 |
 
 **Notas tecnicas (tarefas M):**
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Logging\SshSecretsMasker;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -121,6 +122,14 @@ return [
         'null' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,
+        ],
+
+        'sshclient' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/sshclient.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 14,
+            'processors' => [SshSecretsMasker::class],
         ],
 
         'emergency' => [

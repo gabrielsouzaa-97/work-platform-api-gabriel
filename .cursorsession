@@ -34,13 +34,13 @@
   ],
   "fase_atual": "9",
   "fase_nome": "Planejamento tecnico concluido",
-  "sprint_atual": "D2",
+  "sprint_atual": "D3",
   "beesy_version": "4.16.17-beta",
   "decisions_applied_until": 176,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-08T14:43:00Z",
+  "ultimo_update": "2026-05-08T16:34:58Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -144,7 +144,7 @@
     "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
     "updated_at": "2026-05-07T21:05:00-03:00"
   },
-  "contexto_rapido": "Sprint D1 (Foundation) CONCLUIDA. Laravel 12 scaffolded, 5 Docker services healthy, 9 migrations (uuid-ossp + 8 tables), 8 Eloquent models, DatabaseSeeder, Pest smoke test GET /up passa. Decisoes: predis em vez de phpredis, QUEUE=redis, test DB PostgreSQL. Proximo: Sprint D2 (SshClient + Tradutores - critica:true Best-of-N).",
+  "contexto_rapido": "Sprint D2 (Core: SshClient + Tradutores) CONCLUIDA. SshClient com pool TTL 5min + retry 3x + payload-stdin + SCP staging via phpseclib3. JobTypeTranslator 15 verbs bidirecional. StateTranslator 5 estados upstream→canonical. Rules\\Slug regex ^[a-z0-9-]+$ max 64. ProvisionCustomerRequest. Logging channel sshclient com SshSecretsMasker. 8 testes Feature SshClient + 5+15 Unit JobTypeTranslator + 5 Unit StateTranslator + 8 Unit SlugRule. Dependencia adicionada: phpseclib/phpseclib:^3.0 (requer composer install). Proximo: Sprint D3 (Auth).",
   "autopilot": {
     "active": true,
     "sprint_range": [
@@ -157,9 +157,12 @@
       "D8"
     ],
     "started_at": "2026-05-08T15:42:10Z",
-    "completed_sprints": [],
+    "completed_sprints": [
+      "D1",
+      "D2"
+    ],
     "hard_stops": [],
-    "current_sprint": "D2",
+    "current_sprint": "D3",
     "validator_available": true
   },
   "active_automation": "pipeline",

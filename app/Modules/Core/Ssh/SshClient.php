@@ -1,0 +1,257 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Core\Ssh;
+
+use App\Models\ClusterServer;
+use App\Modules\Core\Ssh\Dto\SshResponse;
+use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
+use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
+use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
+use Illuminate\Support\Facades\Log;
+use phpseclib3\Crypt\PublicKeyLoader;
+use phpseclib3\Net\SFTP;
+
+class SshClient implements SshClientInterface
+{
+    private const MAX_PAYLOAD_STDIN_BYTES = 262144; // 256 KB
+
+    private const MAX_SCP_BYTES = 52428800;         // 50 MB
+
+    private const RETRY_DELAYS_SECONDS = [1, 2, 4];
+
+    private const CONNECTION_ERROR_PATTERNS = ['connection', 'timeout', 'refused', 'unreachable'];
+
+    public function __construct(private readonly SshConnectionPool $pool) {}
+
+    public function run(
+        ClusterServer $cluster,
+        string $cmd,
+        array $args = [],
+        ?string $payloadStdin = null,
+        int $timeoutSec = 60
+    ): SshResponse {
+        $this->validateCluster($cluster);
+        $this->validateTimeout($timeoutSec);
+        $this->validatePayloadSize($payloadStdin);
+
+        $command = $this->buildCommand($cmd, $args);
+        $lastException = null;
+
+        foreach (self::RETRY_DELAYS_SECONDS as $attempt => $delaySec) {
+            try {
+                return $this->executeCommand($cluster, $command, $payloadStdin, $timeoutSec);
+            } catch (SshConnectionException $e) {
+                $lastException = $e;
+                $this->pool->remove((string) $cluster->id);
+
+                $isLastAttempt = $attempt === count(self::RETRY_DELAYS_SECONDS) - 1;
+                if (! $isLastAttempt) {
+                    sleep($delaySec);
+                }
+            }
+            // SshRemoteException and SshTimeoutException bubble up — no retry
+        }
+
+        throw $lastException ?? new SshConnectionException(
+            "SSH execution failed after retries for cluster [{$cluster->id}]"
+        );
+    }
+
+    public function runAsync(
+        ClusterServer $cluster,
+        string $cmd,
+        array $args = [],
+        ?string $payloadStdin = null
+    ): SshResponse {
+        $asyncArgs = array_merge($args, ['--async', '--json']);
+
+        return $this->run($cluster, $cmd, $asyncArgs, $payloadStdin, timeoutSec: 5);
+    }
+
+    public function scpUpload(ClusterServer $cluster, string $localPath, string $remotePath): void
+    {
+        $this->validateCluster($cluster);
+
+        if (! file_exists($localPath)) {
+            throw new \InvalidArgumentException("Local file not found: {$localPath}");
+        }
+
+        $fileSize = filesize($localPath);
+        if ($fileSize > self::MAX_SCP_BYTES) {
+            throw new \InvalidArgumentException(
+                "File size {$fileSize} bytes exceeds 50 MB SCP cap"
+            );
+        }
+
+        try {
+            $sftp = new SFTP($cluster->ssh_host, $cluster->ssh_port ?? 22, 30);
+            $key = PublicKeyLoader::load($cluster->ssh_private_key_encrypted);
+
+            if (! $sftp->login($cluster->ssh_user ?? 'ncsaas-api', $key)) {
+                throw new SshConnectionException(
+                    "SFTP login failed for cluster [{$cluster->id}]"
+                );
+            }
+
+            if (! $sftp->put($remotePath, $localPath, SFTP::SOURCE_LOCAL_FILE)) {
+                throw new SshRemoteException(
+                    "SCP upload failed: could not write to {$remotePath}",
+                    remoteExitCode: 1,
+                );
+            }
+        } catch (SshRemoteException|SshConnectionException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new SshConnectionException(
+                "SFTP connection failed for cluster [{$cluster->id}]: {$e->getMessage()}",
+                previous: $e
+            );
+        }
+    }
+
+    private function executeCommand(
+        ClusterServer $cluster,
+        string $command,
+        ?string $payloadStdin,
+        int $timeoutSec
+    ): SshResponse {
+        $ssh = $this->pool->get($cluster);
+        $ssh->setTimeout($timeoutSec);
+
+        $stdout = $ssh->exec($command);
+
+        if ($stdout === false) {
+            $errorMsg = $ssh->getLastError() ?? 'SSH exec returned false';
+            $this->pool->remove((string) $cluster->id);
+
+            if ($this->isConnectionError($errorMsg)) {
+                throw new SshConnectionException(
+                    "SSH connection error on cluster [{$cluster->id}]: {$errorMsg}"
+                );
+            }
+
+            throw new SshConnectionException(
+                "SSH exec failed for cluster [{$cluster->id}]: {$errorMsg}"
+            );
+        }
+
+        if ($payloadStdin !== null) {
+            $ssh->write($payloadStdin);
+        }
+
+        $stderr = (string) ($ssh->getLastError() ?? '');
+        $exitCode = $ssh->getExitStatus();
+        $exitCode = ($exitCode === false) ? 0 : (int) $exitCode;
+
+        $parsedJson = $this->tryParseJson((string) $stdout);
+
+        $response = new SshResponse(
+            stdout: (string) $stdout,
+            stderr: $stderr,
+            exitCode: $exitCode,
+            parsedJson: $parsedJson,
+        );
+
+        $this->logExecution($cluster, $command, $response);
+
+        if ($exitCode !== 0) {
+            throw $this->buildRemoteException($cluster, $exitCode);
+        }
+
+        return $response;
+    }
+
+    private function buildCommand(string $cmd, array $args): string
+    {
+        if ($cmd === '') {
+            throw new \InvalidArgumentException('SSH command cannot be empty');
+        }
+
+        $parts = [escapeshellarg($cmd)];
+        foreach ($args as $arg) {
+            $parts[] = escapeshellarg((string) $arg);
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function buildRemoteException(
+        ClusterServer $cluster,
+        int $exitCode,
+    ): SshRemoteException|SshTimeoutException {
+        $message = "Remote command failed on cluster [{$cluster->id}] with exit code {$exitCode}";
+
+        return match ($exitCode) {
+            124 => new SshTimeoutException($message),
+            2 => new SshRemoteException($message, remoteExitCode: $exitCode, retryable: true),
+            3 => new SshRemoteException($message, remoteExitCode: $exitCode, idempotencyConflict: true),
+            4 => new SshRemoteException($message, remoteExitCode: $exitCode, stateConflict: true),
+            default => new SshRemoteException($message, remoteExitCode: $exitCode),
+        };
+    }
+
+    private function validateCluster(ClusterServer $cluster): void
+    {
+        if ($cluster->status !== 'active') {
+            throw new SshConnectionException(
+                "Cluster [{$cluster->id}] is not active (status: {$cluster->status})"
+            );
+        }
+    }
+
+    private function validateTimeout(int $timeoutSec): void
+    {
+        if ($timeoutSec < 1 || $timeoutSec > 300) {
+            throw new \InvalidArgumentException(
+                "Timeout must be between 1 and 300 seconds, got: {$timeoutSec}"
+            );
+        }
+    }
+
+    private function validatePayloadSize(?string $payloadStdin): void
+    {
+        if ($payloadStdin !== null && strlen($payloadStdin) > self::MAX_PAYLOAD_STDIN_BYTES) {
+            throw new \InvalidArgumentException(
+                'payloadStdin exceeds 256 KB — use scpUpload for large payloads'
+            );
+        }
+    }
+
+    private function tryParseJson(string $output): ?array
+    {
+        if ($output === '') {
+            return null;
+        }
+
+        $decoded = json_decode($output, true);
+
+        return (json_last_error() === JSON_ERROR_NONE && is_array($decoded))
+            ? $decoded
+            : null;
+    }
+
+    private function isConnectionError(string $message): bool
+    {
+        $lower = strtolower($message);
+
+        foreach (self::CONNECTION_ERROR_PATTERNS as $pattern) {
+            if (str_contains($lower, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function logExecution(ClusterServer $cluster, string $command, SshResponse $response): void
+    {
+        Log::channel('sshclient')->debug('SSH command executed', [
+            'cluster_id' => $cluster->id,
+            'host' => $cluster->ssh_host,
+            'command' => $command,
+            'exit_code' => $response->exitCode,
+        ]);
+    }
+}

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'ssh' => [
+        'driver' => env('SSH_DRIVER', 'phpseclib3'),
+        'pool_ttl_seconds' => 300,
+        'max_pool_size' => 5,
+        'connect_timeout_seconds' => 30,
+    ],
+
 ];
