@@ -1,0 +1,60 @@
+{
+  "$schema": "ci-automations-config",
+  "$description": "Configuration for CI Automation robots. Auto-installed on sessionStart for GitHub projects.",
+  "version": "1.1.0",
+  "auto_install": true,
+  "robots": {
+    "pr-security-review": {
+      "enabled": true,
+      "description": "Scan PRs for security vulnerabilities using Merlin AI",
+      "requires_secret": "ANTHROPIC_API_KEY",
+      "template": "pr-security-review.yml",
+      "workflow": ".github/workflows/beesy-pr-security-review.yml"
+    },
+    "fix-ci-failures": {
+      "enabled": true,
+      "description": "Detect CI failures on main and create issues/PRs",
+      "requires_secret": null,
+      "template": "fix-ci-failures.yml",
+      "workflow": ".github/workflows/beesy-fix-ci-failures.yml",
+      "config": {
+        "ci_workflow_name": "CI"
+      }
+    },
+    "test-coverage": {
+      "enabled": true,
+      "description": "Analyze PR diffs for missing test coverage",
+      "requires_secret": null,
+      "template": "test-coverage.yml",
+      "workflow": ".github/workflows/beesy-test-coverage.yml"
+    },
+    "daily-digest": {
+      "enabled": true,
+      "description": "Generate daily summary in docs/sistema/",
+      "requires_secret": null,
+      "template": "daily-digest.yml",
+      "workflow": ".github/workflows/beesy-daily-digest.yml",
+      "config": {
+        "schedule": "0 8 * * 1-5",
+        "timezone_note": "UTC — adjust cron in workflow for your timezone"
+      }
+    },
+    "pr-auto-assign": {
+      "enabled": true,
+      "description": "Auto-assign PR reviewers based on CODEOWNERS",
+      "requires_secret": null,
+      "template": "pr-auto-assign.yml",
+      "workflow": ".github/workflows/beesy-pr-auto-assign.yml",
+      "config": {
+        "codeowners_path": ".github/CODEOWNERS",
+        "max_reviewers": 3
+      }
+    }
+  },
+  "integration": {
+    "register_issues": true,
+    "issues_dir": "docs/sistema/ci-issues",
+    "git_gate": true,
+    "skip_label": "skip-ci-review"
+  }
+}

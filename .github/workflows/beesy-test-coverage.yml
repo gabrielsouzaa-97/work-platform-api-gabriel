@@ -1,0 +1,141 @@
+# Test Coverage Analysis — Comments on PRs about functions lacking tests
+# Uses diff analysis to identify modified files without corresponding test changes.
+# No external dependencies required.
+
+name: Test Coverage Analysis
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  coverage-check:
+    if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci-review')"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze test coverage gaps
+        id: analysis
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+
+          # Get changed source files (exclude tests, configs, docs)
+          CHANGED_SRC=$(git diff --name-only $BASE..$HEAD | \
+            grep -E '\.(ts|tsx|js|jsx|php|py)$' | \
+            grep -vE '(\.test\.|\.spec\.|__tests__|tests/|test_|\.d\.ts$|\.config\.)' || true)
+
+          # Get changed test files
+          CHANGED_TESTS=$(git diff --name-only $BASE..$HEAD | \
+            grep -E '(\.test\.|\.spec\.|__tests__|tests/)' || true)
+
+          if [ -z "$CHANGED_SRC" ]; then
+            echo "no_src_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "no_src_changes=false" >> $GITHUB_OUTPUT
+
+          UNCOVERED=""
+          for src_file in $CHANGED_SRC; do
+            base_name=$(basename "$src_file" | sed 's/\.[^.]*$//')
+            dir_name=$(dirname "$src_file")
+
+            has_test=false
+            for pattern in "${base_name}.test" "${base_name}.spec" "test_${base_name}"; do
+              if echo "$CHANGED_TESTS" | grep -q "$pattern"; then
+                has_test=true
+                break
+              fi
+            done
+
+            if ! $has_test; then
+              existing_test=$(find . -path "*/tests/*${base_name}*" -o \
+                -path "*/__tests__/*${base_name}*" -o \
+                -name "${base_name}.test.*" -o \
+                -name "${base_name}.spec.*" 2>/dev/null | head -1)
+
+              if [ -z "$existing_test" ]; then
+                UNCOVERED="${UNCOVERED}\n- \`${src_file}\` — no test file found"
+              else
+                UNCOVERED="${UNCOVERED}\n- \`${src_file}\` — test exists (\`${existing_test}\`) but was not updated"
+              fi
+            fi
+          done
+
+          if [ -n "$UNCOVERED" ]; then
+            echo "has_gaps=true" >> $GITHUB_OUTPUT
+            echo -e "$UNCOVERED" > /tmp/coverage-gaps.txt
+          else
+            echo "has_gaps=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        if: steps.analysis.outputs.has_gaps == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const gaps = fs.readFileSync('/tmp/coverage-gaps.txt', 'utf8');
+            const body = `## Test Coverage Analysis\n\nThe following modified files may need test updates:\n${gaps}\n\n> This is an automated check. If tests are not needed, add the label \`skip-ci-review\` to suppress.`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            const existing = comments.find(c => c.body.includes('## Test Coverage Analysis'));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Register CI Issue
+        if: steps.analysis.outputs.has_gaps == 'true'
+        run: |
+          mkdir -p docs/sistema/ci-issues
+          ISSUE_ID="CI-TEST-$(date +%Y%m%d%H%M%S)"
+          GAPS=$(cat /tmp/coverage-gaps.txt)
+          cat > "docs/sistema/ci-issues/${ISSUE_ID}.md" << EOF
+          ### ${ISSUE_ID} — Test coverage gaps in PR #${{ github.event.pull_request.number }}
+          - **Tipo**: CI_COVERAGE
+          - **Severidade**: MEDIUM
+          - **Status**: aberto
+          - **Origem**: ci-automation
+          - **Workflow**: test-coverage
+          - **PR**: #${{ github.event.pull_request.number }}
+          - **Reportado em**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          **Descricao**: Modified source files without corresponding test updates.
+          **Arquivos**:
+          ${GAPS}
+          **Correcao sugerida**: Add or update tests for the modified files.
+          EOF
+          git config user.name "ci-automation"
+          git config user.email "ci@beesy.dev"
+          git add docs/sistema/ci-issues/
+          git commit -m "chore: register test coverage gaps for PR #${{ github.event.pull_request.number }}" || true
+          git push || true

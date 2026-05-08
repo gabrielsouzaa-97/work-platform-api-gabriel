@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class Operator extends Authenticatable
+{
+    use HasFactory, Notifiable, SoftDeletes;
+
+    protected $table = 'operators';
+
+    protected $primaryKey = 'id';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected $fillable = [
+        'email',
+        'name',
+        'role',
+        'password_hash',
+        'status',
+        'last_login_at',
+    ];
+
+    protected $hidden = [
+        'password_hash',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'last_login_at' => 'datetime',
+            'deleted_at' => 'datetime',
+        ];
+    }
+
+    public function getAuthPasswordName(): string
+    {
+        return 'password_hash';
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class, 'actor_id');
+    }
+}

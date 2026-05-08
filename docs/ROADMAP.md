@@ -29,7 +29,7 @@
 
 | Sprint | Categoria | Gate (resumo) | Status | Tasks | Modulos | Resumo | Linhas |
 |--------|-----------|---------------|--------|-------|---------|--------|--------|
-| D1 | D | App sobe via docker-compose; migrations das 8 tabelas aplicadas; smoke /health 200 | pendente | 6 | infra, database | Foundation: scaffold Laravel + DB + smoke test | 90-220 |
+| D1 | D | App sobe via docker-compose; migrations das 8 tabelas aplicadas; smoke /health 200 | concluida | 6 | infra, database | Foundation: scaffold Laravel + DB + smoke test | 90-220 |
 | D2 | D | SshClient executa comando mockado; tradutores cobrem 15 verbs + 5 estados; slug `_` rejeitado 422 | pendente | 5 | Core | Core: SshClient + Tradutores + Slug Validator | 221-470 |
 | D3 | D | Admin convida operador → email enviado → operador define senha → loga; suporte sem opcoes de provisionar/remover | pendente | 5 | Auth | Auth: Login + cadastro de operadores (F1) | 471-680 |
 | D4 | D | Admin cria cluster_server (encrypted); rotate webhook secret aceita ambos por 24h; audit log registra acoes | pendente | 6 | ClusterServers, Audit | ClusterServers (F9) + Audit (F7 base) | 681-960 |
@@ -91,12 +91,12 @@ D1 [Scaffold + DB] ─┬─► D2 [Core: SSH + Tradutores] ─┬─► D4 [Clu
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | 1.1 — Scaffold Laravel 12 (`composer create-project`) + `.env.example` aplicado + `config/database.php` apontando para Postgres do compose | `laravel-docker` | — |
-| [ ] | P | 1.2 — Validar `docker-compose up -d` sobe os 5 services com healthchecks verdes | `laravel-docker` | 1.1 |
-| [ ] | M | 1.3 — Criar migrations das 8 tabelas conforme `docs/db-schema.dbml` | `laravel-migration` | 1.2 |
-| [ ] | P | 1.4 — Criar Models Eloquent base com casts (`encrypted` para SSH keys/webhook secrets, `array` para JSONB) | `laravel-migration` | 1.3 |
-| [ ] | P | 1.5 — Criar Seeder `DatabaseSeeder` (admin operator + 1 cluster_server fake para dev) | `laravel-migration` | 1.4 |
-| [ ] | P | 1.6 — Configurar Pest (`pest --init`) + factories minimas + smoke test `GET /health retorna 200` | `laravel-testing` | 1.4 |
+| [x] | P | 1.1 — Scaffold Laravel 12 (`composer create-project`) + `.env.example` aplicado + `config/database.php` apontando para Postgres do compose | `laravel-docker` | — |
+| [x] | P | 1.2 — Validar `docker-compose up -d` sobe os 5 services com healthchecks verdes | `laravel-docker` | 1.1 |
+| [x] | M | 1.3 — Criar migrations das 8 tabelas conforme `docs/db-schema.dbml` | `laravel-migration` | 1.2 |
+| [x] | P | 1.4 — Criar Models Eloquent base com casts (`encrypted` para SSH keys/webhook secrets, `array` para JSONB) | `laravel-migration` | 1.3 |
+| [x] | P | 1.5 — Criar Seeder `DatabaseSeeder` (admin operator + 1 cluster_server fake para dev) | `laravel-migration` | 1.4 |
+| [x] | P | 1.6 — Configurar Pest (`pest --init`) + factories minimas + smoke test `GET /health retorna 200` | `laravel-testing` | 1.4 |
 
 **Notas tecnicas (tarefas M):**
 

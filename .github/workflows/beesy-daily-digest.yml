@@ -1,0 +1,135 @@
+# Daily Digest — Generates a daily summary in docs/sistema/
+# Runs on schedule (default: 8am UTC weekdays).
+# No external dependencies. Uses GitHub API only.
+
+name: Daily Digest
+
+on:
+  schedule:
+    - cron: '0 8 * * 1-5'  # 8am UTC, Monday-Friday
+  workflow_dispatch: {}     # Manual trigger for testing
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Generate digest
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const now = new Date();
+            const yesterday = new Date(now - 86400000);
+            const dateStr = now.toISOString().split('T')[0];
+            const sinceStr = yesterday.toISOString();
+
+            let digest = `# Daily Digest — ${dateStr}\n\n`;
+            digest += `> Generated automatically by CI. Visible via \`/pmo status\` and \`/jarvis digest\`.\n\n`;
+
+            // Recent commits
+            const commits = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: sinceStr,
+              per_page: 50
+            });
+
+            digest += `## Commits (${commits.data.length})\n\n`;
+            if (commits.data.length === 0) {
+              digest += `No commits in the last 24h.\n\n`;
+            } else {
+              for (const c of commits.data.slice(0, 20)) {
+                const author = c.author?.login || c.commit.author.name;
+                const msg = c.commit.message.split('\n')[0];
+                digest += `- \`${c.sha.slice(0,7)}\` ${msg} (${author})\n`;
+              }
+              if (commits.data.length > 20) {
+                digest += `- ... and ${commits.data.length - 20} more\n`;
+              }
+              digest += `\n`;
+            }
+
+            // Open PRs
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              per_page: 20
+            });
+
+            digest += `## Open PRs (${prs.data.length})\n\n`;
+            for (const pr of prs.data) {
+              const labels = pr.labels.map(l => l.name).join(', ') || 'no labels';
+              digest += `- #${pr.number} ${pr.title} (${pr.user.login}) [${labels}]\n`;
+            }
+            digest += `\n`;
+
+            // Recently merged PRs
+            const merged = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              sort: 'updated',
+              per_page: 10
+            });
+            const recentlyMerged = merged.data.filter(pr =>
+              pr.merged_at && new Date(pr.merged_at) > yesterday
+            );
+
+            digest += `## Merged PRs (last 24h: ${recentlyMerged.length})\n\n`;
+            for (const pr of recentlyMerged) {
+              digest += `- #${pr.number} ${pr.title} (${pr.user.login})\n`;
+            }
+            digest += `\n`;
+
+            // CI Issues pending
+            const ciIssuesDir = 'docs/sistema/ci-issues';
+            let ciCount = 0;
+            if (fs.existsSync(ciIssuesDir)) {
+              ciCount = fs.readdirSync(ciIssuesDir).filter(f => f.endsWith('.md')).length;
+            }
+            digest += `## CI Issues Pending: ${ciCount}\n\n`;
+            if (ciCount > 0) {
+              digest += `Run \`/triagem\` to classify and prioritize.\n\n`;
+            }
+
+            // Open GitHub Issues
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 5,
+              sort: 'updated'
+            });
+            const realIssues = issues.data.filter(i => !i.pull_request);
+
+            digest += `## Open Issues (${realIssues.length})\n\n`;
+            for (const issue of realIssues) {
+              digest += `- #${issue.number} ${issue.title}\n`;
+            }
+
+            // Write file
+            fs.mkdirSync('docs/sistema', { recursive: true });
+            fs.writeFileSync(`docs/sistema/digest-${dateStr}.md`, digest);
+            console.log(`Digest written to docs/sistema/digest-${dateStr}.md`);
+
+      - name: Commit digest
+        run: |
+          git config user.name "ci-automation"
+          git config user.email "ci@beesy.dev"
+          git add docs/sistema/digest-*.md
+          git commit -m "docs: daily digest $(date +%Y-%m-%d)" || true
+          git push || true

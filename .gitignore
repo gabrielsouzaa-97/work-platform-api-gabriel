@@ -4,11 +4,13 @@
 /public/build
 /public/hot
 /public/storage
+/storage/framework/views/*.php
 /storage/*.key
 /storage/pail
 /vendor
 /bootstrap/cache/*.php
 .phpunit.result.cache
+/database/*.sqlite
 
 # --- Environment & secrets ---
 .env
@@ -29,6 +31,7 @@ Thumbs.db
 
 # --- Cursor session local state ---
 .cursorsession.lock
+.cursorsession.bak
 .cursor/journal-*.jsonl
 .cursor/session-state-cache.json
 

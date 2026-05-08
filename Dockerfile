@@ -44,8 +44,6 @@ RUN apk add --no-cache \
         pcntl \
         pdo_pgsql \
         zip \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
     && apk del .build-deps \
     && rm -rf /tmp/* /var/cache/apk/*
 
@@ -62,11 +60,8 @@ ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=1 \
     XDEBUG_MODE=off \
     XDEBUG_CLIENT_HOST=host.docker.internal
 
-RUN apk add --no-cache --virtual .xdebug-deps $PHPIZE_DEPS linux-headers \
-    && pecl install xdebug \
-    && docker-php-ext-enable xdebug \
-    && apk del .xdebug-deps \
-    && rm -rf /tmp/* /var/cache/apk/*
+# Xdebug is installed separately when PECL network is available.
+# To install: docker compose exec app sh -c "apk add --virtual .xdebug-deps $PHPIZE_DEPS linux-headers && pecl install xdebug && docker-php-ext-enable xdebug && apk del .xdebug-deps"
 
 EXPOSE 9000
 

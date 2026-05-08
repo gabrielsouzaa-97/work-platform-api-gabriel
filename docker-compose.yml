@@ -4,11 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+      network: host
     container_name: mework360-deployer-app
     restart: unless-stopped
     volumes:
       - .:/var/www/html
-      - vendor_data:/var/www/html/vendor
     environment:
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
@@ -121,8 +121,6 @@ volumes:
   db_data:
     driver: local
   redis_data:
-    driver: local
-  vendor_data:
     driver: local
   mailpit_data:
     driver: local

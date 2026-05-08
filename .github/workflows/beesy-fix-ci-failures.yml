@@ -1,0 +1,77 @@
+# Fix CI Failures — Detects failures on main and opens fix PRs
+# Uses Cursor CLI (if available) or creates an issue for manual fix.
+# Requires: CURSOR_API_KEY in GitHub Secrets (optional, for auto-fix).
+
+name: Fix CI Failures
+
+on:
+  workflow_run:
+    workflows: ["CI"]  # Adjust to match your CI workflow name
+    types: [completed]
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fix-failure:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+
+      - name: Extract failure logs
+        id: logs
+        run: |
+          echo "## CI Failure detected on $(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/failure-report.md
+          echo "" >> /tmp/failure-report.md
+          echo "**Workflow**: ${{ github.event.workflow_run.name }}" >> /tmp/failure-report.md
+          echo "**Branch**: ${{ github.event.workflow_run.head_branch }}" >> /tmp/failure-report.md
+          echo "**Commit**: ${{ github.event.workflow_run.head_sha }}" >> /tmp/failure-report.md
+          echo "**Run URL**: ${{ github.event.workflow_run.html_url }}" >> /tmp/failure-report.md
+
+      - name: Register CI Issue
+        run: |
+          mkdir -p docs/sistema/ci-issues
+          ISSUE_ID="CI-FAIL-$(date +%Y%m%d%H%M%S)"
+          cat > "docs/sistema/ci-issues/${ISSUE_ID}.md" << EOF
+          ### ${ISSUE_ID} — CI failure on ${{ github.event.workflow_run.head_branch }}
+          - **Tipo**: CI_FAILURE
+          - **Severidade**: HIGH
+          - **Status**: aberto
+          - **Origem**: ci-automation
+          - **Workflow**: fix-ci-failures
+          - **Reportado em**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          **Descricao**: Workflow "${{ github.event.workflow_run.name }}" failed on branch ${{ github.event.workflow_run.head_branch }}.
+          **Run URL**: ${{ github.event.workflow_run.html_url }}
+          **Commit**: ${{ github.event.workflow_run.head_sha }}
+          **Correcao sugerida**: Check the workflow run logs for details and fix the failing step.
+          EOF
+          git config user.name "ci-automation"
+          git config user.email "ci@beesy.dev"
+          git add docs/sistema/ci-issues/
+          git commit -m "chore: register CI failure on ${{ github.event.workflow_run.head_branch }}" || true
+          git push || true
+
+      - name: Create GitHub Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('/tmp/failure-report.md', 'utf8');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `CI Failure: ${context.payload.workflow_run.name} on ${context.payload.workflow_run.head_branch}`,
+              body: report,
+              labels: ['ci-failure', 'automated']
+            });

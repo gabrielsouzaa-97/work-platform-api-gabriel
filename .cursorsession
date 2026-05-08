@@ -34,13 +34,13 @@
   ],
   "fase_atual": "9",
   "fase_nome": "Planejamento tecnico concluido",
-  "sprint_atual": "D1",
+  "sprint_atual": "D2",
   "beesy_version": "4.16.17-beta",
   "decisions_applied_until": 176,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-08T00:56:11Z",
+  "ultimo_update": "2026-05-08T14:43:00Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -144,7 +144,7 @@
     "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
     "updated_at": "2026-05-07T21:05:00-03:00"
   },
-  "contexto_rapido": "Sessao criada via /jarvis CONCIERGE; PIVOT arquitetural: API e ORQUESTRADORA via SSH+webhook HMAC. Fase 9: docs/ROADMAP.md gerado (8 sprints D1-D8, 44 tasks, 19M com executor_prompt, 3 critica:true Best-of-N). Modo Pipeline escolhido (autopilot). Sprint atual: D1 (Foundation: scaffold Laravel + migrations + Pest smoke). Proximo passo: /jarvis pipeline range=D1-D8 ou /pmo sprint D1 manual.",
+  "contexto_rapido": "Sprint D1 (Foundation) CONCLUIDA. Laravel 12 scaffolded, 5 Docker services healthy, 9 migrations (uuid-ossp + 8 tables), 8 Eloquent models, DatabaseSeeder, Pest smoke test GET /up passa. Decisoes: predis em vez de phpredis, QUEUE=redis, test DB PostgreSQL. Proximo: Sprint D2 (SshClient + Tradutores - critica:true Best-of-N).",
   "autopilot": {
     "active": true,
     "sprint_range": [
@@ -158,9 +158,43 @@
       "D8"
     ],
     "started_at": "2026-05-08T13:21:01Z",
-    "completed_sprints": [],
+    "completed_sprints": [
+      "D1"
+    ],
     "hard_stops": [],
-    "current_sprint": "D1"
+    "current_sprint": "D2",
+    "validator_available": true
   },
-  "active_automation": "pipeline"
+  "active_automation": "pipeline",
+  "compact_marker": {
+    "compacted_at": "2026-05-08T13:58:09Z",
+    "usage_percent": 90.87650000000001,
+    "messages_lost": 457
+  },
+  "compact_count": 1,
+  "checkpoint": {
+    "validation_gate": {
+      "sprint": "D1",
+      "validation_round": 1,
+      "findings_found": 0,
+      "findings_registered": [],
+      "files_modified_outside_findings": 0,
+      "askquestion_shown": false,
+      "senior_review_status": "PASS",
+      "result": "COM_RESSALVAS",
+      "tests": {
+        "docker_compose_ps": "PASS (5 services healthy)",
+        "php_artisan_test": "PASS (3 tests, 3 assertions)",
+        "pint_test": "PASS (42 files)",
+        "migrate_rollback": "PASS (9 migrations rolled back)",
+        "migrate_fresh_seed": "PASS (9 migrations + seed)",
+        "coverage": "NOT_AVAILABLE (Xdebug/PCOV absent)"
+      },
+      "notes": [
+        "Validacao manual executada sobre branch sprint/D1; .cursorsession apontava D2, mas nenhum processo pipeline estava ativo e D1 permanecia sem commit por hook rtk-rewrite.sh.",
+        "review: skip no ROADMAP para D1; senior review pulado conforme regra.",
+        "Resultado COM_RESSALVAS apenas porque coverage driver nao esta disponivel; gate operacional D1 passou."
+      ]
+    }
+  }
 }

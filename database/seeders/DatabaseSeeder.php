@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Seeders;
+
+use App\Models\ClusterServer;
+use App\Models\Operator;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+class DatabaseSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $adminEmail = 'admin@mework360.local';
+
+        if (! Operator::where('email', $adminEmail)->exists()) {
+            Operator::create([
+                'id' => Str::uuid()->toString(),
+                'email' => $adminEmail,
+                'name' => 'Admin',
+                'role' => 'admin',
+                'password_hash' => Hash::make('password'),
+                'status' => 'active',
+            ]);
+        }
+
+        $devClusterName = 'dev-cluster-local';
+
+        if (! ClusterServer::where('name', $devClusterName)->exists()) {
+            ClusterServer::create([
+                'id' => Str::uuid()->toString(),
+                'name' => $devClusterName,
+                'ssh_host' => '127.0.0.1',
+                'ssh_port' => 22,
+                'ssh_user' => 'ncsaas-api',
+                'ssh_private_key_encrypted' => 'FAKE_KEY_FOR_DEV_ONLY',
+                'webhook_secret_encrypted' => 'FAKE_SECRET_FOR_DEV_ONLY',
+                'webhook_secret_version' => 1,
+                'schema_version' => 1,
+                'status' => 'active',
+            ]);
+        }
+    }
+}

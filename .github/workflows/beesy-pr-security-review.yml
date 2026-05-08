@@ -1,0 +1,59 @@
+# PR Security Review — Merlin AI (open source, MIT)
+# Scans PR diffs for security vulnerabilities and posts inline comments.
+# Requires: ANTHROPIC_API_KEY (or OPENAI_API_KEY) in GitHub Secrets.
+# Docs: https://merlin-review.com/docs/quickstart
+
+name: PR Security Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  security-review:
+    if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci-review')"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/arunachalamkalimuthu/merlin-ai-code-review:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Merlin Security Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: merlin review --focus security
+
+      - name: Register CI Issues
+        if: failure()
+        run: |
+          mkdir -p docs/sistema/ci-issues
+          ISSUE_ID="CI-SEC-$(date +%Y%m%d%H%M%S)"
+          cat > "docs/sistema/ci-issues/${ISSUE_ID}.md" << EOF
+          ### ${ISSUE_ID} — Security findings in PR #${{ github.event.pull_request.number }}
+          - **Tipo**: CI_SECURITY
+          - **Severidade**: HIGH
+          - **Status**: aberto
+          - **Origem**: ci-automation
+          - **Workflow**: pr-security-review
+          - **PR**: #${{ github.event.pull_request.number }}
+          - **Reportado em**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          **Descricao**: Merlin AI detected security issues in this PR. See inline comments on the PR for details.
+          **Correcao sugerida**: Review inline comments and address each finding.
+          EOF
+          git config user.name "ci-automation"
+          git config user.email "ci@beesy.dev"
+          git add docs/sistema/ci-issues/
+          git commit -m "chore: register CI security findings for PR #${{ github.event.pull_request.number }}" || true
+          git push || true
