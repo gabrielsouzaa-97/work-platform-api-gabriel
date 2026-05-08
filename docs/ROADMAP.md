@@ -487,11 +487,11 @@ Caller (ProvisionCustomerService)
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | 3.1 — Componente Livewire `Auth\Login` (form + sessao + rate limit + lockout 5/15min) | `laravel-livewire` | 1.4 |
-| [ ] | M | 3.2 — Componente Livewire `Operators\Index` + `Operators\Create` (admin only) + envio de email convite com signed URL expirando em 48h | `laravel-livewire` | 1.4 |
-| [ ] | P | 3.3 — Middleware `EnsureRole` (admin/operador/suporte) + Gate `manage-operators` em `AuthServiceProvider` | `laravel-livewire` | 3.1 |
-| [ ] | P | 3.4 — Componente Livewire `Auth\AcceptInvite` (recebe signed URL, valida nao-expirado, define senha) + Logout | `laravel-livewire` | 3.2 |
-| [ ] | P | 3.5 — Testes Feature: login valido/invalido, lockout 5/15min, role enforcement, convite valido/expirado, logout encerra sessao | `laravel-testing` | 3.1, 3.2, 3.3, 3.4 |
+| [x] | M | 3.1 — Componente Livewire `Auth\Login` (form + sessao + rate limit + lockout 5/15min) | `laravel-livewire` | 1.4 |
+| [x] | M | 3.2 — Componente Livewire `Operators\Index` + `Operators\Create` (admin only) + envio de email convite com signed URL expirando em 48h | `laravel-livewire` | 1.4 |
+| [x] | P | 3.3 — Middleware `EnsureRole` (admin/operador/suporte) + Gate `manage-operators` em `AuthServiceProvider` | `laravel-livewire` | 3.1 |
+| [x] | P | 3.4 — Componente Livewire `Auth\AcceptInvite` (recebe signed URL, valida nao-expirado, define senha) + Logout | `laravel-livewire` | 3.2 |
+| [x] | P | 3.5 — Testes Feature: login valido/invalido, lockout 5/15min, role enforcement, convite valido/expirado, logout encerra sessao | `laravel-testing` | 3.1, 3.2, 3.3, 3.4 |
 
 **Notas tecnicas (tarefas M):**
 

@@ -23,6 +23,7 @@ class Operator extends Authenticatable
     protected $keyType = 'string';
 
     protected $fillable = [
+        'id',
         'email',
         'name',
         'role',

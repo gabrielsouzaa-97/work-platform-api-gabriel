@@ -37,4 +37,9 @@ class OperatorFactory extends Factory
     {
         return $this->state(['status' => 'inactive']);
     }
+
+    public function pending(): static
+    {
+        return $this->state(['status' => 'pending']);
+    }
 }
