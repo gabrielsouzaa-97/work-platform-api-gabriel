@@ -9,3 +9,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-08 13:31** `afbeb6b` — chore(pipeline): checkpoint before sprint D2
 - **2026-05-08 13:33** `afbeb6b` — chore(pipeline): checkpoint before sprint D2
 - **2026-05-08 13:34** `afbeb6b` — chore(pipeline): checkpoint before sprint D2
+- **2026-05-08 13:37** `865801f` — chore(pipeline): checkpoint before sprint D3
+- **2026-05-08 13:39** `865801f` — chore(pipeline): checkpoint before sprint D3
+- **2026-05-08 13:40** `865801f` — chore(pipeline): checkpoint before sprint D3
+- **2026-05-08 13:41** `865801f` — chore(pipeline): checkpoint before sprint D3

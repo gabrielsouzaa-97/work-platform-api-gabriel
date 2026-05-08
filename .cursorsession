@@ -40,7 +40,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-08T16:34:58Z",
+  "ultimo_update": "2026-05-08T16:41:40Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -146,22 +146,9 @@
   },
   "contexto_rapido": "Sprint D2 (Core: SshClient + Tradutores) CONCLUIDA. SshClient com pool TTL 5min + retry 3x + payload-stdin + SCP staging via phpseclib3. JobTypeTranslator 15 verbs bidirecional. StateTranslator 5 estados upstream→canonical. Rules\\Slug regex ^[a-z0-9-]+$ max 64. ProvisionCustomerRequest. Logging channel sshclient com SshSecretsMasker. 8 testes Feature SshClient + 5+15 Unit JobTypeTranslator + 5 Unit StateTranslator + 8 Unit SlugRule. Dependencia adicionada: phpseclib/phpseclib:^3.0 (requer composer install). Proximo: Sprint D3 (Auth).",
   "autopilot": {
-    "active": true,
-    "sprint_range": [
-      "D3",
-      "D4",
-      "D5",
-      "D6",
-      "D7",
-      "D8"
-    ],
-    "started_at": "2026-05-08T16:36:07Z",
-    "completed_sprints": [],
-    "hard_stops": [],
-    "current_sprint": "D3",
-    "validator_available": true
+    "active": false
   },
-  "active_automation": "pipeline",
+  "active_automation": null,
   "compact_marker": {
     "compacted_at": "2026-05-08T13:58:09Z",
     "usage_percent": 90.87650000000001,
