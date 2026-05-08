@@ -148,7 +148,6 @@
   "autopilot": {
     "active": true,
     "sprint_range": [
-      "D2",
       "D3",
       "D4",
       "D5",
@@ -156,11 +155,8 @@
       "D7",
       "D8"
     ],
-    "started_at": "2026-05-08T15:42:10Z",
-    "completed_sprints": [
-      "D1",
-      "D2"
-    ],
+    "started_at": "2026-05-08T16:36:07Z",
+    "completed_sprints": [],
     "hard_stops": [],
     "current_sprint": "D3",
     "validator_available": true
