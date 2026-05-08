@@ -146,7 +146,21 @@
   },
   "contexto_rapido": "Sessao criada via /jarvis CONCIERGE; PIVOT arquitetural: API e ORQUESTRADORA via SSH+webhook HMAC. Fase 9: docs/ROADMAP.md gerado (8 sprints D1-D8, 44 tasks, 19M com executor_prompt, 3 critica:true Best-of-N). Modo Pipeline escolhido (autopilot). Sprint atual: D1 (Foundation: scaffold Laravel + migrations + Pest smoke). Proximo passo: /jarvis pipeline range=D1-D8 ou /pmo sprint D1 manual.",
   "autopilot": {
-    "active": false
+    "active": true,
+    "sprint_range": [
+      "D1",
+      "D2",
+      "D3",
+      "D4",
+      "D5",
+      "D6",
+      "D7",
+      "D8"
+    ],
+    "started_at": "2026-05-08T13:21:01Z",
+    "completed_sprints": [],
+    "hard_stops": [],
+    "current_sprint": "D1"
   },
   "active_automation": "pipeline"
 }
