@@ -18,3 +18,6 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-08 23:04** `2126d8b` — fix(auth): resolve sprint D3 validation findings
 - **2026-05-08 23:05** `2126d8b` — fix(auth): resolve sprint D3 validation findings
 - **2026-05-08 23:10** `2126d8b` — fix(auth): resolve sprint D3 validation findings
+- **2026-05-08 23:13** `0c8816f` — chore(validation): record sprint D3 revalidation
+- **2026-05-08 23:14** `0c8816f` — chore(validation): record sprint D3 revalidation
+- **2026-05-08 23:17** `0c8816f` — chore(validation): record sprint D3 revalidation

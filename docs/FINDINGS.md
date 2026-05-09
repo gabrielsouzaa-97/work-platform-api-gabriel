@@ -11,7 +11,7 @@ FINDINGS-INDEX -->
 |--------|----------|------|--------|-----|-----------|------------|-----------|
 | D1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | D2 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
-| D3 | 0 | 2 | 7 | 1 | 4 | 0 | 6 |
+| D3 | 0 | 2 | 7 | 1 | 3 | 1 | 6 |
 
 ---
 
@@ -103,11 +103,10 @@ Nenhum finding registrado para D1 na validação atual.
 
 - **Sprint**: D3
 - **Severidade**: MEDIUM
-- **Status**: Pendente
+- **Status**: Corrigido
 - **Arquivo**: `database/migrations/2026_05_08_164612_fix_sessions_user_id_uuid.php`
-- **Descrição**: A migration troca `sessions.user_id` com `dropColumn()` + recriação, perdendo o vínculo `user_id` de sessões já existentes.
-- **Ação necessária**: Antes de usar `SESSION_DRIVER=database` em ambiente com sessões reais, migrar preservando os valores quando possível ou documentar encerramento forçado de sessões durante o deploy.
-- **Impacto**: Sessões pré-migration podem não ser removidas por `deactivate()`, embora o middleware `active.operator` ainda bloqueie no próximo request.
+- **Descrição**: A migration trocava `sessions.user_id` com `dropColumn()` + recriação sem truncar a tabela primeiro, deixando sessões BIGINT "fantasmas" que `deactivate()` não conseguia remover por `user_id`.
+- **Correção**: `DB::table('sessions')->truncate()` adicionado no início do `up()` e do `down()`. BIGINT → UUID é incompatível por definição; todas as sessões existentes são invalidadas explicitamente no deploy. O `active.operator` middleware garante que qualquer sessão residual seja bloqueada no próximo request. Comentário na migration documenta o comportamento esperado.
 
 ### D3-F008 — MEDIUM — Teste de aceite não comprova autenticação final explicitamente
 
