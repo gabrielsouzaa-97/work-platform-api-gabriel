@@ -15,7 +15,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', Login::class)->name('login');
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'active.operator'])->group(function () {
     Route::post('/logout', function () {
         Auth::logout();
         session()->invalidate();
@@ -34,11 +34,15 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/admin/dashboard', function () {
         return view('admin.dashboard');
-    })->name('admin.dashboard');
+    })->middleware('can:manage-operators')->name('admin.dashboard');
 
     Route::get('/customers', function () {
         return view('customers.index');
     })->name('customers.index');
+
+    Route::get('/customers/create', function () {
+        return view('customers.create');
+    })->middleware('can:provision-customers')->name('customers.create');
 });
 
 Route::get('/operators/{operator}/accept-invite', AcceptInvite::class)

@@ -29,16 +29,20 @@ class Operator extends Authenticatable
         'role',
         'password_hash',
         'status',
+        'invite_token_hash',
+        'invite_expires_at',
         'last_login_at',
     ];
 
     protected $hidden = [
         'password_hash',
+        'invite_token_hash',
     ];
 
     protected function casts(): array
     {
         return [
+            'invite_expires_at' => 'datetime',
             'last_login_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];

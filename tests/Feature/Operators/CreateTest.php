@@ -7,6 +7,7 @@ use App\Http\Livewire\Operators\Create;
 use App\Http\Livewire\Operators\Index;
 use App\Mail\OperatorInviteMail;
 use App\Models\Operator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
@@ -51,9 +52,19 @@ it('admin creates operator and invite email is sent', function () {
         ->call('save')
         ->assertRedirect(route('operators.index'));
 
-    Mail::assertQueued(OperatorInviteMail::class, function ($mail) {
-        return $mail->hasTo('novoop@test.local');
+    Mail::assertQueued(OperatorInviteMail::class, function (OperatorInviteMail $mail) {
+        $request = Request::create($mail->signedUrl);
+
+        return $mail->hasTo('novoop@test.local')
+            && str_contains($mail->signedUrl, 'token=')
+            && URL::hasValidSignature($request);
     });
+
+    $operator = Operator::where('email', 'novoop@test.local')->firstOrFail();
+
+    expect($operator->invite_token_hash)->not->toBeNull()
+        ->and($operator->invite_expires_at)->not->toBeNull()
+        ->and($operator->invite_expires_at->diffInHours(now()))->toBeLessThanOrEqual(48);
 
     $this->assertDatabaseHas('operators', [
         'email' => 'novoop@test.local',
@@ -76,27 +87,44 @@ it('duplicate email returns validation error', function () {
 });
 
 it('accept invite with valid signed URL activates operator and logs in', function () {
-    $operator = Operator::factory()->pending()->create([
+    $token = 'valid-invite-token';
+    $operator = Operator::factory()->invited($token)->create([
         'email' => 'invite@test.local',
     ]);
 
-    Livewire::test(AcceptInvite::class, ['operator' => $operator])
+    $signedUrl = URL::temporarySignedRoute(
+        'operators.accept-invite',
+        $operator->invite_expires_at,
+        ['operator' => $operator, 'token' => $token],
+    );
+
+    $parsed = parse_url($signedUrl);
+    $path = $parsed['path'].'?'.$parsed['query'];
+
+    get($path)
+        ->assertOk()
+        ->assertSee('Ativar conta');
+
+    Livewire::withQueryParams(['token' => $token])
+        ->test(AcceptInvite::class, ['operator' => $operator])
         ->set('password', 'newstrongpassword1')
         ->set('password_confirmation', 'newstrongpassword1')
         ->call('acceptInvite')
         ->assertRedirectContains('/customers');
 
     $operator->refresh();
-    expect($operator->status)->toBe('active');
+    expect($operator->status)->toBe('active')
+        ->and($operator->invite_token_hash)->toBeNull()
+        ->and($operator->invite_expires_at)->toBeNull();
 });
 
 it('accept invite with expired signed URL returns 403', function () {
-    $operator = Operator::factory()->pending()->create();
+    $operator = Operator::factory()->invited('expired-token')->create();
 
     $expiredUrl = URL::temporarySignedRoute(
         'operators.accept-invite',
         now()->subHour(),
-        ['operator' => $operator],
+        ['operator' => $operator, 'token' => 'expired-token'],
     );
 
     $parsed = parse_url($expiredUrl);
@@ -105,13 +133,31 @@ it('accept invite with expired signed URL returns 403', function () {
     get($path)->assertForbidden();
 });
 
+it('loaded invite cannot be accepted after stored expiration passes', function () {
+    $token = 'expires-after-load';
+    $operator = Operator::factory()->invited($token)->create();
+
+    $component = Livewire::withQueryParams(['token' => $token])
+        ->test(AcceptInvite::class, ['operator' => $operator])
+        ->set('password', 'newstrongpassword1')
+        ->set('password_confirmation', 'newstrongpassword1');
+
+    $this->travel(49)->hours();
+
+    $component
+        ->call('acceptInvite')
+        ->assertHasErrors(['password']);
+
+    expect($operator->refresh()->status)->toBe('pending');
+});
+
 it('already active operator cannot use accept invite link', function () {
     $operator = Operator::factory()->create(['status' => 'active']);
 
     $signedUrl = URL::temporarySignedRoute(
         'operators.accept-invite',
         now()->addHours(48),
-        ['operator' => $operator],
+        ['operator' => $operator, 'token' => 'unused-token'],
     );
 
     $parsed = parse_url($signedUrl);
@@ -124,13 +170,19 @@ it('admin resends invite email for pending operator', function () {
     Mail::fake();
 
     $admin = Operator::factory()->admin()->create();
-    $pending = Operator::factory()->pending()->create();
+    $pending = Operator::factory()->invited('old-token')->create();
 
     Livewire::actingAs($admin)
         ->test(Index::class)
         ->call('resendInvite', $pending->id);
 
-    Mail::assertQueued(OperatorInviteMail::class, function ($mail) use ($pending) {
-        return $mail->hasTo($pending->email);
+    Mail::assertQueued(OperatorInviteMail::class, function (OperatorInviteMail $mail) use ($pending) {
+        $request = Request::create($mail->signedUrl);
+
+        return $mail->hasTo($pending->email)
+            && str_contains($mail->signedUrl, 'token=')
+            && URL::hasValidSignature($request);
     });
+
+    expect($pending->refresh()->invite_token_hash)->not->toBeNull();
 });

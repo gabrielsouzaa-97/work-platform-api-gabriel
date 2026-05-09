@@ -6,9 +6,12 @@ namespace App\Http\Livewire\Operators;
 
 use App\Mail\OperatorInviteMail;
 use App\Models\Operator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -39,10 +42,22 @@ class Index extends Component
 
         $operator = Operator::findOrFail($operatorId);
 
+        if ($operator->status !== 'pending') {
+            abort(403, 'Convite disponivel apenas para operadores pendentes.');
+        }
+
+        $plainInviteToken = Str::random(64);
+        $inviteExpiresAt = now()->addHours(48);
+
+        $operator->update([
+            'invite_token_hash' => Hash::make($plainInviteToken),
+            'invite_expires_at' => $inviteExpiresAt,
+        ]);
+
         $signedUrl = URL::temporarySignedRoute(
             'operators.accept-invite',
-            now()->addHours(48),
-            ['operator' => $operator],
+            $inviteExpiresAt,
+            ['operator' => $operator, 'token' => $plainInviteToken],
         );
 
         Mail::to($operator->email)->send(new OperatorInviteMail($operator, $signedUrl));
@@ -56,6 +71,7 @@ class Index extends Component
 
         $operator = Operator::findOrFail($operatorId);
         $operator->update(['status' => 'inactive']);
+        DB::table('sessions')->where('user_id', $operator->id)->delete();
 
         session()->flash('status', "Operador {$operator->name} desativado.");
     }

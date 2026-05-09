@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Livewire;
 
+use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 
 beforeEach(function () {
@@ -20,6 +21,13 @@ it('redirects guest to login when accessing root', function () {
 
 it('renders login page', function () {
     Livewire::test(Login::class)->assertOk();
+});
+
+it('renders login page with resolvable livewire component alias', function () {
+    get('/login')
+        ->assertOk()
+        ->assertSee('&quot;name&quot;:&quot;auth.login&quot;', false)
+        ->assertDontSee('app.http.livewire.auth.login');
 });
 
 it('admin can login and is redirected to admin dashboard', function () {
@@ -50,6 +58,41 @@ it('suporte can login and is redirected to customers', function () {
         ->set('password', 'securepassword123')
         ->call('login')
         ->assertRedirect('/customers');
+});
+
+it('admin dashboard is forbidden for non admin operators', function () {
+    $support = Operator::factory()->create([
+        'role' => 'suporte',
+        'status' => 'active',
+    ]);
+
+    actingAs($support)
+        ->get(route('admin.dashboard'))
+        ->assertForbidden();
+});
+
+it('customers create route is forbidden for suporte', function () {
+    $support = Operator::factory()->create([
+        'role' => 'suporte',
+        'status' => 'active',
+    ]);
+
+    actingAs($support)
+        ->get(route('customers.create'))
+        ->assertForbidden();
+});
+
+it('inactive authenticated operator is logged out and blocked', function () {
+    $operator = Operator::factory()->create([
+        'role' => 'operador',
+        'status' => 'inactive',
+    ]);
+
+    actingAs($operator)
+        ->get(route('customers.index'))
+        ->assertForbidden();
+
+    $this->assertGuest();
 });
 
 it('shows generic error for wrong password', function () {

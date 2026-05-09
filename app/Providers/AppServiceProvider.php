@@ -31,7 +31,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Gate::define('manage-operators', fn (Operator $user) => $user->role === 'admin');
-        Gate::define('manage-cluster-servers', fn (Operator $user) => $user->role === 'admin');
+        Gate::define('manage-operators', fn (Operator $user) => $user->status === 'active' && $user->role === 'admin');
+        Gate::define('manage-cluster-servers', fn (Operator $user) => $user->status === 'active' && $user->role === 'admin');
+        Gate::define('provision-customers', fn (Operator $user) => $user->status === 'active'
+            && in_array($user->role, ['admin', 'operador'], true));
     }
 }

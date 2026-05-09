@@ -42,4 +42,12 @@ class OperatorFactory extends Factory
     {
         return $this->state(['status' => 'pending']);
     }
+
+    public function invited(string $token = 'valid-invite-token'): static
+    {
+        return $this->pending()->state([
+            'invite_token_hash' => Hash::make($token),
+            'invite_expires_at' => now()->addHours(48),
+        ]);
+    }
 }

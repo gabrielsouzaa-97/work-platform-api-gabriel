@@ -40,7 +40,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-08T17:40:00Z",
+  "ultimo_update": "2026-05-09T02:02:34Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -144,7 +144,7 @@
     "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
     "updated_at": "2026-05-07T21:05:00-03:00"
   },
-  "contexto_rapido": "Sprint D3 (Auth: Login + Operadores) CONCLUIDA. Livewire 3 instalado. Auth\\Login com RateLimiter 5/15min + redirect role-aware. Middleware EnsureRole + Gates manage-operators/manage-cluster-servers. Operators\\Index+Create com email convite signed URL 48h (ShouldQueue). Auth\\AcceptInvite com status=pending guard + signed middleware na rota. config/auth.php aponta para Operator model (hardcoded). 9 testes Feature Auth + 9 testes Feature Operators. 82 total, 0 failing. Pint clean. Proximo: Sprint D4 (ClusterServers + Audit). Upgrade Beesy aplicado: 4.16.17-beta -> 4.16.18-beta; decisions_applied_until 176 -> 178 (#177 validation loop incremental, #178 installer db-migrate.py). Sem mudancas de codigo no projeto.",
+  "contexto_rapido": "Sprint D3 (Auth: Login + Operadores) implementada e findings D3-F001..D3-F006 corrigidos. Convites usam token persistido com hash + expiracao 48h e consumo transacional; submit revalida token/TTL. Middleware active.operator bloqueia operador inativo e gates exigem status active. /admin/dashboard admin-only; /customers/create sentinela bloqueia suporte. Sessions user_id corrigido por migration incremental UUID. Testes: docker compose exec app php artisan test PASS (87 tests, 140 assertions); Pint PASS (74 files). Proximo: revalidar D3 senior+qa e, se aprovado, retomar D4.",
   "autopilot": {
     "active": false
   },
@@ -157,26 +157,33 @@
   "compact_count": 1,
   "checkpoint": {
     "validation_gate": {
-      "sprint": "D1",
+      "sprint": "D3",
       "validation_round": 1,
-      "findings_found": 0,
-      "findings_registered": [],
+      "findings_found": 6,
+      "findings_registered": [
+        "D3-F001",
+        "D3-F002",
+        "D3-F003",
+        "D3-F004",
+        "D3-F005",
+        "D3-F006"
+      ],
       "files_modified_outside_findings": 0,
       "askquestion_shown": false,
-      "senior_review_status": "PASS",
-      "result": "COM_RESSALVAS",
+      "senior_review_status": "COM_RESSALVAS",
+      "qa_review_status": "COM_RESSALVAS",
+      "result": "CORRIGIDO_PENDENTE_REVALIDACAO",
       "tests": {
         "docker_compose_ps": "PASS (5 services healthy)",
-        "php_artisan_test": "PASS (3 tests, 3 assertions)",
-        "pint_test": "PASS (42 files)",
-        "migrate_rollback": "PASS (9 migrations rolled back)",
-        "migrate_fresh_seed": "PASS (9 migrations + seed)",
-        "coverage": "NOT_AVAILABLE (Xdebug/PCOV absent)"
+        "docker_compose_exec_app_php_artisan_test": "PASS (87 tests, 140 assertions)",
+        "pint_test": "PASS (74 files)",
+        "local_php_artisan_test": "ENV_FAIL (pdo_pgsql missing in host PHP)",
+        "coverage": "NOT_AVAILABLE (Xdebug/PCOV not run)"
       },
       "notes": [
-        "Validacao manual executada sobre branch sprint/D1; .cursorsession apontava D2, mas nenhum processo pipeline estava ativo e D1 permanecia sem commit por hook rtk-rewrite.sh.",
-        "review: skip no ROADMAP para D1; senior review pulado conforme regra.",
-        "Resultado COM_RESSALVAS apenas porque coverage driver nao esta disponivel; gate operacional D1 passou."
+        "Validacao D3 executada sobre branch sprint/D3; .cursorsession aponta D4 como proximo sprint.",
+        "Findings D3-F001..D3-F006 corrigidos no codigo e marcados como Corrigido em docs/FINDINGS.md.",
+        "Retomar D4/pipeline somente apos revalidacao senior+qa da D3."
       ]
     }
   }

@@ -7,6 +7,7 @@ namespace App\Http\Livewire\Operators;
 use App\Mail\OperatorInviteMail;
 use App\Models\Operator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -34,6 +35,9 @@ class Create extends Component
         Gate::authorize('manage-operators');
         $this->validate();
 
+        $plainInviteToken = Str::random(64);
+        $inviteExpiresAt = now()->addHours(48);
+
         $operator = Operator::create([
             'id' => Str::uuid()->toString(),
             'email' => $this->email,
@@ -41,12 +45,14 @@ class Create extends Component
             'role' => $this->role,
             'status' => 'pending',
             'password_hash' => bcrypt(Str::random(64)),
+            'invite_token_hash' => Hash::make($plainInviteToken),
+            'invite_expires_at' => $inviteExpiresAt,
         ]);
 
         $signedUrl = URL::temporarySignedRoute(
             'operators.accept-invite',
-            now()->addHours(48),
-            ['operator' => $operator],
+            $inviteExpiresAt,
+            ['operator' => $operator, 'token' => $plainInviteToken],
         );
 
         Mail::to($operator->email)->send(new OperatorInviteMail($operator, $signedUrl));
