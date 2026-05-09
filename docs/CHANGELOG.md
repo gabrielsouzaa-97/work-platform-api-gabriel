@@ -15,3 +15,6 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-08 16:20** `d07fd61` — chore: apply Beesy framework metadata upgrade
 - **2026-05-08 16:29** `d07fd61` — chore: apply Beesy framework metadata upgrade
 - **2026-05-08 23:02** `d07fd61` — chore: apply Beesy framework metadata upgrade
+- **2026-05-08 23:04** `2126d8b` — fix(auth): resolve sprint D3 validation findings
+- **2026-05-08 23:05** `2126d8b` — fix(auth): resolve sprint D3 validation findings
+- **2026-05-08 23:10** `2126d8b` — fix(auth): resolve sprint D3 validation findings
