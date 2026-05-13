@@ -1,6 +1,7 @@
 <!-- FINDINGS-INDEX
 FINDINGS-INDEX -->
 
+
 # Findings — mework360-deployer
 
 > Fonte de verdade para findings de QA, auditoria e validação.
@@ -10,8 +11,9 @@ FINDINGS-INDEX -->
 | Sprint | CRITICAL | HIGH | MEDIUM | LOW | Pendentes | Corrigidos | Validados |
 |--------|----------|------|--------|-----|-----------|------------|-----------|
 | D1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| D2 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
-| D3 | 0 | 2 | 7 | 1 | 3 | 1 | 6 |
+| D2 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
+| D3 | 0 | 2 | 7 | 1 | 1 | 3 | 6 |
+| D4 | 0 | 1 | 2 | 1 | 4 | 1 | 0 |
 
 ---
 
@@ -112,11 +114,10 @@ Nenhum finding registrado para D1 na validação atual.
 
 - **Sprint**: D3
 - **Severidade**: MEDIUM
-- **Status**: Pendente
+- **Status**: Corrigido
 - **Arquivo**: `tests/Feature/Operators/CreateTest.php`
-- **Descrição**: O teste valida ativação e redirect após senha, mas não usa `assertAuthenticatedAs` para comprovar sessão autenticada com o operador aceito.
-- **Ação necessária**: Adicionar asserção explícita de autenticação no fluxo de aceite do convite.
-- **Impacto**: Uma regressão que ativa a conta e redireciona sem login real pode passar despercebida.
+- **Descrição**: O teste validava ativação e redirect após senha, mas não usava `assertAuthenticatedAs` para comprovar sessão autenticada com o operador aceito.
+- **Correção**: `$this->assertAuthenticatedAs($operator)` adicionado ao final do teste "accept invite with valid signed URL activates operator and logs in", garantindo que a sessão está autenticada com o operador recém-ativado.
 
 ### D3-F009 — MEDIUM — Sentinela de autorização não cobre remoção de customers
 
@@ -132,8 +133,92 @@ Nenhum finding registrado para D1 na validação atual.
 
 - **Sprint**: D3
 - **Severidade**: LOW
-- **Status**: Pendente
+- **Status**: Corrigido
 - **Arquivo**: `tests/Feature/Operators/CreateTest.php`
-- **Descrição**: A suíte valida `signedUrl` no mailable, mas não renderiza o HTML para garantir que o link aparece no corpo entregue.
-- **Ação necessária**: Renderizar o mailable em teste e verificar presença da URL no HTML.
-- **Impacto**: Uma quebra no template de email pode ocultar o link mesmo com o mailable contendo a URL correta.
+- **Descrição**: A suíte validava `signedUrl` no mailable, mas não renderizava o HTML para garantir que o link aparece no corpo entregue.
+- **Correção**: Novo teste "invite email HTML contains the signed URL in the rendered body" usa `$mailable->render()` para renderizar o HTML e verifica presença da `$signedUrl`, do texto "Ativar minha conta" e do nome do operador — protegendo contra quebras no template `emails/operator-invite.blade.php`.
+
+---
+
+### D4-F001 — HIGH — SshClient::executeCommand — payloadStdin escrito após exec() retornar (latente F3)
+
+- **Sprint**: D4
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Corrigido
+- **Arquivo**: `app/Modules/Core/Ssh/SshClient.php` (método `executeCommand`)
+- **Descrição**: `$ssh->exec($command)` bloqueia até o comando remoto concluir. Somente após retornar é que `$ssh->write($payloadStdin)` era chamado — quando o canal já estava fechado. O `payloadStdin` nunca chegava ao processo remoto.
+- **Correção**: Adicionado método privado `pipeStdin()` que constrói `printf %s <payload_escapado> | <comando>`. Em `executeCommand()`, quando `$payloadStdin !== null`, o piping é feito ANTES de `exec()`. O `logExecution()` continua recebendo o comando limpo (sem payload) para não vazar segredos nos logs. Removido `$ssh->write()` — nunca mais chamado. Dois novos testes adicionados em `SshClientTest.php`: verificação de que o payload aparece no comando passado ao `exec()` e de que `write()` não é invocado (`shouldNotReceive`).
+
+---
+
+### D4-F002 — MEDIUM — Teste D3-F010 falha — asserção verifica URL não-escapada vs HTML com `&amp;`
+
+- **Sprint**: D4
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/Operators/CreateTest.php` (linha 208), `resources/views/emails/operator-invite.blade.php`
+- **Descrição**: O teste adicionado pelo D3-F010 chama `->toContain($signedUrl)` onde `$signedUrl` contém `&` entre query params. O template usa `{{ $signedUrl }}` (Blade HTML-escaping), que persiste `&amp;` no HTML renderizado. O teste falha porque procura `&token=` mas encontra `&amp;token=`. O email funciona corretamente em clientes de email (que decodificam `&amp;` → `&`), confirmado em Fase 2 via Mailpit — o link "Ativar minha conta" abre a página correta.
+- **Impacto**: Suite CI falha em 1 teste (D3-F010 closure), gerando falso positivo.
+- **Ação necessária**: Corrigir a asserção no teste para `->toContain(e($signedUrl))` ou `->toContain(htmlspecialchars($signedUrl, ENT_QUOTES))`. O template está correto — `{{ }}` com HTML-escaping é o comportamento esperado do Blade.
+
+**Cenários mínimos sugeridos:**
+- [ ] Happy path: HTML renderizado contém `htmlspecialchars($signedUrl)` (URL com `&amp;`)
+- [ ] Edge case: URL sem parâmetros extras (sem `&`) → `{{ $signedUrl }}` == `{!! $signedUrl !!}` → teste passa em ambos os casos
+
+---
+
+### D4-F003 — HIGH — 8 testes Feature/ClusterServers/StoreTest falham (D4.1 não implementado)
+
+- **Sprint**: D4
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/ClusterServers/StoreTest.php`, `routes/web.php`
+- **Descrição**: Os testes da Sprint D4 foram escritos em TDD (correto) mas as implementações não existem ainda: rota `cluster-servers.index` não registrada, Livewire components `ClusterServers\{Index,Create,Edit}` ausentes. Gate da Sprint D4 exige que todos esses testes passem. Erros: `RouteNotFoundException` e `ComponentNotFoundException`.
+- **Impacto**: Gate da D4 bloqueado. 8/9 falhas na suíte (9 total na suite, 8 neste arquivo).
+- **Ação necessária**: Implementar D4.1 (CRUD Livewire ClusterServers + rotas). Ver mini design doc no ROADMAP.md seção "4.1 — Module ClusterServers CRUD".
+
+**Cenários pendentes (budget 8 testes, todos failing):**
+- [ ] admin acessa index e vê clusters listados
+- [ ] operador comum recebe 403 em GET /cluster-servers
+- [ ] admin cria cluster_server com PEM válido → redireciona e persiste no DB
+- [ ] PEM inválido retorna erro de validação
+- [ ] operador comum não consegue salvar via Livewire (gate bloqueia)
+- [ ] admin edita nome do cluster_server → persiste no DB
+- [ ] ClusterServer listado em Index tem botões de ação (Test, Rotate, Edit)
+- [ ] webhook_secret_encrypted é gerado server-side na criação
+
+---
+
+### D4-F004 — MEDIUM — No docker-compose dev, nenhum queue worker em execução → convites não enviados automaticamente
+
+- **Sprint**: D4
+- **Severidade**: MEDIUM
+- **Tipo**: environment
+- **Status**: Pendente
+- **URL**: http://localhost:8080/operators/create
+- **Ação**: Admin cria operador → clica "Enviar convite"
+- **Esperado**: Email de convite entregue ao Mailpit automaticamente em poucos segundos
+- **Obtido**: Email fica na fila Redis sem processamento. Mailpit mostra "No messages". Requer execução manual de `php artisan queue:work --once` para processar.
+- **Arquivo**: `docker-compose.yml`, `app/Mail/OperatorInviteMail.php`
+- **Descrição**: `OperatorInviteMail` implementa `ShouldQueue`. O `docker-compose.yml` define `QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}` como padrão, mas o ambiente em execução usa `QUEUE_CONNECTION=redis` (provavelmente via `.env`). Não há serviço `worker` no docker-compose que processe a fila automaticamente.
+- **Ação necessária**: Adicionar serviço `worker` ao `docker-compose.yml` (`php artisan queue:work --tries=3`) ou mudar `QUEUE_CONNECTION` para `sync` no `.env.example` para desenvolvimento.
+
+---
+
+### D4-F005 — LOW — Mensagens de validação e páginas de erro em inglês (app em pt-BR)
+
+- **Sprint**: D4
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Status**: Pendente
+- **URL**: http://localhost:8080/operators/create, http://localhost:8080/operators
+- **Ação**: Submeter formulário vazio; acessar rota protegida sem permissão
+- **Esperado**: Mensagens em pt-BR ("O campo nome é obrigatório.", "Ação não autorizada.")
+- **Obtido**: Inglês — "The name field is required.", "This action is unauthorized."
+- **Arquivo**: `config/app.php` (locale), `resources/lang/` (não existe)
+- **Descrição**: Laravel usa locale `en` por padrão. As mensagens de validação e erros HTTP aparecem em inglês apesar do sistema ser pt-BR. Arquivos de lang pt-BR não foram publicados (`php artisan lang:publish` não executado).
+- **Ação necessária**: Executar `composer require laravel-lang/lang` (ou `php artisan lang:publish`) e definir `'locale' => 'pt_BR'` em `config/app.php`.
+

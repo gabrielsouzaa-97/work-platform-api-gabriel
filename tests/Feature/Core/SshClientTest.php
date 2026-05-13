@@ -32,7 +32,6 @@ function makeSshMock(string $stdout, string $stderr, int $exitCode): MockInterfa
     $ssh->allows('exec')->andReturn($stdout);
     $ssh->allows('getLastError')->andReturn($stderr ?: null);
     $ssh->allows('getExitStatus')->andReturn($exitCode);
-    $ssh->allows('write');
 
     return $ssh;
 }
@@ -106,7 +105,6 @@ it('retries on connection failure and succeeds on second attempt', function (): 
         $ssh->allows('setTimeout');
         $ssh->allows('getLastError')->andReturn($callCount === 1 ? 'Connection refused' : null);
         $ssh->allows('getExitStatus')->andReturn(0);
-        $ssh->allows('write');
 
         if ($callCount === 1) {
             $ssh->allows('exec')->andReturn(false);
@@ -185,4 +183,53 @@ it('throws SshRemoteException with stateConflict flag for exit code 4', function
         expect($e->stateConflict)->toBeTrue()
             ->and($e->remoteExitCode)->toBe(4);
     }
+});
+
+it('payloadStdin is piped into exec command — not written after exec', function (): void {
+    $capturedCmd = null;
+
+    $ssh = Mockery::mock(SSH2::class);
+    $ssh->allows('setTimeout');
+    $ssh->allows('exec')->andReturnUsing(function (string $cmd) use (&$capturedCmd): string {
+        $capturedCmd = $cmd;
+
+        return '{"job_id":"x"}';
+    });
+    $ssh->allows('getLastError')->andReturn(null);
+    $ssh->allows('getExitStatus')->andReturn(0);
+    $ssh->shouldNotReceive('write');
+
+    $client = makeSshClient($ssh);
+    $cluster = makeActiveCluster();
+    $payload = '{"slug":"my-customer","domain":"nc.example.com"}';
+
+    $client->run($cluster, 'manage.sh', ['create', '--async', '--json'], $payload);
+
+    expect($capturedCmd)
+        ->toContain('printf %s')
+        ->toContain(escapeshellarg($payload))
+        ->toContain("'manage.sh'");
+});
+
+it('payloadStdin null does not add printf pipe to exec command', function (): void {
+    $capturedCmd = null;
+
+    $ssh = Mockery::mock(SSH2::class);
+    $ssh->allows('setTimeout');
+    $ssh->allows('exec')->andReturnUsing(function (string $cmd) use (&$capturedCmd): string {
+        $capturedCmd = $cmd;
+
+        return '';
+    });
+    $ssh->allows('getLastError')->andReturn(null);
+    $ssh->allows('getExitStatus')->andReturn(0);
+
+    $client = makeSshClient($ssh);
+    $cluster = makeActiveCluster();
+
+    $client->run($cluster, 'manage.sh', ['list', '--json']);
+
+    expect($capturedCmd)
+        ->not->toContain('printf')
+        ->toContain("'manage.sh'");
 });

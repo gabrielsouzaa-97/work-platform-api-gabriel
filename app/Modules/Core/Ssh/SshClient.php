@@ -89,7 +89,7 @@ class SshClient implements SshClientInterface
             $sftp = new SFTP($cluster->ssh_host, $cluster->ssh_port ?? 22, 30);
             $key = PublicKeyLoader::load($cluster->ssh_private_key_encrypted);
 
-            if (! $sftp->login($cluster->ssh_user ?? 'ncsaas-api', $key)) {
+            if (! $sftp->login($cluster->ssh_user ?? 'root', $key)) {
                 throw new SshConnectionException(
                     "SFTP login failed for cluster [{$cluster->id}]"
                 );
@@ -120,7 +120,13 @@ class SshClient implements SshClientInterface
         $ssh = $this->pool->get($cluster);
         $ssh->setTimeout($timeoutSec);
 
-        $stdout = $ssh->exec($command);
+        // Pipe stdin BEFORE exec — phpseclib3 SSH2::exec() is blocking; write() after
+        // exec() writes to a closed channel and the payload never reaches the process.
+        $execCommand = $payloadStdin !== null
+            ? $this->pipeStdin($command, $payloadStdin)
+            : $command;
+
+        $stdout = $ssh->exec($execCommand);
 
         if ($stdout === false) {
             $errorMsg = $ssh->getLastError() ?? 'SSH exec returned false';
@@ -137,10 +143,6 @@ class SshClient implements SshClientInterface
             );
         }
 
-        if ($payloadStdin !== null) {
-            $ssh->write($payloadStdin);
-        }
-
         $stderr = (string) ($ssh->getLastError() ?? '');
         $exitCode = $ssh->getExitStatus();
         $exitCode = ($exitCode === false) ? 0 : (int) $exitCode;
@@ -154,6 +156,7 @@ class SshClient implements SshClientInterface
             parsedJson: $parsedJson,
         );
 
+        // Log the clean command (without stdin payload) to avoid leaking secrets.
         $this->logExecution($cluster, $command, $response);
 
         if ($exitCode !== 0) {
@@ -161,6 +164,18 @@ class SshClient implements SshClientInterface
         }
 
         return $response;
+    }
+
+    /**
+     * Prepend a printf-pipe to deliver $payload via stdin to the remote command.
+     *
+     * `printf %s` is used instead of `echo` because it does not append a newline
+     * and does not interpret backslash sequences, making it safe for arbitrary
+     * byte content (base64, JSON) up to 256 KB.
+     */
+    private function pipeStdin(string $command, string $payload): string
+    {
+        return 'printf %s '.escapeshellarg($payload).' | '.$command;
     }
 
     private function buildCommand(string $cmd, array $args): string
@@ -188,6 +203,8 @@ class SshClient implements SshClientInterface
             2 => new SshRemoteException($message, remoteExitCode: $exitCode, retryable: true),
             3 => new SshRemoteException($message, remoteExitCode: $exitCode, idempotencyConflict: true),
             4 => new SshRemoteException($message, remoteExitCode: $exitCode, stateConflict: true),
+            5 => new SshRemoteException($message, remoteExitCode: $exitCode, validationFailed: true),
+            99 => new SshRemoteException($message, remoteExitCode: $exitCode, notImplemented: true),
             default => new SshRemoteException($message, remoteExitCode: $exitCode),
         };
     }
