@@ -1151,8 +1151,8 @@ Admin click "Rotate"
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
 | [x] | M | 5.1 — Webhook receiver `POST /api/jobs/hook` com middleware `VerifyWebhookHmac` (assinatura + IP whitelist + replay 1h + multi-secret grace) | `laravel-api` | 4.3, 2.3 `critica: true` |
-| [ ] | M | 5.2 — Endpoint `GET /queue` + Livewire `Jobs\Index` (paginacao, filtros state/job_type/customer, deep-link) | `laravel-api` | 1.4 |
-| [ ] | P | 5.3 — Endpoints REST `GET /queue/stats` (counts por state) + `GET /queue/{id}` (detalhes do job) | `laravel-api` | 5.2 |
+| [x] | M | 5.2 — Endpoint `GET /queue` + Livewire `Jobs\Index` (paginacao, filtros state/job_type/customer, deep-link) | `laravel-api` | 1.4 |
+| [x] | P | 5.3 — Endpoints REST `GET /queue/stats` (counts por state) + `GET /queue/{id}` (detalhes do job) | `laravel-api` | 5.2 |
 | [ ] | P | 5.4 — Cancel job: action `CancelJobAction` chama `nextcloud-manage job <id> cancel --json` via SshClient | `laravel-api` | 5.2, 2.1 |
 | [ ] | P | 5.5 — Testes Feature webhook (HMAC valido/invalido, replay, multi-secret) + queue endpoints + cancel | `laravel-testing` | 5.1-5.4 |
 

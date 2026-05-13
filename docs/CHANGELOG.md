@@ -41,3 +41,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-13 15:06** `5fdc2ca` — fix(sprint-D4): inline fixes D4-F006 (grace timestamp) e D4-F007 (whereNotNull redundante)
 - **2026-05-13 15:11** `5fdc2ca` — fix(sprint-D4): inline fixes D4-F006 (grace timestamp) e D4-F007 (whereNotNull redundante)
 - **2026-05-13 15:57** `5fdc2ca` — fix(sprint-D4): inline fixes D4-F006 (grace timestamp) e D4-F007 (whereNotNull redundante)
+- **2026-05-13 16:25** `eb6c223` — feat(sprint-D5): task 5.1 — Webhook receiver POST /api/jobs/hook

@@ -40,7 +40,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-13T18:57:06Z",
+  "ultimo_update": "2026-05-13T19:25:39Z",
   "modulos": [
     "Core",
     "ClusterServers",

@@ -49,6 +49,7 @@
         <span class="brand">meWork360</span>
         <div class="nav">
             <a href="{{ route('customers.index') }}">Customers</a>
+            <a href="{{ route('queue.index') }}">Fila</a>
             @can('manage-cluster-servers')
                 <a href="{{ route('cluster-servers.index') }}">Clusters</a>
             @endcan
