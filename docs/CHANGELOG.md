@@ -21,3 +21,15 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-08 23:13** `0c8816f` — chore(validation): record sprint D3 revalidation
 - **2026-05-08 23:14** `0c8816f` — chore(validation): record sprint D3 revalidation
 - **2026-05-08 23:17** `0c8816f` — chore(validation): record sprint D3 revalidation
+- **2026-05-08 23:27** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-08 23:44** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-08 23:45** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-13 01:15** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-13 01:26** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-13 01:28** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-13 01:40** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-13 09:01** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-13 09:43** `6dfdf20` — update: modify last update timestamp in cursor session
+- **2026-05-13 09:53** `2acd3d2` — fix(ssh): pipe payloadStdin via printf before exec — resolves D4-F001
+- **2026-05-13 11:05** `2acd3d2` — fix(ssh): pipe payloadStdin via printf before exec — resolves D4-F001
+- **2026-05-13 11:09** `2acd3d2` — fix(ssh): pipe payloadStdin via printf before exec — resolves D4-F001

@@ -2,6 +2,9 @@
 
 use App\Http\Livewire\Auth\AcceptInvite;
 use App\Http\Livewire\Auth\Login;
+use App\Http\Livewire\ClusterServers\Create as ClusterCreate;
+use App\Http\Livewire\ClusterServers\Edit as ClusterEdit;
+use App\Http\Livewire\ClusterServers\Index as ClusterIndex;
 use App\Http\Livewire\Operators\Create;
 use App\Http\Livewire\Operators\Index;
 use Illuminate\Support\Facades\Auth;
@@ -35,6 +38,15 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
     Route::get('/admin/dashboard', function () {
         return view('admin.dashboard');
     })->middleware('can:manage-operators')->name('admin.dashboard');
+
+    Route::middleware('can:manage-cluster-servers')->group(function () {
+        Route::get('/cluster-servers', ClusterIndex::class)->name('cluster-servers.index');
+        Route::get('/cluster-servers/create', ClusterCreate::class)->name('cluster-servers.create');
+        Route::get('/cluster-servers/{clusterServer}/edit', ClusterEdit::class)->name('cluster-servers.edit');
+        Route::get('/cluster-servers/{clusterServer}/rotate', function () {
+            return redirect()->route('cluster-servers.index');
+        })->name('cluster-servers.rotate');
+    });
 
     Route::get('/customers', function () {
         return view('customers.index');

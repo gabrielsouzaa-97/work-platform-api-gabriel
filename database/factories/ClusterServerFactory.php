@@ -22,7 +22,7 @@ class ClusterServerFactory extends Factory
             'name' => fake()->unique()->word().'-cluster',
             'ssh_host' => fake()->ipv4(),
             'ssh_port' => 22,
-            'ssh_user' => 'ncsaas-api',
+            'ssh_user' => 'root',
             'ssh_private_key_encrypted' => 'FAKE_KEY_'.Str::random(8),
             'webhook_secret_encrypted' => 'FAKE_SECRET_'.Str::random(16),
             'webhook_secret_version' => 1,

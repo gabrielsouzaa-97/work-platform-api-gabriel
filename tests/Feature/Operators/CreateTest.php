@@ -116,6 +116,8 @@ it('accept invite with valid signed URL activates operator and logs in', functio
     expect($operator->status)->toBe('active')
         ->and($operator->invite_token_hash)->toBeNull()
         ->and($operator->invite_expires_at)->toBeNull();
+
+    $this->assertAuthenticatedAs($operator);
 });
 
 it('accept invite with expired signed URL returns 403', function () {
@@ -185,4 +187,25 @@ it('admin resends invite email for pending operator', function () {
     });
 
     expect($pending->refresh()->invite_token_hash)->not->toBeNull();
+});
+
+it('invite email HTML contains the signed URL in the rendered body', function () {
+    $operator = Operator::factory()->invited('render-test-token')->create([
+        'email' => 'rendertest@test.local',
+        'name' => 'Render Test',
+    ]);
+
+    $signedUrl = URL::temporarySignedRoute(
+        'operators.accept-invite',
+        $operator->invite_expires_at,
+        ['operator' => $operator, 'token' => 'render-test-token'],
+    );
+
+    $mailable = new OperatorInviteMail($operator, $signedUrl);
+    $html = $mailable->render();
+
+    expect($html)
+        ->toContain(e($signedUrl))
+        ->toContain('Ativar minha conta')
+        ->toContain($operator->name);
 });

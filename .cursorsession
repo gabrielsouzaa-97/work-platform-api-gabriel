@@ -40,7 +40,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-09T02:17:57Z",
+  "ultimo_update": "2026-05-13T14:09:21Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -144,7 +144,7 @@
     "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
     "updated_at": "2026-05-07T21:05:00-03:00"
   },
-  "contexto_rapido": "Sprint D3 (Auth: Login + Operadores) VALIDADA COM RESSALVAS. Findings D3-F001..D3-F006 validados; sem HIGH/CRITICAL pendente. Ressalvas novas registradas D3-F007..D3-F010 (3 MEDIUM + 1 LOW), principalmente hardening de migration sessions.user_id e lacunas de teste/sentinela para D6. Testes: docker compose exec app php artisan test PASS (87 tests, 140 assertions); Pint PASS (74 files). Proximo: pode retomar D4, mantendo ressalvas como follow-up antes/de inicio da D6.",
+  "contexto_rapido": "Sprint D4 em andamento (checkpoint: prerequisites). D3 concluida com ressalvas (D3-F007/F008/F010 fechados nesta sessao; D3-F009 deferido para D6). ANALISE SSH API Reference (2026-05-13): 9 erratas aplicadas — StateTranslator corrigido (upstream usa queued/failed/cancelled nao pending/error/aborted); SSH user fallback corrigido para root; exit codes 5/99 mapeados no SshClient; ROADMAP D5-D7 atualizado com nextcloud-manage + domain posicional + --force em remove + list text parsing + occ-exec namespace syntax. Ver secao Errata no ROADMAP.md.",
   "autopilot": {
     "active": false
   },
@@ -156,36 +156,37 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "validation_gate": {
-      "sprint": "D3",
-      "validation_round": 1,
-      "findings_found": 6,
-      "findings_registered": [
-        "D3-F001",
-        "D3-F002",
-        "D3-F003",
-        "D3-F004",
-        "D3-F005",
-        "D3-F006"
+    "sprint": "D4",
+    "phase": "prerequisites",
+    "branch": "sprint/D4",
+    "relevant_paths": [
+      "app/Http/Livewire/ClusterServers/",
+      "app/Http/Requests/",
+      "app/Models/ClusterServer.php",
+      "app/Models/WebhookSecretHistory.php",
+      "app/Models/AuditLog.php",
+      "app/Modules/ClusterServers/",
+      "app/Observers/",
+      "app/Console/Commands/",
+      "resources/views/livewire/cluster-servers/",
+      "resources/views/livewire/audit/",
+      "tests/Feature/ClusterServers/",
+      "docs/openapi.yaml",
+      "docs/db-schema.dbml"
+    ],
+    "last_completed_task": null,
+    "current_task": "4.1",
+    "timestamp": "2026-05-09T02:29:00Z",
+    "d3_closure": {
+      "findings_closed_this_session": [
+        "D3-F007",
+        "D3-F008",
+        "D3-F010"
       ],
-      "files_modified_outside_findings": 0,
-      "askquestion_shown": false,
-      "senior_review_status": "COM_RESSALVAS",
-      "qa_review_status": "COM_RESSALVAS",
-      "result": "APROVADO_COM_RESSALVAS",
-      "tests": {
-        "docker_compose_ps": "PASS (5 services healthy)",
-        "docker_compose_exec_app_php_artisan_test": "PASS (87 tests, 140 assertions)",
-        "pint_test": "PASS (74 files)",
-        "local_php_artisan_test": "ENV_FAIL (pdo_pgsql missing in host PHP)",
-        "coverage": "NOT_AVAILABLE (Xdebug/PCOV not run)"
-      },
-      "notes": [
-        "Validacao D3 executada sobre branch sprint/D3; .cursorsession aponta D4 como proximo sprint.",
-        "Findings D3-F001..D3-F006 corrigidos e validados em docs/FINDINGS.md.",
-        "Ressalvas D3-F007..D3-F010 registradas; sem HIGH/CRITICAL pendente.",
-        "Gate D3 aprovado com ressalvas; D4 pode ser retomada."
-      ]
+      "findings_deferred": [
+        "D3-F009"
+      ],
+      "d3_status_roadmap": "concluida"
     }
   }
 }

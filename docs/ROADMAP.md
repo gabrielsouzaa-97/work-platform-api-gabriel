@@ -23,6 +23,24 @@
 
 ---
 
+## Errata — SSH API Reference (2026-05-13)
+
+> Documentacao autoritativa `docs/SSH API Reference — Nextcloud SaaS.md` revelou divergencias em relacao ao REQUIREMENTS v0.2. Aplicadas como correcoes inline nas sprints afetadas. Resumo:
+
+| # | Correcao | Sprints afetadas |
+|---|---------|-----------------|
+| E1 | Binario correto: `nextcloud-manage` (nao `manage.sh`). Symlink em `/usr/local/bin/nextcloud-manage`. SSH user: `root` (nao `ncsaas-api`). | D5, D6, D7 |
+| E2 | **StateTranslator corrigido** (D2 bug): upstream usa `queued/running/done/failed/cancelled`; anterior usava `pending/running/done/error/aborted`. Unico rename: `done → success`. | D2 (corrigido), D5 |
+| E3 | `create` exige `<domain>` posicional: `nextcloud-manage <client> <domain> create [flags]`. Outros comandos usam `_` no lugar do dominio. | D6 |
+| E4 | `remove`: flag correta e `--force` (booleano). `--confirm=<client>` existe como alternativa mas nao e o padrao. | D6 |
+| E5 | `list` e `status` **nao suportam `--json`** — retornam texto livre. Parsing por regex/linha obrigatorio. | D6 |
+| E6 | Exit codes adicionados ao SshClient: `5` = validacao (validationFailed) e `99` = nao implementado (notImplemented). | D5, D6 |
+| E7 | Payload do webhook upstream (secao 7 SSH API Ref): `{job_id, state, cmd, client, exit_code, finished_at}`. Campo `summary` **nao existe** no payload webhook (existe apenas em `job status`). | D5 |
+| E8 | `occ-exec` usa namespace syntax sem domain: `nextcloud-manage <client> occ-exec <subcmd>`. | D7 |
+| E9 | Callback URL deve ser `https://` (IPs RFC 1918 rejeitados pelo upstream — SSRF defense). Em staging, garantir HTTPS ou usar ngrok/tunnel. | D6 |
+
+---
+
 ## Indice de Sprints
 
 > Agentes: leiam ESTE indice primeiro. So facam Read da secao completa se precisarem de notas tecnicas ou detalhes de tasks.
@@ -31,7 +49,7 @@
 |--------|-----------|---------------|--------|-------|---------|--------|--------|
 | D1 | D | App sobe via docker-compose; migrations das 8 tabelas aplicadas; smoke /health 200 | concluida | 6 | infra, database | Foundation: scaffold Laravel + DB + smoke test | 90-220 |
 | D2 | D | SshClient executa comando mockado; tradutores cobrem 15 verbs + 5 estados; slug `_` rejeitado 422 | concluida | 5 | Core | Core: SshClient + Tradutores + Slug Validator | 221-470 |
-| D3 | D | Admin convida operador → email enviado → operador define senha → loga; suporte sem opcoes de provisionar/remover | pendente | 5 | Auth | Auth: Login + cadastro de operadores (F1) | 471-680 |
+| D3 | D | Admin convida operador → email enviado → operador define senha → loga; suporte sem opcoes de provisionar/remover | concluida | 5 | Auth | Auth: Login + cadastro de operadores (F1) | 471-680 |
 | D4 | D | Admin cria cluster_server (encrypted); rotate webhook secret aceita ambos por 24h; audit log registra acoes | pendente | 6 | ClusterServers, Audit | ClusterServers (F9) + Audit (F7 base) | 681-960 |
 | D5 | D | Webhook HMAC valido atualiza estado; HMAC invalido 401 + alerta; replay > 1h rejeitado | pendente | 5 | Jobs | Jobs: Webhook receiver (F8) + listagem fila (F5) | 961-1180 |
 | D6 | D | Marina provisiona customer via UI → SSH → webhook conclui em <5min; slug `_` 422; anexo 800KB via SCP; remove com --backup-first | pendente | 6 | Customers | Customers: provisionar + listar + remover (F2+F3+F4+F10) | 1181-1490 |
@@ -1135,7 +1153,7 @@ Admin click "Rotate"
 | [ ] | M | 5.1 — Webhook receiver `POST /api/jobs/hook` com middleware `VerifyWebhookHmac` (assinatura + IP whitelist + replay 1h + multi-secret grace) | `laravel-api` | 4.3, 2.3 `critica: true` |
 | [ ] | M | 5.2 — Endpoint `GET /queue` + Livewire `Jobs\Index` (paginacao, filtros state/job_type/customer, deep-link) | `laravel-api` | 1.4 |
 | [ ] | P | 5.3 — Endpoints REST `GET /queue/stats` (counts por state) + `GET /queue/{id}` (detalhes do job) | `laravel-api` | 5.2 |
-| [ ] | P | 5.4 — Cancel job: action `CancelJobAction` chama `manage.sh job <id> cancel` via SshClient | `laravel-api` | 5.2, 2.1 |
+| [ ] | P | 5.4 — Cancel job: action `CancelJobAction` chama `nextcloud-manage job <id> cancel --json` via SshClient | `laravel-api` | 5.2, 2.1 |
 | [ ] | P | 5.5 — Testes Feature webhook (HMAC valido/invalido, replay, multi-secret) + queue endpoints + cancel | `laravel-testing` | 5.1-5.4 |
 
 **Notas tecnicas (tarefas M):**
@@ -1165,7 +1183,7 @@ upstream worker
        3. WebhookSecretValidator::valid (401 se HMAC invalido — testa todos secrets validos do cluster)
        4. checa payload.finished_at > now()-1h (422 se replay)
     → controller WebhookController::receive:
-       1. parse payload {job_id, state, exit_code, summary, finished_at}
+       1. parse payload {job_id, state, cmd, client, exit_code, finished_at}  ← [E7] upstream nao envia 'summary' no webhook; extrair em job status separado
        2. busca Job::find($payload['job_id']) (404 se nao existe)
        3. valida que job.cluster_server_id == middleware-resolved cluster_id (403 se mismatch)
        4. transacao: update Job (state=Translator::toCanonical($payload.state), callback_received_at=now, finished_at, exit_code, summary)
@@ -1511,9 +1529,9 @@ upstream worker
 |--------|---------|--------|---------------|------------|
 | [ ] | M | 6.1 — Listar customers (replica local) + sync sob demanda + cron diario `php artisan customers:sync` | `laravel-livewire` | 1.4, 2.1 |
 | [ ] | M | 6.2 — Provisionar customer (Livewire form + endpoint POST /customers + SSH `manage.sh create --async --idempotency-key --callback` + SCP staging > 256KB) | `laravel-livewire` | 6.1, 2.1, 5.1 `critica: true` |
-| [ ] | M | 6.3 — Remover customer (modal forte com slug confirm + endpoint DELETE + SSH `manage.sh remove --confirm --backup-first`) | `laravel-livewire` | 6.2 |
+| [ ] | M | 6.3 — Remover customer (modal forte com slug confirm + endpoint DELETE + SSH `nextcloud-manage <client> _ remove --force --backup-first --async --json`) | `laravel-livewire` | 6.2 |
 | [ ] | P | 6.4 — Detalhes do customer (Livewire `Customers\Show`) com aba Jobs, OCC, Branding, Audit timeline | `laravel-livewire` | 6.1 |
-| [ ] | M | 6.5 — Polling fallback: command `php artisan jobs:poll-stuck` (Schedule a cada 5min) busca jobs `running` ha > 60s sem callback e chama `manage.sh job <id> status --json` | `laravel-api` | 2.1, 1.4 |
+| [ ] | M | 6.5 — Polling fallback: command `php artisan jobs:poll-stuck` (Schedule a cada 5min) busca jobs `running` ha > 60s sem callback e chama `nextcloud-manage job <id> status --json` | `laravel-api` | 2.1, 1.4 |
 | [ ] | P | 6.6 — Testes Feature provisionar (slug invalido 422 antes SSH, idempotency 409, anexo SCP staging, webhook conclui) + remove + sync | `laravel-testing` | 6.1-6.5 |
 
 **Notas tecnicas (tarefas M):**
@@ -1557,8 +1575,14 @@ upstream worker
         public function __construct(private SshClientInterface $ssh) {}
 
         public function sync(ClusterServer $cluster): SyncReport {
-            $resp = $this->ssh->run($cluster, 'manage.sh', ['list', '--json'], null, 30);
-            $upstream = $resp->parsedJson ?? throw new \RuntimeException('manage.sh list nao retornou JSON');
+            // [E1,E5] nextcloud-manage list nao suporta --json — retorna texto tabulado.
+            // Parsear linha a linha: cada linha tem "nome  dominio  status" separado por espacos.
+            $resp = $this->ssh->run($cluster, 'nextcloud-manage', ['list'], null, 30);
+            $lines = array_filter(explode("\n", trim($resp->stdout)));
+            $upstream = array_map(fn ($line) => preg_split('/\s+/', trim($line), 3), $lines);
+            // Estrutura normalizada: [['slug' => ..., 'domain' => ..., 'status' => ...], ...]
+            $upstream = array_map(fn ($p) => ['slug' => $p[0] ?? '', 'domain' => $p[1] ?? '', 'status' => $p[2] ?? ''], $upstream);
+            $upstream = array_filter($upstream, fn ($u) => ! empty($u['slug'])); // remove header/vazio
 
             $upstreamSlugs = collect($upstream['customers'] ?? [])->pluck('slug');
             $localSlugs = Customer::where('cluster_server_id', $cluster->id)->pluck('slug');
@@ -1671,9 +1695,12 @@ User submits form (slug, cluster_id, domain, apps[], full_apps, logo, background
        1. Gerar idempotency_key UUID v4
        2. Persistir IdempotencyKey + Job (state=queued, customer ainda nao existe)
        3. Se anexos > 256KB total: gerar staging_id + scpUpload para /opt/nextcloud-customers/inbox/<staging-id>/
-       4. Compor args: [slug, domain, create, --async, --idempotency-key=X, --callback=https://api/api/jobs/hook, --json, --apps=..., --full-apps?]
-       5. Compor payloadStdin: {logo_data_url?: base64, background_data_url?: base64} se inline
-       6. SshClient::runAsync($cluster, 'manage.sh', $args, $payloadStdin)
+       4. Compor args: [domain, 'create', '--async', "--idempotency-key={$key}", "--callback={$callbackUrl}", '--json', "--apps={$apps}", '--full-apps'?]
+          // [E1,E3] comando: nextcloud-manage <client> <domain> create [flags]
+          // client (slug) vai como primeiro arg de $cmd ao chamar run(); domain e' OBRIGATORIO posicional
+          // [E9] callbackUrl DEVE ser https:// — upstream rejeita IPs RFC 1918
+       5. Compor payloadStdin: {logo_data_url?: base64, background_data_url?: base64} se inline (<256KB por anexo)
+       6. SshClient::runAsync($cluster, 'nextcloud-manage', array_merge([$customer->slug, $domain], $args), $payloadStdin)
        7. Parse response: job_id (UUID v4) — atualizar Job local com job_id; criar Customer local com status=provisioning
        8. AuditLog (action=provision_initiated)
        9. Retornar Customer + Job para UI
@@ -1950,7 +1977,8 @@ Operator clica "Remover" em /customers/{slug}
          1. Customer deve existir + status != removing/removed
          2. confirm_slug == customer.slug (case-sensitive)
          3. Gerar idempotency_key
-         4. SshClient::runAsync($cluster, 'manage.sh', [$slug, 'remove', '--confirm=' . $slug, $backup ? '--backup-first' : '', '--async', '--json', '--idempotency-key=...'])
+         4. // [E1,E4] nextcloud-manage <client> _ remove --force [--backup-first] --async --json
+            SshClient::runAsync($cluster, 'nextcloud-manage', array_filter([$slug, '_', 'remove', '--force', $backup ? '--backup-first' : null, '--async', '--json', "--idempotency-key={$key}"]))
          5. Atualizar Customer.status=removing + criar Job
          6. AuditLog (action=remove_initiated, severity=high)
       → 202 Accepted + job_id
@@ -2034,7 +2062,9 @@ Operator clica "Remover" em /customers/{slug}
 
             $cluster = $customer->clusterServer;
             $idempotencyKey = (string) Str::uuid();
-            $args = [$slug, 'remove', "--confirm={$slug}", '--async', '--json',
+            // [E1,E4] nextcloud-manage <client> _ remove --force [--backup-first] --async --json
+            // [E9] callback deve ser https:// — upstream rejeita RFC 1918
+            $args = [$slug, '_', 'remove', '--force', '--async', '--json',
                 "--idempotency-key={$idempotencyKey}",
                 '--callback=' . config('app.url') . '/api/jobs/hook',
             ];
@@ -2210,8 +2240,8 @@ Operator clica "Remover" em /customers/{slug}
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | 7.1 — OCC sync passthrough: endpoints quota (set/audit/options/all/default), branding, maintenance, files:rescan, app:enable individual via `manage.sh <slug> occ-exec` (timeout 60s) | `laravel-api` | 2.1 |
-| [ ] | M | 7.2 — Lifecycle user/group async: POST /customers/{c}/users, /groups, /apps/enable, /apps/disable via `manage.sh <slug> users:create --async --idempotency-key --callback` (Feature O.2) | `laravel-api` | 2.1, 5.1 |
+| [ ] | M | 7.1 — OCC sync passthrough: endpoints quota (set/audit/options/all/default), branding, maintenance, files:rescan, app:enable individual via `nextcloud-manage <client> occ-exec <subcmd>` (timeout 60s) ← [E1,E8] sem domain `_` | `laravel-api` | 2.1 |
+| [ ] | M | 7.2 — Lifecycle user/group async: POST /customers/{c}/users, /groups, /apps/enable, /apps/disable via `nextcloud-manage <client> user create --async --json` etc. (Feature O.2) ← [E1] | `laravel-api` | 2.1, 5.1 |
 | [ ] | P | 7.3 — Endpoints DELETE async: DELETE /users/{username}, /groups/{group} | `laravel-api` | 7.2 |
 | [ ] | P | 7.4 — Livewire `Customers\OccPanel` com abas Quota / Branding / Maintenance / Apps / Users / Groups | `laravel-livewire` | 7.1, 7.2 |
 | [ ] | P | 7.5 — Testes Feature OCC sync (timeout, mime, validacao) + async lifecycle (idempotency, webhook conclui) | `laravel-testing` | 7.1-7.4 |
@@ -2224,7 +2254,7 @@ Operator clica "Remover" em /customers/{slug}
 #### Mini Design Doc (minimo)
 
 **Escopo**: passthrough sync para 9 endpoints OCC: quota set/audit/options/all/default por user e por group, branding, maintenance toggle, files:rescan, apps:enable individual. Timeout 60s sync; resposta direta da OCC parseada para JSON.
-**Componentes**: `OccController` com 9 metodos; `OccPassthroughService` que invoca SshClient::run com `manage.sh <slug> occ-exec <subcmd>` e parseia stdout.
+**Componentes**: `OccController` com 9 metodos; `OccPassthroughService` que invoca SshClient::run com `nextcloud-manage <client> occ-exec <subcmd>` e parseia stdout. ← [E1,E8] namespace syntax: sem domain `_` posicional.
 **Riscos**: comando OCC trava (rare) → Mitigacao: timeout 60s no SshClient + 504 Gateway Timeout no API.
 
 - **Arquivo(s)**:
@@ -2254,7 +2284,8 @@ Operator clica "Remover" em /customers/{slug}
             $resp = $this->ssh->run(
                 $cluster,
                 'manage.sh',
-                array_merge([$customer->slug, 'occ-exec', $subcmd], $args, ['--output=json']),
+                // [E1,E8] nextcloud-manage <client> occ-exec <subcmd> — sem domain posicional
+                array_merge(['occ-exec', $subcmd], $args, ['--json']),
                 null,
                 $timeoutSec
             );

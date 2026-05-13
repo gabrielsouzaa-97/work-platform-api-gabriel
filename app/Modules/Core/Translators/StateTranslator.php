@@ -8,12 +8,15 @@ use App\Modules\Core\Translators\Exceptions\UnknownStateException;
 
 final class StateTranslator
 {
+    // Upstream states (nextcloud-manage §5.2): queued, running, done, failed, cancelled
+    // Canonical (internal): queued, running, success, failed, cancelled
+    // Only 'done' → 'success' requires renaming; all others are identity.
     private const MAP = [
-        'pending' => 'queued',
+        'queued' => 'queued',
         'running' => 'running',
         'done' => 'success',
-        'error' => 'failed',
-        'aborted' => 'cancelled',
+        'failed' => 'failed',
+        'cancelled' => 'cancelled',
     ];
 
     public function toCanonical(string $upstreamState): string

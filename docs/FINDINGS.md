@@ -13,7 +13,7 @@ FINDINGS-INDEX -->
 | D1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | D2 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
 | D3 | 0 | 2 | 7 | 1 | 1 | 3 | 6 |
-| D4 | 0 | 1 | 2 | 1 | 4 | 1 | 0 |
+| D4 | 0 | 2 | 2 | 1 | 4 | 0 | 1 |
 
 ---
 
@@ -145,7 +145,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D4
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: Corrigido
+- **Status**: Validado
 - **Arquivo**: `app/Modules/Core/Ssh/SshClient.php` (método `executeCommand`)
 - **Descrição**: `$ssh->exec($command)` bloqueia até o comando remoto concluir. Somente após retornar é que `$ssh->write($payloadStdin)` era chamado — quando o canal já estava fechado. O `payloadStdin` nunca chegava ao processo remoto.
 - **Correção**: Adicionado método privado `pipeStdin()` que constrói `printf %s <payload_escapado> | <comando>`. Em `executeCommand()`, quando `$payloadStdin !== null`, o piping é feito ANTES de `exec()`. O `logExecution()` continua recebendo o comando limpo (sem payload) para não vazar segredos nos logs. Removido `$ssh->write()` — nunca mais chamado. Dois novos testes adicionados em `SshClientTest.php`: verificação de que o payload aparece no comando passado ao `exec()` e de que `write()` não é invocado (`shouldNotReceive`).

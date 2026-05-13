@@ -68,7 +68,7 @@ class SshConnectionPool
 
             $key = PublicKeyLoader::load($cluster->ssh_private_key_encrypted);
 
-            if (! $ssh->login($cluster->ssh_user ?? 'ncsaas-api', $key)) {
+            if (! $ssh->login($cluster->ssh_user ?? 'root', $key)) {
                 throw new SshConnectionException(
                     "SSH login failed for cluster [{$cluster->id}] at {$cluster->ssh_host}"
                 );
