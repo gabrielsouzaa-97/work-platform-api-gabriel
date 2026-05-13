@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\ClusterServer;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\SshClient;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Ssh\SshConnectionPool;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Core\Translators\StateTranslator;
+use App\Observers\ClusterServerObserver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -31,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        ClusterServer::observe(ClusterServerObserver::class);
+
         Gate::define('manage-operators', fn (Operator $user) => $user->status === 'active' && $user->role === 'admin');
         Gate::define('manage-cluster-servers', fn (Operator $user) => $user->status === 'active' && $user->role === 'admin');
         Gate::define('provision-customers', fn (Operator $user) => $user->status === 'active'

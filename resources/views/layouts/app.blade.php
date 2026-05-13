@@ -54,6 +54,7 @@
             @endcan
             @can('manage-operators')
                 <a href="{{ route('operators.index') }}">Operadores</a>
+                <a href="{{ route('audit.index') }}">Audit</a>
             @endcan
             <form action="{{ route('logout') }}" method="POST" style="margin:0">
                 @csrf

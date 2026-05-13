@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Livewire\Audit\Index as AuditIndex;
 use App\Http\Livewire\Auth\AcceptInvite;
 use App\Http\Livewire\Auth\Login;
 use App\Http\Livewire\ClusterServers\Create as ClusterCreate;
@@ -38,6 +39,10 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
     Route::get('/admin/dashboard', function () {
         return view('admin.dashboard');
     })->middleware('can:manage-operators')->name('admin.dashboard');
+
+    Route::get('/audit', AuditIndex::class)
+        ->middleware('can:manage-operators')
+        ->name('audit.index');
 
     Route::middleware('can:manage-cluster-servers')->group(function () {
         Route::get('/cluster-servers', ClusterIndex::class)->name('cluster-servers.index');
