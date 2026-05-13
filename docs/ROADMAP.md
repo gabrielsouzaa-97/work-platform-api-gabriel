@@ -772,7 +772,7 @@ Caller (ProvisionCustomerService)
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | 4.1 — Module ClusterServers: CRUD via Livewire (admin only) — Index + Create + Edit com encrypted casts ssh_private_key + webhook_secret | `laravel-livewire` | 1.4, 3.3 |
+| [x] | M | 4.1 — Module ClusterServers: CRUD via Livewire (admin only) — Index + Create + Edit com encrypted casts ssh_private_key + webhook_secret | `laravel-livewire` | 1.4, 3.3 |
 | [ ] | M | 4.2 — Test connection (`SshClient::run($cluster, 'echo ok')`) com captura de stdout/stderr/exit_code + UI status badge | `laravel-livewire` | 4.1, 2.1 |
 | [ ] | M | 4.3 — Rotate webhook secret com grace period 24h (insere registro em `webhook_secret_history`, `valid_until = now()->addDay()` na versao antiga) | `laravel-livewire` | 4.1, 1.4 |
 | [ ] | P | 4.4 — Cron `php artisan cluster:health-check` (Schedule a cada 5min) atualiza `cluster_servers.status` + `last_health_at` | `laravel-api` | 4.2 |

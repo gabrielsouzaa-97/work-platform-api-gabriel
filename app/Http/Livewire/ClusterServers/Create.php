@@ -8,7 +8,6 @@ use App\Models\ClusterServer;
 use App\Models\WebhookSecretHistory;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -39,8 +38,7 @@ class Create extends Component
         Gate::authorize('manage-cluster-servers');
         $this->validate();
 
-        // id is not in $fillable — assign directly to bypass mass-assignment guard.
-        $cluster = new ClusterServer([
+        $cluster = ClusterServer::create([
             'name' => $this->name,
             'ssh_host' => $this->ssh_host,
             'ssh_port' => $this->ssh_port,
@@ -51,8 +49,6 @@ class Create extends Component
             'schema_version' => 1,
             'status' => 'active',
         ]);
-        $cluster->id = Str::uuid()->toString();
-        $cluster->save();
 
         WebhookSecretHistory::create([
             'cluster_server_id' => $cluster->id,

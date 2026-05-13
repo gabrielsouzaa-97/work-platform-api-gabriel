@@ -43,9 +43,6 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
         Route::get('/cluster-servers', ClusterIndex::class)->name('cluster-servers.index');
         Route::get('/cluster-servers/create', ClusterCreate::class)->name('cluster-servers.create');
         Route::get('/cluster-servers/{clusterServer}/edit', ClusterEdit::class)->name('cluster-servers.edit');
-        Route::get('/cluster-servers/{clusterServer}/rotate', function () {
-            return redirect()->route('cluster-servers.index');
-        })->name('cluster-servers.rotate');
     });
 
     Route::get('/customers', function () {

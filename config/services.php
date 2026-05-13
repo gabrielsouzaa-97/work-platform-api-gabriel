@@ -42,4 +42,8 @@ return [
         'connect_timeout_seconds' => 30,
     ],
 
+    'webhook' => [
+        'grace_period_hours' => env('WEBHOOK_GRACE_PERIOD_HOURS', 24),
+    ],
+
 ];

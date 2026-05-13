@@ -71,9 +71,12 @@
                             <button class="action-btn" wire:click="testConnection('{{ $cluster->id }}')" wire:loading.attr="disabled">
                                 Test
                             </button>
-                            <a href="{{ route('cluster-servers.rotate', $cluster->id) }}" class="action-btn">
+                            <button class="action-btn"
+                                wire:click="rotateSecret('{{ $cluster->id }}')"
+                                wire:confirm="Rotacionar o webhook secret? A versão atual permanece válida por {{ config('services.webhook.grace_period_hours', 24) }}h."
+                                wire:loading.attr="disabled">
                                 Rotate
-                            </a>
+                            </button>
                             <a href="{{ route('cluster-servers.edit', $cluster->id) }}" class="action-btn">
                                 Editar
                             </a>

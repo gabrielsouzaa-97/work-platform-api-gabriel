@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Livewire\ClusterServers;
 
+use App\Mail\WebhookSecretRotatedMail;
 use App\Models\ClusterServer;
+use App\Modules\ClusterServers\Actions\RotateWebhookSecretAction;
+use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
+use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
+use App\Modules\Core\Ssh\SshClientInterface;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -14,6 +21,46 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+
+    public function testConnection(string $clusterId, SshClientInterface $ssh): void
+    {
+        Gate::authorize('manage-cluster-servers');
+        $cluster = ClusterServer::findOrFail($clusterId);
+
+        try {
+            $expected = "healthcheck-{$cluster->id}";
+            $resp = $ssh->run($cluster, 'echo', [$expected], null, 10);
+
+            if (trim($resp->stdout) === $expected && $resp->exitCode === 0) {
+                $cluster->update(['status' => 'active', 'last_health_at' => now()]);
+                $this->dispatch('toast', type: 'success', msg: 'Conexão OK');
+            } else {
+                $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
+                $this->dispatch('toast', type: 'warning', msg: "Comando retornou exit {$resp->exitCode}");
+            }
+        } catch (SshTimeoutException) {
+            $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
+            $this->dispatch('toast', type: 'error', msg: 'Timeout ao conectar');
+        } catch (SshConnectionException $e) {
+            $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
+            $this->dispatch('toast', type: 'error', msg: 'Conexão falhou: '.$e->getMessage());
+        } catch (\Throwable $e) {
+            $this->dispatch('toast', type: 'error', msg: 'Erro inesperado');
+            report($e);
+        }
+    }
+
+    public function rotateSecret(string $clusterId, RotateWebhookSecretAction $action): void
+    {
+        Gate::authorize('manage-cluster-servers');
+        $cluster = ClusterServer::findOrFail($clusterId);
+        $new = $action->execute($cluster);
+
+        Mail::to(auth()->user()->email)->queue(new WebhookSecretRotatedMail($cluster, $new));
+
+        $graceUntil = $new->valid_from->subSeconds(1)?->format('d/m/Y H:i') ?? '—';
+        $this->dispatch('toast', type: 'success', msg: "Secret rotacionado. Versão anterior válida até {$graceUntil}.");
+    }
 
     public function render(): View
     {

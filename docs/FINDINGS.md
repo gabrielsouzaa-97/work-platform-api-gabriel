@@ -13,7 +13,7 @@ FINDINGS-INDEX -->
 | D1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | D2 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
 | D3 | 0 | 2 | 7 | 1 | 1 | 3 | 6 |
-| D4 | 0 | 2 | 2 | 1 | 4 | 0 | 1 |
+| D4 | 0 | 2 | 2 | 1 | 2 | 1 | 2 |
 
 ---
 
@@ -157,7 +157,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D4
 - **Severidade**: MEDIUM
 - **Tipo**: product_bug
-- **Status**: Pendente
+- **Status**: Corrigido
 - **Arquivo**: `tests/Feature/Operators/CreateTest.php` (linha 208), `resources/views/emails/operator-invite.blade.php`
 - **Descrição**: O teste adicionado pelo D3-F010 chama `->toContain($signedUrl)` onde `$signedUrl` contém `&` entre query params. O template usa `{{ $signedUrl }}` (Blade HTML-escaping), que persiste `&amp;` no HTML renderizado. O teste falha porque procura `&token=` mas encontra `&amp;token=`. O email funciona corretamente em clientes de email (que decodificam `&amp;` → `&`), confirmado em Fase 2 via Mailpit — o link "Ativar minha conta" abre a página correta.
 - **Impacto**: Suite CI falha em 1 teste (D3-F010 closure), gerando falso positivo.
@@ -174,7 +174,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D4
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: Pendente
+- **Status**: Validado
 - **Arquivo**: `tests/Feature/ClusterServers/StoreTest.php`, `routes/web.php`
 - **Descrição**: Os testes da Sprint D4 foram escritos em TDD (correto) mas as implementações não existem ainda: rota `cluster-servers.index` não registrada, Livewire components `ClusterServers\{Index,Create,Edit}` ausentes. Gate da Sprint D4 exige que todos esses testes passem. Erros: `RouteNotFoundException` e `ComponentNotFoundException`.
 - **Impacto**: Gate da D4 bloqueado. 8/9 falhas na suíte (9 total na suite, 8 neste arquivo).

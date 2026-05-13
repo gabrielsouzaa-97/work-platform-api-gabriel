@@ -69,5 +69,21 @@
         @yield('content')
     </main>
     @livewireScripts
+    <script>
+        document.addEventListener('livewire:initialized', () => {
+            Livewire.on('toast', ({ type, msg }) => {
+                const el = document.createElement('div');
+                const colors = { success: '#1c3a2f', error: '#3a2020', warning: '#2d3a1a' };
+                const text   = { success: '#68d391', error: '#fc8181', warning: '#c6f135' };
+                el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;
+                    background:${colors[type]||colors.success};color:${text[type]||text.success};
+                    border-radius:6px;padding:.75rem 1rem;font-size:.875rem;max-width:320px;
+                    box-shadow:0 4px 12px rgba(0,0,0,.4);`;
+                el.textContent = msg;
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 4000);
+            });
+        });
+    </script>
 </body>
 </html>

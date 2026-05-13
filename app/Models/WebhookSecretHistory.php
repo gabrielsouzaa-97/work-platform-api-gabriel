@@ -6,9 +6,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class WebhookSecretHistory extends Model
 {
+    protected static function boot(): void
+    {
+        parent::boot();
+        static::creating(function (self $model): void {
+            if (empty($model->id)) {
+                $model->id = Str::uuid()->toString();
+            }
+        });
+    }
+
     protected $table = 'webhook_secret_history';
 
     protected $primaryKey = 'id';
