@@ -124,6 +124,13 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        'security' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security.log'),
+            'level' => 'warning',
+            'days' => 90,
+        ],
+
         'sshclient' => [
             'driver' => 'daily',
             'path' => storage_path('logs/sshclient.log'),

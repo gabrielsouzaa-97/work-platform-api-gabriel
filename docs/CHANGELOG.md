@@ -37,3 +37,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-13 11:43** `067a3ed` — feat(sprint-D4): task 4.6 — testes Audit (observer + sanitização + filtros + RBAC)
 - **2026-05-13 14:25** `067a3ed` — feat(sprint-D4): task 4.6 — testes Audit (observer + sanitização + filtros + RBAC)
 - **2026-05-13 14:48** `067a3ed` — feat(sprint-D4): task 4.6 — testes Audit (observer + sanitização + filtros + RBAC)
+- **2026-05-13 15:03** `5fdc2ca` — fix(sprint-D4): inline fixes D4-F006 (grace timestamp) e D4-F007 (whereNotNull redundante)
+- **2026-05-13 15:06** `5fdc2ca` — fix(sprint-D4): inline fixes D4-F006 (grace timestamp) e D4-F007 (whereNotNull redundante)
+- **2026-05-13 15:11** `5fdc2ca` — fix(sprint-D4): inline fixes D4-F006 (grace timestamp) e D4-F007 (whereNotNull redundante)
+- **2026-05-13 15:57** `5fdc2ca` — fix(sprint-D4): inline fixes D4-F006 (grace timestamp) e D4-F007 (whereNotNull redundante)

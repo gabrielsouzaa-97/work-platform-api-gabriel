@@ -44,6 +44,8 @@ return [
 
     'webhook' => [
         'grace_period_hours' => env('WEBHOOK_GRACE_PERIOD_HOURS', 24),
+        'replay_window_minutes' => env('WEBHOOK_REPLAY_WINDOW_MIN', 60),
+        'rate_limit_per_minute' => env('WEBHOOK_RATE_LIMIT', 100),
     ],
 
 ];

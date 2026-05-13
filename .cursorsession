@@ -40,7 +40,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-13T17:48:10Z",
+  "ultimo_update": "2026-05-13T18:57:06Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -157,18 +157,25 @@
   "compact_count": 1,
   "checkpoint": {
     "sprint": "D5",
-    "phase": "prerequisites",
+    "phase": "in_progress",
     "branch": "sprint/D5",
     "relevant_paths": [
-      "app/Http/Controllers/Api/",
-      "app/Modules/Jobs/",
-      "app/Models/Job.php",
+      "app/Http/Controllers/Api/WebhookController.php",
+      "app/Http/Controllers/Api/JobController.php",
+      "app/Http/Middleware/VerifyWebhookHmac.php",
+      "app/Modules/Jobs/Services/WebhookHandler.php",
+      "app/Modules/Jobs/Dto/WebhookPayload.php",
+      "app/Http/Livewire/Jobs/Index.php",
+      "app/Http/Resources/JobResource.php",
+      "app/Modules/Jobs/Actions/CancelJobAction.php",
+      "resources/views/livewire/jobs/",
       "routes/api.php",
-      "tests/Feature/Jobs/"
+      "routes/web.php",
+      "tests/Feature/Api/"
     ],
     "last_completed_task": null,
-    "current_task": null,
-    "timestamp": "2026-05-13T17:35:00Z",
+    "current_task": "5.1",
+    "timestamp": "2026-05-13T18:56:00Z",
     "d4_closure": {
       "gate_met": true,
       "audit_level": "senior+qa",
