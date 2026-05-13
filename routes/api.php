@@ -23,4 +23,5 @@ Route::middleware(['auth', 'active.operator'])->group(function (): void {
     Route::get('/queue', [JobController::class, 'index'])->name('api.queue.index');
     Route::get('/queue/stats', [JobController::class, 'stats'])->name('api.queue.stats');
     Route::get('/queue/{id}', [JobController::class, 'show'])->name('api.queue.show');
+    Route::post('/queue/{id}/cancel', [JobController::class, 'cancel'])->name('api.queue.cancel');
 });

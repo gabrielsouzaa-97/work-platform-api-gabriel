@@ -7,9 +7,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\JobResource;
 use App\Models\Job;
+use App\Modules\Core\Ssh\Exceptions\SshClientException;
+use App\Modules\Jobs\Actions\CancelJobAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 
 final class JobController extends Controller
 {
@@ -40,6 +43,21 @@ final class JobController extends Controller
         $job = Job::with(['customer', 'clusterServer'])->findOrFail($id);
 
         return new JobResource($job);
+    }
+
+    public function cancel(string $id, CancelJobAction $action): Response|JsonResponse
+    {
+        $job = Job::with('clusterServer')->findOrFail($id);
+
+        try {
+            $action->execute($job, auth()->id());
+        } catch (\DomainException $e) {
+            return response()->json(['error' => 'invalid_state', 'message' => $e->getMessage()], 422);
+        } catch (SshClientException $e) {
+            return response()->json(['error' => 'upstream_error', 'message' => $e->getMessage()], 502);
+        }
+
+        return response()->noContent();
     }
 
     public function stats(): JsonResponse
