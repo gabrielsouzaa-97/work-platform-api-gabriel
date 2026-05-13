@@ -13,7 +13,7 @@ FINDINGS-INDEX -->
 | D1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | D2 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
 | D3 | 0 | 2 | 7 | 1 | 1 | 3 | 6 |
-| D4 | 0 | 2 | 2 | 1 | 2 | 1 | 2 |
+| D4 | 0 | 2 | 4 | 3 | 4 | 3 | 2 |
 
 ---
 
@@ -205,6 +205,56 @@ Nenhum finding registrado para D1 na validação atual.
 - **Arquivo**: `docker-compose.yml`, `app/Mail/OperatorInviteMail.php`
 - **Descrição**: `OperatorInviteMail` implementa `ShouldQueue`. O `docker-compose.yml` define `QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}` como padrão, mas o ambiente em execução usa `QUEUE_CONNECTION=redis` (provavelmente via `.env`). Não há serviço `worker` no docker-compose que processe a fila automaticamente.
 - **Ação necessária**: Adicionar serviço `worker` ao `docker-compose.yml` (`php artisan queue:work --tries=3`) ou mudar `QUEUE_CONNECTION` para `sync` no `.env.example` para desenvolvimento.
+
+---
+
+### D4-F006 — MEDIUM — Toast de rotação exibe timestamp incorreto (`valid_from - 1s` em vez de expiry do secret anterior)
+
+- **Sprint**: D4
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Status**: Corrigido
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Index.php` (método `rotateSecret`)
+- **Descrição**: O cálculo `$new->valid_from->subSeconds(1)` retornava ≈ `now() - 1 segundo` como data limite do grace period. `$new` é o registro **novo** (válido de agora em diante), portanto `valid_from - 1s` é praticamente o instante atual, não quando a versão anterior expira (`now() + 24h`). O toast exibia uma data no passado como se o grace period já tivesse expirado.
+- **Correção**: Substituído por `$new->valid_from->copy()->addHours(config('services.webhook.grace_period_hours', 24))`, calculando corretamente o fim do grace period da versão anterior.
+
+---
+
+### D4-F007 — LOW — `ClusterHealthCheckCommand` usa `whereNotNull('id')` redundante
+
+- **Sprint**: D4
+- **Severidade**: LOW
+- **Tipo**: code_smell
+- **Status**: Corrigido
+- **Arquivo**: `app/Console/Commands/ClusterHealthCheckCommand.php`
+- **Descrição**: `ClusterServer::whereNotNull('id')->get()` — a condição `id IS NOT NULL` é sempre verdadeira para registros existentes e não expressa a intenção real. Com o global scope de `SoftDeletes`, o Eloquent já exclui registros soft-deletados automaticamente. O código era funcionalmente equivalente a `ClusterServer::all()` mas mais confuso.
+- **Correção**: Substituído por `ClusterServer::all()`.
+
+---
+
+### D4-F008 — MEDIUM — PEM da chave SSH em propriedade Livewire síncrona (security debt vs executor_prompt)
+
+- **Sprint**: D4
+- **Severidade**: MEDIUM
+- **Tipo**: security_debt
+- **Status**: Pendente
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php`
+- **Descrição**: O executor_prompt especificava `WithFileUploads` + `TemporaryUploadedFile` para o PEM, evitando que a chave privada trafegasse como propriedade Livewire. A implementação usa `public string $ssh_private_key = ''` com `wire:model`, o que significa que o PEM completo é serializado no snapshot do componente Livewire (cookie encriptado ou sessão server-side) e reenviado em cada request do ciclo de vida do componente. Em ambientes com `APP_DEBUG=true` ou com ferramentas de observabilidade que registram request bodies, o PEM pode ser exposto.
+- **Ação necessária**: Migrar para `WithFileUploads` + `TemporaryUploadedFile` conforme especificado no executor_prompt, ou garantir que `APP_DEBUG=false` em produção e que nenhum middleware/proxy registra Livewire request bodies com o PEM.
+- **Impacto**: Em produção com debug desligado, risco direto é baixo (Livewire criptografa o snapshot). Risco aumenta em staging/dev ou com ferramentas de log/APM mal configuradas.
+
+---
+
+### D4-F009 — LOW — Rotate webhook secret não registra ação específica no AuditLog
+
+- **Sprint**: D4
+- **Severidade**: LOW
+- **Tipo**: compliance_gap
+- **Status**: Pendente
+- **Arquivo**: `app/Observers/ClusterServerObserver.php`, `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php`
+- **Descrição**: O mini design doc da tarefa 4.3 especifica `acao=rotate_webhook_secret` no AuditLog. A implementação atual depende do observer genérico: quando `RotateWebhookSecretAction` chama `$cluster->update([...])`, o observer registra `cluster_server.update` (não `cluster_server.rotate_webhook_secret`). O registro existe mas com semântica genérica — não é possível filtrar por tipo de operação "rotate" no painel de audit.
+- **Ação necessária**: Adicionar `AuditLog::create([..., 'action' => 'cluster_server.rotate_webhook_secret', ...])` explicitamente no `RotateWebhookSecretAction::execute()`, ou no método Livewire `rotateSecret()` após a ação concluir.
+- **Impacto**: Trail de auditoria existe, mas não é semanticamente preciso para operações de rotação de segredo. Impacto LGPD baixo (a operação está registrada), impacto operacional baixo (filtro por "rotate" não funciona).
 
 ---
 

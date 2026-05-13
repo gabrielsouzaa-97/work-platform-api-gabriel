@@ -50,7 +50,7 @@
 | D1 | D | App sobe via docker-compose; migrations das 8 tabelas aplicadas; smoke /health 200 | concluida | 6 | infra, database | Foundation: scaffold Laravel + DB + smoke test | 90-220 |
 | D2 | D | SshClient executa comando mockado; tradutores cobrem 15 verbs + 5 estados; slug `_` rejeitado 422 | concluida | 5 | Core | Core: SshClient + Tradutores + Slug Validator | 221-470 |
 | D3 | D | Admin convida operador → email enviado → operador define senha → loga; suporte sem opcoes de provisionar/remover | concluida | 5 | Auth | Auth: Login + cadastro de operadores (F1) | 471-680 |
-| D4 | D | Admin cria cluster_server (encrypted); rotate webhook secret aceita ambos por 24h; audit log registra acoes | pendente | 6 | ClusterServers, Audit | ClusterServers (F9) + Audit (F7 base) | 681-960 |
+| D4 | D | Admin cria cluster_server (encrypted); rotate webhook secret aceita ambos por 24h; audit log registra acoes | auditada | 6 | ClusterServers, Audit | ClusterServers (F9) + Audit (F7 base) | 681-960 |
 | D5 | D | Webhook HMAC valido atualiza estado; HMAC invalido 401 + alerta; replay > 1h rejeitado | pendente | 5 | Jobs | Jobs: Webhook receiver (F8) + listagem fila (F5) | 961-1180 |
 | D6 | D | Marina provisiona customer via UI → SSH → webhook conclui em <5min; slug `_` 422; anexo 800KB via SCP; remove com --backup-first | pendente | 6 | Customers | Customers: provisionar + listar + remover (F2+F3+F4+F10) | 1181-1490 |
 | D7 | D | Operador define quota via UI (sync 60s); cria user via async (job_id retornado, webhook conclui) | pendente | 5 | Customers, Jobs | OCC essenciais: sync passthrough + async lifecycle (F6) | 1491-1700 |
@@ -775,9 +775,9 @@ Caller (ProvisionCustomerService)
 | [x] | M | 4.1 — Module ClusterServers: CRUD via Livewire (admin only) — Index + Create + Edit com encrypted casts ssh_private_key + webhook_secret | `laravel-livewire` | 1.4, 3.3 |
 | [x] | M | 4.2 — Test connection (`SshClient::run($cluster, 'echo ok')`) com captura de stdout/stderr/exit_code + UI status badge | `laravel-livewire` | 4.1, 2.1 |
 | [x] | M | 4.3 — Rotate webhook secret com grace period 24h (insere registro em `webhook_secret_history`, `valid_until = now()->addDay()` na versao antiga) | `laravel-livewire` | 4.1, 1.4 |
-| [ ] | P | 4.4 — Cron `php artisan cluster:health-check` (Schedule a cada 5min) atualiza `cluster_servers.status` + `last_health_at` | `laravel-api` | 4.2 |
-| [ ] | P | 4.5 — Module Audit: `AuditLog` observer + sanitizador (mask `password|token|secret|key` em payload) + Livewire `Audit\Index` paginada com filtros | `laravel-livewire` | 1.4, 3.3 |
-| [ ] | P | 4.6 — Testes Feature ClusterServers (CRUD + test conn + rotate) + Audit (sanitizacao + filtros) | `laravel-testing` | 4.1, 4.2, 4.3, 4.5 |
+| [x] | P | 4.4 — Cron `php artisan cluster:health-check` (Schedule a cada 5min) atualiza `cluster_servers.status` + `last_health_at` | `laravel-api` | 4.2 |
+| [x] | P | 4.5 — Module Audit: `AuditLog` observer + sanitizador (mask `password|token|secret|key` em payload) + Livewire `Audit\Index` paginada com filtros | `laravel-livewire` | 1.4, 3.3 |
+| [x] | P | 4.6 — Testes Feature ClusterServers (CRUD + test conn + rotate) + Audit (sanitizacao + filtros) | `laravel-testing` | 4.1, 4.2, 4.3, 4.5 |
 
 **Notas tecnicas (tarefas M):**
 

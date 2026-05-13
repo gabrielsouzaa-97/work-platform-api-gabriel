@@ -33,3 +33,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-13 09:53** `2acd3d2` — fix(ssh): pipe payloadStdin via printf before exec — resolves D4-F001
 - **2026-05-13 11:05** `2acd3d2` — fix(ssh): pipe payloadStdin via printf before exec — resolves D4-F001
 - **2026-05-13 11:09** `2acd3d2` — fix(ssh): pipe payloadStdin via printf before exec — resolves D4-F001
+- **2026-05-13 11:31** `067a3ed` — feat(sprint-D4): task 4.6 — testes Audit (observer + sanitização + filtros + RBAC)
+- **2026-05-13 11:43** `067a3ed` — feat(sprint-D4): task 4.6 — testes Audit (observer + sanitização + filtros + RBAC)
+- **2026-05-13 14:25** `067a3ed` — feat(sprint-D4): task 4.6 — testes Audit (observer + sanitização + filtros + RBAC)
+- **2026-05-13 14:48** `067a3ed` — feat(sprint-D4): task 4.6 — testes Audit (observer + sanitização + filtros + RBAC)

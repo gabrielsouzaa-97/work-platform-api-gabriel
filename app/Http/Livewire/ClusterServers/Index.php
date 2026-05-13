@@ -58,7 +58,8 @@ class Index extends Component
 
         Mail::to(auth()->user()->email)->queue(new WebhookSecretRotatedMail($cluster, $new));
 
-        $graceUntil = $new->valid_from->subSeconds(1)?->format('d/m/Y H:i') ?? '—';
+        $graceHours = (int) config('services.webhook.grace_period_hours', 24);
+        $graceUntil = $new->valid_from->copy()->addHours($graceHours)->format('d/m/Y H:i');
         $this->dispatch('toast', type: 'success', msg: "Secret rotacionado. Versão anterior válida até {$graceUntil}.");
     }
 

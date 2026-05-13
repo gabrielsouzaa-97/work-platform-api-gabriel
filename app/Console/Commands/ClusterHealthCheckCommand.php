@@ -22,7 +22,7 @@ class ClusterHealthCheckCommand extends Command
 
     public function handle(): int
     {
-        $clusters = ClusterServer::whereNotNull('id')->get();
+        $clusters = ClusterServer::all();
 
         foreach ($clusters as $cluster) {
             try {

@@ -34,13 +34,13 @@
   ],
   "fase_atual": "9",
   "fase_nome": "Planejamento tecnico concluido",
-  "sprint_atual": "D4",
-  "beesy_version": "4.16.18-beta",
-  "decisions_applied_until": 178,
+  "sprint_atual": "D5",
+  "beesy_version": "4.16.27-beta",
+  "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-13T14:09:21Z",
+  "ultimo_update": "2026-05-13T17:48:10Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -144,7 +144,7 @@
     "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
     "updated_at": "2026-05-07T21:05:00-03:00"
   },
-  "contexto_rapido": "Sprint D4 em andamento (checkpoint: prerequisites). D3 concluida com ressalvas (D3-F007/F008/F010 fechados nesta sessao; D3-F009 deferido para D6). ANALISE SSH API Reference (2026-05-13): 9 erratas aplicadas — StateTranslator corrigido (upstream usa queued/failed/cancelled nao pending/error/aborted); SSH user fallback corrigido para root; exit codes 5/99 mapeados no SshClient; ROADMAP D5-D7 atualizado com nextcloud-manage + domain posicional + --force em remove + list text parsing + occ-exec namespace syntax. Ver secao Errata no ROADMAP.md.",
+  "contexto_rapido": "Upgrade Beesy 4.16.18-beta → 4.16.27-beta aplicado em 2026-05-13 (decisions #179-#187, 0 Cat-C, bump puro). Sprint D4 AUDITADA (gate met). 4 novos findings (D4-F006 MEDIUM fix toast timestamp, D4-F007 LOW whereNotNull, ambos corrigidos inline; D4-F008 MEDIUM PEM em textarea Livewire, D4-F009 LOW rotate sem acao especifica em audit — ambos pendentes). Pendentes pre-existentes: D4-F004 (queue worker), D4-F005 (pt-BR lang). Proxima sprint: D5 — Webhook receiver HMAC + Jobs listing.",
   "autopilot": {
     "active": false
   },
@@ -156,37 +156,39 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "D4",
-    "phase": "implementation",
-    "branch": "sprint/D4",
+    "sprint": "D5",
+    "phase": "prerequisites",
+    "branch": "sprint/D5",
     "relevant_paths": [
-      "app/Http/Livewire/ClusterServers/",
-      "app/Http/Requests/",
-      "app/Models/ClusterServer.php",
-      "app/Models/WebhookSecretHistory.php",
-      "app/Models/AuditLog.php",
-      "app/Modules/ClusterServers/",
-      "app/Observers/",
-      "app/Console/Commands/",
-      "resources/views/livewire/cluster-servers/",
-      "resources/views/livewire/audit/",
-      "tests/Feature/ClusterServers/",
-      "docs/openapi.yaml",
-      "docs/db-schema.dbml"
+      "app/Http/Controllers/Api/",
+      "app/Modules/Jobs/",
+      "app/Models/Job.php",
+      "routes/api.php",
+      "tests/Feature/Jobs/"
     ],
-    "last_completed_task": "4.1",
-    "current_task": "4.2",
-    "timestamp": "2026-05-13T14:20:00Z",
-    "d3_closure": {
-      "findings_closed_this_session": [
-        "D3-F007",
-        "D3-F008",
-        "D3-F010"
+    "last_completed_task": null,
+    "current_task": null,
+    "timestamp": "2026-05-13T17:35:00Z",
+    "d4_closure": {
+      "gate_met": true,
+      "audit_level": "senior+qa",
+      "findings_new": [
+        "D4-F006",
+        "D4-F007",
+        "D4-F008",
+        "D4-F009"
       ],
-      "findings_deferred": [
-        "D3-F009"
+      "findings_fixed_inline": [
+        "D4-F006",
+        "D4-F007"
       ],
-      "d3_status_roadmap": "concluida"
+      "findings_pending": [
+        "D4-F004",
+        "D4-F005",
+        "D4-F008",
+        "D4-F009"
+      ],
+      "d4_status_roadmap": "auditada"
     }
   }
 }
