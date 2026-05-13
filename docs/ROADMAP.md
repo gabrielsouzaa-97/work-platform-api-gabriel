@@ -1527,12 +1527,12 @@ upstream worker
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | 6.1 — Listar customers (replica local) + sync sob demanda + cron diario `php artisan customers:sync` | `laravel-livewire` | 1.4, 2.1 |
-| [ ] | M | 6.2 — Provisionar customer (Livewire form + endpoint POST /customers + SSH `manage.sh create --async --idempotency-key --callback` + SCP staging > 256KB) | `laravel-livewire` | 6.1, 2.1, 5.1 `critica: true` |
-| [ ] | M | 6.3 — Remover customer (modal forte com slug confirm + endpoint DELETE + SSH `nextcloud-manage <client> _ remove --force --backup-first --async --json`) | `laravel-livewire` | 6.2 |
-| [ ] | P | 6.4 — Detalhes do customer (Livewire `Customers\Show`) com aba Jobs, OCC, Branding, Audit timeline | `laravel-livewire` | 6.1 |
-| [ ] | M | 6.5 — Polling fallback: command `php artisan jobs:poll-stuck` (Schedule a cada 5min) busca jobs `running` ha > 60s sem callback e chama `nextcloud-manage job <id> status --json` | `laravel-api` | 2.1, 1.4 |
-| [ ] | P | 6.6 — Testes Feature provisionar (slug invalido 422 antes SSH, idempotency 409, anexo SCP staging, webhook conclui) + remove + sync | `laravel-testing` | 6.1-6.5 |
+| [x] | M | 6.1 — Listar customers (replica local) + sync sob demanda + cron diario `php artisan customers:sync` | `laravel-livewire` | 1.4, 2.1 |
+| [x] | M | 6.2 — Provisionar customer (Livewire form + endpoint POST /customers + SSH `manage.sh create --async --idempotency-key --callback` + SCP staging > 256KB) | `laravel-livewire` | 6.1, 2.1, 5.1 `critica: true` |
+| [x] | M | 6.3 — Remover customer (modal forte com slug confirm + endpoint DELETE + SSH `nextcloud-manage <client> _ remove --force --backup-first --async --json`) | `laravel-livewire` | 6.2 |
+| [x] | P | 6.4 — Detalhes do customer (Livewire `Customers\Show`) com aba Jobs, OCC, Branding, Audit timeline | `laravel-livewire` | 6.1 |
+| [x] | M | 6.5 — Polling fallback: command `php artisan jobs:poll-stuck` (Schedule a cada 5min) busca jobs `running` ha > 60s sem callback e chama `nextcloud-manage job <id> status --json` | `laravel-api` | 2.1, 1.4 |
+| [x] | P | 6.6 — Testes Feature provisionar (slug invalido 422 antes SSH, idempotency 409, anexo SCP staging, webhook conclui) + remove + sync | `laravel-testing` | 6.1-6.5 |
 
 **Notas tecnicas (tarefas M):**
 
