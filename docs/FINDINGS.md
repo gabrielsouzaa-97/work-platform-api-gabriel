@@ -14,6 +14,7 @@ FINDINGS-INDEX -->
 | D2 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |
 | D3 | 0 | 2 | 7 | 1 | 1 | 3 | 6 |
 | D4 | 0 | 2 | 4 | 3 | 4 | 3 | 2 |
+| D5 | 0 | 0 | 1 | 3 | 0 | 4 | 0 |
 
 ---
 
@@ -258,9 +259,7 @@ Nenhum finding registrado para D1 na validação atual.
 
 ---
 
-### D4-F005 — LOW — Mensagens de validação e páginas de erro em inglês (app em pt-BR)
-
-- **Sprint**: D4
+### D4-F005 — LOW — Mensagens de validação e páginas de erro em inglês (app em pt-BR)- **Sprint**: D4
 - **Severidade**: LOW
 - **Tipo**: product_bug
 - **Status**: Pendente
@@ -272,3 +271,52 @@ Nenhum finding registrado para D1 na validação atual.
 - **Descrição**: Laravel usa locale `en` por padrão. As mensagens de validação e erros HTTP aparecem em inglês apesar do sistema ser pt-BR. Arquivos de lang pt-BR não foram publicados (`php artisan lang:publish` não executado).
 - **Ação necessária**: Executar `composer require laravel-lang/lang` (ou `php artisan lang:publish`) e definir `'locale' => 'pt_BR'` em `config/app.php`.
 
+---
+
+### D5-F001 — MEDIUM — WebhookPayload campos obrigatórios não validados antes do fromArray()
+
+- **Sprint**: D5
+- **Severidade**: MEDIUM
+- **Tipo**: security_gap
+- **Status**: Corrigido
+- **Arquivo**: `app/Http/Middleware/VerifyWebhookHmac.php`
+- **Descrição**: O middleware validava apenas `finished_at` do payload antes de passar ao controller. Se o payload chegasse sem `job_id`, `state`, `cmd` ou `client`, `WebhookPayload::fromArray()` lançaria `Undefined array key` resultando em HTTP 500 ao invés de 422.
+- **Correção**: Middleware agora valida todos os campos obrigatórios (`job_id`, `state`, `cmd`, `client`, `finished_at`) retornando 422 `invalid_payload` se qualquer um estiver ausente.
+
+---
+
+### D5-F002 — LOW — WebhookHandler criava AuditLog duplicado no idempotent path
+
+- **Sprint**: D5
+- **Severidade**: LOW
+- **Tipo**: logic_gap
+- **Status**: Corrigido
+- **Arquivo**: `app/Modules/Jobs/Services/WebhookHandler.php`
+- **Descrição**: Quando o mesmo webhook chegava duas vezes para o mesmo job_id+state, a segunda chamada executava a transação completa e criava um segundo `AuditLog` entry `webhook_received`. O estado permanecia correto mas o audit log ficava poluído.
+- **Correção**: Early return quando `$job->state === $canonical` — o no-op idempotente agora é silencioso (sem AuditLog duplicado).
+
+---
+
+### D5-F003 — LOW — Rate limit no webhook não gera log de segurança
+
+- **Sprint**: D5
+- **Severidade**: LOW
+- **Tipo**: observability_gap
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Middleware/VerifyWebhookHmac.php`
+- **Descrição**: Tentativas de flood que atingem o rate limit (100 req/min/IP) retornavam 429 silenciosamente, sem entrada no canal de segurança. Ataques volumétricos ficavam invisíveis para monitoramento.
+- **Correção**: Adicionado `Log::channel('security')->warning('webhook.rate_limit', ['ip' => $ip])` no path de rate limit.
+
+---
+
+### D5-F004 — LOW — customerFilter aceita LIKE wildcards sem escape
+
+- **Sprint**: D5
+- **Severidade**: LOW
+- **Tipo**: logic_gap
+- **Status**: Corrigido
+- **Arquivo**: `app/Http/Controllers/Api/JobController.php`
+- **Descrição**: O filtro `customer` nos endpoints `GET /api/queue` e `GET /queue` (Livewire) interpolava a string diretamente em `LIKE "%{$c}%"`. Um valor como `%` retornava todos os jobs; `_` atuava como wildcard de caractere único. Não é injection (query builder usa prepared statements) mas produz resultados inesperados.
+- **Correção**: Aplicado `addcslashes($c, '%_')` antes da interpolação no LIKE.
+
+---

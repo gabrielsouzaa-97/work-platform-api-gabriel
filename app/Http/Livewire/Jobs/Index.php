@@ -46,7 +46,7 @@ class Index extends Component
             ->with(['customer', 'clusterServer'])
             ->when($this->stateFilter !== '', fn ($q) => $q->where('state', $this->stateFilter))
             ->when($this->jobTypeFilter !== '', fn ($q) => $q->where('job_type', $this->jobTypeFilter))
-            ->when($this->customerFilter !== '', fn ($q) => $q->where('customer_slug', 'like', "%{$this->customerFilter}%"))
+            ->when($this->customerFilter !== '', fn ($q) => $q->where('customer_slug', 'like', '%'.addcslashes($this->customerFilter, '%_').'%'))
             ->orderByDesc('created_at')
             ->paginate(25);
 

@@ -30,6 +30,8 @@ final class VerifyWebhookHmac
         $limit = (int) config('services.webhook.rate_limit_per_minute', 100);
 
         if (RateLimiter::tooManyAttempts($rateKey, $limit)) {
+            Log::channel('security')->warning('webhook.rate_limit', ['ip' => $ip]);
+
             return response()->json(['error' => 'rate_limit'], 429);
         }
         RateLimiter::hit($rateKey, 60);
@@ -69,8 +71,9 @@ final class VerifyWebhookHmac
 
         $payload = json_decode($body, true);
 
-        if (! is_array($payload) || ! isset($payload['finished_at'])) {
-            return response()->json(['error' => 'missing_finished_at'], 422);
+        $requiredFields = ['job_id', 'state', 'cmd', 'client', 'finished_at'];
+        if (! is_array($payload) || array_diff($requiredFields, array_keys($payload))) {
+            return response()->json(['error' => 'invalid_payload'], 422);
         }
 
         $replayWindow = (int) config('services.webhook.replay_window_minutes', 60);

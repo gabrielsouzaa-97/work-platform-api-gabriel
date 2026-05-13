@@ -31,7 +31,7 @@ final class JobController extends Controller
             ->with(['customer', 'clusterServer'])
             ->when($request->state, fn ($q, $s) => $q->where('state', $s))
             ->when($request->job_type, fn ($q, $t) => $q->where('job_type', $t))
-            ->when($request->customer, fn ($q, $c) => $q->where('customer_slug', 'like', "%{$c}%"))
+            ->when($request->customer, fn ($q, $c) => $q->where('customer_slug', 'like', '%'.addcslashes($c, '%_').'%'))
             ->orderByDesc('created_at')
             ->paginate($perPage);
 

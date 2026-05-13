@@ -36,6 +36,10 @@ final class WebhookHandler
 
         $canonical = $this->stateTranslator->toCanonical($payload->state);
 
+        if ($job->state === $canonical) {
+            return;
+        }
+
         DB::transaction(function () use ($job, $canonical, $payload, $cluster): void {
             $job->update([
                 'state' => $canonical,
