@@ -2,6 +2,8 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-13 17:30** `sprint/D6` — feat(sprint-D6): D6 completo — CustomerSync + Provision + Remove + Poll stuck
+
 - **2026-05-08 10:21** `de5a0de` — chore(pipeline): checkpoint before sprint D1
 - **2026-05-08 12:42** `afbeb6b` — chore(pipeline): checkpoint before sprint D2
 - **2026-05-08 13:37** `865801f` — chore(pipeline): checkpoint before sprint D3

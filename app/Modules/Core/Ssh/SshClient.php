@@ -160,7 +160,7 @@ class SshClient implements SshClientInterface
         $this->logExecution($cluster, $command, $response);
 
         if ($exitCode !== 0) {
-            throw $this->buildRemoteException($cluster, $exitCode);
+            throw $this->buildRemoteException($cluster, $exitCode, $parsedJson);
         }
 
         return $response;
@@ -195,17 +195,18 @@ class SshClient implements SshClientInterface
     private function buildRemoteException(
         ClusterServer $cluster,
         int $exitCode,
+        ?array $parsedJson = null,
     ): SshRemoteException|SshTimeoutException {
         $message = "Remote command failed on cluster [{$cluster->id}] with exit code {$exitCode}";
 
         return match ($exitCode) {
             124 => new SshTimeoutException($message),
-            2 => new SshRemoteException($message, remoteExitCode: $exitCode, retryable: true),
-            3 => new SshRemoteException($message, remoteExitCode: $exitCode, idempotencyConflict: true),
-            4 => new SshRemoteException($message, remoteExitCode: $exitCode, stateConflict: true),
-            5 => new SshRemoteException($message, remoteExitCode: $exitCode, validationFailed: true),
-            99 => new SshRemoteException($message, remoteExitCode: $exitCode, notImplemented: true),
-            default => new SshRemoteException($message, remoteExitCode: $exitCode),
+            2 => new SshRemoteException($message, remoteExitCode: $exitCode, retryable: true, parsedJson: $parsedJson),
+            3 => new SshRemoteException($message, remoteExitCode: $exitCode, idempotencyConflict: true, parsedJson: $parsedJson),
+            4 => new SshRemoteException($message, remoteExitCode: $exitCode, stateConflict: true, parsedJson: $parsedJson),
+            5 => new SshRemoteException($message, remoteExitCode: $exitCode, validationFailed: true, parsedJson: $parsedJson),
+            99 => new SshRemoteException($message, remoteExitCode: $exitCode, notImplemented: true, parsedJson: $parsedJson),
+            default => new SshRemoteException($message, remoteExitCode: $exitCode, parsedJson: $parsedJson),
         };
     }
 

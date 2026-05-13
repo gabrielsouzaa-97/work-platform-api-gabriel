@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Middleware\VerifyWebhookHmac;
@@ -24,4 +25,7 @@ Route::middleware(['auth', 'active.operator'])->group(function (): void {
     Route::get('/queue/stats', [JobController::class, 'stats'])->name('api.queue.stats');
     Route::get('/queue/{id}', [JobController::class, 'show'])->name('api.queue.show');
     Route::post('/queue/{id}/cancel', [JobController::class, 'cancel'])->name('api.queue.cancel');
+
+    Route::post('/customers', [CustomerController::class, 'store'])->name('api.customers.store');
+    Route::delete('/customers/{slug}', [CustomerController::class, 'destroy'])->name('api.customers.destroy');
 });

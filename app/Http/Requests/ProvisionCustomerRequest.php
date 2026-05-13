@@ -6,12 +6,13 @@ namespace App\Http\Requests;
 
 use App\Rules\Slug;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class ProvisionCustomerRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return in_array($this->user()?->role, ['admin', 'operador'], true);
     }
 
     public function rules(): array
@@ -20,15 +21,34 @@ class ProvisionCustomerRequest extends FormRequest
             'slug' => ['required', 'string', new Slug, 'unique:customers,slug'],
             'cluster_server_id' => ['required', 'uuid', 'exists:cluster_servers,id'],
             'domain' => ['required', 'string', 'max:253'],
-            'branding_meta' => ['sometimes', 'nullable', 'array'],
-            'attachment' => ['sometimes', 'nullable', 'file', 'max:51200'],
+            'apps' => ['nullable', 'array'],
+            'apps.*' => ['string', 'max:100'],
+            'full_apps' => ['nullable', 'boolean'],
+            'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],
+            'background' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v): void {
+            foreach (['logo', 'background'] as $field) {
+                if (! $this->hasFile($field)) {
+                    continue;
+                }
+                $mime = $this->file($field)->getMimeType();
+                if (! in_array($mime, ['image/png', 'image/jpeg'], true)) {
+                    $v->errors()->add($field, 'Tipo de imagem inválido (mime real).');
+                }
+            }
+        });
     }
 
     public function messages(): array
     {
         return [
-            'slug.unique' => 'A customer with this slug already exists.',
+            'slug.regex' => 'Use apenas letras minúsculas, números e hífen.',
+            'slug.unique' => 'Slug já em uso.',
         ];
     }
 }

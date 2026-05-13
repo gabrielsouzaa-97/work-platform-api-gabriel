@@ -6,6 +6,9 @@ use App\Http\Livewire\Auth\Login;
 use App\Http\Livewire\ClusterServers\Create as ClusterCreate;
 use App\Http\Livewire\ClusterServers\Edit as ClusterEdit;
 use App\Http\Livewire\ClusterServers\Index as ClusterIndex;
+use App\Http\Livewire\Customers\Create as CustomerCreate;
+use App\Http\Livewire\Customers\Index as CustomerIndex;
+use App\Http\Livewire\Customers\Show as CustomerShow;
 use App\Http\Livewire\Jobs\Index as JobsIndex;
 use App\Http\Livewire\Operators\Create;
 use App\Http\Livewire\Operators\Index;
@@ -53,13 +56,13 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
 
     Route::get('/queue', JobsIndex::class)->name('queue.index');
 
-    Route::get('/customers', function () {
-        return view('customers.index');
-    })->name('customers.index');
+    Route::get('/customers', CustomerIndex::class)->name('customers.index');
 
-    Route::get('/customers/create', function () {
-        return view('customers.create');
-    })->middleware('can:provision-customers')->name('customers.create');
+    Route::get('/customers/create', CustomerCreate::class)
+        ->middleware('can:provision-customers')
+        ->name('customers.create');
+
+    Route::get('/customers/{slug}', CustomerShow::class)->name('customers.show');
 });
 
 Route::get('/operators/{operator}/accept-invite', AcceptInvite::class)

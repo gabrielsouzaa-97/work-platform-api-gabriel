@@ -2,6 +2,8 @@
 
 use App\Console\Commands\CleanExpiredWebhookSecretsCommand;
 use App\Console\Commands\ClusterHealthCheckCommand;
+use App\Console\Commands\CustomersSyncCommand;
+use App\Console\Commands\JobsPollStuckCommand;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -12,3 +14,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command(ClusterHealthCheckCommand::class)->everyFiveMinutes();
 Schedule::command(CleanExpiredWebhookSecretsCommand::class)->dailyAt('03:00');
+Schedule::command(CustomersSyncCommand::class)->dailyAt('03:00');
+Schedule::command(JobsPollStuckCommand::class)->everyFiveMinutes()->withoutOverlapping();

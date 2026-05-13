@@ -14,6 +14,7 @@ class SshRemoteException extends SshClientException
         public readonly bool $stateConflict = false,
         public readonly bool $validationFailed = false,
         public readonly bool $notImplemented = false,
+        public readonly ?array $parsedJson = null,
         ?\Throwable $previous = null,
     ) {
         parent::__construct($message, $remoteExitCode, $previous);
