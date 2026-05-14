@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Console\Commands\AuditPurgeCommand;
 use App\Models\AuditLog;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 
 function makeAuditLog(string $createdAt): AuditLog
@@ -38,10 +39,12 @@ it('deleta logs com created_at > 12 meses e preserva os recentes', function () {
 it('--dry-run exibe contagem sem deletar registros', function () {
     $old = makeAuditLog(now()->subMonths(13)->toDateTimeString());
 
-    $this->artisan(AuditPurgeCommand::class, ['--dry-run' => true])
-        ->assertExitCode(0)
-        ->expectsOutputToContain('1 registro(s) com created_at')
-        ->expectsOutputToContain('seriam removidos');
+    $output = Artisan::call('audit:purge', ['--dry-run' => true]);
+    $outputText = Artisan::output();
+
+    expect($output)->toBe(0);
+    expect($outputText)->toContain('1 registro(s) com created_at anterior');
+    expect($outputText)->toContain('seriam removidos');
 
     expect(AuditLog::find($old->id))->not->toBeNull();
 });

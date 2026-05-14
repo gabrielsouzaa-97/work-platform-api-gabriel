@@ -82,7 +82,7 @@ it('[Marina] provisiona customer via API → webhook done → customer.status=ac
     $ssh->shouldReceive('runAsync')
         ->once()
         ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
-            && in_array('provision', $args, true))
+            && in_array('create', $args, true))
         ->andReturn(new SshResponse(
             stdout: json_encode(['job_id' => $jobId]),
             stderr: '',
