@@ -40,7 +40,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-14T02:24:08Z",
+  "ultimo_update": "2026-05-14T03:49:43Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -117,9 +117,9 @@
     "nextcloud_version_minima": ">=31 (necessario para group:rename na Feature 6.2)",
     "idempotency_key": "API gera UUID v4; armazenada em tabela idempotency_keys com TTL 24h",
     "fila_local": "NAO ha fila Laravel para jobs Nextcloud; fila vive no upstream. Laravel Queue local apenas para retry de email",
-    "fora_escopo_mvp": "self-service customer, mobile, i18n, streaming logs terminal-like, SSO, dashboard com charts time-series, API keys UI (sprint 2), webhooks externos, IP allowlist, rate limit visual, multi-cluster_server real (estrutura pronta mas nao testado)",
-    "design_system": "Livewire + Tailwind puro. Tema High-Tech Professional. Dark mode default (Light derivado M3). Status hibridos (sucesso verde, erro coral, aviso laranja). Densidade afrouxada para 44px row height. Idioma pt-BR.",
-    "bd_principal": "PostgreSQL 16",
+    "fora_escopo_mvp": "self-service customer, mobile, i18n, streaming logs terminal-like, SSO, dashboard com charts time-series, webhooks externos, IP allowlist, rate limit visual, multi-cluster_server real (estrutura pronta mas nao testado)",
+    "design_system": "Livewire 3 + Tailwind CSS v4. Layout sidebar esquerda fixa + topbar. Paleta Material Design 3 stitch. Fontes Inter + Fira Code. Idioma pt-BR.",
+    "bd_principal": "MariaDB 11",
     "tier_infra": "1",
     "composicao_bd": "Nível 1"
   },
@@ -150,11 +150,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-14T02:13:07Z",
-    "usage_percent": 92.836,
-    "messages_lost": 351
+    "compacted_at": "2026-05-14T03:30:18Z",
+    "usage_percent": 97.8805,
+    "messages_lost": 301
   },
-  "compact_count": 1,
+  "compact_count": 2,
   "checkpoint": {
     "sprint": "D7",
     "phase": "auditada",
