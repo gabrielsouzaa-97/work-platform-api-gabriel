@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureOperatorIsActive;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\SecureHeaders;
 use App\Http\Middleware\VerifyWebhookHmac;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(append: [
+            SecureHeaders::class,
+        ]);
         $middleware->alias([
             'active.operator' => EnsureOperatorIsActive::class,
             'role' => EnsureRole::class,

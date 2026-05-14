@@ -14,6 +14,7 @@ use App\Http\Requests\Lifecycle\RemoveUserFromGroupRequest;
 use App\Models\Customer;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
+use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;

@@ -13,6 +13,12 @@ class RemoveUserFromGroupRequest extends FormRequest
         return in_array($this->user()?->role, ['admin', 'operador'], true);
     }
 
+    protected function prepareForValidation(): void
+    {
+        // username comes from the route segment, not the request body (DELETE has no body)
+        $this->merge(['username' => $this->route('username')]);
+    }
+
     public function rules(): array
     {
         return [

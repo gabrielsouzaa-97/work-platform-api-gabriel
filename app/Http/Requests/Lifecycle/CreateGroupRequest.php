@@ -16,7 +16,14 @@ class CreateGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:256'],
+            'name' => ['required', 'string', 'max:256', 'regex:/^[a-zA-Z0-9._\- ]+$/'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.regex' => 'O nome do grupo aceita apenas letras, números, espaços e os caracteres . _ -',
         ];
     }
 }

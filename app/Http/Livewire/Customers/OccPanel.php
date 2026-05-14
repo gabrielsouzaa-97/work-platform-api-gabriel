@@ -100,6 +100,7 @@ class OccPanel extends Component
     {
         $this->validate([
             'quotaValue' => ['required', 'string', 'regex:/^(\d+(\.\d+)?\s*(GB|MB|KB)|none|default)$/i'],
+            'quotaUsername' => ['nullable', 'string', 'max:64', 'regex:/^[a-zA-Z0-9._@-]*$/'],
         ]);
 
         $this->clearMessages();
@@ -119,6 +120,10 @@ class OccPanel extends Component
 
     public function submitRescan(OccPassthroughService $occ): void
     {
+        $this->validate([
+            'rescanUsername' => ['nullable', 'string', 'max:64', 'regex:/^[a-zA-Z0-9._@-]*$/'],
+        ]);
+
         $this->clearMessages();
         try {
             $result = $occ->exec(

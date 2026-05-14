@@ -6,6 +6,7 @@ namespace App\Modules\Jobs\Services;
 
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
+use App\Models\Customer;
 use App\Models\Job;
 use App\Modules\Core\Translators\StateTranslator;
 use App\Modules\Jobs\Dto\WebhookPayload;
@@ -47,6 +48,21 @@ final class WebhookHandler
                 'finished_at' => Carbon::parse($payload->finishedAt),
                 'exit_code' => $payload->exitCode,
             ]);
+
+            // Propagate terminal job states to the owning Customer.
+            if ($job->customer_slug && in_array($canonical, ['success', 'failed', 'cancelled'], true)) {
+                $customerStatus = match (true) {
+                    $job->job_type === 'provision' && $canonical === 'success' => 'active',
+                    $job->job_type === 'provision' && in_array($canonical, ['failed', 'cancelled'], true) => 'failed',
+                    $job->job_type === 'deprovision' && $canonical === 'success' => 'removed',
+                    default => null,
+                };
+
+                if ($customerStatus !== null) {
+                    Customer::where('slug', $job->customer_slug)
+                        ->update(['status' => $customerStatus]);
+                }
+            }
 
             AuditLog::create([
                 'id' => Str::uuid()->toString(),

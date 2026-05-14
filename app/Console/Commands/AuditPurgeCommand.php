@@ -27,7 +27,7 @@ class AuditPurgeCommand extends Command
 
         if ($this->option('dry-run')) {
             $count = $query->count();
-            $this->info("audit:purge --dry-run: {$count} registro(s) com created_at < {$cutoff->toIso8601String()} seriam removidos.");
+            $this->info("audit:purge --dry-run: {$count} registro(s) com created_at anterior a {$cutoff->toIso8601String()} seriam removidos.");
 
             return self::SUCCESS;
         }

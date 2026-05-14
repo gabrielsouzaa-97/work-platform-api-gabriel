@@ -97,7 +97,9 @@ final class VerifyWebhookHmac
                 'job_id' => $jobId,
             ]);
 
-            return response()->json(['error' => 'duplicate_webhook'], 409);
+            // Idempotent: duplicate delivery from upstream → 204, not 409.
+            // The job is already processed; returning 204 signals "received" without reprocessing.
+            return response('', 204);
         }
 
         Cache::put($dedupeKey, true, $ttlSeconds);
