@@ -1,0 +1,6 @@
+*
+!.gitignore
+!cache/
+!sessions/
+!testing/
+!views/
