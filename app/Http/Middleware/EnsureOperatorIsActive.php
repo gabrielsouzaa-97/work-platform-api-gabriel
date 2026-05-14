@@ -15,14 +15,14 @@ class EnsureOperatorIsActive
     {
         $user = $request->user();
 
-        if (! $user || $user->status === 'active') {
-            return $next($request);
+        if (! $user || $user->status !== 'active') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            abort(403, 'Conta desativada.');
         }
 
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        abort(403, 'Conta desativada.');
+        return $next($request);
     }
 }

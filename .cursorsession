@@ -34,13 +34,13 @@
   ],
   "fase_atual": "9",
   "fase_nome": "Planejamento tecnico concluido",
-  "sprint_atual": "D5",
+  "sprint_atual": "D8",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-13T19:49:53Z",
+  "ultimo_update": "2026-05-14T01:26:25Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -136,15 +136,15 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "planejador-tarefas",
-    "phase": "Planejamento tecnico concluido",
-    "intent": "Planejar sprints para mework360-deployer (perfil laravel, modo autopilot/Pipeline) — gerar docs/ROADMAP.md decompondo F1-F10 em sprints D1-D8 com gates executaveis, executor_prompt para tasks M e estrategia de auditoria conservadora",
-    "changes_made": "docs/ROADMAP.md gerado (1 sprint Foundation D1 + 7 sprints feature/polish D2-D8). 44 tasks total (25P + 19M + 0G). Cobertura: Core (D1-D2), Auth (D3), ClusterServers+Audit (D4), Jobs/Webhook (D5), Customers (D6), OCC (D7), Polish+Deploy (D8). Tasks com critica:true (Best-of-N): D2.1 SshClient, D5.1 Webhook receiver HMAC, D6.2 Provisionar customer. Mini design docs COMPLETOS em D2.1, D4.3, D5.1, D6.2, D6.3 (5 criterios). Estrategia de auditoria: D1=skip, D2-D7=senior+qa, D8=comprehensive (modo Pipeline).",
-    "decisions": "Modo execucao: Pipeline/autopilot (auditoria e o unico gate de qualidade entre sprints, sem revisao humana). Estrutura: 8 sprints D — caminho critico 6 sprints sequenciais (D1-D2-D4-D5-D6-D8); D3 (Auth) e D7 (OCC) podem rodar em paralelo. Tradutor JobType cobre 15 verbs do REQUIREMENTS §3; StateTranslator unidirectional upstream→canonical (5 estados). Webhook multi-secret durante grace 24h via webhook_secret_history table. Provisionar inline base64 < 256KB ou SCP staging > 256KB (per anexo). 3 tasks critica:true marcadas apos tentativa de decomposicao (genuinamente indivisivel). Fase 6.3 Preventive Audit skipped silently (codebase greenfield). Compliance LGPD: audit retention 12m via cron mensal. Polling fallback 5min para jobs sem callback >60s.",
-    "next_steps": "Executar /jarvis pipeline range=D1-D8 (modo Pipeline ja escolhido) OU manual /pmo sprint D1 para Foundation; humano provisiona VM Proxmox antes de D8 deploy staging; cada sprint produz docs/DIARY.md lido nas seguintes para evitar repeticao; review:comprehensive em D8 dispara auditoria completa (DBA + Security + Performance + Senior).",
-    "updated_at": "2026-05-07T21:05:00-03:00"
+    "persona": "dev",
+    "phase": "D8 em andamento",
+    "intent": "Executar Sprint D8: corrigir findings pendentes D7 (F003-F007), implementar AuditPurgeCommand (8.1), testes E2E (8.2), e preparar para auditorias 8.3/8.4 e deploy 8.6",
+    "changes_made": "D7-F003: SshTimeoutException catch 504 em CustomerLifecycleController + import RemoveUserFromGroupRequest ausente corrigido. D7-F004: Password::min(8)->letters()->numbers() em CreateUserRequest. D7-F005: explode frágil substituído por [$customer->slug, $cmd] em LifecycleAsyncAction. D7-F007: IdempotencyKey deletada em catch SshConnectionException/SshTimeoutException/SshRemoteException. D7-F006: +11 testes em LifecycleTest (deleteGroup x2, addUserToGroup x2, removeUserFromGroup x2, lifecycle_timeout x1) e OccControllerTest (setBranding x2, setQuotaAll x2). 8.1: AuditPurgeCommand (chunkById 1000, dry-run, retention-months, max 100k) + schedule monthlyOn(1,'03:30') + 3 testes em AuditPurgeTest. 8.2: CriticalFlowsTest (Marina provisiona→webhook→active, Rafael cancela job, Sofia reseta quota).",
+    "decisions": "E2E implementados como Pest feature HTTP tests (não Dusk) — laravel/dusk não instalado no ambiente; fluxos testam o mesmo contrato HTTP/DB. AuditPurgeCommand usa chunkById com id (UUID string PK) e withoutOverlapping()+runInBackground() no schedule.",
+    "next_steps": "8.3 Auditoria DBA (/qa auditoria dba) — revisar índices, N+1, explain. 8.4 Auditoria Security (/qa auditoria security). 8.5 Docs operacional. 8.6 Deploy staging (humano). Rodar suite completa de testes antes de 8.3.",
+    "updated_at": "2026-05-13T21:40:00-03:00"
   },
-  "contexto_rapido": "Sprint D5 AUDITADA (gate met: 133/133 testes, 0 CRITICAL/HIGH, 1 MEDIUM corrigido inline, 3 LOW corrigidos inline). Findings D5: F001 MEDIUM payload missing fields→500 (corrigido no middleware), F002 LOW audit log duplicado idempotente (corrigido no WebhookHandler), F003 LOW rate-limit sem security log (corrigido), F004 LOW LIKE wildcards sem escape (corrigido em JobController+Jobs/Index). Pendentes pre-existentes: D4-F004 (queue worker), D4-F005 (pt-BR lang), D4-F008 (PEM textarea), D4-F009 (rotate audit). Proxima sprint: D6 — Customers (provisionar + listar + remover).",
+  "contexto_rapido": "Sprint D8 EM ANDAMENTO. Tasks 8.1 e 8.2 concluidas. Findings D7 todos corrigidos: F003 (SshTimeoutException 504 + import RemoveUserFromGroupRequest), F004 (Password::min(8)->letters()->numbers()), F005 (explode removido), F007 (IdempotencyKey deletada em catch SshRemoteException/SshTimeoutException/SshConnectionException). D7-F006 coberto: +11 testes novos (deleteGroup, addUserToGroup, removeUserFromGroup, setBranding, setQuotaAll, lifecycle_timeout). 8.1: AuditPurgeCommand com chunkById+dry-run+retention-months, schedule mensal dia 1 03:30, 3 testes. 8.2: CriticalFlowsTest (Marina/Rafael/Sofia) como feature E2E HTTP. Proximos: 8.3 Auditoria DBA, 8.4 Auditoria Security, 8.5 Docs, 8.6 Deploy staging.",
   "autopilot": {
     "active": false
   },
@@ -156,26 +156,48 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "D5",
-    "phase": "in_progress",
-    "branch": "sprint/D5",
+    "sprint": "D7",
+    "phase": "auditada",
+    "branch": "sprint/D7",
     "relevant_paths": [
-      "app/Http/Controllers/Api/WebhookController.php",
-      "app/Http/Controllers/Api/JobController.php",
-      "app/Http/Middleware/VerifyWebhookHmac.php",
-      "app/Modules/Jobs/Services/WebhookHandler.php",
-      "app/Modules/Jobs/Dto/WebhookPayload.php",
-      "app/Http/Livewire/Jobs/Index.php",
-      "app/Http/Resources/JobResource.php",
-      "app/Modules/Jobs/Actions/CancelJobAction.php",
-      "resources/views/livewire/jobs/",
+      "app/Modules/Customers/Services/OccPassthroughService.php",
+      "app/Http/Controllers/Api/OccController.php",
+      "app/Http/Controllers/Api/CustomerLifecycleController.php",
+      "app/Modules/Customers/Actions/LifecycleAsyncAction.php",
+      "app/Http/Livewire/Customers/OccPanel.php",
+      "app/Http/Requests/Occ/",
+      "app/Http/Requests/Lifecycle/",
+      "resources/views/livewire/customers/occ-panel.blade.php",
       "routes/api.php",
       "routes/web.php",
-      "tests/Feature/Api/"
+      "tests/Feature/Api/OccControllerTest.php",
+      "tests/Feature/Customers/LifecycleTest.php"
     ],
-    "last_completed_task": "5.5",
-    "current_task": null,
-    "timestamp": "2026-05-13T19:44:00Z",
+    "last_completed_task": "8.5",
+    "current_task": "8.6",
+    "timestamp": "2026-05-14T01:23:00Z",
+    "d6_closure": {
+      "gate_met": true,
+      "audit_level": "senior+qa",
+      "tests_total": 156,
+      "findings_new": [
+        "D6-F001",
+        "D6-F002",
+        "D6-F003",
+        "D6-F004",
+        "D6-F005"
+      ],
+      "findings_fixed_inline": [
+        "D6-F001",
+        "D6-F002",
+        "D6-F005"
+      ],
+      "findings_pending": [
+        "D6-F003",
+        "D6-F004"
+      ],
+      "d6_status_roadmap": "auditada"
+    },
     "d5_closure": {
       "gate_met": true,
       "audit_level": "senior+qa",

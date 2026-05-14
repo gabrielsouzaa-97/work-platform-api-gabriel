@@ -10,6 +10,8 @@ use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Actions\ProvisionCustomerAction;
+use App\Modules\Customers\Dto\ProvisionPayload;
 use Illuminate\Support\Str;
 
 function makeProvisionCluster(): ClusterServer
@@ -183,6 +185,44 @@ it('suporte não pode provisionar → 422 (authorization)', function () {
     ]);
 
     $response->assertStatus(403);
+});
+
+it('logo > 256 KB → scpUpload chamado + --staging-id repassado ao SSH', function () {
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator('operador');
+    $jobId = Str::uuid()->toString();
+
+    $tmpFile = tempnam(sys_get_temp_dir(), 'logo_scp_');
+    file_put_contents($tmpFile, str_repeat('X', 260 * 1024));
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('scpUpload')->once();
+    $sshMock->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $bin, $args) {
+            return collect($args)->contains(fn ($a) => str_starts_with((string) $a, '--staging-id='));
+        })
+        ->andReturn(sshProvisionSuccess($jobId));
+
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $payload = new ProvisionPayload(
+        slug: 'acme-scp',
+        domain: 'acme-scp.example.com',
+        clusterServerId: $cluster->id,
+        apps: [],
+        fullApps: false,
+        logoPath: $tmpFile,
+        backgroundPath: null,
+    );
+
+    $action = app(ProvisionCustomerAction::class);
+    $result = $action->execute($payload, $operator);
+
+    @unlink($tmpFile);
+
+    expect($result['customer']->slug)->toBe('acme-scp');
+    expect(Job::find($jobId))->not->toBeNull();
 });
 
 it('sem autenticação → 401', function () {

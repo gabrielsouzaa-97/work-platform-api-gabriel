@@ -1,8 +1,8 @@
 # CI/CD — mework360-deployer
 
-> Gerado em: 2026-05-07
-> Fase: 8.1 — CI/CD + Docker configurados (`/devops planejar`)
-> Escopo atual: **CI apenas** (deploy manual no MVP)
+> Atualizado em: 2026-05-14 (Sprint D8)
+> Gerado em: 2026-05-07 (`/devops planejar`)
+> Escopo atual: **CI apenas** (deploy manual no MVP — ver `docs/RUNBOOK.md §1`)
 
 ---
 
@@ -34,6 +34,7 @@
 - Healthcheck dos services com `pg_isready` e `redis-cli ping` antes de rodar testes.
 - Steps: `composer install` → `cp .env.example .env` → `php artisan key:generate` → `php artisan migrate --force` → `php artisan test --parallel --recreate-databases`.
 - **Sem hardcode de secrets de produção** — credenciais do BD de teste são públicas e descartáveis.
+- **Cobertura atual (D8):** 190+ testes. Módulos cobertos: Auth, ClusterServers, Audit, Jobs, Webhook, Customers (Provision, Remove, Sync, Lifecycle, OCC), Console (AuditPurge, PollStuck, Sync), E2E (Marina, Rafael, Sofia).
 
 ### 2.3 `security` (composer audit)
 - Depende de `lint`.
@@ -131,9 +132,10 @@ Regras absolutas:
 
 ## 8. Próximos passos sugeridos
 
-1. **Sprint 1 — scaffold do Laravel** (`composer create-project laravel/laravel .` no diretório, mantendo os arquivos já gerados aqui).
-2. Após scaffold: `docker compose up -d`, rodar `php artisan migrate`, validar pipeline CI no primeiro PR.
-3. Quando a primeira VM de staging existir: `/devops planejar` novamente para gerar CD + `docker-compose.prod.yml` + `deploy.sh`/`rollback.sh`.
+1. **Deploy staging** — provisionar a VM conforme `docs/INFRASTRUCTURE.md §6` e `docs/RUNBOOK.md §1`.
+2. **CD pipeline** — quando staging existir com SSH key dedicada do CI: `/devops planejar` para gerar CD + `docker-compose.prod.yml` + `deploy.sh`/`rollback.sh`.
+3. **Bearer token API** — implementar guard `api` via Sanctum (Sprint 2) para clientes externos (SEC-F004).
+4. **Security headers** — adicionar middleware `bepsvpt/secure-headers` (SEC-F017) antes da abertura de acesso externo.
 
 ---
 
@@ -142,3 +144,4 @@ Regras absolutas:
 | Data | Versão | Alteração |
 |---|---|---|
 | 2026-05-07 | 0.1 | Versão inicial — CI-only, Docker dev, hooks Cursor (`/devops planejar`). |
+| 2026-05-14 | 0.2 | Sprint D8: atualizar cobertura de testes (190+), links para RUNBOOK.md, próximos passos CD. |

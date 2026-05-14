@@ -45,9 +45,17 @@
             </h1>
             <div style="color:#718096;font-size:.8rem;margin-top:.25rem">{{ $customer->domain }}</div>
         </div>
-        @if (in_array($customer->status, ['active', 'provisioning']) && auth()->user()?->role !== 'suporte')
-            <button class="btn-danger" wire:click="$set('showRemoveModal', true)">Remover</button>
-        @endif
+        <div style="display:flex;gap:.5rem;align-items:center">
+            @if ($customer->status === 'active')
+                <a href="{{ route('customers.occ', $customer->slug) }}"
+                   style="background:#1a365d;color:#63b3ed;border:1px solid #2b4c7e;border-radius:6px;padding:.45rem 1rem;font-size:.8125rem;text-decoration:none">
+                    Painel OCC
+                </a>
+            @endif
+            @if (in_array($customer->status, ['active', 'provisioning']) && auth()->user()?->role !== 'suporte')
+                <button class="btn-danger" wire:click="$set('showRemoveModal', true)">Remover</button>
+            @endif
+        </div>
     </div>
 
     <div class="section-card">

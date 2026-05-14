@@ -52,8 +52,8 @@
 | D3 | D | Admin convida operador → email enviado → operador define senha → loga; suporte sem opcoes de provisionar/remover | concluida | 5 | Auth | Auth: Login + cadastro de operadores (F1) | 471-680 |
 | D4 | D | Admin cria cluster_server (encrypted); rotate webhook secret aceita ambos por 24h; audit log registra acoes | auditada | 6 | ClusterServers, Audit | ClusterServers (F9) + Audit (F7 base) | 681-960 |
 | D5 | D | Webhook HMAC valido atualiza estado; HMAC invalido 401 + alerta; replay > 1h rejeitado | auditada | 5 | Jobs | Jobs: Webhook receiver (F8) + listagem fila (F5) | 961-1180 |
-| D6 | D | Marina provisiona customer via UI → SSH → webhook conclui em <5min; slug `_` 422; anexo 800KB via SCP; remove com --backup-first | implementada | 6 | Customers | Customers: provisionar + listar + remover (F2+F3+F4+F10) | 1181-1490 |
-| D7 | D | Operador define quota via UI (sync 60s); cria user via async (job_id retornado, webhook conclui) | pendente | 5 | Customers, Jobs | OCC essenciais: sync passthrough + async lifecycle (F6) | 1491-1700 |
+| D6 | D | Marina provisiona customer via UI → SSH → webhook conclui em <5min; slug `_` 422; anexo 800KB via SCP; remove com --backup-first | auditada | 6 | Customers | Customers: provisionar + listar + remover (F2+F3+F4+F10) | 1181-1490 |
+| D7 | D | Operador define quota via UI (sync 60s); cria user via async (job_id retornado, webhook conclui) | auditada | 5 | Customers, Jobs | OCC essenciais: sync passthrough + async lifecycle (F6) | 1491-1700 |
 | D8 | D | CI verde; auditorias sem CRITICAL/HIGH; staging valida fluxo Marina end-to-end; retention 12m ativo | pendente | 6 | todos | Polish: Audit retention (F7) + Auditorias + Deploy staging | 1701-1900 |
 
 ---
@@ -2240,11 +2240,11 @@ Operator clica "Remover" em /customers/{slug}
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | 7.1 — OCC sync passthrough: endpoints quota (set/audit/options/all/default), branding, maintenance, files:rescan, app:enable individual via `nextcloud-manage <client> occ-exec <subcmd>` (timeout 60s) ← [E1,E8] sem domain `_` | `laravel-api` | 2.1 |
-| [ ] | M | 7.2 — Lifecycle user/group async: POST /customers/{c}/users, /groups, /apps/enable, /apps/disable via `nextcloud-manage <client> user create --async --json` etc. (Feature O.2) ← [E1] | `laravel-api` | 2.1, 5.1 |
-| [ ] | P | 7.3 — Endpoints DELETE async: DELETE /users/{username}, /groups/{group} | `laravel-api` | 7.2 |
-| [ ] | P | 7.4 — Livewire `Customers\OccPanel` com abas Quota / Branding / Maintenance / Apps / Users / Groups | `laravel-livewire` | 7.1, 7.2 |
-| [ ] | P | 7.5 — Testes Feature OCC sync (timeout, mime, validacao) + async lifecycle (idempotency, webhook conclui) | `laravel-testing` | 7.1-7.4 |
+| [x] | M | 7.1 — OCC sync passthrough: endpoints quota (set/audit/options/all/default), branding, maintenance, files:rescan, app:enable individual via `nextcloud-manage <client> occ-exec <subcmd>` (timeout 60s) ← [E1,E8] sem domain `_` | `laravel-api` | 2.1 |
+| [x] | M | 7.2 — Lifecycle user/group async: POST /customers/{c}/users, /groups, /apps/enable, /apps/disable via `nextcloud-manage <client> user create --async --json` etc. (Feature O.2) ← [E1] | `laravel-api` | 2.1, 5.1 |
+| [x] | P | 7.3 — Endpoints DELETE async: DELETE /users/{username}, /groups/{group} | `laravel-api` | 7.2 |
+| [x] | P | 7.4 — Livewire `Customers\OccPanel` com abas Quota / Branding / Maintenance / Apps / Users / Groups | `laravel-livewire` | 7.1, 7.2 |
+| [x] | P | 7.5 — Testes Feature OCC sync (timeout, mime, validacao) + async lifecycle (idempotency, webhook conclui) | `laravel-testing` | 7.1-7.4 |
 
 **Notas tecnicas (tarefas M):**
 

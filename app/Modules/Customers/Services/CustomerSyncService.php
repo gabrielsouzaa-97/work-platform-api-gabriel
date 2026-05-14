@@ -9,6 +9,7 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Dto\SyncReport;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class CustomerSyncService
@@ -40,11 +41,28 @@ final class CustomerSyncService
             ];
         }
 
+        // Guard: abort sync if exit code is non-zero — a failed command should not
+        // be treated as "0 customers" and wipe the local replica.
+        if ($resp->exitCode !== 0) {
+            Log::warning('customers.sync: nextcloud-manage list returned non-zero exit — skipping sync', [
+                'cluster_id' => $cluster->id,
+                'exit_code' => $resp->exitCode,
+                'stderr' => $resp->stderr,
+            ]);
+
+            return new SyncReport;
+        }
+
         $upstreamSlugs = array_column($upstream, 'slug');
         $report = new SyncReport;
 
+        // Pre-load all local customers for this cluster in a single query to avoid N+1.
+        $existing = Customer::where('cluster_server_id', $cluster->id)
+            ->get()
+            ->keyBy('slug');
+
         foreach ($upstream as $u) {
-            $local = Customer::find($u['slug']);
+            $local = $existing->get($u['slug']);
             if (! $local) {
                 Customer::create([
                     'slug' => $u['slug'],

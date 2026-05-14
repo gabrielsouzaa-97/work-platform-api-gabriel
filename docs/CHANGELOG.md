@@ -2,6 +2,11 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-13 22:23** `sprint/D8` — docs(8.5): README.md criado, docs/RUNBOOK.md (rotate secret, sync, deploy, diagnóstico), docs/CI-CD.md atualizado (cobertura D8, próximos passos)
+- **2026-05-13 21:59** `sprint/D8` — fix(sec-audit): SEC 5 HIGH corrigidos inline (Password import, HttpRequest→request(), Locked import, SshTimeoutException import, EnsureOperatorIsActive logic), SEC-F007 replay dedupe por job_id, SEC-F008 username URL validation, SEC-F010 Gate::authorize OccPanel, SEC-F011 throttle:120,1 na API
+- **2026-05-13 21:51** `sprint/D8` — fix(dba-audit): DBA-F001 N+1 CustomerSyncService keyBy pré-load; DBA-F002 AuditPurge whereIn batch delete; migration 2026_05_14_000001 indexes: F003-F009 (trgm, composite, drop duplicate)
+- **2026-05-13 21:40** `sprint/D8` — feat(sprint-D8): D8 iniciado — 5 findings D7 corrigidos, AuditPurgeCommand 8.1, testes E2E 8.2 (Marina/Rafael/Sofia), +11 testes (LifecycleTest+OccTest), SshTimeoutException 504, IdempotencyKey orphan fix, password complexity, explode fix
+- **2026-05-13 22:11** `sprint/D6` — audit(sprint-D6): D6 auditada — 156/156 testes, 2 MEDIUM corrigidos inline (CustomerSync exit-code guard + SCP staging test), gate met
 - **2026-05-13 17:30** `sprint/D6` — feat(sprint-D6): D6 completo — CustomerSync + Provision + Remove + Poll stuck
 
 - **2026-05-08 10:21** `de5a0de` — chore(pipeline): checkpoint before sprint D1
@@ -46,3 +51,19 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-13 16:25** `eb6c223` — feat(sprint-D5): task 5.1 — Webhook receiver POST /api/jobs/hook
 - **2026-05-13 16:37** `535efb7` — feat(sprint-D5): tasks 5.4 + 5.5 — CancelJobAction + cancel endpoint + tests
 - **2026-05-13 16:49** `535efb7` — feat(sprint-D5): tasks 5.4 + 5.5 — CancelJobAction + cancel endpoint + tests
+- **2026-05-13 17:32** `d197183` — feat(sprint-D6): D6 completo — Customers provisionar + listar + remover + polling
+- **2026-05-13 17:42** `d197183` — feat(sprint-D6): D6 completo — Customers provisionar + listar + remover + polling
+- **2026-05-13 17:44** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 19:19** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 19:47** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 20:00** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:08** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:23** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:24** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:25** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:35** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:39** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:47** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 21:58** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 22:10** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 22:26** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]

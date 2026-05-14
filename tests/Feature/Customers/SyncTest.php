@@ -63,7 +63,7 @@ it('cron sync soft-deleta customer presente local mas não no upstream', functio
     expect(AuditLog::where('action', 'customer_sync_removed')->where('resource_id', 'orphan-co')->exists())->toBeTrue();
 });
 
-it('cluster offline → SSH exception não interrompe processo', function () {
+it('cluster offline → CustomerSyncService lança SshConnectionException (command captura externamente)', function () {
     $cluster = makeSyncCluster('sync-cluster-3');
     $offlineCluster = ClusterServer::factory()->create(['name' => 'offline', 'status' => 'active']);
 

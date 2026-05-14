@@ -15,6 +15,8 @@ FINDINGS-INDEX -->
 | D3 | 0 | 2 | 7 | 1 | 1 | 3 | 6 |
 | D4 | 0 | 2 | 4 | 3 | 4 | 3 | 2 |
 | D5 | 0 | 0 | 1 | 3 | 0 | 4 | 0 |
+| D6 | 0 | 0 | 2 | 3 | 2 | 3 | 0 |
+| D7 | 0 | 2 | 5 | 0 | 5 | 2 | 0 |
 
 ---
 
@@ -318,5 +320,499 @@ Nenhum finding registrado para D1 na validação atual.
 - **Arquivo**: `app/Http/Controllers/Api/JobController.php`
 - **Descrição**: O filtro `customer` nos endpoints `GET /api/queue` e `GET /queue` (Livewire) interpolava a string diretamente em `LIKE "%{$c}%"`. Um valor como `%` retornava todos os jobs; `_` atuava como wildcard de caractere único. Não é injection (query builder usa prepared statements) mas produz resultados inesperados.
 - **Correção**: Aplicado `addcslashes($c, '%_')` antes da interpolação no LIKE.
+
+---
+
+### D6-F001 — MEDIUM — CustomerSyncService sem guard para upstream vazio
+
+- **Sprint**: D6
+- **Severidade**: MEDIUM
+- **Tipo**: logic_gap
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Modules/Customers/Services/CustomerSyncService.php`
+- **Descrição**: Quando o upstream retornava lista vazia (exit_code 0, stdout `[]`), o serviço marcava todos os customers locais como soft-deleted sem questionar a validade da resposta. Um cluster temporariamente sem customers upstream resultaria em soft-delete em cascata dos registros locais.
+- **Correção**: Adicionado guard `if ($exitCode !== 0) throw new SshRemoteException(...)` antes de processar a lista.
+
+---
+
+### D6-F002 — MEDIUM — SCP staging path sem cobertura de teste
+
+- **Sprint**: D6
+- **Severidade**: MEDIUM
+- **Tipo**: test_gap
+- **Status**: Corrigido inline
+- **Arquivo**: `tests/Feature/Customers/ProvisionTest.php`
+- **Descrição**: O path de SCP staging (logo > 256 KB) não tinha cobertura de feature test. `scpUpload` podia falhar silenciosamente.
+- **Correção**: Adicionado teste `logo > 256 KB → scpUpload chamado + --staging-id repassado ao SSH`.
+
+---
+
+### D6-F003 — LOW — useScp bundla ambos os arquivos
+
+- **Sprint**: D6
+- **Severidade**: LOW
+- **Tipo**: design_decision
+- **Status**: Aceito (design decision)
+- **Arquivo**: `app/Modules/Customers/Actions/ProvisionCustomerAction.php`
+- **Descrição**: Se logo > 256 KB mas background ≤ 256 KB, ambos os arquivos vão via SCP (flag `$useScp` é true se qualquer um excede o limite). Background pequeno poderia ir inline. Comportamento conservador aceitável para MVP.
+
+---
+
+### D6-F004 — LOW — JobsPollStuck usa queued_at em vez de updated_at
+
+- **Sprint**: D6
+- **Severidade**: LOW
+- **Tipo**: logic_gap
+- **Status**: Aceito (funcional)
+- **Arquivo**: `app/Http/Livewire/Jobs/Index.php`
+- **Descrição**: O critério de detecção de job preso usa `queued_at < now() - 60min` em vez de `updated_at`. Jobs que receberam updates intermediários mas nunca completaram ainda são detectados como stuck. Comportamento funcional e conservador.
+
+---
+
+### D6-F005 — LOW — SyncTest com descrição enganosa
+
+- **Sprint**: D6
+- **Severidade**: LOW
+- **Tipo**: test_quality
+- **Status**: Corrigido inline
+- **Arquivo**: `tests/Feature/Customers/SyncTest.php`
+- **Descrição**: Nome do teste sugeria comportamento diferente do que o código testava.
+- **Correção**: Descrição do teste atualizada para refletir o comportamento real.
+
+---
+
+### D7-F001 — HIGH — `OccPanel::$userPassword` como propriedade pública Livewire
+
+- **Sprint**: D7
+- **Severidade**: HIGH
+- **Tipo**: security
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php`
+- **Descrição**: A senha do novo usuário estava vinculada via `wire:model="userPassword"` a uma propriedade pública, sendo serializada no snapshot do componente Livewire (JSON trafegando entre browser e servidor a cada interação). Senhas nunca devem transitar como estado de componente.
+- **Correção**: Propriedade marcada com `#[Locked]`. Campo de senha usa `name="password"` sem `wire:model`. Senha lida via `HttpRequest::input('password')` diretamente no método `createUser()` e destruída com `unset()` no `finally`.
+
+---
+
+### D7-F002 — HIGH — URL params `$group` sem validação em 3 endpoints lifecycle
+
+- **Sprint**: D7
+- **Severidade**: HIGH
+- **Tipo**: input_validation
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Controllers/Api/CustomerLifecycleController.php`
+- **Descrição**: `deleteGroup`, `addUserToGroup` e `removeUserFromGroup` recebiam `$group` da URL sem qualquer sanitização, passando-o diretamente para argv do SSH. `RemoveUserFromGroupRequest` existia mas nunca era injetado (código morto).
+- **Correção**: Adicionado `preg_match('/^[a-zA-Z0-9._\- ]+$/', $group)` + `strlen <= 256` nos três métodos. `RemoveUserFromGroupRequest` injetado corretamente em `removeUserFromGroup`. Import adicionado.
+
+---
+
+### D7-F003 — MEDIUM — `SshTimeoutException` não capturada em `CustomerLifecycleController`
+
+- **Sprint**: D7
+- **Severidade**: MEDIUM
+- **Tipo**: error_handling
+- **Status**: Pendente (D8)
+- **Arquivo**: `app/Http/Controllers/Api/CustomerLifecycleController.php`
+- **Descrição**: O método `dispatch()` não captura `SshTimeoutException`. Em timeout de SSH async, a exceção propaga sem handler → HTTP 500. Adicionalmente, a `IdempotencyKey` já foi persistida mas nenhum `Job` é criado — key orphaned por 24h.
+- **Ação**: Adicionar `catch (SshTimeoutException) → 504` em `dispatch()`.
+
+---
+
+### D7-F004 — MEDIUM — Senha sem regras de complexidade na `CreateUserRequest`
+
+- **Sprint**: D7
+- **Severidade**: MEDIUM
+- **Tipo**: validation_gap
+- **Status**: Pendente (D8)
+- **Arquivo**: `app/Http/Requests/Lifecycle/CreateUserRequest.php`
+- **Descrição**: Apenas `min:8` — senhas como `12345678` passam localmente e só são rejeitadas pelo upstream (exit 22 → 422) após o SSH já ter sido iniciado (ciclo caro).
+- **Ação**: Adicionar `Password::min(8)->letters()->numbers()` ou regra customizada alinhada com política Nextcloud.
+
+---
+
+### D7-F005 — MEDIUM — `explode(' ', $cmd)` em `LifecycleAsyncAction` frágil
+
+- **Sprint**: D7
+- **Severidade**: MEDIUM
+- **Tipo**: code_quality
+- **Status**: Pendente (D8)
+- **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php:67`
+- **Descrição**: `explode(' ', $cmd)` para construir argv funciona acidentalmente (nenhum cmd atual tem espaço), mas é inconsistente com `ProvisionCustomerAction` (usa string direta) e silenciosamente quebraria se um cmd futuro tivesse espaço.
+- **Ação**: Substituir por `[$customer->slug, $cmd]` diretamente.
+
+---
+
+### D7-F006 — MEDIUM — 5 endpoints sem cobertura de feature test
+
+- **Sprint**: D7
+- **Severidade**: MEDIUM
+- **Tipo**: test_gap
+- **Status**: Pendente (D8)
+- **Arquivos**: `tests/Feature/Api/OccControllerTest.php`, `tests/Feature/Customers/LifecycleTest.php`
+- **Descrição**: `deleteGroup`, `removeUserFromGroup`, `addUserToGroup`, `setBranding` e `setQuotaAll` sem nenhum teste de feature. Falha em D7-F002 (validação de `$group`) não seria detectável pelos testes existentes.
+- **Ação**: Adicionar mínimo 2 testes por endpoint (happy path + caso de erro/validação).
+
+---
+
+### D7-F007 — MEDIUM — `IdempotencyKey` orphaned após `SshRemoteException`
+
+- **Sprint**: D7
+- **Severidade**: MEDIUM
+- **Tipo**: logic_gap
+- **Status**: Pendente (D8)
+- **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
+- **Descrição**: Se `ssh->runAsync()` lança `SshRemoteException` após a key já ser persistida (passo anterior), a key bloqueia retries por 24h com `job_id=null`. Mesmo padrão existe em `ProvisionCustomerAction`.
+- **Ação**: Em `catch (SshRemoteException)`, deletar a key orphaned antes de relançar: `IdempotencyKey::where('key', $idempotencyKey)->delete()`.
+
+---
+
+## Sprint D8 — Auditoria DBA (Tarefa 8.3)
+
+### DBA-F001 — HIGH — N+1 em `CustomerSyncService::sync()`
+
+- **Sprint**: D8
+- **Severidade**: HIGH
+- **Tipo**: performance
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Modules/Customers/Services/CustomerSyncService.php`
+- **Descrição**: `Customer::find($u['slug'])` dentro de `foreach ($upstream)` gerava N+1 queries. Para 50 customers, 51 SELECT statements por execução de sync.
+- **Correção**: Pre-load de todos os customers do cluster com `->get()->keyBy('slug')` antes do loop; lookup em memória substituiu cada `find()`.
+
+---
+
+### DBA-F002 — HIGH — DELETEs individuais por linha em `AuditPurgeCommand`
+
+- **Sprint**: D8
+- **Severidade**: HIGH
+- **Tipo**: performance
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Console/Commands/AuditPurgeCommand.php`
+- **Descrição**: `$log->delete()` dentro de `chunkById(1000)` gerava até 1000 `DELETE WHERE id = ?` por chunk, resultando em até 100.000 round-trips para purge de 100k registros.
+- **Correção**: `AuditLog::whereIn('id', $ids)->delete()` — um único DELETE por chunk com até 1000 ids.
+
+---
+
+### DBA-F003 — MEDIUM — Índice duplicado em `operators.email`
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: schema
+- **Status**: Corrigido via migration
+- **Arquivo**: `database/migrations/2026_05_14_000001_add_missing_indexes_d8_polish.php`
+- **Descrição**: `->unique()` já cria índice UNIQUE implícito; `$table->index('email', 'idx_operators_email')` cria segundo índice regular redundante.
+- **Correção**: `DROP INDEX idx_operators_email` na migration de polish.
+
+---
+
+### DBA-F004 — MEDIUM — Índice duplicado em `api_keys.token_hash`
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: schema
+- **Status**: Corrigido via migration
+- **Arquivo**: `database/migrations/2026_05_14_000001_add_missing_indexes_d8_polish.php`
+- **Descrição**: Índice regular `idx_api_keys_token_hash` redundante com o UNIQUE implícito.
+- **Correção**: `DROP INDEX idx_api_keys_token_hash` na migration de polish.
+
+---
+
+### DBA-F005 — MEDIUM — Índice composto ausente em `audit_logs(resource_type, resource_id, created_at)`
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: missing_index
+- **Status**: Corrigido via migration
+- **Arquivo**: `database/migrations/2026_05_14_000001_add_missing_indexes_d8_polish.php`
+- **Descrição**: Query `WHERE resource_type = ? AND resource_id = ? ORDER BY created_at DESC LIMIT 20` — planner fazia Index Scan + Sort sem composto.
+- **Correção**: `idx_audit_logs_rtype_rid_cat` adicionado.
+
+---
+
+### DBA-F006 — MEDIUM — Índice ausente em `jobs.queued_at` (poll stuck)
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: missing_index
+- **Status**: Corrigido via migration
+- **Arquivo**: `database/migrations/2026_05_14_000001_add_missing_indexes_d8_polish.php`
+- **Descrição**: `WHERE state = 'running' AND queued_at < ?` — `queued_at` sem índice.
+- **Correção**: `idx_jobs_state_queued_at` adicionado.
+
+---
+
+### DBA-F007 — MEDIUM — Índice ausente em `jobs.created_at` (paginação)
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: missing_index
+- **Status**: Corrigido via migration
+- **Arquivo**: `database/migrations/2026_05_14_000001_add_missing_indexes_d8_polish.php`
+- **Descrição**: `ORDER BY created_at DESC LIMIT 25` sem índice → Sort antes de LIMIT.
+- **Correção**: `idx_jobs_state_created_at` adicionado.
+
+---
+
+### DBA-F008 — MEDIUM — LIKE com wildcard inicial força Seq Scan
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: performance
+- **Status**: Corrigido via migration
+- **Arquivo**: `database/migrations/2026_05_14_000001_add_missing_indexes_d8_polish.php`
+- **Descrição**: `LIKE '%termo%'` em `slug`, `customer_slug`, `action` impede índices B-tree.
+- **Correção**: `pg_trgm` + índices GIN em `audit_logs.action`, `jobs.customer_slug`, `customers.slug`.
+
+---
+
+### DBA-F009 — MEDIUM — Índice ausente em `webhook_secret_history.valid_until`
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: missing_index
+- **Status**: Corrigido via migration
+- **Arquivo**: `database/migrations/2026_05_14_000001_add_missing_indexes_d8_polish.php`
+- **Descrição**: `WHERE valid_until IS NOT NULL AND valid_until < ?` sem índice → Seq Scan.
+- **Correção**: `idx_wsh_cluster_valid_until` adicionado.
+
+---
+
+### DBA-F010 — LOW — `sessions.user_id` sem FK para `operators`
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: schema
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `database/migrations/2026_05_08_164612_fix_sessions_user_id_uuid.php`
+- **Descrição**: `user_id` UUID sem FK — sessões órfãs permanecem após soft-delete de operator. Middleware `active.operator` mitiga mas não elimina o problema de integridade.
+- **Ação**: FK com `onDelete('cascade')` ou observer no soft-delete de operators.
+
+---
+
+### DBA-F011 — LOW — `operators.invite_token_hash` sem UNIQUE constraint
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: schema
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `database/migrations/2026_05_08_164613_add_invite_fields_to_operators_table.php`
+- **Descrição**: `invite_token_hash` indexado mas sem `->unique()` — colisão de tokens possível sem garantia no banco.
+- **Ação**: Migration para `ADD UNIQUE (invite_token_hash)`.
+
+---
+
+## Sprint D8 — Auditoria Security (Tarefa 8.4)
+
+### SEC-F001 — HIGH — `Password` rule não importada em `CreateUserRequest`
+
+- **Sprint**: D8
+- **Severidade**: HIGH
+- **Tipo**: security / validação
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Requests/Lifecycle/CreateUserRequest.php`
+- **Descrição**: `use Illuminate\Validation\Rules\Password;` ausente → `Password::min(8)` causaria `Error: Class not found`, bypassando validação de complexidade de senha.
+- **Correção**: Import adicionado.
+
+---
+
+### SEC-F002 — HIGH — `HttpRequest` inexistente em `OccPanel::createUser()`
+
+- **Sprint**: D8
+- **Severidade**: HIGH
+- **Tipo**: security / funcionalidade quebrada
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Descrição**: `HttpRequest::input('password', '')` — classe inexistente causaria Error ou senha em branco no upstream.
+- **Correção**: Substituído por `request()->input('password', '')`.
+
+---
+
+### SEC-F003 — HIGH — `Locked` não importado em `OccPanel`
+
+- **Sprint**: D8
+- **Severidade**: HIGH
+- **Tipo**: security / Livewire snapshot
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Descrição**: `use Livewire\Attributes\Locked;` ausente → `#[Locked]` em `$userPassword` não tinha efeito, expondo a propriedade a manipulação via payload Livewire.
+- **Correção**: Import adicionado.
+
+---
+
+### SEC-F004 — HIGH — Bearer token auth declarado mas não implementado
+
+- **Sprint**: D8
+- **Severidade**: HIGH
+- **Tipo**: design / fora de escopo MVP
+- **Status**: Aceito (fora de escopo MVP — Sprint 2)
+- **Arquivo**: `config/auth.php`, `app/Models/ApiKey.php`
+- **Descrição**: `ApiKey` model existe mas sem guard `api`. API acessível apenas via sessão web. Por decisão de design (`auth_api_externa: gestao via UI fica para sprint 2`), o guard Bearer é Sprint 2.
+- **Ação**: Implementar via Sanctum ou custom token guard na Sprint 2.
+
+---
+
+### SEC-F005 — HIGH — `SshTimeoutException` não importada em `LifecycleAsyncAction`
+
+- **Sprint**: D8
+- **Severidade**: HIGH
+- **Tipo**: security / idempotency key leak
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
+- **Descrição**: `catch (SshTimeoutException)` sem import → Error em PHP 8; key de idempotência vaza por 24h bloqueando retries.
+- **Correção**: `use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;` adicionado.
+
+---
+
+### SEC-F006 — MEDIUM — Lógica invertida em `EnsureOperatorIsActive`
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: security / bypass teórico
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Middleware/EnsureOperatorIsActive.php`
+- **Descrição**: `if (! $user || $user->status === 'active')` → requests sem usuário passavam pelo middleware. Semanticamente errado; bypass possível se ordem de middleware fosse alterada.
+- **Correção**: Invertido para `$user->status !== 'active'` com lógica de bloqueio correta.
+
+---
+
+### SEC-F007 — MEDIUM — Replay attack via reuso de webhook dentro de 60 min
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: security / replay protection
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Middleware/VerifyWebhookHmac.php`
+- **Descrição**: Proteção anti-replay baseada apenas em `finished_at` — mesmo webhook podia ser reenviado N vezes dentro da janela sem rejeição.
+- **Correção**: Deduplicação por `job_id` via `Cache::put("webhook_processed:{$jobId}", true, TTL)` com 409 para duplicatas.
+
+---
+
+### SEC-F008 — MEDIUM — `$username` da URL sem validação em `removeUserFromGroup`
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: input_validation
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Controllers/Api/CustomerLifecycleController.php`
+- **Descrição**: `$username` do path param chegava sem regex nem max length ao SSH.
+- **Correção**: Adicionado `preg_match('/^[a-zA-Z0-9._-]+$/', $username) && strlen <= 64`.
+
+---
+
+### SEC-F009 — MEDIUM — `quotaUsername`/`rescanUsername` sem validação no `OccPanel`
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: input_validation
+- **Status**: Pendente (D8 Polish)
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Descrição**: `quotaUsername` e `rescanUsername` passam diretamente para OCC sem validação de formato.
+- **Ação**: Adicionar `'regex:/^[a-zA-Z0-9._-]+$/', 'max:64'` nas validações do Livewire.
+
+---
+
+### SEC-F010 — MEDIUM — `OccPanel` sem controle de acesso por role
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: authorization
+- **Status**: Corrigido inline
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Descrição**: Qualquer operador ativo (incluindo role `suporte`) podia acessar o painel OCC sem restrição de gate.
+- **Correção**: `Gate::authorize('provision-customers')` adicionado no `mount()`.
+
+---
+
+### SEC-F011 — MEDIUM — Ausência de rate limiting nos endpoints API
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: availability
+- **Status**: Corrigido inline
+- **Arquivo**: `routes/api.php`
+- **Descrição**: Grupo de rotas autenticadas sem throttle — operador autenticado podia flooding do upstream via SSH.
+- **Correção**: `throttle:120,1` adicionado ao grupo de rotas `auth + active.operator`.
+
+---
+
+### SEC-F012 — MEDIUM — `CreateGroupRequest` sem validação de formato no nome
+
+- **Sprint**: D8
+- **Severidade**: MEDIUM
+- **Tipo**: input_validation
+- **Status**: Pendente (D8 Polish)
+- **Arquivo**: `app/Http/Requests/Lifecycle/CreateGroupRequest.php`
+- **Descrição**: `name` aceita qualquer string até 256 chars sem regex — tabs, newlines, `<>` passam.
+- **Ação**: Adicionar `'regex:/^[a-zA-Z0-9._\\- ]+$/'`.
+
+---
+
+### SEC-F013 — LOW — Rate limiting de login apenas por IP (sem lockout por conta)
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: brute_force
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Http/Livewire/Auth/Login.php`
+- **Descrição**: Chave `login:{ip}` permite brute force com IPs rotativos contra uma conta específica.
+- **Ação**: Adicionar rate limiter secundário por email: `login:{email}`.
+
+---
+
+### SEC-F014 — LOW — Args SSH completos nos logs (idempotency keys, callback URLs)
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: information_disclosure
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/Core/Ssh/SshClient.php`
+- **Descrição**: `--idempotency-key=<uuid>` e `--callback=<url>` registrados em log sem mascaramento.
+- **Ação**: Estender `SshSecretsMasker` para args com prefixos sensíveis.
+
+---
+
+### SEC-F015 — LOW — `Operator.$fillable` inclui campos privilegiados (`role`, `status`)
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: mass_assignment
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Models/Operator.php`
+- **Descrição**: `role` e `status` mass-assignable — risco se algum controller usar `->fill($request->all())`.
+- **Ação**: Remover `role`, `status`, `invite_token_hash` do `$fillable`.
+
+---
+
+### SEC-F016 — LOW — IP whitelist webhook baseada em DNS (cache 5 min)
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: dns_spoofing
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Http/Middleware/VerifyWebhookHmac.php`
+- **Descrição**: `gethostbyname()` com cache 5 min — DNS poisoning pode permitir IP não autorizado por até 5 min.
+- **Ação**: Usar IP estático em coluna separada `webhook_allowed_ip`.
+
+---
+
+### SEC-F017 — LOW — Ausência de security headers HTTP
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: missing_headers
+- **Status**: Pendente (D8 Polish)
+- **Arquivo**: `bootstrap/app.php`
+- **Descrição**: Sem `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` — clickjacking possível no painel.
+- **Ação**: Adicionar middleware de security headers ou pacote `bepsvpt/secure-headers`.
+
+---
+
+### DBA-F012 — LOW — Lazy load de `clusterServer` em `OccController` e `OccPassthroughService`
+
+- **Sprint**: D8
+- **Severidade**: LOW
+- **Tipo**: performance
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `app/Http/Controllers/Api/OccController.php`, `app/Modules/Customers/Services/OccPassthroughService.php`
+- **Descrição**: Route model binding resolve `Customer` sem eager load de `clusterServer`; cada OCC request gera uma query extra para resolver a relação ao criar `AuditLog`.
+- **Ação**: Adicionar `->load('clusterServer')` no controller ou ajustar route binding para eager-load.
 
 ---

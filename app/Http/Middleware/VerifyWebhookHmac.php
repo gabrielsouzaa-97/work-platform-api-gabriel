@@ -87,6 +87,21 @@ final class VerifyWebhookHmac
             return response()->json(['error' => 'replay_window_exceeded'], 422);
         }
 
+        // Deduplicação por job_id — previne replay dentro da janela de 60 min.
+        $jobId = $payload['job_id'] ?? '';
+        $dedupeKey = "webhook_processed:{$jobId}";
+        $ttlSeconds = ($replayWindow + 5) * 60;
+
+        if (Cache::has($dedupeKey)) {
+            $this->auditFail('webhook_replay_duplicate', $ip, $cluster->id, [
+                'job_id' => $jobId,
+            ]);
+
+            return response()->json(['error' => 'duplicate_webhook'], 409);
+        }
+
+        Cache::put($dedupeKey, true, $ttlSeconds);
+
         $request->attributes->set('cluster_server', $cluster);
         $request->attributes->set('webhook_payload', $payload);
 
