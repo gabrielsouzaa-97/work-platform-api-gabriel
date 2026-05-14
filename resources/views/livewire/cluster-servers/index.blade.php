@@ -1,99 +1,185 @@
-<div>
-    <style>
-        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-        .page-title { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; }
-        .btn-primary {
-            background: #2b6cb0; color: #fff; border: none; border-radius: 6px;
-            padding: .5rem 1rem; font-size: .875rem; font-weight: 500;
-            cursor: pointer; text-decoration: none; display: inline-block;
-        }
-        .btn-primary:hover { background: #2c5282; }
-        table { width: 100%; border-collapse: collapse; }
-        th {
-            text-align: left; font-size: .75rem; font-weight: 600; color: #718096;
-            text-transform: uppercase; letter-spacing: .05em;
-            padding: .75rem 1rem; border-bottom: 1px solid #2d3748;
-        }
-        td { padding: .875rem 1rem; font-size: .875rem; border-bottom: 1px solid #1e2535; vertical-align: middle; }
-        tr:hover td { background: #1a1d27; }
-        .badge { display: inline-block; padding: .2rem .6rem; border-radius: 999px; font-size: .75rem; font-weight: 500; }
-        .badge-active { background: #1c3a2f; color: #68d391; }
-        .badge-unreachable { background: #3a2020; color: #fc8181; }
-        .badge-inactive { background: #2d3748; color: #a0aec0; }
-        .action-btn {
-            background: none; border: 1px solid #4a5568; color: #a0aec0;
-            border-radius: 4px; padding: .2rem .5rem; font-size: .75rem;
-            cursor: pointer; margin-right: .25rem; text-decoration: none; display: inline-block;
-        }
-        .action-btn:hover { border-color: #718096; color: #e2e8f0; }
-        .card { background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; }
-        .secret-preview { font-family: monospace; color: #718096; font-size: .8rem; }
-    </style>
+<div class="max-w-[1400px] mx-auto space-y-gutter">
 
-    <div class="page-header">
-        <h1 class="page-title">Cluster Servers</h1>
-        <a href="{{ route('cluster-servers.create') }}" class="btn-primary">+ Novo cluster</a>
+    {{-- ===== Page Header ===== --}}
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+        <div>
+            <h2 class="font-bold text-[28px] leading-tight text-on-surface">Configurações</h2>
+            <p class="text-[13px] text-on-surface-variant mt-xs">
+                Gerencie servidores upstream, secrets de webhook e conexões SSH para orquestração.
+            </p>
+        </div>
+        <a href="{{ route('cluster-servers.create') }}"
+           class="shrink-0 bg-primary text-on-primary font-semibold text-[12px] uppercase tracking-wide rounded px-lg py-[10px] hover:bg-primary-fixed transition-colors flex items-center gap-sm">
+            <span class="material-symbols-outlined" style="font-size:18px">add</span>
+            Novo Cluster
+        </a>
     </div>
 
-    <div class="card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>Host</th>
-                    <th>Porta</th>
-                    <th>Usuário</th>
-                    <th>Status</th>
-                    <th>Webhook Secret</th>
-                    <th>Último health</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($clusters as $cluster)
-                    <tr>
-                        <td>{{ $cluster->name }}</td>
-                        <td style="color:#a0aec0;font-family:monospace;font-size:.8rem">{{ $cluster->ssh_host }}</td>
-                        <td style="color:#718096">{{ $cluster->ssh_port }}</td>
-                        <td style="color:#718096">{{ $cluster->ssh_user }}</td>
-                        <td>
-                            <span class="badge badge-{{ $cluster->status }}">{{ $cluster->status }}</span>
-                        </td>
-                        <td>
-                            <span class="secret-preview">
-                                ••••••{{ substr($cluster->webhook_secret_encrypted, -4) }}
-                            </span>
-                        </td>
-                        <td style="color:#718096;font-size:.8rem">
-                            {{ $cluster->last_health_at?->format('d/m/Y H:i') ?? '—' }}
-                        </td>
-                        <td>
-                            <button class="action-btn" wire:click="testConnection('{{ $cluster->id }}')" wire:loading.attr="disabled">
-                                Test
-                            </button>
-                            <button class="action-btn"
-                                wire:click="rotateSecret('{{ $cluster->id }}')"
-                                wire:confirm="Rotacionar o webhook secret? A versão atual permanece válida por {{ config('services.webhook.grace_period_hours', 24) }}h."
-                                wire:loading.attr="disabled">
-                                Rotate
-                            </button>
-                            <a href="{{ route('cluster-servers.edit', $cluster->id) }}" class="action-btn">
-                                Editar
-                            </a>
-                        </td>
+    {{-- ===== Section: Cluster Servers ===== --}}
+    <section class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+        <div class="px-lg py-md border-b border-outline-variant bg-surface-container-high flex items-center justify-between">
+            <div>
+                <h3 class="font-semibold text-[16px] text-on-surface">Servidores de Cluster</h3>
+                <p class="text-[12px] text-on-surface-variant mt-xs">
+                    Conexões SSH com os servidores upstream nextcloud-saas-manager. Webhook HMAC-SHA256.
+                </p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="border-b border-outline-variant">
+                    <tr class="bg-surface-container">
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-[10px]">Nome / Host</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-[10px]">SSH</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-[10px]">Status</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-[10px]">Webhook Secret</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-[10px] whitespace-nowrap">Último health</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-[10px] text-right">Ações</th>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="8" style="text-align:center;color:#718096;padding:2rem">
-                            Nenhum cluster server cadastrado.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/40">
+                    @forelse ($clusters as $cluster)
+                        <tr class="hover:bg-surface-container-high transition-colors group">
+                            {{-- Name + host --}}
+                            <td class="px-lg py-md">
+                                <div class="flex items-center gap-sm">
+                                    <div class="w-8 h-8 rounded bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0">
+                                        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">dns</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-[13px] text-on-surface">{{ $cluster->name }}</p>
+                                        <p class="font-mono text-[11px] text-on-surface-variant">{{ $cluster->ssh_host }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            {{-- SSH --}}
+                            <td class="px-lg py-md">
+                                <span class="font-mono text-[12px] text-on-surface-variant">{{ $cluster->ssh_user }}@:{{ $cluster->ssh_port }}</span>
+                            </td>
+                            {{-- Status --}}
+                            <td class="px-lg py-md">
+                                @php
+                                    $statusColors = [
+                                        'active'      => 'text-[#6ad191] bg-[#6ad191]/10 border border-[#6ad191]/20',
+                                        'unreachable' => 'text-error bg-error/10 border border-error/20',
+                                        'inactive'    => 'text-on-surface-variant bg-surface-container-highest border border-outline-variant',
+                                    ];
+                                @endphp
+                                <span class="inline-flex items-center gap-xs px-sm py-[3px] rounded-full text-[11px] font-semibold uppercase tracking-wide {{ $statusColors[$cluster->status] ?? $statusColors['inactive'] }}">
+                                    @if ($cluster->status === 'active')
+                                        <span class="w-1.5 h-1.5 rounded-full bg-[#6ad191] block"></span>
+                                    @elseif ($cluster->status === 'unreachable')
+                                        <span class="w-1.5 h-1.5 rounded-full bg-error block"></span>
+                                    @endif
+                                    {{ $cluster->status }}
+                                </span>
+                            </td>
+                            {{-- Webhook secret --}}
+                            <td class="px-lg py-md">
+                                <code class="font-mono text-[12px] text-on-surface-variant">
+                                    ••••••{{ substr($cluster->webhook_secret_encrypted ?? '????', -4) }}
+                                </code>
+                            </td>
+                            {{-- Last health --}}
+                            <td class="px-lg py-md whitespace-nowrap">
+                                <span class="text-[12px] text-on-surface-variant">
+                                    {{ $cluster->last_health_at?->format('d/m/Y H:i') ?? '—' }}
+                                </span>
+                            </td>
+                            {{-- Actions --}}
+                            <td class="px-lg py-md text-right">
+                                <div class="flex items-center justify-end gap-sm">
+                                    <button wire:click="testConnection('{{ $cluster->id }}')"
+                                            wire:loading.attr="disabled"
+                                            class="px-sm py-[4px] border border-outline-variant text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant hover:text-on-surface hover:border-outline rounded transition-colors flex items-center gap-xs">
+                                        <span class="material-symbols-outlined" style="font-size:14px">wifi_tethering</span>
+                                        Test
+                                    </button>
+                                    <button wire:click="rotateSecret('{{ $cluster->id }}')"
+                                            wire:confirm="Rotacionar o webhook secret? A versão atual permanece válida por {{ config('services.webhook.grace_period_hours', 24) }}h."
+                                            wire:loading.attr="disabled"
+                                            class="px-sm py-[4px] border border-outline-variant text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant hover:text-tertiary hover:border-tertiary/50 rounded transition-colors flex items-center gap-xs">
+                                        <span class="material-symbols-outlined" style="font-size:14px">autorenew</span>
+                                        Rotate
+                                    </button>
+                                    <a href="{{ route('cluster-servers.edit', $cluster->id) }}"
+                                       class="px-sm py-[4px] border border-outline-variant text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant hover:text-on-surface hover:border-outline rounded transition-colors flex items-center gap-xs">
+                                        <span class="material-symbols-outlined" style="font-size:14px">edit</span>
+                                        Editar
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-lg py-xl text-center text-on-surface-variant text-[13px]">
+                                <span class="material-symbols-outlined text-outline block mx-auto mb-sm" style="font-size:32px">dns</span>
+                                Nenhum cluster server cadastrado.
+                                <p class="text-[12px] text-outline mt-xs">Adicione um servidor para começar a orquestrar provisionamentos.</p>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-    <div style="margin-top:1rem">
-        {{ $clusters->links() }}
-    </div>
+        <div class="px-lg py-sm border-t border-outline-variant bg-surface-container">
+            {{ $clusters->links() }}
+        </div>
+    </section>
+
+    {{-- ===== Section: Info ===== --}}
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+        <div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
+            <h4 class="font-semibold text-[14px] text-on-surface mb-md flex items-center gap-sm">
+                <span class="material-symbols-outlined text-primary" style="font-size:18px">security</span>
+                Segurança de Webhook
+            </h4>
+            <div class="space-y-sm text-[13px] text-on-surface-variant">
+                <div class="flex justify-between py-sm border-b border-outline-variant/30">
+                    <span>Algoritmo</span>
+                    <code class="font-mono text-on-surface">HMAC-SHA256</code>
+                </div>
+                <div class="flex justify-between py-sm border-b border-outline-variant/30">
+                    <span>Replay protection</span>
+                    <code class="font-mono text-on-surface">1 hora (TTL)</code>
+                </div>
+                <div class="flex justify-between py-sm border-b border-outline-variant/30">
+                    <span>Grace period (rotate)</span>
+                    <code class="font-mono text-on-surface">{{ config('services.webhook.grace_period_hours', 24) }}h</code>
+                </div>
+                <div class="flex justify-between py-sm">
+                    <span>IP whitelist</span>
+                    <code class="font-mono text-on-surface">Por cluster server</code>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
+            <h4 class="font-semibold text-[14px] text-on-surface mb-md flex items-center gap-sm">
+                <span class="material-symbols-outlined text-secondary" style="font-size:18px">terminal</span>
+                Padrão SSH
+            </h4>
+            <div class="space-y-sm text-[13px] text-on-surface-variant">
+                <div class="flex justify-between py-sm border-b border-outline-variant/30">
+                    <span>Chave SSH</span>
+                    <code class="font-mono text-on-surface">Por cluster server</code>
+                </div>
+                <div class="flex justify-between py-sm border-b border-outline-variant/30">
+                    <span>Usuário</span>
+                    <code class="font-mono text-on-surface">ncsaas-api</code>
+                </div>
+                <div class="flex justify-between py-sm border-b border-outline-variant/30">
+                    <span>Timeout SSH</span>
+                    <code class="font-mono text-on-surface">30s</code>
+                </div>
+                <div class="flex justify-between py-sm">
+                    <span>Async (--async)</span>
+                    <code class="font-mono text-on-surface">job_id UUID v4</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
 </div>

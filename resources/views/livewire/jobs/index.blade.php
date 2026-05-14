@@ -1,106 +1,159 @@
-<div>
-    <style>
-        .page-title { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; margin-bottom: 1.5rem; }
-        .filter-bar { display: flex; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
-        .filter-input {
-            background: #1a1d27; border: 1px solid #2d3748; border-radius: 6px;
-            color: #a0aec0; padding: .375rem .75rem; font-size: .8125rem; min-width: 160px;
-        }
-        .filter-input:focus { outline: none; border-color: #4a90d9; }
-        .card { background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th {
-            text-align: left; font-size: .75rem; font-weight: 600; color: #718096;
-            text-transform: uppercase; letter-spacing: .05em;
-            padding: .75rem 1rem; border-bottom: 1px solid #2d3748;
-        }
-        td { padding: .75rem 1rem; font-size: .8rem; border-bottom: 1px solid #1e2535; vertical-align: middle; }
-        tr:hover td { background: #0f1117; }
-        .badge {
-            display: inline-block; padding: .2rem .55rem; border-radius: 4px;
-            font-size: .7rem; font-weight: 600; letter-spacing: .03em;
-        }
-        .badge-queued    { background: #1e2535; color: #718096; }
-        .badge-running   { background: #1a2d4a; color: #63b3ed; }
-        .badge-success   { background: #1c3a2f; color: #68d391; }
-        .badge-failed    { background: #3a2020; color: #fc8181; }
-        .badge-cancelled { background: #2d2a1a; color: #d6b656; }
-        .mono { font-family: monospace; font-size: .75rem; color: #a0aec0; }
-        .text-muted { color: #4a5568; }
-    </style>
+<div class="max-w-[1400px] mx-auto space-y-gutter">
 
-    <h1 class="page-title">Fila de Jobs</h1>
+    {{-- ===== Page Header ===== --}}
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+        <div>
+            <h2 class="font-bold text-[28px] leading-tight text-on-surface">Logs de Provisionamento</h2>
+            <p class="text-[13px] text-on-surface-variant mt-xs">
+                Jobs de provisionamento Nextcloud orquestrados via SSH/webhook com o upstream.
+            </p>
+        </div>
+    </div>
 
-    <div class="filter-bar">
-        <select class="filter-input" wire:model.live="stateFilter">
-            <option value="">Todos os estados</option>
-            <option value="queued">queued</option>
-            <option value="running">running</option>
-            <option value="success">success</option>
-            <option value="failed">failed</option>
-            <option value="cancelled">cancelled</option>
-        </select>
-
-        <input type="text" class="filter-input" wire:model.live.debounce.300ms="jobTypeFilter"
-            placeholder="Tipo (ex: provision)">
-
-        <input type="text" class="filter-input" wire:model.live.debounce.300ms="customerFilter"
-            placeholder="Customer (ex: acme)">
-
+    {{-- ===== Filters ===== --}}
+    <div class="bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm flex flex-wrap items-center gap-sm">
+        {{-- State filter --}}
+        <div class="relative">
+            <select wire:model.live="stateFilter"
+                    class="appearance-none bg-surface-container-lowest border border-outline-variant rounded py-sm pl-md pr-9 text-[13px] text-on-surface focus:outline-none focus:border-primary cursor-pointer">
+                <option value="">Todos os estados</option>
+                <option value="queued">queued</option>
+                <option value="running">running</option>
+                <option value="success">success</option>
+                <option value="failed">failed</option>
+                <option value="cancelled">cancelled</option>
+            </select>
+            <span class="material-symbols-outlined absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" style="font-size:16px">expand_more</span>
+        </div>
+        {{-- Job type --}}
+        <div class="relative">
+            <span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size:16px">filter_alt</span>
+            <input type="text"
+                   wire:model.live.debounce.300ms="jobTypeFilter"
+                   class="w-full min-w-[140px] bg-surface-container-lowest border border-outline-variant rounded py-sm pl-9 pr-md text-[13px] text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary transition-colors"
+                   placeholder="Tipo (provision...)">
+        </div>
+        {{-- Customer --}}
+        <div class="relative">
+            <span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size:16px">person_search</span>
+            <input type="text"
+                   wire:model.live.debounce.300ms="customerFilter"
+                   class="w-full min-w-[140px] bg-surface-container-lowest border border-outline-variant rounded py-sm pl-9 pr-md text-[13px] text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary transition-colors"
+                   placeholder="Customer slug...">
+        </div>
         @if ($stateFilter || $jobTypeFilter || $customerFilter)
             <button wire:click="$set('stateFilter', ''); $set('jobTypeFilter', ''); $set('customerFilter', '')"
-                style="background:none;border:1px solid #4a5568;color:#a0aec0;border-radius:4px;padding:.35rem .75rem;font-size:.8rem;cursor:pointer;">
-                Limpar filtros
+                    class="px-md py-sm border border-outline-variant text-[12px] font-semibold uppercase tracking-wide text-on-surface-variant hover:text-on-surface rounded transition-colors flex items-center gap-xs">
+                <span class="material-symbols-outlined" style="font-size:14px">close</span>
+                Limpar
             </button>
         @endif
+        <div class="ml-auto text-[12px] text-on-surface-variant">
+            {{ $jobs->total() }} {{ $jobs->total() === 1 ? 'job' : 'jobs' }}
+        </div>
     </div>
 
-    <div class="card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Job ID</th>
-                    <th>Customer</th>
-                    <th>Tipo</th>
-                    <th>Estado</th>
-                    <th>Saída</th>
-                    <th>Enfileirado</th>
-                    <th>Concluído</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($jobs as $job)
-                    <tr>
-                        <td class="mono">{{ Str::limit($job->job_id, 8, '') }}…</td>
-                        <td>
-                            <span class="mono">{{ $job->customer_slug }}</span>
-                        </td>
-                        <td class="mono">{{ $job->job_type }}</td>
-                        <td>
-                            <span class="badge badge-{{ $job->state }}">{{ $job->state }}</span>
-                        </td>
-                        <td class="mono text-muted">
-                            {{ $job->exit_code !== null ? $job->exit_code : '—' }}
-                        </td>
-                        <td style="color:#718096;font-size:.75rem;white-space:nowrap">
-                            {{ $job->queued_at?->format('d/m H:i') ?? '—' }}
-                        </td>
-                        <td style="color:#718096;font-size:.75rem;white-space:nowrap">
-                            {{ $job->finished_at?->format('d/m H:i') ?? '—' }}
-                        </td>
+    {{-- ===== Data Table ===== --}}
+    <div class="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-surface-container border-b border-outline-variant">
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px] whitespace-nowrap">Job ID</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px]">Customer</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px]">Tipo</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px]">Estado</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px] whitespace-nowrap">Saída</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px] whitespace-nowrap">Enfileirado</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px] whitespace-nowrap">Concluído</th>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" style="text-align:center;color:#718096;padding:2rem">
-                            Nenhum job encontrado.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/40">
+                    @forelse ($jobs as $job)
+                        <tr class="hover:bg-surface-container transition-colors group">
+                            {{-- Job ID --}}
+                            <td class="px-md py-[12px] whitespace-nowrap">
+                                <div class="flex items-center gap-sm">
+                                    <div class="w-2 h-2 rounded-full shrink-0
+                                        {{ $job->state === 'running' ? 'bg-primary animate-pulse' :
+                                           ($job->state === 'success' ? 'bg-[#6ad191]' :
+                                           ($job->state === 'failed' ? 'bg-error' :
+                                           ($job->state === 'cancelled' ? 'bg-tertiary' : 'bg-outline'))) }}">
+                                    </div>
+                                    <code class="font-mono text-[12px] text-on-surface-variant">
+                                        {{ Str::limit($job->job_id, 8, '') }}…
+                                    </code>
+                                </div>
+                            </td>
+                            {{-- Customer --}}
+                            <td class="px-md py-[12px]">
+                                <code class="font-mono text-[13px] text-on-surface">{{ $job->customer_slug }}</code>
+                            </td>
+                            {{-- Type --}}
+                            <td class="px-md py-[12px]">
+                                <code class="font-mono text-[12px] bg-surface-container-highest px-xs py-0.5 rounded text-secondary">
+                                    {{ $job->job_type }}
+                                </code>
+                            </td>
+                            {{-- State --}}
+                            <td class="px-md py-[12px]">
+                                <span class="inline-flex items-center gap-xs px-sm py-[3px] rounded-full text-[11px] font-semibold uppercase tracking-wide state-{{ $job->state }}">
+                                    @if ($job->state === 'running')
+                                        <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse block"></span>
+                                    @endif
+                                    {{ $job->state }}
+                                </span>
+                            </td>
+                            {{-- Exit code --}}
+                            <td class="px-md py-[12px]">
+                                @if ($job->exit_code !== null)
+                                    <code class="font-mono text-[12px] {{ $job->exit_code === 0 ? 'text-[#6ad191]' : 'text-error' }}">
+                                        {{ $job->exit_code }}
+                                    </code>
+                                @else
+                                    <span class="text-outline text-[12px]">—</span>
+                                @endif
+                            </td>
+                            {{-- Queued at --}}
+                            <td class="px-md py-[12px] whitespace-nowrap">
+                                <div class="font-mono text-[12px] text-on-surface-variant">
+                                    {{ $job->queued_at?->format('H:i') ?? '—' }}
+                                </div>
+                                <div class="text-[10px] text-outline">
+                                    {{ $job->queued_at?->format('d/m') ?? '' }}
+                                </div>
+                            </td>
+                            {{-- Finished at --}}
+                            <td class="px-md py-[12px] whitespace-nowrap">
+                                <div class="font-mono text-[12px] text-on-surface-variant">
+                                    {{ $job->finished_at?->format('H:i') ?? '—' }}
+                                </div>
+                                <div class="text-[10px] text-outline">
+                                    {{ $job->finished_at?->format('d/m') ?? '' }}
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-md py-xl text-center text-on-surface-variant text-[13px]">
+                                <span class="material-symbols-outlined text-outline block mx-auto mb-sm" style="font-size:32px">cloud_off</span>
+                                Nenhum job de provisionamento encontrado.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Pagination --}}
+        <div class="border-t border-outline-variant bg-surface-container px-md py-sm flex items-center justify-between">
+            <span class="text-[12px] text-on-surface-variant">
+                Exibindo {{ $jobs->firstItem() ?? 0 }}–{{ $jobs->lastItem() ?? 0 }} de {{ $jobs->total() }}
+            </span>
+            <div class="text-[13px]">
+                {{ $jobs->links() }}
+            </div>
+        </div>
     </div>
 
-    <div style="margin-top:1rem">
-        {{ $jobs->links() }}
-    </div>
 </div>

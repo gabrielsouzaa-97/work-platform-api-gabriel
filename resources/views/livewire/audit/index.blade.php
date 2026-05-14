@@ -1,91 +1,140 @@
-<div>
-    <style>
-        .page-title { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; margin-bottom: 1.5rem; }
-        .filter-bar { display: flex; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
-        .filter-input {
-            background: #1a1d27; border: 1px solid #2d3748; border-radius: 6px;
-            color: #a0aec0; padding: .375rem .75rem; font-size: .8125rem; min-width: 180px;
-        }
-        .card { background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th {
-            text-align: left; font-size: .75rem; font-weight: 600; color: #718096;
-            text-transform: uppercase; letter-spacing: .05em;
-            padding: .75rem 1rem; border-bottom: 1px solid #2d3748;
-        }
-        td { padding: .75rem 1rem; font-size: .8rem; border-bottom: 1px solid #1e2535; vertical-align: top; }
-        tr:hover td { background: #0f1117; }
-        .action-tag {
-            display: inline-block; padding: .15rem .5rem; border-radius: 4px;
-            font-family: monospace; font-size: .75rem;
-            background: #1e2d4a; color: #63b3ed;
-        }
-        .payload-pre {
-            background: #0f1117; border-radius: 4px; padding: .5rem;
-            font-size: .7rem; font-family: monospace; color: #a0aec0;
-            max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
-        }
-    </style>
+<div class="max-w-[1400px] mx-auto space-y-gutter">
 
-    <h1 class="page-title">Audit Log</h1>
-
-    <div class="filter-bar">
-        <input type="text" class="filter-input" wire:model.live.debounce.300ms="filterAction"
-            placeholder="Filtrar por ação (ex: cluster_server.create)">
-        <select class="filter-input" wire:model.live="filterResource">
-            <option value="">Todos os recursos</option>
-            <option value="cluster_server">cluster_server</option>
-            <option value="operator">operator</option>
-            <option value="customer">customer</option>
-            <option value="job">job</option>
-        </select>
+    {{-- ===== Page Header ===== --}}
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+        <div>
+            <h2 class="font-bold text-[28px] leading-tight text-on-surface">Logs de Requisição</h2>
+            <p class="text-[13px] text-on-surface-variant mt-xs">
+                Histórico de operações registradas na API. Retenção: 12 meses (LGPD).
+            </p>
+        </div>
+        <div class="flex items-center gap-sm shrink-0">
+            <a href="{{ route('dashboard') }}"
+               class="px-md py-sm bg-surface-container border border-outline-variant text-on-surface text-[12px] font-semibold uppercase tracking-wide hover:bg-surface-variant rounded transition-colors flex items-center gap-xs">
+                <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span>
+                Dashboard
+            </a>
+        </div>
     </div>
 
-    <div class="card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Data/Hora</th>
-                    <th>Ação</th>
-                    <th>Recurso</th>
-                    <th>Ator</th>
-                    <th>IP</th>
-                    <th>Payload</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($logs as $log)
-                    <tr>
-                        <td style="color:#718096;white-space:nowrap;font-size:.75rem">
-                            {{ $log->created_at?->format('d/m/Y H:i:s') ?? '—' }}
-                        </td>
-                        <td><span class="action-tag">{{ $log->action }}</span></td>
-                        <td style="color:#a0aec0">
-                            <span style="font-size:.7rem;color:#718096">{{ $log->resource_type }}</span><br>
-                            <span style="font-family:monospace;font-size:.75rem">{{ Str::limit($log->resource_id, 16) }}</span>
-                        </td>
-                        <td style="color:#a0aec0">{{ $log->actor?->name ?? $log->actor_id }}</td>
-                        <td style="color:#718096;font-family:monospace;font-size:.75rem">{{ $log->ip ?? '—' }}</td>
-                        <td>
-                            @if ($log->payload)
-                                <div class="payload-pre">{{ json_encode($log->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</div>
-                            @else
-                                <span style="color:#4a5568">—</span>
-                            @endif
-                        </td>
+    {{-- ===== Filters ===== --}}
+    <div class="bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm flex flex-wrap items-center gap-sm">
+        <div class="flex-1 min-w-[180px] relative">
+            <span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size:16px">filter_alt</span>
+            <input type="text"
+                   wire:model.live.debounce.300ms="filterAction"
+                   class="w-full bg-surface-container-lowest border border-outline-variant rounded py-sm pl-9 pr-md text-[13px] text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                   placeholder="Filtrar por ação...">
+        </div>
+        <div class="relative">
+            <select wire:model.live="filterResource"
+                    class="appearance-none bg-surface-container-lowest border border-outline-variant rounded py-sm pl-md pr-9 text-[13px] text-on-surface focus:outline-none focus:border-primary cursor-pointer">
+                <option value="">Todos os recursos</option>
+                <option value="cluster_server">cluster_server</option>
+                <option value="operator">operator</option>
+                <option value="customer">customer</option>
+                <option value="job">job</option>
+                <option value="api_key">api_key</option>
+            </select>
+            <span class="material-symbols-outlined absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" style="font-size:16px">expand_more</span>
+        </div>
+        @if ($filterAction || $filterResource)
+            <button wire:click="$set('filterAction', ''); $set('filterResource', '')"
+                    class="px-md py-sm border border-outline-variant text-[12px] font-semibold uppercase tracking-wide text-on-surface-variant hover:text-on-surface hover:border-outline rounded transition-colors flex items-center gap-xs">
+                <span class="material-symbols-outlined" style="font-size:14px">close</span>
+                Limpar
+            </button>
+        @endif
+        <div class="ml-auto text-[12px] text-on-surface-variant">
+            {{ $logs->total() }} {{ $logs->total() === 1 ? 'registro' : 'registros' }}
+        </div>
+    </div>
+
+    {{-- ===== Data Table ===== --}}
+    <div class="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-surface-container border-b border-outline-variant">
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px] whitespace-nowrap">Data / Hora</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px]">Ação</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px]">Recurso</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px]">Operador</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px] whitespace-nowrap">IP</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-md py-[10px] text-center">Detalhes</th>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" style="text-align:center;color:#718096;padding:2rem">
-                            Nenhum registro de auditoria encontrado.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/40">
+                    @forelse ($logs as $log)
+                        <tr class="hover:bg-surface-container transition-colors group" x-data="{ open: false }">
+                            <td class="px-md py-[10px] whitespace-nowrap">
+                                <div class="font-mono text-[12px] text-on-surface-variant">
+                                    {{ $log->created_at?->format('H:i:s') ?? '—' }}
+                                </div>
+                                <div class="text-[10px] text-outline mt-0.5">
+                                    {{ $log->created_at?->format('d/m/Y') ?? '' }}
+                                </div>
+                            </td>
+                            <td class="px-md py-[10px]">
+                                <code class="font-mono text-[12px] bg-surface-container-highest/80 border border-outline-variant/30 px-sm py-0.5 rounded text-primary">
+                                    {{ $log->action }}
+                                </code>
+                            </td>
+                            <td class="px-md py-[10px]">
+                                <span class="text-[11px] uppercase tracking-wide text-on-surface-variant/60">{{ $log->resource_type }}</span>
+                                <div class="font-mono text-[11px] text-on-surface-variant truncate max-w-[140px]">
+                                    {{ Str::limit($log->resource_id, 16) }}
+                                </div>
+                            </td>
+                            <td class="px-md py-[10px] text-[13px] text-on-surface-variant">
+                                {{ $log->actor?->name ?? ($log->actor_id ? Str::limit($log->actor_id, 12) : '—') }}
+                            </td>
+                            <td class="px-md py-[10px] whitespace-nowrap">
+                                <span class="font-mono text-[11px] text-on-surface-variant">
+                                    {{ $log->ip ?? '—' }}
+                                </span>
+                            </td>
+                            <td class="px-md py-[10px] text-center">
+                                @if ($log->payload)
+                                    <button @click="open = !open"
+                                            class="p-[4px] text-on-surface-variant hover:text-primary hover:bg-surface-variant rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                        <span class="material-symbols-outlined" style="font-size:18px">data_object</span>
+                                    </button>
+                                @endif
+                            </td>
+                        </tr>
+                        @if ($log->payload)
+                            <tr x-show="open" x-collapse class="bg-surface-container-lowest">
+                                <td colspan="6" class="px-md pb-sm">
+                                    <pre class="font-mono text-[11px] text-on-surface-variant bg-surface-dim rounded p-sm overflow-x-auto max-h-[160px] leading-relaxed">{{ json_encode($log->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                                </td>
+                            </tr>
+                        @endif
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-md py-xl text-center text-on-surface-variant text-[13px]">
+                                <span class="material-symbols-outlined text-outline block mx-auto mb-sm" style="font-size:32px">receipt_long</span>
+                                Nenhum registro de auditoria encontrado.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Pagination --}}
+        <div class="border-t border-outline-variant bg-surface-container px-md py-sm flex items-center justify-between">
+            <span class="text-[12px] text-on-surface-variant">
+                Exibindo {{ $logs->firstItem() ?? 0 }}–{{ $logs->lastItem() ?? 0 }} de {{ $logs->total() }}
+            </span>
+            <div class="text-[13px]">
+                {{ $logs->links() }}
+            </div>
+        </div>
     </div>
 
-    <div style="margin-top:1rem">
-        {{ $logs->links() }}
-    </div>
 </div>
+
+@push('scripts')
+<script src="//cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer></script>
+@endpush
