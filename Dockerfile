@@ -70,6 +70,21 @@ ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["php-fpm"]
 
 # ============================================================================
+# FRONTEND — compila assets Vite (Node 22 isolado; não entra na imagem final)
+# ============================================================================
+FROM node:22-alpine AS frontend
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY resources/ resources/
+COPY vite.config.js ./
+
+RUN npm run build
+
+# ============================================================================
 # BUILD — instala deps de produção, otimiza autoload (sem rodar artisan cache,
 # pois o config:cache só funciona após APP_KEY presente em runtime)
 # ============================================================================
@@ -79,6 +94,8 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-progress
 
 COPY . .
+COPY --from=frontend /app/public/build ./public/build
+
 RUN composer dump-autoload --optimize --classmap-authoritative \
     && rm -rf tests docs layout .cursor .github
 

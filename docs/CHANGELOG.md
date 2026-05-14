@@ -87,3 +87,9 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-14 00:49** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
 - **2026-05-14 00:53** `acad258` — chore(session): update context snapshot, findings-cache and cursorsession
 - **2026-05-14 00:56** `2dda64e` — chore(session): sync cursorsession and changelog pre-push
+- **2026-05-14 01:00** `196e633` — chore(session): clear sprint_atual after D8 merge
+- **2026-05-14 01:08** `196e633` — chore(session): clear sprint_atual after D8 merge
+- **2026-05-14 02:08** `196e633` — chore(session): clear sprint_atual after D8 merge
+- **2026-05-14 02:13** `196e633` — chore(session): clear sprint_atual after D8 merge
+- **2026-05-14 02:31** `196e633` — chore(session): clear sprint_atual after D8 merge
+- **2026-05-14 02:34** `196e633` — chore(session): clear sprint_atual after D8 merge
