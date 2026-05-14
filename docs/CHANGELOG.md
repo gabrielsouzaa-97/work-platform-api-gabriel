@@ -70,3 +70,5 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-13 22:58** `f1a641a` — feat(sprint-D8): Polish — findings D7/DBA/SEC corrigidos + docs operacionais
 - **2026-05-13 23:03** `f1a641a` — feat(sprint-D8): Polish — findings D7/DBA/SEC corrigidos + docs operacionais
 - **2026-05-13 23:09** `f1a641a` — feat(sprint-D8): Polish — findings D7/DBA/SEC corrigidos + docs operacionais
+- **2026-05-13 23:13** `090d892` — chore(session): close sprint D8 — update cursorsession and changelog
+- **2026-05-13 23:24** `e5f100c` — chore(storage): add .gitignore files to preserve directory structure
