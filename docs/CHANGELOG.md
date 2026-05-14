@@ -67,3 +67,6 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-13 21:58** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
 - **2026-05-13 22:10** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
 - **2026-05-13 22:26** `6e8434f` — docs(roadmap): marcar tasks 6.1-6.6 como concluídas [x]
+- **2026-05-13 22:58** `f1a641a` — feat(sprint-D8): Polish — findings D7/DBA/SEC corrigidos + docs operacionais
+- **2026-05-13 23:03** `f1a641a` — feat(sprint-D8): Polish — findings D7/DBA/SEC corrigidos + docs operacionais
+- **2026-05-13 23:09** `f1a641a` — feat(sprint-D8): Polish — findings D7/DBA/SEC corrigidos + docs operacionais

@@ -34,13 +34,13 @@
   ],
   "fase_atual": "9",
   "fase_nome": "Planejamento tecnico concluido",
-  "sprint_atual": "D8",
+  "sprint_atual": "D8-concluida",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-14T01:26:25Z",
+  "ultimo_update": "2026-05-14T02:09:34Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -174,8 +174,8 @@
       "tests/Feature/Customers/LifecycleTest.php"
     ],
     "last_completed_task": "8.5",
-    "current_task": "8.6",
-    "timestamp": "2026-05-14T01:23:00Z",
+    "current_task": "8.6 (humano — deploy staging)",
+    "timestamp": "2026-05-14T01:56:00Z",
     "d6_closure": {
       "gate_met": true,
       "audit_level": "senior+qa",
