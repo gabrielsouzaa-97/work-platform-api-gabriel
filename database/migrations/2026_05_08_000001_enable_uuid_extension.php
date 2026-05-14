@@ -3,17 +3,20 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\Schema;
 
+/**
+ * MariaDB 11 has native UUID() function built-in — no extension needed.
+ * Migration kept as no-op for compatibility with migration history.
+ */
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::getConnection()->statement('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+        // MariaDB: UUID() is a built-in function, no extension required.
     }
 
     public function down(): void
     {
-        // Extension is kept even on rollback — other migrations depend on it.
+        // no-op
     }
 };

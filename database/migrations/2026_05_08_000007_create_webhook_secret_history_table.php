@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('webhook_secret_history', function (Blueprint $table): void {
-            $table->uuid('id')->primary()->default(DB::raw('uuid_generate_v4()'));
+            $table->uuid('id')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('cluster_server_id')->notNullable();
             $table->text('secret_encrypted')->notNullable();
             $table->integer('version')->notNullable();

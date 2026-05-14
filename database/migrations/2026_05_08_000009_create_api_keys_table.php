@@ -11,10 +11,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('api_keys', function (Blueprint $table): void {
-            $table->uuid('id')->primary()->default(DB::raw('uuid_generate_v4()'));
+            $table->uuid('id')->primary()->default(DB::raw('(UUID())'));
             $table->string('name', 255)->notNullable();
             $table->string('token_hash', 255)->unique()->notNullable();
-            $table->jsonb('scopes')->nullable();
+            $table->json('scopes')->nullable();
             $table->timestamp('last_used_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
             $table->timestamps();

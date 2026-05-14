@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('operators', function (Blueprint $table): void {
-            $table->uuid('id')->primary()->default(DB::raw('uuid_generate_v4()'));
+            $table->uuid('id')->primary()->default(DB::raw('(UUID())'));
             $table->string('email', 255)->unique()->notNullable();
             $table->string('name', 255)->notNullable();
             $table->string('role', 50)->notNullable()->default('operador');

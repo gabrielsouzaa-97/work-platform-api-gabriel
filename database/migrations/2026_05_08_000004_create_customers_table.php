@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('cluster_server_id')->notNullable();
             $table->string('domain', 255)->notNullable();
             $table->string('status', 50)->notNullable()->default('provisioning');
-            $table->jsonb('branding_meta')->nullable();
+            $table->json('branding_meta')->nullable();
             $table->timestamp('last_sync_at')->nullable();
             $table->timestamps();
             $table->softDeletes();

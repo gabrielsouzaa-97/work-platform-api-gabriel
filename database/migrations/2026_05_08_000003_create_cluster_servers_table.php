@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('cluster_servers', function (Blueprint $table): void {
-            $table->uuid('id')->primary()->default(DB::raw('uuid_generate_v4()'));
+            $table->uuid('id')->primary()->default(DB::raw('(UUID())'));
             $table->string('name', 255)->notNullable();
             $table->string('ssh_host', 255)->notNullable();
             $table->integer('ssh_port')->notNullable()->default(22);

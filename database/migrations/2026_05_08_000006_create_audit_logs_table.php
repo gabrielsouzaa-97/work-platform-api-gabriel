@@ -11,12 +11,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('audit_logs', function (Blueprint $table): void {
-            $table->uuid('id')->primary()->default(DB::raw('uuid_generate_v4()'));
+            $table->uuid('id')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('actor_id')->notNullable();
             $table->string('action', 100)->notNullable();
             $table->string('resource_type', 100)->notNullable();
             $table->string('resource_id', 255)->notNullable();
-            $table->jsonb('payload')->nullable();
+            $table->json('payload')->nullable();
             $table->uuid('cluster_server_id')->nullable();
             $table->uuid('job_id')->nullable();
             $table->string('ip', 45)->nullable();

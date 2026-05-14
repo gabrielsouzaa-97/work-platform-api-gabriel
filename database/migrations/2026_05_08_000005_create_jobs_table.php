@@ -11,15 +11,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('jobs', function (Blueprint $table): void {
-            $table->uuid('job_id')->primary()->default(DB::raw('uuid_generate_v4()'));
+            $table->uuid('job_id')->primary()->default(DB::raw('(UUID())'));
             $table->string('customer_slug', 64)->notNullable();
             $table->uuid('cluster_server_id')->notNullable();
             $table->string('cmd_canonical', 100)->notNullable();
             $table->string('job_type', 100)->notNullable();
             $table->string('state', 50)->notNullable()->default('queued');
             $table->uuid('idempotency_key')->unique()->notNullable();
-            $table->jsonb('payload_sanitized')->nullable();
-            $table->jsonb('summary')->nullable();
+            $table->json('payload_sanitized')->nullable();
+            $table->json('summary')->nullable();
             $table->integer('exit_code')->nullable();
             $table->timestamp('queued_at')->nullable();
             $table->timestamp('started_at')->nullable();

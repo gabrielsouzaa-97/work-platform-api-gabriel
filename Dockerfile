@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# mework360-deployer — Multi-stage Dockerfile (Laravel 12 + PHP 8.3 + PostgreSQL + Redis)
+# mework360-deployer — Multi-stage Dockerfile (Laravel 12 + PHP 8.3 + MariaDB + Redis)
 # Stages: base → development → build → production
 
 # ============================================================================
@@ -20,8 +20,8 @@ RUN apk add --no-cache \
         libjpeg-turbo \
         libwebp \
         libzip \
+        mariadb-connector-c \
         oniguruma \
-        postgresql-libs \
         tini \
     && apk add --no-cache --virtual .build-deps \
         $PHPIZE_DEPS \
@@ -32,17 +32,18 @@ RUN apk add --no-cache \
         libwebp-dev \
         libzip-dev \
         linux-headers \
+        mariadb-dev \
         oniguruma-dev \
-        postgresql-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         gd \
         intl \
         mbstring \
+        mysqli \
         opcache \
         pcntl \
-        pdo_pgsql \
+        pdo_mysql \
         zip \
     && apk del .build-deps \
     && rm -rf /tmp/* /var/cache/apk/*
