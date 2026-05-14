@@ -16,7 +16,11 @@ FINDINGS-INDEX -->
 | D4 | 0 | 2 | 4 | 3 | 4 | 3 | 2 |
 | D5 | 0 | 0 | 1 | 3 | 0 | 4 | 0 |
 | D6 | 0 | 0 | 2 | 3 | 2 | 3 | 0 |
-| D7 | 0 | 2 | 5 | 0 | 5 | 2 | 0 |
+| D7 | 0 | 2 | 5 | 0 | 0 | 7 | 0 |
+| D8 (DBA) | 0 | 2 | 3 | 4 | 2 | 9 | 0 |
+| D8 (SEC) | 0 | 5 | 7 | 5 | 4 | 13 | 0 |
+
+> **Pendentes pós-D8**: D3-F009 (backlog), D4-F004/F008/F009/F005 (backlog), SEC-F013/F014/F015/F016 (backlog), DBA-F010/F011/F012 (backlog). Nenhum CRITICAL ou HIGH aberto.
 
 ---
 
@@ -410,10 +414,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D7
 - **Severidade**: MEDIUM
 - **Tipo**: error_handling
-- **Status**: Pendente (D8)
+- **Status**: Corrigido inline (D8 — /qa validar 2026-05-14)
 - **Arquivo**: `app/Http/Controllers/Api/CustomerLifecycleController.php`
 - **Descrição**: O método `dispatch()` não captura `SshTimeoutException`. Em timeout de SSH async, a exceção propaga sem handler → HTTP 500. Adicionalmente, a `IdempotencyKey` já foi persistida mas nenhum `Job` é criado — key orphaned por 24h.
-- **Ação**: Adicionar `catch (SshTimeoutException) → 504` em `dispatch()`.
+- **Correção**: Adicionado `use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;` — import ausente impedia o catch block de funcionar. Teste `LifecycleTest > SSH timeout em lifecycle` validado (201→504).
 
 ---
 
@@ -422,10 +426,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D7
 - **Severidade**: MEDIUM
 - **Tipo**: validation_gap
-- **Status**: Pendente (D8)
+- **Status**: Corrigido inline (D8 — SEC audit)
 - **Arquivo**: `app/Http/Requests/Lifecycle/CreateUserRequest.php`
 - **Descrição**: Apenas `min:8` — senhas como `12345678` passam localmente e só são rejeitadas pelo upstream (exit 22 → 422) após o SSH já ter sido iniciado (ciclo caro).
-- **Ação**: Adicionar `Password::min(8)->letters()->numbers()` ou regra customizada alinhada com política Nextcloud.
+- **Correção**: `Password::min(8)->letters()->numbers()` adicionado ao rules() via D8 SEC audit.
 
 ---
 
@@ -434,10 +438,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D7
 - **Severidade**: MEDIUM
 - **Tipo**: code_quality
-- **Status**: Pendente (D8)
+- **Status**: Corrigido inline (D8)
 - **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php:67`
 - **Descrição**: `explode(' ', $cmd)` para construir argv funciona acidentalmente (nenhum cmd atual tem espaço), mas é inconsistente com `ProvisionCustomerAction` (usa string direta) e silenciosamente quebraria se um cmd futuro tivesse espaço.
-- **Ação**: Substituir por `[$customer->slug, $cmd]` diretamente.
+- **Correção**: Substituído por `[$customer->slug, $cmd]` via D8 SEC audit.
 
 ---
 
@@ -446,10 +450,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D7
 - **Severidade**: MEDIUM
 - **Tipo**: test_gap
-- **Status**: Pendente (D8)
+- **Status**: Corrigido inline (D8 — D8.2 E2E testes + /qa validar)
 - **Arquivos**: `tests/Feature/Api/OccControllerTest.php`, `tests/Feature/Customers/LifecycleTest.php`
 - **Descrição**: `deleteGroup`, `removeUserFromGroup`, `addUserToGroup`, `setBranding` e `setQuotaAll` sem nenhum teste de feature. Falha em D7-F002 (validação de `$group`) não seria detectável pelos testes existentes.
-- **Ação**: Adicionar mínimo 2 testes por endpoint (happy path + caso de erro/validação).
+- **Correção**: Testes adicionados em D8.2 (E2E CriticalFlowsTest) e LifecycleTest. Total 199/199 passando.
 
 ---
 
@@ -458,10 +462,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D7
 - **Severidade**: MEDIUM
 - **Tipo**: logic_gap
-- **Status**: Pendente (D8)
+- **Status**: Corrigido inline (D8)
 - **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
 - **Descrição**: Se `ssh->runAsync()` lança `SshRemoteException` após a key já ser persistida (passo anterior), a key bloqueia retries por 24h com `job_id=null`. Mesmo padrão existe em `ProvisionCustomerAction`.
-- **Ação**: Em `catch (SshRemoteException)`, deletar a key orphaned antes de relançar: `IdempotencyKey::where('key', $idempotencyKey)->delete()`.
+- **Correção**: `IdempotencyKey::where('key', $idempotencyKey)->delete()` adicionado no catch block via D8.
 
 ---
 
@@ -702,10 +706,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: MEDIUM
 - **Tipo**: input_validation
-- **Status**: Pendente (D8 Polish)
+- **Status**: Corrigido inline (D8 Polish — 2026-05-14)
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
 - **Descrição**: `quotaUsername` e `rescanUsername` passam diretamente para OCC sem validação de formato.
-- **Ação**: Adicionar `'regex:/^[a-zA-Z0-9._-]+$/', 'max:64'` nas validações do Livewire.
+- **Correção**: `'regex:/^[a-zA-Z0-9._@-]*$/', 'max:64'` adicionado em `submitQuota()` e `submitRescan()`.
 
 ---
 
@@ -738,10 +742,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: MEDIUM
 - **Tipo**: input_validation
-- **Status**: Pendente (D8 Polish)
+- **Status**: Corrigido inline (D8 Polish — 2026-05-14)
 - **Arquivo**: `app/Http/Requests/Lifecycle/CreateGroupRequest.php`
 - **Descrição**: `name` aceita qualquer string até 256 chars sem regex — tabs, newlines, `<>` passam.
-- **Ação**: Adicionar `'regex:/^[a-zA-Z0-9._\\- ]+$/'`.
+- **Correção**: `'regex:/^[a-zA-Z0-9._\\- ]+$/'` adicionado ao `rules()` com mensagem pt-BR.
 
 ---
 
@@ -798,10 +802,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: LOW
 - **Tipo**: missing_headers
-- **Status**: Pendente (D8 Polish)
-- **Arquivo**: `bootstrap/app.php`
+- **Status**: Corrigido inline (D8 Polish — 2026-05-14)
+- **Arquivo**: `bootstrap/app.php`, `app/Http/Middleware/SecureHeaders.php`
 - **Descrição**: Sem `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` — clickjacking possível no painel.
-- **Ação**: Adicionar middleware de security headers ou pacote `bepsvpt/secure-headers`.
+- **Correção**: Middleware `SecureHeaders` criado e adicionado ao grupo `web` — injeta `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 1; mode=block`.
 
 ---
 

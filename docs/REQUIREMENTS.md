@@ -1,8 +1,9 @@
 # Requisitos — mework360-deployer (API REST orquestradora + Painel Gestor)
 
 > Gerado em: 2026-05-07
-> Status: Rascunho
-> Versão: 0.2
+> Atualizado em: 2026-05-14
+> Status: Revisado — MVP implementado
+> Versão: 0.3
 > Autor: Analista de Requisitos (IA, via `/analista escopo`)
 
 ---
@@ -497,7 +498,7 @@
 
 **Autenticação do painel para usuários internos**: email + senha + sessão Laravel (Fortify ou Breeze). Sem SSO no MVP.
 
-**Autenticação da API mework360-deployer para clientes externos** (consumidores Bearer): a API expõe Bearer tokens; gestão de tokens (gerar/revogar) é **sprint 2** (Should-have). No MVP, tokens são criados manualmente via seeder/CLI.
+**Autenticação da API mework360-deployer para clientes externos** (consumidores Bearer): a API expõe Bearer tokens via tabela `api_keys`. A tela de gerenciamento (`/api-keys`) faz parte do MVP — exibe, filtra e revoga tokens existentes. Geração de novos tokens é realizada pelo admin via painel (Livewire `ApiKeys\Index`). Geração por auto-serviço via API pública fica para sprint futura.
 
 **Autenticação SSH (mework360-deployer → nextcloud-saas-manager)**:
 
@@ -585,7 +586,8 @@
 - **MVP usa 1 cluster_server único**; multi-server fica para v2 (mas tabela já estruturada)
 - **Cluster servers rodam Nextcloud ≥ 31**; versões inferiores bloqueiam features que dependem de `group:rename` (validado pela Feature 9)
 - **Time `nextcloud-saas-manager` está em comunicação direta** com o time desta API (cross-repo coordination); mudanças no contrato exigem PR + bump de schema_version + janela de migração
-- **Filament 3 ou Livewire** são candidatos para o painel admin; decisão final é do `/arquiteto`
+- **Livewire 3** é o framework do painel admin (decisão implementada); layout com sidebar esquerda fixa, topbar, paleta Material Design 3 ("stitch"), fontes Inter + Fira Code, Tailwind CSS v4
+- **Database desta API**: MariaDB 11 (migrada de PostgreSQL 16 em 2026-05-14); UUIDs nativos via `UUID()`, tipo `JSON` (sem `jsonb`), índices `FULLTEXT` para buscas textuais
 - **LGPD**: operadores são funcionários meWork360 com termo de uso interno; não tratamos dados pessoais de end-users dos Nextcloud (esses são responsabilidade dos customers, hospedados nas instâncias)
 - **Webhook secret** é gerenciado por cluster_server; rotação manual no MVP, com grace period de 24h aceitando versão antiga + nova
 - **SSH key** é gerenciada manualmente no MVP; rotação automática fica para sprint futura (alinhada com Dúvida 4 do scripts)
@@ -625,35 +627,32 @@
 
 | #   | Tela                            | Rota MVP                        | Componentes principais                                     | Features       | Status                       |
 | --- | ------------------------------- | ------------------------------- | ---------------------------------------------------------- | -------------- | ---------------------------- |
-| 1   | Login                           | `/login`                        | Email + senha + lembrar-me                                 | F1             | **MVP**                      |
-| 2   | Dashboard                       | `/`                             | Cards: count customers, jobs do dia, status cluster_server | F2/F5 (resumo) | **MVP** parcial (sem charts) |
-| 3   | Lista de customers              | `/customers`                    | Tabela com filtros, paginação, busca                       | F2             | **MVP**                      |
-| 4   | Provisionar customer            | `/customers/new`                | Formulário + upload de anexos + preview                    | F3             | **MVP**                      |
-| 5   | Detalhe do customer             | `/customers/{slug}`             | Overview + ações + status atual + jobs recentes            | Várias         | **MVP**                      |
-| 6   | Gerir users do customer         | `/customers/{slug}/users`       | Tabela + criar/editar/deletar (modal)                      | F6.1           | **MVP**                      |
-| 7   | Gerir groups do customer        | `/customers/{slug}/groups`      | Tabela + criar/editar/deletar                              | F6.2           | **MVP**                      |
-| 8   | Gerir apps do customer          | `/customers/{slug}/apps`        | Tabela + enable/disable + batch                            | F6.3           | **MVP**                      |
-| 9   | Branding do customer            | `/customers/{slug}/branding`    | Form + upload logo/background + preview                    | F6.5           | **MVP**                      |
-| 10  | Maintenance + ações destrutivas | `/customers/{slug}/maintenance` | Toggle maintenance + remover (modal forte)                 | F4, F6.6       | **MVP**                      |
-| 11  | Fila de jobs                    | `/queue`                        | Stats cards + tabela + filtros + auto-refresh              | F5             | **MVP**                      |
-| 12  | Detalhe do job                  | `/queue/{id}`                   | Payload + summary + log + ações (cancelar)                 | F5             | **MVP**                      |
-| 13  | Audit log                       | `/audit-log`                    | Tabela com filtros + export CSV                            | F7             | **MVP**                      |
-| 14  | Operadores                      | `/operators`                    | CRUD de operadores (admin only)                            | F1             | **MVP**                      |
-| 15  | Cluster servers                 | `/settings/cluster-servers`     | CRUD + testar conexão + rotacionar secret (admin only)     | F9             | **MVP**                      |
-| 16  | Perfil                          | `/profile`                      | Trocar senha, ver sessões                                  | F1             | **MVP**                      |
-| 17  | API keys (sprint 2)             | `/api-keys`                     | Tabela + gerar/revogar Bearer tokens                       | —              | Sprint 2                     |
-| 18  | Settings security (sprint 2)    | `/settings/security`            | IP allowlist, webhooks externos, rate limit                | —              | Sprint 2                     |
+| 1   | Login                           | `/login`                        | Email + senha + lembrar-me                                 | F1             | **MVP** ✓                    |
+| 2   | Dashboard                       | `/dashboard`                    | Cards: count customers, jobs do dia, status cluster_server | F2/F5 (resumo) | **MVP** ✓ parcial (sem charts) |
+| 3   | Lista de customers              | `/customers`                    | Tabela com filtros, paginação, busca                       | F2             | **MVP** ✓                    |
+| 4   | Provisionar customer            | `/customers/create`             | Formulário + upload de anexos + preview                    | F3             | **MVP** ✓                    |
+| 5   | Detalhe do customer             | `/customers/{slug}`             | Overview + ações + status atual + jobs recentes            | Várias         | **MVP** ✓                    |
+| 6   | OCC do customer                 | `/customers/{slug}/occ`         | Quota, branding, manutenção, apps, users, groups           | F6             | **MVP** ✓                    |
+| 7   | Fila de jobs                    | `/queue`                        | Stats cards + tabela + filtros + auto-refresh              | F5             | **MVP** ✓                    |
+| 8   | Logs de Requisições             | `/audit`                        | Tabela com filtros, paginação, retenção 12m                | F7             | **MVP** ✓                    |
+| 9   | Logs de Provisionamento         | `/queue` (filtro job_type)      | Filtros por tipo + estado; link para detalhe do job        | F5, F7         | **MVP** ✓                    |
+| 10  | API Keys                        | `/api-keys`                     | Tabela + gerar/revogar Bearer tokens                       | —              | **MVP** ✓                    |
+| 11  | Operadores                      | `/operators`                    | CRUD de operadores (admin only)                            | F1             | **MVP** ✓                    |
+| 12  | Cluster servers                 | `/cluster-servers`              | CRUD + testar conexão + rotacionar secret (admin only)     | F9             | **MVP** ✓                    |
+| 13  | Settings security               | `/settings`                     | IP allowlist, webhooks externos, rate limit                | —              | Sprint futuro                |
+
+> **Layout implementado (2026-05-14)**: sidebar esquerda fixa com navegação agrupada (Dashboard, Credenciais Provisionadas, Log de Requisições, Log de Provisionamentos, Configurações), topbar com avatar/logout, paleta Material Design 3 "stitch". Painel é somente gerenciador de credenciais — provisionamento ocorre exclusivamente via API REST.
 
 **Mapeamento original do protótipo Stitch:**
 
-| Tela do protótipo                                  | Mapeada para                                                      |
-| -------------------------------------------------- | ----------------------------------------------------------------- |
-| `dashboard_overview` + `dashboard_api_management`  | Tela #2 (consolidadas)                                            |
-| `provisioning_queue`                               | Tela #11                                                          |
-| `provisioning_logs`                                | Tela #12 (sem streaming live)                                     |
-| `logs_de_requisi_es`                               | Tela #13 (audit log; request logs propriamente vão para sprint 2) |
-| `api_credentials` + `gerenciamento_de_credenciais` | Tela #17 (sprint 2)                                               |
-| `configura_es_e_seguran_a`                         | Telas #15 (cluster servers) + #18 (security, sprint 2)            |
+| Tela do protótipo                                  | Mapeada para                                                         |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| `dashboard_overview` + `dashboard_api_management`  | Tela #2 — `/dashboard` ✓                                            |
+| `provisioning_queue`                               | Tela #7 — `/queue` ✓                                                |
+| `provisioning_logs`                                | Tela #9 — `/queue` com filtro job_type (sem streaming live) ✓        |
+| `logs_de_requisi_es`                               | Tela #8 — `/audit` ✓                                                |
+| `api_credentials` + `gerenciamento_de_credenciais` | Tela #10 — `/api-keys` ✓ (implementado no MVP)                      |
+| `configura_es_e_seguran_a`                         | Tela #12 — `/cluster-servers` ✓ + Tela #13 `/settings` (sprint futura) |
 
 ---
 
@@ -738,7 +737,7 @@ X-Signature: sha256=<hex-hmac-sha256(secret, body)>
 | `audit_logs`             | Nativa                             | API                                                               | `id`, `actor_id` (FK operator), `action`, `resource_type`, `resource_id`, `payload` (jsonb sanitizado), `cluster_server_id` (nullable), `job_id` (nullable), `ip`, `user_agent`, `created_at`                                                                 |
 | `webhook_secret_history` | Nativa                             | API                                                               | `id`, `cluster_server_id` (FK), `secret_encrypted`, `version`, `valid_from`, `valid_until` (grace period 24h)                                                                                                                                                 |
 | `idempotency_keys`       | Nativa                             | API                                                               | `key` (UUID v4 PK), `cmd`, `args_hash`, `customer_slug`, `job_id` (nullable), `created_at`, `expires_at` (24h)                                                                                                                                                |
-| `api_keys` (sprint 2)    | Nativa                             | API                                                               | `id`, `name`, `token_hash`, `scopes`, `last_used_at`, `revoked_at`, `created_at`                                                                                                                                                                              |
+| `api_keys`               | Nativa                             | API                                                               | `id`, `name`, `token_hash`, `scopes`, `last_used_at`, `revoked_at`, `created_at` — gerenciado via painel `/api-keys` (MVP ✓)                                                                                                                                  |
 
 ---
 

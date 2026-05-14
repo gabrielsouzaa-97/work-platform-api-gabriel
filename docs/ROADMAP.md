@@ -1,9 +1,10 @@
 # Roadmap Tecnico — mework360-deployer
 
 > Gerado em: 2026-05-07
+> Atualizado em: 2026-05-14
 > Fase: 9 — Planejamento Tecnico
-> Baseado em: docs/REQUIREMENTS.md v0.2 + docs/ARCHITECTURE.md v0.2 + docs/openapi.yaml v2.0 + docs/db-schema.dbml + docs/DATABASE.md
-> Status: Proposta
+> Baseado em: docs/REQUIREMENTS.md v0.3 + docs/ARCHITECTURE.md v0.2 + docs/openapi.yaml v2.0 + docs/db-schema.dbml + docs/DATABASE.md
+> Status: MVP concluido (199/199 testes; D8 implementado; deploy staging pendente — tarefa humana)
 > Modo de execucao: Pipeline / autopilot (`/jarvis pipeline`)
 
 ---
@@ -41,6 +42,19 @@
 
 ---
 
+## Errata — Database e Painel Admin (2026-05-14)
+
+> Alteracoes de arquitetura aplicadas durante D8 Polish apos conclusao da implementacao MVP.
+
+| # | Correcao | Impacto |
+|---|---------|---------|
+| E10 | **Database migrado de PostgreSQL 16 para MariaDB 11** — UUIDs via `(UUID())` (nativo, sem extensao), tipo `JSON` (sem `jsonb`), indices `FULLTEXT` para buscas textuais, health-check `healthcheck.sh --connect --innodb_initialized`. Migrations D1 e migration `2026_05_14_000001_add_missing_indexes_d8_polish.php` atualizadas. | D1, D8 |
+| E11 | **Painel admin redesenhado** — layout com sidebar esquerda fixa, topbar, paleta Material Design 3 ("stitch"), Tailwind CSS v4, fontes Inter + Fira Code. Foco em gerenciador de credenciais: painel NAO faz provisionamento, somente a API REST. Rotas atualizadas: `/dashboard`, `/audit`, `/api-keys`, `/cluster-servers`, `/queue`. | D3, D8 |
+| E12 | **WebhookHandler**: webhook duplicado (replay) retorna `204` (idempotente) em vez de `409`. Customer status propagado pelo handler no terminal do job (provision→active, deprovision→removed, falha→failed). | D5, D6 |
+| E13 | **API Keys no MVP**: tela `/api-keys` (Livewire `ApiKeys\Index`) disponivel no MVP — visualizacao, filtragem e revogacao de tokens. Anteriormente classificado como Sprint 2. | D8 |
+
+---
+
 ## Indice de Sprints
 
 > Agentes: leiam ESTE indice primeiro. So facam Read da secao completa se precisarem de notas tecnicas ou detalhes de tasks.
@@ -54,7 +68,7 @@
 | D5 | D | Webhook HMAC valido atualiza estado; HMAC invalido 401 + alerta; replay > 1h rejeitado | auditada | 5 | Jobs | Jobs: Webhook receiver (F8) + listagem fila (F5) | 961-1180 |
 | D6 | D | Marina provisiona customer via UI → SSH → webhook conclui em <5min; slug `_` 422; anexo 800KB via SCP; remove com --backup-first | auditada | 6 | Customers | Customers: provisionar + listar + remover (F2+F3+F4+F10) | 1181-1490 |
 | D7 | D | Operador define quota via UI (sync 60s); cria user via async (job_id retornado, webhook conclui) | auditada | 5 | Customers, Jobs | OCC essenciais: sync passthrough + async lifecycle (F6) | 1491-1700 |
-| D8 | D | CI verde; auditorias sem CRITICAL/HIGH; staging valida fluxo Marina end-to-end; retention 12m ativo | pendente | 6 | todos | Polish: Audit retention (F7) + Auditorias + Deploy staging | 1701-1900 |
+| D8 | D | CI verde; auditorias sem CRITICAL/HIGH; staging valida fluxo Marina end-to-end; retention 12m ativo | concluida | 6 | todos | Polish: Audit retention (F7) + Auditorias + Deploy staging | 1701-1900 |
 
 ---
 
@@ -72,7 +86,7 @@
 | D5 | `senior+qa` | Webhook receiver com HMAC-SHA256 + replay protection. Vetor de ataque #1. |
 | D6 | `senior+qa` | Customers: operacoes destrutivas (remove com backup), SSH + SCP staging, idempotency. |
 | D7 | `senior+qa` | OCC essenciais: multiplos endpoints sensiveis (quota, branding, lifecycle). |
-| D8 | `comprehensive` | Ultima sprint D — pre-deploy. Triage completa + auditores DBA + Security + Performance + Senior. |
+| D8 | `comprehensive` | Ultima sprint D — pre-deploy. Triage completa + auditores DBA + Security + Performance + Senior. **[concluida — 199/199 testes; deploy staging pendente]** |
 
 **Niveis (referencia):**
 
@@ -123,18 +137,18 @@ D1 [Scaffold + DB] ─┬─► D2 [Core: SSH + Tradutores] ─┬─► D4 [Clu
 
 #### Mini Design Doc
 
-**Escopo**: criar as 8 migrations do schema PostgreSQL. NAO inclui logica de negocio nos models (apenas casts e relacionamentos diretos).
+**Escopo**: criar as 8 migrations do schema MariaDB 11 (originalmente PostgreSQL 16; migrado em 2026-05-14 — ver E10). NAO inclui logica de negocio nos models (apenas casts e relacionamentos diretos).
 
 **Componentes envolvidos**:
 - `database/migrations/`: 8 arquivos timestamped
 - `app/Models/`: 8 models Eloquent (apenas estrutura, sem queries)
 
 **Decisoes de design**:
-1. Habilitar extensao `uuid-ossp` (`uuid_generate_v4()`) na primeira migration — porque PKs sao UUID v4
-2. Usar `ulid()` ou `Str::uuid()` no PHP para PKs — porque Postgres `gen_random_uuid()` requer pgcrypto e a extensao uuid-ossp ja vem habilitada na imagem oficial Postgres 16
+1. MariaDB 11 tem UUID nativo: PKs geradas com `DB::raw('(UUID())')` no default — sem extensao necessaria (migration `enable_uuid_extension` e no-op)
+2. Usar `Str::uuid()` no PHP para PKs geradas no app-side
 
 **Riscos**:
-1. Esquecer de rodar `CREATE EXTENSION` antes do uso → migration falha. Mitigacao: primeira migration habilita extensao em `Schema::getConnection()->statement()`.
+1. MariaDB nao usa extensoes; primeira migration e no-op (documentado em `enable_uuid_extension.php`).
 2. Soft delete em `customers.slug` (PK varchar) → Eloquent SoftDeletes requer coluna `deleted_at` (presente no DBML). Mitigacao: adicionar `$table->softDeletes()` em `customers`, `operators`, `cluster_servers`.
 
 **Plano de rollback**: Cada migration tem `down()` com `Schema::dropIfExists()` na ordem inversa.
@@ -150,10 +164,10 @@ D1 [Scaffold + DB] ─┬─► D2 [Core: SSH + Tradutores] ─┬─► D4 [Clu
   - `database/migrations/2026_05_08_000008_create_idempotency_keys_table.php`
   - `database/migrations/2026_05_08_000009_create_api_keys_table.php`
   - `app/Models/Operator.php`, `ClusterServer.php`, `Customer.php`, `Job.php`, `AuditLog.php`, `WebhookSecretHistory.php`, `IdempotencyKey.php`, `ApiKey.php`
-- **Abordagem**: traduzir literalmente cada `Table` do DBML em uma migration Laravel. Para PKs UUID, usar `$table->uuid('id')->primary()`. Para `customers.slug` (PK varchar 64), usar `$table->string('slug', 64)->primary()`. JSONB → `$table->jsonb()`. Soft delete → `$table->softDeletes()` quando o DBML mencionar `deleted_at`.
-- **Decisoes**: extensao `uuid-ossp` habilitada na primeira migration (ja documentado em DATABASE.md secao 8.4). Casts: `encrypted` para `ssh_private_key_encrypted`, `webhook_secret_encrypted`, `secret_encrypted`. `array` para colunas `jsonb` (`branding_meta`, `payload_sanitized`, `summary`, `payload`, `scopes`).
+- **Abordagem**: traduzir literalmente cada `Table` do DBML em uma migration Laravel. Para PKs UUID, usar `$table->uuid('id')->primary()->default(DB::raw('(UUID())'))`. Para `customers.slug` (PK varchar 64), usar `$table->string('slug', 64)->primary()`. JSON (MariaDB) → `$table->json()`. Soft delete → `$table->softDeletes()` quando o DBML mencionar `deleted_at`.
+- **Decisoes**: sem extensao de UUID — MariaDB 11 tem `UUID()` nativo. Casts: `encrypted` para `ssh_private_key_encrypted`, `webhook_secret_encrypted`, `secret_encrypted`. `array` para colunas JSON (`branding_meta`, `payload_sanitized`, `summary`, `payload`, `scopes`).
 - **Edge cases**: customer.slug e PK varchar — Eloquent precisa de `protected $primaryKey = 'slug'; public $incrementing = false; protected $keyType = 'string';`. webhook_secret_history sem soft delete (auditavel; rotacao mantem historico). audit_logs sem `updated_at` nem soft delete (append-only por design).
-- **Anti-patterns**: NAO usar `bigIncrements()` para nenhum PK — projeto inteiro e UUID. NAO permitir cascade delete em `customers.cluster_server_id` (proibir deletar cluster com customers ativos via FK `restrict`). NAO usar `gen_random_uuid()` no Postgres (preferir `uuid_generate_v4()` do uuid-ossp).
+- **Anti-patterns**: NAO usar `bigIncrements()` para nenhum PK — projeto inteiro e UUID. NAO permitir cascade delete em `customers.cluster_server_id` (proibir deletar cluster com customers ativos via FK `restrict`). NAO usar funcoes UUID do Postgres (`uuid_generate_v4()`, `gen_random_uuid()`) — usar `(UUID())` nativo MariaDB.
 - **Validacoes**: cada migration tem `down()` com drop na ordem inversa. PKs e FKs declaradas. Indices listados no DBML mapeados via `$table->index([...], 'idx_name')`.
 - **Cenarios de teste**:
   1. `php artisan migrate` em DB limpo aplica as 9 migrations sem erro
@@ -169,16 +183,16 @@ D1 [Scaffold + DB] ─┬─► D2 [Core: SSH + Tradutores] ─┬─► D4 [Clu
 - **executor_prompt**: |
     Criar 9 migrations Laravel em `database/migrations/` traduzindo `docs/db-schema.dbml` 1:1.
 
-    Ordem (timestamps incrementais 000001-000009):
-    1. `enable_uuid_extension`: `Schema::getConnection()->statement('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')`
-    2. `create_operators_table`: PK uuid (default `uuid_generate_v4()`), email unique, role (default 'operador'), password_hash, status (default 'active'), last_login_at nullable, timestamps + softDeletes. Indices: email, role.
-    3. `create_cluster_servers_table`: PK uuid, name, ssh_host, ssh_port (int default 22), ssh_user (default 'ncsaas-api'), ssh_private_key_encrypted (text), webhook_secret_encrypted (text), webhook_secret_version (int default 1), nextcloud_version (nullable), schema_version (int default 1), status (default 'active'), last_health_at nullable, timestamps + softDeletes. Indice: status.
-    4. `create_customers_table`: PK varchar(64) `slug`, FK uuid `cluster_server_id` ref cluster_servers.id (onDelete: 'restrict'), domain, status (default 'provisioning'), branding_meta (jsonb nullable), last_sync_at nullable, timestamps + softDeletes. Indices: cluster_server_id, status.
-    5. `create_jobs_table`: PK uuid `job_id`, FK varchar `customer_slug` ref customers.slug, FK uuid `cluster_server_id` ref cluster_servers.id, cmd_canonical, job_type, state (default 'queued'), idempotency_key uuid unique, payload_sanitized jsonb, summary jsonb, exit_code int nullable, queued_at/started_at/finished_at/callback_received_at/last_poll_at todos nullable, timestamps. Indices: customer_slug, cluster_server_id, state, job_type.
-    6. `create_audit_logs_table`: PK uuid, FK uuid actor_id ref operators.id, action, resource_type, resource_id, payload jsonb, FK uuid cluster_server_id (nullable), FK uuid job_id (nullable), ip varchar(45), user_agent text, created_at SOMENTE (sem updated_at, sem softDeletes — append-only). Indices: actor_id, action, resource_type, cluster_server_id, job_id, created_at.
-    7. `create_webhook_secret_history_table`: PK uuid, FK uuid cluster_server_id, secret_encrypted text, version int, valid_from timestamp, valid_until timestamp nullable, timestamps. Indice: cluster_server_id.
+    [MariaDB 11 — ver E10] Ordem (timestamps incrementais 000001-000009):
+    1. `enable_uuid_extension`: no-op para MariaDB (sem extensao necessaria; UUID nativo via `UUID()`)
+    2. `create_operators_table`: PK uuid (default `(UUID())`), email unique, role (default 'operador'), password_hash, status (default 'active'), last_login_at nullable, timestamps + softDeletes. Indices: email, role.
+    3. `create_cluster_servers_table`: PK uuid (default `(UUID())`), name, ssh_host, ssh_port (int default 22), ssh_user (default 'ncsaas-api'), ssh_private_key_encrypted (text), webhook_secret_encrypted (text), webhook_secret_version (int default 1), nextcloud_version (nullable), schema_version (int default 1), status (default 'active'), last_health_at nullable, timestamps + softDeletes. Indice: status.
+    4. `create_customers_table`: PK varchar(64) `slug`, FK uuid `cluster_server_id` ref cluster_servers.id (onDelete: 'restrict'), domain, status (default 'provisioning'), branding_meta (json nullable), last_sync_at nullable, timestamps + softDeletes. Indices: cluster_server_id, status.
+    5. `create_jobs_table`: PK uuid `job_id` (default `(UUID())`), FK varchar `customer_slug` ref customers.slug, FK uuid `cluster_server_id` ref cluster_servers.id, cmd_canonical, job_type, state (default 'queued'), idempotency_key uuid unique, payload_sanitized json, summary json, exit_code int nullable, queued_at/started_at/finished_at/callback_received_at/last_poll_at todos nullable, timestamps. Indices: customer_slug, cluster_server_id, state, job_type.
+    6. `create_audit_logs_table`: PK uuid (default `(UUID())`), FK uuid actor_id ref operators.id, action, resource_type, resource_id, payload json, FK uuid cluster_server_id (nullable), FK uuid job_id (nullable), ip varchar(45), user_agent text, created_at SOMENTE (sem updated_at, sem softDeletes — append-only). Indices: actor_id, action, resource_type, cluster_server_id, job_id, created_at.
+    7. `create_webhook_secret_history_table`: PK uuid (default `(UUID())`), FK uuid cluster_server_id, secret_encrypted text, version int, valid_from timestamp, valid_until timestamp nullable, timestamps. Indice: cluster_server_id.
     8. `create_idempotency_keys_table`: PK uuid `key`, cmd, args_hash, customer_slug nullable FK ref customers.slug, job_id uuid nullable FK ref jobs.job_id, expires_at timestamp, timestamps. Indices: customer_slug, job_id, expires_at.
-    9. `create_api_keys_table`: PK uuid, name, token_hash unique, scopes jsonb nullable, last_used_at nullable, revoked_at nullable, timestamps. Indice: token_hash.
+    9. `create_api_keys_table`: PK uuid (default `(UUID())`), name, token_hash unique, scopes json nullable, last_used_at nullable, revoked_at nullable, timestamps. Indice: token_hash.
 
     Para CADA migration, implementar `down()` com `Schema::dropIfExists($tableName)`.
 
@@ -2448,11 +2462,11 @@ Operator clica "Remover" em /customers/{slug}
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | 8.1 — Audit log retention 12m: command `audit:purge` (mensal) + indice composto created_at + comparativo de volume | `laravel-migration` | 4.5 |
-| [ ] | M | 8.2 — Testes E2E críticos via Pest browser (Marina provisiona, Rafael cancela job, Sofia reseta quota) | `laravel-testing` | 6.2, 5.4, 7.1 |
-| [ ] | P | 8.3 — Auditoria DBA (revisar indices, queries N+1, plano de explain, eager loading) | `auditoria-dba` | 8.1 |
-| [ ] | P | 8.4 — Auditoria Security (CSRF, mass assignment, raw queries, secrets em log) | `auditoria-seguranca` | 8.1 |
-| [ ] | P | 8.5 — Documentacao operacional: README + runbook (rotate secret, sync, deploy) + atualizar `docs/CI-CD.md` | `/dev doc` | 8.1-8.4 |
+| [x] | M | 8.1 — Audit log retention 12m: command `audit:purge` (mensal) + indice composto created_at + comparativo de volume | `laravel-migration` | 4.5 |
+| [x] | M | 8.2 — Testes E2E críticos via Pest browser (Marina provisiona, Rafael cancela job, Sofia reseta quota) | `laravel-testing` | 6.2, 5.4, 7.1 |
+| [x] | P | 8.3 — Auditoria DBA (revisar indices, queries N+1, plano de explain, eager loading) | `auditoria-dba` | 8.1 |
+| [x] | P | 8.4 — Auditoria Security (CSRF, mass assignment, raw queries, secrets em log) | `auditoria-seguranca` | 8.1 |
+| [x] | P | 8.5 — Documentacao operacional: README + runbook (rotate secret, sync, deploy) + atualizar `docs/CI-CD.md` | `/dev doc` | 8.1-8.4 |
 | [ ] | P | 8.6 — Deploy staging via INFRASTRUCTURE.md (manual humano), rodar smoke test E2E, registrar resultado | — | 8.5 |
 
 **Notas tecnicas (tarefas M):**

@@ -2,6 +2,10 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-14 00:34** `sprint/D8` — chore(qa limpar): FINDINGS.md D7-F003/F004/F005/F006/F007 → corrigido; SEC-F009/F012/F017 → corrigido inline; stats D8 adicionadas; REQUIREMENTS.md v0.3 (MariaDB 11, telas MVP, layout M3); ROADMAP.md D8=concluida, E10-E13 erratas, D8 tasks [x]; SecureHeaders middleware; OccPanel quotaUsername/rescanUsername regex; CreateGroupRequest name regex; 199/199 testes
+- **2026-05-14 00:00** `sprint/D8` — fix(qa validar): 7 bugs corrigidos — SshTimeoutException import (504), RemoveUserFromGroupRequest route username, CriticalFlowsTest mock provision→create, WebhookHandler Customer status propagation + missing import, VerifyWebhookHmac duplicate→204, admin.dashboard middleware, AuditPurgeCommand output<→anterior; db MariaDB migration; 199/199 testes
+- **2026-05-14 00:00** `sprint/D8` — feat(admin panel redesign): sidebar M3 stitch, rotas /dashboard /audit /api-keys /cluster-servers; somente gerenciador de credenciais (sem provisionamento no painel); Livewire 3 + Tailwind v4
+- **2026-05-14 00:00** `sprint/D8` — chore(db migration): PostgreSQL 16 → MariaDB 11; UUID() nativo, json (sem jsonb), FULLTEXT indexes; Dockerfile pdo_mysql+mysqli; docker-compose mariadb:11
 - **2026-05-13 22:23** `sprint/D8` — docs(8.5): README.md criado, docs/RUNBOOK.md (rotate secret, sync, deploy, diagnóstico), docs/CI-CD.md atualizado (cobertura D8, próximos passos)
 - **2026-05-13 21:59** `sprint/D8` — fix(sec-audit): SEC 5 HIGH corrigidos inline (Password import, HttpRequest→request(), Locked import, SshTimeoutException import, EnsureOperatorIsActive logic), SEC-F007 replay dedupe por job_id, SEC-F008 username URL validation, SEC-F010 Gate::authorize OccPanel, SEC-F011 throttle:120,1 na API
 - **2026-05-13 21:51** `sprint/D8` — fix(dba-audit): DBA-F001 N+1 CustomerSyncService keyBy pré-load; DBA-F002 AuditPurge whereIn batch delete; migration 2026_05_14_000001 indexes: F003-F009 (trgm, composite, drop duplicate)
@@ -72,3 +76,12 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-13 23:09** `f1a641a` — feat(sprint-D8): Polish — findings D7/DBA/SEC corrigidos + docs operacionais
 - **2026-05-13 23:13** `090d892` — chore(session): close sprint D8 — update cursorsession and changelog
 - **2026-05-13 23:24** `e5f100c` — chore(storage): add .gitignore files to preserve directory structure
+- **2026-05-13 23:34** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-13 23:52** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-13 23:55** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-14 00:04** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-14 00:08** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-14 00:27** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-14 00:34** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-14 00:41** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-14 00:49** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
