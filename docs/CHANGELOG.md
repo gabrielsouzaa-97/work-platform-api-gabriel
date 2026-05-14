@@ -85,3 +85,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-14 00:34** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
 - **2026-05-14 00:41** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
 - **2026-05-14 00:49** `4715f75` — chore(session): update cursorsession timestamps and adjust compact_marker metrics
+- **2026-05-14 00:53** `acad258` — chore(session): update context snapshot, findings-cache and cursorsession
