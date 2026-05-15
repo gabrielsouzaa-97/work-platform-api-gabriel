@@ -59,8 +59,28 @@
 
             <div class="form-group">
                 <p class="section-label">SSH Private Key</p>
-                <div class="readonly-field">••••••••••••••••  (não exibida — use "Substituir chave SSH" para alterar)</div>
-                <p class="form-hint">Para substituir a chave SSH, use o botão dedicado após salvar.</p>
+
+                @if($replacingKey)
+                    <textarea
+                        id="ssh_private_key"
+                        class="form-control"
+                        wire:model="ssh_private_key"
+                        rows="8"
+                        placeholder="Cole aqui a chave privada SSH (-----BEGIN ... KEY-----)"
+                        style="font-family:monospace;font-size:.8125rem;resize:vertical;"
+                        autofocus
+                    ></textarea>
+                    @error('ssh_private_key') <p class="error-msg">{{ $message }}</p> @enderror
+                    <p class="form-hint">Cole a chave privada completa, incluindo os cabeçalhos BEGIN/END.</p>
+                    <button type="button" class="btn-cancel" wire:click="toggleReplaceKey" style="margin-left:0;margin-top:.5rem;display:inline-block;">
+                        Cancelar substituição
+                    </button>
+                @else
+                    <div class="readonly-field">••••••••••••••••  (não exibida)</div>
+                    <button type="button" style="margin-top:.5rem;background:transparent;border:1px solid #2d3748;border-radius:6px;color:#63b3ed;font-size:.8125rem;padding:.375rem .75rem;cursor:pointer;" wire:click="toggleReplaceKey">
+                        Substituir chave SSH
+                    </button>
+                @endif
             </div>
 
             <div>

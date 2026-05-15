@@ -50,6 +50,15 @@
                                     <div>
                                         <p class="font-semibold text-[13px] text-on-surface">{{ $cluster->name }}</p>
                                         <p class="font-mono text-[11px] text-on-surface-variant">{{ $cluster->ssh_host }}</p>
+                                        <div class="flex items-center gap-xs mt-[2px]">
+                                            <code class="font-mono text-[10px] text-outline select-all" title="cluster_server_id">{{ $cluster->id }}</code>
+                                            <button
+                                                type="button"
+                                                title="Copiar ID"
+                                                onclick="navigator.clipboard.writeText('{{ $cluster->id }}').then(()=>{ this.textContent='check'; setTimeout(()=>this.textContent='content_copy',1500) })"
+                                                class="material-symbols-outlined text-outline hover:text-on-surface transition-colors"
+                                                style="font-size:12px;cursor:pointer;background:none;border:none;padding:0">content_copy</button>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
