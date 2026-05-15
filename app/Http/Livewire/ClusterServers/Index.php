@@ -8,6 +8,7 @@ use App\Mail\WebhookSecretRotatedMail;
 use App\Models\ClusterServer;
 use App\Modules\ClusterServers\Actions\RotateWebhookSecretAction;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
+use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\Gate;
@@ -28,10 +29,9 @@ class Index extends Component
         $cluster = ClusterServer::findOrFail($clusterId);
 
         try {
-            $expected = "healthcheck-{$cluster->id}";
-            $resp = $ssh->run($cluster, 'echo', [$expected], null, 10);
+            $resp = $ssh->ping($cluster, 10);
 
-            if (trim($resp->stdout) === $expected && $resp->exitCode === 0) {
+            if ($resp->exitCode === 0) {
                 $cluster->update(['status' => 'active', 'last_health_at' => now()]);
                 $this->dispatch('toast', type: 'success', msg: 'Conexão OK');
             } else {
@@ -41,6 +41,9 @@ class Index extends Component
         } catch (SshTimeoutException) {
             $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
             $this->dispatch('toast', type: 'error', msg: 'Timeout ao conectar');
+        } catch (SshRemoteException $e) {
+            $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
+            $this->dispatch('toast', type: 'warning', msg: "SSH OK mas comando retornou exit {$e->remoteExitCode}");
         } catch (SshConnectionException $e) {
             $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
             $this->dispatch('toast', type: 'error', msg: 'Conexão falhou: '.$e->getMessage());

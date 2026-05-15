@@ -70,6 +70,39 @@ class SshClient implements SshClientInterface
         return $this->run($cluster, $cmd, $asyncArgs, $payloadStdin, timeoutSec: 5);
     }
 
+    public function ping(ClusterServer $cluster, int $timeoutSec = 10): SshResponse
+    {
+        $this->validateTimeout($timeoutSec);
+
+        // Send the raw command string — NOT via buildCommand. The remote server
+        // has a ForceCommand that pattern-matches SSH_ORIGINAL_COMMAND expecting
+        // the unquoted form `nextcloud-manage list --json`. buildCommand wraps
+        // the binary name in escapeshellarg() producing `'nextcloud-manage'`
+        // (with single quotes), which breaks the ForceCommand prefix match and
+        // returns exit 101 for every sub-command.
+        $command = 'nextcloud-manage list --json';
+
+        $lastException = null;
+
+        foreach (self::RETRY_DELAYS_SECONDS as $attempt => $delaySec) {
+            try {
+                return $this->executeCommand($cluster, $command, null, $timeoutSec);
+            } catch (SshConnectionException $e) {
+                $lastException = $e;
+                $this->pool->remove((string) $cluster->id);
+
+                $isLastAttempt = $attempt === count(self::RETRY_DELAYS_SECONDS) - 1;
+                if (! $isLastAttempt) {
+                    sleep($delaySec);
+                }
+            }
+        }
+
+        throw $lastException ?? new SshConnectionException(
+            "SSH ping failed after retries for cluster [{$cluster->id}]"
+        );
+    }
+
     public function scpUpload(ClusterServer $cluster, string $localPath, string $remotePath): void
     {
         $this->validateCluster($cluster);
@@ -184,9 +217,18 @@ class SshClient implements SshClientInterface
             throw new \InvalidArgumentException('SSH command cannot be empty');
         }
 
-        $parts = [escapeshellarg($cmd)];
+        // Neither the binary name nor the arguments are shell-quoted.
+        // The remote SSH server receives this string as SSH_ORIGINAL_COMMAND
+        // and the ForceCommand does NOT perform shell quote removal — it either
+        // does `exec $SSH_ORIGINAL_COMMAND` (bash word-split, no quote stripping)
+        // or a raw string match/pass-through. Shell-quoting any part causes the
+        // literal quote characters to reach nextcloud-manage as part of the arg
+        // value, which it rejects (exit 101).
+        // Safety: all arg values flowing here are validated upstream (Slug rule,
+        // domain format, UUIDs, fixed literals) — no shell metacharacter risk.
+        $parts = [$cmd];
         foreach ($args as $arg) {
-            $parts[] = escapeshellarg((string) $arg);
+            $parts[] = (string) $arg;
         }
 
         return implode(' ', $parts);
@@ -265,11 +307,18 @@ class SshClient implements SshClientInterface
 
     private function logExecution(ClusterServer $cluster, string $command, SshResponse $response): void
     {
-        Log::channel('sshclient')->debug('SSH command executed', [
+        $context = [
             'cluster_id' => $cluster->id,
             'host' => $cluster->ssh_host,
             'command' => $command,
             'exit_code' => $response->exitCode,
-        ]);
+        ];
+
+        if ($response->exitCode !== 0) {
+            $context['stdout'] = mb_substr($response->stdout, 0, 2000);
+            $context['stderr'] = mb_substr($response->stderr, 0, 500);
+        }
+
+        Log::channel('sshclient')->debug('SSH command executed', $context);
     }
 }

@@ -40,6 +40,12 @@ final class CustomerController extends Controller
         } catch (ClusterUnreachableException) {
             return response()->json(['error' => 'cluster_unreachable'], 503)
                 ->header('Retry-After', '60');
+        } catch (SshRemoteException $e) {
+            return response()->json([
+                'error' => 'upstream_error',
+                'exit_code' => $e->remoteExitCode,
+                'detail' => $e->parsedJson,
+            ], 502);
         }
 
         return new CustomerResource($result['customer']);

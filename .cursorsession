@@ -35,13 +35,13 @@
   "fase_atual": "9",
   "fase_nome": "Planejamento tecnico concluido",
   "sprint_atual": null,
-  "previous_sprint": "D8",
+  "previous_sprint": "F1",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-14T05:34:48Z",
+  "ultimo_update": "2026-05-15T06:36:56Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -138,24 +138,24 @@
   ],
   "anchor": {
     "persona": "dev",
-    "phase": "D8 em andamento",
-    "intent": "Executar Sprint D8: corrigir findings pendentes D7 (F003-F007), implementar AuditPurgeCommand (8.1), testes E2E (8.2), e preparar para auditorias 8.3/8.4 e deploy 8.6",
-    "changes_made": "D7-F003: SshTimeoutException catch 504 em CustomerLifecycleController + import RemoveUserFromGroupRequest ausente corrigido. D7-F004: Password::min(8)->letters()->numbers() em CreateUserRequest. D7-F005: explode frágil substituído por [$customer->slug, $cmd] em LifecycleAsyncAction. D7-F007: IdempotencyKey deletada em catch SshConnectionException/SshTimeoutException/SshRemoteException. D7-F006: +11 testes em LifecycleTest (deleteGroup x2, addUserToGroup x2, removeUserFromGroup x2, lifecycle_timeout x1) e OccControllerTest (setBranding x2, setQuotaAll x2). 8.1: AuditPurgeCommand (chunkById 1000, dry-run, retention-months, max 100k) + schedule monthlyOn(1,'03:30') + 3 testes em AuditPurgeTest. 8.2: CriticalFlowsTest (Marina provisiona→webhook→active, Rafael cancela job, Sofia reseta quota).",
-    "decisions": "E2E implementados como Pest feature HTTP tests (não Dusk) — laravel/dusk não instalado no ambiente; fluxos testam o mesmo contrato HTTP/DB. AuditPurgeCommand usa chunkById com id (UUID string PK) e withoutOverlapping()+runInBackground() no schedule.",
-    "next_steps": "8.3 Auditoria DBA (/qa auditoria dba) — revisar índices, N+1, explain. 8.4 Auditoria Security (/qa auditoria security). 8.5 Docs operacional. 8.6 Deploy staging (humano). Rodar suite completa de testes antes de 8.3.",
-    "updated_at": "2026-05-13T21:40:00-03:00"
+    "phase": "F1 concluida",
+    "intent": "Implementar Sprint F1: feature Gerar + Revogar credenciais Bearer (/api-keys) — MVP incompleto em D8",
+    "changes_made": "F1.1: ApiKeyService (generate/revoke/list) em app/Modules/Core/Services/. ApiKeys\\Index Livewire atualizado com modal criar, token reveal UMA vez, botao revogar por linha. ApiKey model: HasFactory + id em fillable. ApiKeyFactory criada. 5 testes em tests/Feature/ApiKeys/ApiKeyTest.php. 204/204 testes passing.",
+    "decisions": "Token: sk_ + bin2hex(random_bytes(32)) = 67 chars. Hash SHA-256 armazenado, raw token retornado apenas na criacao. Revogacao: revoked_at = now(). Audit log api_key.create e api_key.revoke. Service em Core pois ApiKeys e infra de plataforma. Usar protected $rules[] em vez de #[Validate] — consistente com restante do projeto.",
+    "next_steps": "Deploy staging (task 8.6 — humano). Backlog findings: D3-F009, D4-F004/005/008/009, SEC-F013-F016, DBA-F010-F012 (todos MEDIUM/LOW).",
+    "updated_at": "2026-05-14T05:46:00-03:00"
   },
-  "contexto_rapido": "Sprint D8 EM ANDAMENTO. Tasks 8.1 e 8.2 concluidas. Findings D7 todos corrigidos: F003 (SshTimeoutException 504 + import RemoveUserFromGroupRequest), F004 (Password::min(8)->letters()->numbers()), F005 (explode removido), F007 (IdempotencyKey deletada em catch SshRemoteException/SshTimeoutException/SshConnectionException). D7-F006 coberto: +11 testes novos (deleteGroup, addUserToGroup, removeUserFromGroup, setBranding, setQuotaAll, lifecycle_timeout). 8.1: AuditPurgeCommand com chunkById+dry-run+retention-months, schedule mensal dia 1 03:30, 3 testes. 8.2: CriticalFlowsTest (Marina/Rafael/Sofia) como feature E2E HTTP. Proximos: 8.3 Auditoria DBA, 8.4 Auditoria Security, 8.5 Docs, 8.6 Deploy staging.",
+  "contexto_rapido": "Sprint F1 CONCLUIDA. Feature Gerar+Revogar credenciais Bearer implementada no painel /api-keys. ApiKeyService em Core, modal Livewire com token reveal unico, botao revogar por linha, 5 testes. 204/204 testes passing. MVP completo (D1-D8 + F1). Proximo: deploy staging (8.6 humano) ou planejar Sprint 2 (/analista escopo).",
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-14T03:30:18Z",
-    "usage_percent": 97.8805,
-    "messages_lost": 301
+    "compacted_at": "2026-05-14T06:23:23Z",
+    "usage_percent": 91.6485,
+    "messages_lost": 298
   },
-  "compact_count": 2,
+  "compact_count": 1,
   "checkpoint": {
     "sprint": "D7",
     "phase": "merged",

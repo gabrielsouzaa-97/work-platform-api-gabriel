@@ -69,6 +69,7 @@
 | D6     | D         | Marina provisiona customer via UI → SSH → webhook conclui em <5min; slug `_` 422; anexo 800KB via SCP; remove com --backup-first | auditada  | 6     | Customers             | Customers: provisionar + listar + remover (F2+F3+F4+F10)   | 1181-1490 |
 | D7     | D         | Operador define quota via UI (sync 60s); cria user via async (job_id retornado, webhook conclui)                                 | auditada  | 5     | Customers, Jobs       | OCC essenciais: sync passthrough + async lifecycle (F6)    | 1491-1700 |
 | D8     | D         | CI verde; auditorias sem CRITICAL/HIGH; staging valida fluxo Marina end-to-end; retention 12m ativo                              | concluida | 6     | todos                 | Polish: Audit retention (F7) + Auditorias + Deploy staging | 1701-1900 |
+| F1     | F         | Admin gera credencial → token exibido uma vez; revogar seta revoked_at; audit log registra ambas as acoes                        | concluida | 1     | ApiKeys               | Fix MVP incompleto: Gerar + Revogar Bearer tokens no painel | 2650+    |
 
 ---
 
@@ -2685,8 +2686,34 @@ Apos aprovacao deste roadmap:
 
 ---
 
+## Sprint F1 — Gerar + Revogar Credencial (MVP Incompleto)
+
+> Categoria: F
+> Gate: admin gera credencial → token exibido uma vez → hash armazenado; revogar seta `revoked_at`; audit log registra ambas; 5 testes passing
+> review: none (task P isolada, sem dependencias criticas)
+
+| Status | Tamanho | Tarefa                                                                                                             | Skill/Command        | Depende de |
+| ------ | ------- | ------------------------------------------------------------------------------------------------------------------ | -------------------- | ---------- |
+| [x]    | P       | F1.1 — ApiKeyService (generate + revoke) + modal Livewire + revogar por linha + 5 testes                          | `laravel-livewire`   | —          |
+
+**Contexto**: tela `/api-keys` entregue no D8 tinha botao "Gerar Nova Credencial" com stub `alert('Sprint 2')`. REQUIREMENTS v0.3 §10 e §501 previam geracao no MVP. Triagem inline classificou como MVP incompleto (FEATURE) → Sprint F direta.
+
+**Escopo F1.1**:
+- `app/Modules/Core/Services/ApiKeyService.php` — `generate(name, scopes, actor)` + `revoke(id, actor)` + `list(filter)`
+- `app/Http/Livewire/ApiKeys/Index.php` — inject service; add `openCreate()`, `create()`, `revoke(id)`, `closeTokenReveal()`
+- `resources/views/livewire/api-keys/index.blade.php` — modal criar + revelacao unica de token + botao revogar por linha
+- `database/factories/ApiKeyFactory.php` + `tests/Feature/ApiKeys/ApiKeyTest.php` (5 cenarios)
+
+**Token**: `sk_` + `bin2hex(random_bytes(32))` = 67 chars. Armazenar `hash('sha256', $raw)`. Exibir raw UMA vez (modal pos-criacao).
+**Revogacao**: `revoked_at = now()`. Token revogado nao altera `token_hash` (apenas marca).
+**Audit**: `action=api_key.create` e `action=api_key.revoke` em `audit_logs`.
+**NAO incluir**: self-service via API publica, expiracao automatica, escopos avancados (campo `scopes` aceita array livre, nao validado no MVP).
+
+---
+
 ## Historico
 
-| Data       | Versao | Alteracao                                                                       | Autor                                                        |
-| ---------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 2026-05-07 | 0.1    | Versao inicial — 8 sprints D, 44 tasks (25P / 19M / 0G), 3 tasks `critica:true` | Planejador de Tarefas (IA via /jarvis CONCIERGE → /pmo plan) |
+| Data       | Versao | Alteracao                                                                                        | Autor                                                        |
+| ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-05-07 | 0.1    | Versao inicial — 8 sprints D, 44 tasks (25P / 19M / 0G), 3 tasks `critica:true`                 | Planejador de Tarefas (IA via /jarvis CONCIERGE → /pmo plan) |
+| 2026-05-14 | 0.2    | Sprint F1 adicionada — fix MVP incompleto: gerar + revogar credenciais Bearer no painel /api-keys | /dev (triagem inline)

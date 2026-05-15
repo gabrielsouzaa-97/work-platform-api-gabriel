@@ -25,4 +25,10 @@ interface SshClientInterface
     ): SshResponse;
 
     public function scpUpload(ClusterServer $cluster, string $localPath, string $remotePath): void;
+
+    /**
+     * Test raw SSH connectivity regardless of cluster status.
+     * Bypasses the active-status guard — use ONLY for health checks.
+     */
+    public function ping(ClusterServer $cluster, int $timeoutSec = 10): SshResponse;
 }

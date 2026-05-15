@@ -208,7 +208,8 @@ it('payloadStdin is piped into exec command — not written after exec', functio
     expect($capturedCmd)
         ->toContain('printf %s')
         ->toContain(escapeshellarg($payload))
-        ->toContain("'manage.sh'");
+        ->toContain('| manage.sh')
+        ->not->toContain("'manage.sh'");
 });
 
 it('payloadStdin null does not add printf pipe to exec command', function (): void {
@@ -231,5 +232,6 @@ it('payloadStdin null does not add printf pipe to exec command', function (): vo
 
     expect($capturedCmd)
         ->not->toContain('printf')
-        ->toContain("'manage.sh'");
+        ->toStartWith('manage.sh')
+        ->not->toContain("'manage.sh'");
 });

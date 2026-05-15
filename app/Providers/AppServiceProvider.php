@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\ApiKey;
 use App\Models\ClusterServer;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\SshClient;
@@ -10,6 +11,8 @@ use App\Modules\Core\Ssh\SshConnectionPool;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Core\Translators\StateTranslator;
 use App\Observers\ClusterServerObserver;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -34,6 +37,28 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         ClusterServer::observe(ClusterServerObserver::class);
+
+        Auth::viaRequest('api-key', function (Request $request): ?Operator {
+            $token = $request->bearerToken();
+            if (! $token) {
+                return null;
+            }
+
+            $hash = hash('sha256', $token);
+
+            $apiKey = ApiKey::where('token_hash', $hash)
+                ->whereNull('revoked_at')
+                ->with('operator')
+                ->first();
+
+            if (! $apiKey || ! $apiKey->operator) {
+                return null;
+            }
+
+            $apiKey->update(['last_used_at' => now()]);
+
+            return $apiKey->operator;
+        });
 
         Gate::define('manage-operators', fn (Operator $user) => $user->status === 'active' && $user->role === 'admin');
         Gate::define('manage-cluster-servers', fn (Operator $user) => $user->status === 'active' && $user->role === 'admin');
