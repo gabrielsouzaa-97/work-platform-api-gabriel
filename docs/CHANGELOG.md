@@ -117,3 +117,15 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-15 03:47** `cf489b0` — chore: register CI failure on main
 - **2026-05-15 04:07** `cf489b0` — chore: register CI failure on main
 - **2026-05-15 04:12** — feat(infra): provision Let's Encrypt TLS certificate and configure nginx HTTPS for api.mework360.com.br
+- **2026-05-15 04:13** `af86fa8` — feat(infra): provision Let's Encrypt TLS and configure nginx HTTPS
+- **2026-05-15 04:18** `291c25e` — fix(infra): fix nginx healthcheck failing after HTTPS migration
+- **2026-05-15 04:29** `089f670` — feat(infra): provision Let's Encrypt TLS and configure nginx HTTPS (#8)
+- **2026-05-15 04:37** `089f670` — feat(infra): provision Let's Encrypt TLS and configure nginx HTTPS (#8)
+- **2026-05-15 04:41** `089f670` — feat(infra): provision Let's Encrypt TLS and configure nginx HTTPS (#8)
+- **2026-05-15 04:45** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 05:03** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 13:46** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 14:40** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 15:29** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 15:44** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 16:25** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param

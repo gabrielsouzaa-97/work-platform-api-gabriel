@@ -19,32 +19,17 @@ final class CustomerSyncService
     /**
      * Syncs the local customer replica for a given cluster against the upstream.
      *
-     * nextcloud-manage list returns tab-delimited text (not JSON) — one customer per line:
-     * "<slug>  <domain>  <status>"
+     * Uses "nextcloud-manage list --json" which returns:
+     * {"schema_version":"1","instances":[{"name":"slug","domain":"...","status":"running"},…]}
      */
     public function sync(ClusterServer $cluster): SyncReport
     {
-        $resp = $this->ssh->run($cluster, 'nextcloud-manage', ['list'], null, 30);
-
-        $lines = array_filter(array_map('trim', explode("\n", trim($resp->stdout))));
-        $upstream = [];
-        foreach ($lines as $line) {
-            $parts = preg_split('/\s+/', $line, 3);
-            $slug = $parts[0] ?? '';
-            if ($slug === '' || $slug === 'NAME') {
-                continue;
-            }
-            $upstream[] = [
-                'slug' => $slug,
-                'domain' => $parts[1] ?? '',
-                'status' => $parts[2] ?? 'active',
-            ];
-        }
+        $resp = $this->ssh->run($cluster, 'nextcloud-manage', ['list', '--json'], null, 30);
 
         // Guard: abort sync if exit code is non-zero — a failed command should not
         // be treated as "0 customers" and wipe the local replica.
         if ($resp->exitCode !== 0) {
-            Log::warning('customers.sync: nextcloud-manage list returned non-zero exit — skipping sync', [
+            Log::warning('customers.sync: nextcloud-manage list --json returned non-zero exit — skipping sync', [
                 'cluster_id' => $cluster->id,
                 'exit_code' => $resp->exitCode,
                 'stderr' => $resp->stderr,
@@ -52,6 +37,22 @@ final class CustomerSyncService
 
             return new SyncReport;
         }
+
+        $data = json_decode($resp->stdout, true);
+        if (! is_array($data) || ! isset($data['instances'])) {
+            Log::warning('customers.sync: unexpected JSON response from nextcloud-manage list --json', [
+                'cluster_id' => $cluster->id,
+                'stdout_preview' => substr($resp->stdout, 0, 300),
+            ]);
+
+            return new SyncReport;
+        }
+
+        $upstream = array_map(fn (array $inst) => [
+            'slug' => $inst['name'],
+            'domain' => $inst['domain'] ?? '',
+            'status' => $inst['status'] === 'running' ? 'active' : ($inst['status'] ?? 'active'),
+        ], $data['instances']);
 
         $upstreamSlugs = array_column($upstream, 'slug');
         $report = new SyncReport;
