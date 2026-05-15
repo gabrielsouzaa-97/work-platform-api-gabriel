@@ -22,7 +22,7 @@ Route::post('/jobs/hook', [WebhookController::class, 'receive'])
     ->middleware(VerifyWebhookHmac::class)
     ->name('jobs.hook');
 
-Route::middleware(['auth', 'active.operator', 'throttle:120,1'])->group(function (): void {
+Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->group(function (): void {
     Route::get('/queue', [JobController::class, 'index'])->name('api.queue.index');
     Route::get('/queue/stats', [JobController::class, 'stats'])->name('api.queue.stats');
     Route::get('/queue/{id}', [JobController::class, 'show'])->name('api.queue.show');

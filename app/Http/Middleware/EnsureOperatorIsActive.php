@@ -16,9 +16,11 @@ class EnsureOperatorIsActive
         $user = $request->user();
 
         if (! $user || $user->status !== 'active') {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            if ($request->hasSession()) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
 
             abort(403, 'Conta desativada.');
         }
