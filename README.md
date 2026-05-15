@@ -8,7 +8,7 @@ API orquestradora + painel administrativo interno meWork360. Expõe uma interfac
 |--------|-----------|
 | Backend | Laravel 12 (PHP 8.2) |
 | Frontend | Livewire 3 + Tailwind CSS |
-| Banco | PostgreSQL 16 |
+| Banco | MariaDB 11 |
 | Cache / Sessão | Redis 7 |
 | Container | Docker (multi-stage) + Nginx |
 | CI | GitHub Actions |
@@ -62,6 +62,7 @@ O CI roda `lint → test → security` a cada push/PR. Veja `.github/workflows/c
 | `Customers` | Provisionar, remover, sincronizar customers (réplica local) |
 | `Jobs` | Fila local (réplica), poll de stuck jobs, cancelamento |
 | `Audit` | Audit log LGPD (retenção 12 meses via `audit:purge`) |
+| `ApiKeys` | Geração, listagem e revogação de Bearer tokens (tela `/api-keys`) |
 
 ## Comandos artisan relevantes
 
@@ -92,7 +93,7 @@ O CI roda `lint → test → security` a cada push/PR. Veja `.github/workflows/c
 |----------|-----------|
 | `APP_KEY` | Chave de criptografia Laravel (obrigatória; gerar com `php artisan key:generate`) |
 | `APP_URL` | URL pública da aplicação (usada no callback do webhook) |
-| `DB_*` | Conexão PostgreSQL |
+| `DB_*` | Conexão MariaDB |
 | `REDIS_HOST` | Conexão Redis (cache, sessão, rate limit) |
 | `WEBHOOK_REPLAY_WINDOW_SECONDS` | Janela anti-replay do webhook (padrão: 3600s) |
 | `SSH_COMMAND_TIMEOUT_SECONDS` | Timeout de comandos SSH (padrão: 60s) |
@@ -101,7 +102,7 @@ Ver `.env.example` para a lista completa.
 
 ## Segurança
 
-- Autenticação: sessão Laravel + roles (`admin`, `operador`, `suporte`)
+- Autenticação: sessão Laravel + roles (`admin`, `operador`, `suporte`); Bearer tokens via Sanctum (gerenciados no painel em `/api-keys`)
 - Webhook: HMAC-SHA256 + IP whitelist + replay protection por `job_id` (1h TTL)
 - SSH keys e webhook secrets: armazenados criptografados no banco via `APP_KEY`
 - Audit log: todas as ações críticas registradas, retenção LGPD 12 meses
