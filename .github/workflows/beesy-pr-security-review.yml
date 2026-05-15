@@ -10,7 +10,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 concurrency:
@@ -35,8 +35,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: merlin review --focus security
 
-      - name: Register CI Issues
-        if: failure()
+  register-ci-issues:
+    name: Register CI Issues
+    needs: security-review
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write issue file and push
         run: |
           mkdir -p docs/sistema/ci-issues
           ISSUE_ID="CI-SEC-$(date +%Y%m%d%H%M%S)"
@@ -49,7 +60,9 @@ jobs:
           - **Workflow**: pr-security-review
           - **PR**: #${{ github.event.pull_request.number }}
           - **Reportado em**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
           **Descricao**: Merlin AI detected security issues in this PR. See inline comments on the PR for details.
+
           **Correcao sugerida**: Review inline comments and address each finding.
           EOF
           git config user.name "ci-automation"

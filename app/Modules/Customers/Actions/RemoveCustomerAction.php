@@ -49,7 +49,7 @@ final class RemoveCustomerAction
 
         $cluster = $customer->clusterServer;
         $idempotencyKey = (string) Str::uuid();
-        $callbackUrl = config('app.url').'/api/jobs/hook';
+        $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
         // [E1,E4] nextcloud-manage <client> _ remove --force [--backup-first] --async --json
         // runAsync appends --async --json automatically

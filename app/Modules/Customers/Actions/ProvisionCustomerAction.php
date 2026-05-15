@@ -45,7 +45,7 @@ final class ProvisionCustomerAction
         }
 
         $idempotencyKey = (string) Str::uuid();
-        $callbackUrl = config('app.url').'/api/jobs/hook';
+        $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
         $args = [
             $payload->slug,

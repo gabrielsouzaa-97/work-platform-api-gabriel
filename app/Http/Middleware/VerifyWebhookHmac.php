@@ -36,7 +36,10 @@ final class VerifyWebhookHmac
         }
         RateLimiter::hit($rateKey, 60);
 
-        $clusterId = $request->header('X-Cluster-Server-Id', '');
+        // Accept cluster id from query param (?cluster=<uuid>) — upstream does not send
+        // X-Cluster-Server-Id as a header; embedding it in the callback URL is the canonical approach.
+        // Header is kept as fallback for backwards compatibility.
+        $clusterId = $request->query('cluster', $request->header('X-Cluster-Server-Id', ''));
         if (! $clusterId || ! Str::isUuid($clusterId)) {
             return response()->json(['error' => 'invalid_cluster_id'], 400);
         }
