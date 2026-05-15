@@ -243,6 +243,25 @@ it('cluster_server_id no header não bate com job.cluster_server_id → 403', fu
     $response->assertStatus(403);
 });
 
+it('cluster_id via query param (?cluster=) → 204 aceito (caminho real do upstream)', function () {
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+
+    $body = webhookBody($job->job_id);
+    $sig = hmacHeader($body, $secret);
+
+    // Upstream sends cluster_id in URL, not as a header
+    $response = $this->postJson(
+        '/api/jobs/hook?cluster='.$cluster->id,
+        json_decode($body, true),
+        ['X-Signature' => $sig]
+    );
+
+    $response->assertNoContent();
+    $job->refresh();
+    expect($job->state)->toBe('success');
+});
+
 it('payload com state desconhecido → 422', function () {
     [$cluster, $secret] = makeCluster();
     $job = makeJob($cluster->id);

@@ -62,7 +62,7 @@ final class LifecycleAsyncAction
         }
 
         $idempotencyKey = (string) Str::uuid();
-        $callbackUrl = config('app.url').'/api/jobs/hook';
+        $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
         $sshArgs = array_merge(
             [$customer->slug, $cmd],
