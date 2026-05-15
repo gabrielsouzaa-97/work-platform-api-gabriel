@@ -7,6 +7,7 @@ use App\Models\ClusterServer;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
+use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Livewire\Livewire;
@@ -17,15 +18,11 @@ it('test connection bem-sucedido atualiza status para active e last_health_at', 
     $cluster = ClusterServer::factory()->create(['status' => 'unreachable']);
 
     $this->mock(SshClientInterface::class, function (MockInterface $mock) use ($cluster) {
-        $mock->shouldReceive('run')
+        $mock->shouldReceive('ping')
             ->once()
-            ->withArgs(fn ($c, $cmd, $args, $payload, $timeout) => $c->id === $cluster->id
-                && $cmd === 'echo'
-                && $args === ["healthcheck-{$cluster->id}"]
-                && $timeout === 10
-            )
+            ->withArgs(fn ($c, $timeout) => $c->id === $cluster->id && $timeout === 10)
             ->andReturn(new SshResponse(
-                stdout: "healthcheck-{$cluster->id}\n",
+                stdout: "nextcloud-manage 1.0.0\n",
                 stderr: '',
                 exitCode: 0,
             ));
@@ -46,7 +43,7 @@ it('test connection com SshConnectionException marca status unreachable', functi
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
 
     $this->mock(SshClientInterface::class, function (MockInterface $mock) {
-        $mock->shouldReceive('run')
+        $mock->shouldReceive('ping')
             ->once()
             ->andThrow(new SshConnectionException('Connection refused'));
     });
@@ -65,7 +62,7 @@ it('test connection com SshTimeoutException marca status unreachable com mensage
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
 
     $this->mock(SshClientInterface::class, function (MockInterface $mock) {
-        $mock->shouldReceive('run')
+        $mock->shouldReceive('ping')
             ->once()
             ->andThrow(new SshTimeoutException('Timeout'));
     });
@@ -79,11 +76,30 @@ it('test connection com SshTimeoutException marca status unreachable com mensage
     expect($cluster->status)->toBe('unreachable');
 });
 
+it('test connection com SshRemoteException marca status unreachable com exit code', function () {
+    $admin = Operator::factory()->admin()->create();
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+
+    $this->mock(SshClientInterface::class, function (MockInterface $mock) {
+        $mock->shouldReceive('ping')
+            ->once()
+            ->andThrow(new SshRemoteException('Remote command failed', remoteExitCode: 101));
+    });
+
+    Livewire::actingAs($admin)
+        ->test(Index::class)
+        ->call('testConnection', $cluster->id)
+        ->assertDispatched('toast', type: 'warning');
+
+    $cluster->refresh();
+    expect($cluster->status)->toBe('unreachable');
+});
+
 it('operador comum não pode chamar testConnection', function () {
     $operador = Operator::factory()->create(['role' => 'operador']);
     $cluster = ClusterServer::factory()->create();
 
-    $this->mock(SshClientInterface::class, fn (MockInterface $m) => $m->shouldNotReceive('run'));
+    $this->mock(SshClientInterface::class, fn (MockInterface $m) => $m->shouldNotReceive('ping'));
 
     Livewire::actingAs($operador)
         ->test(Index::class)

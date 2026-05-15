@@ -26,12 +26,8 @@ class ClusterHealthCheckCommand extends Command
 
         foreach ($clusters as $cluster) {
             try {
-                $expected = "healthcheck-{$cluster->id}";
-                $resp = $this->ssh->run($cluster, 'echo', [$expected], null, 10);
-
-                $status = (trim($resp->stdout) === $expected && $resp->exitCode === 0)
-                    ? 'active'
-                    : 'unreachable';
+                $resp = $this->ssh->ping($cluster, 10);
+                $status = $resp->exitCode === 0 ? 'active' : 'unreachable';
             } catch (SshClientException) {
                 $status = 'unreachable';
             }
