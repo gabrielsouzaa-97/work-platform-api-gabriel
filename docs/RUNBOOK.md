@@ -113,7 +113,7 @@ O upstream (`nextcloud-saas-manager`) precisa ser atualizado com o novo secret *
 
 ```bash
 # No servidor upstream
-sudo -u ncsaas-api manage.sh config set webhook_secret "<novo-secret>"
+sudo nextcloud-manage config set webhook_secret "<novo-secret>"
 sudo systemctl restart nextcloud-worker   # recarrega configuração
 ```
 
@@ -150,7 +150,7 @@ docker compose exec app php artisan tinker
 
 ### O que o sync faz
 
-1. Conecta ao upstream via SSH e executa `manage.sh list`
+1. Conecta ao upstream via SSH e executa `nextcloud-manage list`
 2. Compara a lista com a réplica local (`customers` table)
 3. Insere novos, atualiza divergentes (status/domain), marca removed os que sumiram
 4. Registra cada divergência no `audit_log` (ação `customer_sync_*`)
@@ -350,4 +350,4 @@ docker compose exec app php artisan tinker
 
 ---
 
-*Última atualização: Sprint D8 — 2026-05-14*
+*Última atualização: 2026-05-14 (Sprint D8 + correção E1: manage.sh → nextcloud-manage)*

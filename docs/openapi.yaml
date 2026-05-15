@@ -5,7 +5,7 @@ info:
   description: |
     API REST orquestradora (Laravel) que delega o provisionamento e a gestão de instâncias
     Nextcloud para o sistema upstream `nextcloud-saas-manager` (Bash scripts + Redis worker)
-    via SSH (`manage.sh ... --async`) + Webhook HMAC-SHA256.
+    via SSH (`nextcloud-manage ... --async`) + Webhook HMAC-SHA256.
 
     Esta API valida entradas, mantém réplica local de customers/jobs, audita operações
     (LGPD, retenção 12 meses) e expõe os endpoints REST descritos abaixo. A lógica de
@@ -14,8 +14,8 @@ info:
 
     ## Autenticação
     Todos os endpoints, exceto `GET /` e `GET /health`, exigem um Bearer token no header
-    `Authorization` (gestão de tokens prevista para sprint 2; no MVP, tokens são criados
-    via seeder/CLI). Painel admin interno usa sessão Laravel separada (não via Bearer).
+    `Authorization` (tokens gerados e revogados pelo painel admin em `/api-keys`).
+    Painel admin interno usa sessão Laravel separada (não via Bearer).
 
     ## Convenções de slug (customer)
     - Pattern: `^[a-z0-9-]+$` (apenas letras minúsculas, dígitos e hífen)
@@ -28,7 +28,7 @@ info:
     **Erro:** `{ "success": false, "message": "...", "errors": {} }`
 
     ## Jobs assíncronos
-    A maioria das operações de escrita estrutural é delegada via SSH ao `manage.sh ... --async`
+    A maioria das operações de escrita estrutural é delegada via SSH ao `nextcloud-manage ... --async`
     do upstream e retorna HTTP **202** com `job_id` (UUID v4) em <2s. A API sincroniza
     estado via webhook HMAC-SHA256 (caminho preferido) ou polling SSH (fallback após 60s).
     Use `GET /queue/{id}` para acompanhar o status na réplica local.

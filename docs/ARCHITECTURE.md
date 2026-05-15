@@ -1,6 +1,7 @@
 # Arquitetura — mework360-deployer
 
 > Gerado em: 2026-05-07
+> Atualizado em: 2026-05-14
 > Fase: 3 — Arquitetura de Solução
 > Status: Aprovada
 > Baseado em: docs/REQUIREMENTS.md
@@ -20,12 +21,12 @@
 |--------|-----------|--------|---------------|
 | Frontend | Laravel Livewire + Tailwind CSS | 3.x / 3.x | Decisão do design system para manter fidelidade total ao protótipo Stitch (sem Filament). Permite reatividade sem a complexidade de uma SPA separada. |
 | Backend | Laravel | 12.x | Framework robusto, excelente para APIs REST e já escolhido como perfil base. |
-| Banco de dados | PostgreSQL | 16.x | Suporte robusto a JSONB (útil para payloads de audit log e jobs) e integridade referencial forte. |
+| Banco de dados | MariaDB | 11.x | UUIDs nativos via `UUID()`, tipo `JSON`, índices `FULLTEXT` para buscas textuais. Migrado de PostgreSQL 16 em 2026-05-14 (E10). |
 | ORM | Eloquent | - | Padrão do Laravel, com suporte excelente a migrations e factories. |
 | Cache / Sessão | Redis | 7.x | Rápido, ideal para rate limiting, cache de traduções e controle de sessão. |
 | Fila | Laravel Queue (Redis/DB) | - | Apenas para retry de envio de emails de notificação (os jobs Nextcloud rodam no upstream). |
 | Storage | Local / Encrypted | - | Para armazenamento seguro de secrets (SSH keys, webhook secrets) via Laravel Encrypted Storage. |
-| Auth | Laravel Session + Sanctum | - | Session para o painel admin; Sanctum para tokens Bearer da API externa (sprint 2). |
+| Auth | Laravel Session + Sanctum | - | Session para o painel admin; Sanctum para tokens Bearer da API externa (gerenciados via painel `/api-keys`). |
 | Deploy | Docker (Laravel Sail) | - | Padroniza o ambiente de desenvolvimento e facilita o deploy multi-stage para produção. |
 
 ---
@@ -151,7 +152,7 @@ mework360-deployer/
 | Serviço | Propósito | Abordagem | Fallback |
 |---------|-----------|-----------|----------|
 | `nextcloud-saas-manager` | Execução de comandos (Provisionamento, OCC) | SSH (saída) com chave dedicada | Retries com backoff; marcar cluster como `unreachable` |
-| `nextcloud-saas-manager` | Callbacks de jobs assíncronos | Webhook HMAC-SHA256 (entrada) | Polling SSH `manage.sh job <id> status` após 60s |
+| `nextcloud-saas-manager` | Callbacks de jobs assíncronos | Webhook HMAC-SHA256 (entrada) | Polling SSH `nextcloud-manage job <id> status` após 60s |
 | Email Service (SMTP) | Notificações de jobs e convites de operadores | API/SMTP padrão do Laravel | Fila local de retry (Laravel Queue) |
 
 ---
@@ -176,7 +177,7 @@ mework360-deployer/
 | Internet (Operadores) | Painel Livewire | HTTPS | Laravel Session | Form Requests | 5 req/15min (Login) |
 | Upstream Worker | Webhook Receiver | HTTPS | HMAC-SHA256 | Signature + IP Whitelist | 100 req/min |
 | API Backend | Upstream CLI | SSH | SSH Private Key | - | - |
-| Clientes API REST | API Backend | HTTPS | Bearer Token (sprint 2) | Form Requests | Sim |
+| Clientes API REST | API Backend | HTTPS | Bearer Token (Sanctum) | Form Requests | Sim |
 
 ### 7.3 Top 3 Vetores de Ataque
 
@@ -202,8 +203,8 @@ mework360-deployer/
 > Gerado pelo Arquiteto de Dados (Fase 4)
 
 ### 8.1 BD Principal
-- **Escolhido**: PostgreSQL 16
-- **Justificativa**: Suporte robusto a JSONB, essencial para o armazenamento estruturado de payloads sanitizados e logs de auditoria dos webhooks e jobs do upstream. Alta integridade referencial garante confiabilidade nas réplicas de `customers` e `jobs`.
+- **Escolhido**: MariaDB 11 (migrado de PostgreSQL 16 em 2026-05-14 — E10)
+- **Justificativa**: UUIDs nativos via `UUID()` sem extensão, tipo `JSON` para payloads sanitizados e logs de auditoria, índices `FULLTEXT` para buscas textuais. Health-check via `healthcheck.sh --connect --innodb_initialized`.
 
 ### 8.2 Tier de Infraestrutura
 - **Tier**: 1 — Single Node
@@ -211,7 +212,7 @@ mework360-deployer/
 - **Componentes**:
   | Componente | Tecnologia | Config |
   |------------|-----------|--------|
-  | BD Primary | PostgreSQL 16 | Default com backups diários |
+  | BD Primary | MariaDB 11 | Default com backups diários |
   | Connection Pool | Built-in (Laravel) | Session mode |
   | Cache | Redis/Valkey standalone | 1 node |
   | Failover | Manual | Procedimento documentado de restore |
@@ -320,7 +321,7 @@ mework360-deployer/
 
 **Decisões de implementação:**
 - Tabela append-only.
-- Payloads devem ser sanitizados (remover senhas, tokens) antes de serem serializados em JSONB.
+- Payloads devem ser sanitizados (remover senhas, tokens) antes de serem serializados em JSON.
 
 **Edge cases conhecidos:**
 - Volume de dados: Garantir paginação eficiente e exportação em chunks para CSV.
@@ -372,3 +373,4 @@ mework360-deployer/
 |------|--------|-----------|-------|
 | 2026-05-07 | 0.1 | Proposta inicial e aprovação | Arquiteto de Soluções (IA) |
 | 2026-05-07 | 0.2 | Adição do Mapa de Dependências e DBML | Analista de Sistemas (IA) |
+| 2026-05-14 | 0.3 | E10: PostgreSQL→MariaDB 11; E1: manage.sh→nextcloud-manage; E13: Bearer tokens disponíveis no MVP via `/api-keys` | IA (D8 Polish) |
