@@ -18,6 +18,7 @@ return new class extends Migration
         DB::table('sessions')->truncate();
 
         Schema::table('sessions', function (Blueprint $table): void {
+            $table->dropIndex('sessions_user_id_index');
             $table->dropColumn('user_id');
         });
 
@@ -31,6 +32,7 @@ return new class extends Migration
         DB::table('sessions')->truncate();
 
         Schema::table('sessions', function (Blueprint $table): void {
+            $table->dropIndex('sessions_user_id_index');
             $table->dropColumn('user_id');
         });
 

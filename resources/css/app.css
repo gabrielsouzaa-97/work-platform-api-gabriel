@@ -52,7 +52,11 @@
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Fira Code', ui-monospace, monospace;
 
-    /* === Custom Spacing Scale === */
+    /* === Custom Spacing Scale ===
+     * ATENÇÃO (Tailwind v4): definir --spacing-{name} aqui cria utilitários como p-sm, mx-md, gap-lg,
+     * MAS também sobrescreve max-w-{name}, min-w-{name}, w-{name}, h-{name}.
+     * Use SEMPRE valores explícitos com brackets: max-w-[480px], não max-w-lg.
+     */
     --spacing-xs: 4px;
     --spacing-sm: 8px;
     --spacing-md: 16px;
@@ -114,3 +118,14 @@ body {
 .state-success   { background: rgb(from #6ad191 r g b / 0.12); color: #6ad191; }
 .state-failed    { background: rgb(from var(--color-error) r g b / 0.15); color: var(--color-error); }
 .state-cancelled { background: rgb(from var(--color-tertiary) r g b / 0.1); color: var(--color-tertiary); }
+
+@keyframes progress {
+    0%, 100% {
+        opacity: 0.55;
+        transform: scaleX(0.92);
+    }
+    50% {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+}

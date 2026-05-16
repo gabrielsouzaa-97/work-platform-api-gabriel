@@ -204,7 +204,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D4
 - **Severidade**: MEDIUM
 - **Tipo**: environment
-- **Status**: Pendente
+- **Status**: Corrigido (F2.4)
 - **URL**: http://localhost:8080/operators/create
 - **Ação**: Admin cria operador → clica "Enviar convite"
 - **Esperado**: Email de convite entregue ao Mailpit automaticamente em poucos segundos

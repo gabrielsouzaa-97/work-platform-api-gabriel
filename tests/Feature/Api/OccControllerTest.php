@@ -96,9 +96,9 @@ it('GET quota/options → retorna lista estática sem SSH', function () {
     expect($response->json('options'))->toContain('1 GB');
 });
 
-// ── 7.1 Maintenance ───────────────────────────────────────────────────────────
+// ── 7.1 Quota Audit ───────────────────────────────────────────────────────────
 
-it('POST maintenance on=true → SSH chama --on → 200', function () {
+it('GET quota/audit → SSH chama user:list (fallback: files:scan indisponível upstream) → 200', function () {
     $cluster = makeOccCluster();
     $customer = makeOccCustomer($cluster);
     $operator = makeOccOperator();
@@ -106,7 +106,29 @@ it('POST maintenance on=true → SSH chama --on → 200', function () {
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => in_array('--on', $args, true))
+        ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
+            && in_array('user:list', $args, true)
+            && ! in_array('files:scan', $args, true))
+        ->andReturn(sshOccSuccess(['users' => ['alice', 'bob']]));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->getJson("/api/customers/{$customer->slug}/occ/quota/audit")
+        ->assertOk()
+        ->assertJsonPath('users', ['alice', 'bob']);
+});
+
+// ── 7.1 Maintenance ───────────────────────────────────────────────────────────
+
+it('POST maintenance on=true → SSH chama positional "on" (upstream strip workaround) → 200', function () {
+    $cluster = makeOccCluster();
+    $customer = makeOccCustomer($cluster);
+    $operator = makeOccOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($c, $cmd, $args) => in_array('on', $args, true) && ! in_array('--on', $args, true))
         ->andReturn(sshOccSuccess());
     $this->app->instance(SshClientInterface::class, $ssh);
 
@@ -278,26 +300,19 @@ it('PUT branding sem campos → SSH chama theming:config com args vazios → 200
 
 // ── D7-F006: setQuotaAll ───────────────────────────────────────────────────────
 
-it('PUT quota/all com quota válida → SSH chama user:setting --all → 200 + audit log', function () {
+it('PUT quota/all → retorna 501 upstream_dispatch_limitation (--all stripped upstream) sem SSH', function () {
     $cluster = makeOccCluster();
     $customer = makeOccCustomer($cluster);
     $operator = makeOccOperator('admin');
 
     $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')
-        ->once()
-        ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
-            && in_array('user:setting', $args, true)
-            && in_array('--all', $args, true)
-            && in_array('10 GB', $args, true))
-        ->andReturn(sshOccSuccess());
+    $ssh->shouldNotReceive('run');
     $this->app->instance(SshClientInterface::class, $ssh);
 
-    $response = $this->actingAs($operator)
-        ->putJson("/api/customers/{$customer->slug}/occ/quota/all", ['quota' => '10 GB']);
-
-    $response->assertOk();
-    expect(AuditLog::where('action', 'occ_set_quota_all')->where('resource_id', $customer->slug)->exists())->toBeTrue();
+    $this->actingAs($operator)
+        ->putJson("/api/customers/{$customer->slug}/occ/quota/all", ['quota' => '10 GB'])
+        ->assertStatus(501)
+        ->assertJsonPath('error', 'upstream_dispatch_limitation');
 });
 
 it('PUT quota/all com formato inválido → 422 sem SSH', function () {

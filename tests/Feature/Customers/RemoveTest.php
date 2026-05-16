@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Livewire\Customers\Show;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
@@ -11,6 +12,7 @@ use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 
 function makeRemovableCustomer(string $slug = 'acme-remove'): array
 {
@@ -146,4 +148,36 @@ it('AuditLog tem severity=high no payload', function () {
     $log = AuditLog::where('action', 'remove_initiated')->where('resource_id', 'acme-rm-audit')->first();
     expect($log)->not->toBeNull();
     expect($log->payload['severity'])->toBe('high');
+});
+
+// D3-F009: sentinela de autorização cobre remoção via Livewire (Show component)
+it('Livewire Show::remove() bloqueia suporte com 403 (D3-F009)', function () {
+    [, $customer] = makeRemovableCustomer('acme-livewire-remove-gate');
+    $suporte = Operator::factory()->create(['role' => 'suporte', 'status' => 'active']);
+
+    Livewire::actingAs($suporte)
+        ->test(Show::class, ['slug' => 'acme-livewire-remove-gate'])
+        ->set('confirmInput', 'acme-livewire-remove-gate')
+        ->call('remove')
+        ->assertForbidden();
+});
+
+it('Livewire Show::remove() permite operador com gate provision-customers (D3-F009)', function () {
+    [, $customer] = makeRemovableCustomer('acme-livewire-remove-ok');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $jobId = Str::uuid()->toString();
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('runAsync')->once()->andReturn(sshRemoveSuccess($jobId));
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    Livewire::actingAs($operator)
+        ->test(Show::class, ['slug' => 'acme-livewire-remove-ok'])
+        ->set('confirmInput', 'acme-livewire-remove-ok')
+        ->set('backupFirst', true)
+        ->call('remove')
+        ->assertHasNoErrors();
+
+    expect(Customer::where('slug', 'acme-livewire-remove-ok')->value('status'))->toBe('removing');
+    expect(Job::where('job_id', $jobId)->exists())->toBeTrue();
 });

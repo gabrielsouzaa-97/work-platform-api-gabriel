@@ -74,7 +74,7 @@
                                         sk_••••••••••••••••••••{{ strtoupper(substr(str_replace('-', '', $key->id), -4)) }}
                                     </code>
                                     @if (!$revoked)
-                                        <span class="material-symbols-outlined text-on-surface-variant group-hover/code:text-primary transition-colors" style="font-size:14px">content_copy</span>
+                                        <span class="material-symbols-outlined text-outline-variant" style="font-size:14px" title="Token mascarado — não pode ser recuperado">key_off</span>
                                     @else
                                         <span class="material-symbols-outlined text-outline-variant" style="font-size:14px">block</span>
                                     @endif
@@ -164,7 +164,7 @@
             </div>
 
             {{-- Modal panel --}}
-            <div class="relative w-full max-w-lg mx-4 rounded-xl border border-outline-variant bg-surface-container-low p-lg shadow-2xl">
+            <div class="relative w-3/4 max-w-[480px] mx-4 rounded-xl border border-outline-variant bg-surface-container-low p-lg shadow-2xl">
                 <div class="flex items-start justify-between mb-md">
                     <div>
                         <h3 class="font-semibold text-[18px] text-on-surface">Gerar Nova Credencial</h3>
@@ -241,7 +241,7 @@
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
 
             {{-- Token panel --}}
-            <div class="relative w-full max-w-lg mx-4 rounded-xl border border-primary/30 bg-surface-container-low p-lg shadow-2xl">
+            <div class="relative w-full max-w-[540px] mx-4 rounded-xl border border-primary/30 bg-surface-container-low p-lg shadow-2xl">
                 {{-- Warning header --}}
                 <div class="flex items-start gap-md mb-md">
                     <div class="w-10 h-10 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
@@ -260,9 +260,22 @@
                     class="bg-black border border-outline-variant/60 rounded-lg px-md py-md mb-lg"
                     x-data="{ copied: false }"
                     x-on:click="
-                        navigator.clipboard.writeText('{{ $createdToken }}');
-                        copied = true;
-                        setTimeout(() => copied = false, 2000);
+                        navigator.clipboard.writeText({{ Js::from($createdToken) }})
+                            .then(() => {
+                                copied = true;
+                                setTimeout(() => copied = false, 2000);
+                            })
+                            .catch(() => {
+                                const el = document.createElement('textarea');
+                                el.value = {{ Js::from($createdToken) }};
+                                el.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+                                document.body.appendChild(el);
+                                el.focus(); el.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(el);
+                                copied = true;
+                                setTimeout(() => copied = false, 2000);
+                            });
                     "
                     title="Clique para copiar"
                     role="button"

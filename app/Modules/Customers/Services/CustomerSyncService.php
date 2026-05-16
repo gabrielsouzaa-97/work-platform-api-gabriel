@@ -19,15 +19,20 @@ final class CustomerSyncService
     /**
      * Syncs the local customer replica for a given cluster against the upstream.
      *
-     * Uses "nextcloud-manage list --json" which returns:
-     * {"schema_version":"1","instances":[{"name":"slug","domain":"...","status":"running"},…]}
+     * nextcloud-manage list --json schema (v1):
+     * {
+     *   "schema_version": "1",
+     *   "instances": [{"name": "<slug>", "domain": "<domain>", "status": "running"}, ...],
+     *   "shared_services": [...]
+     * }
+     *
+     * Only `instances` entries are synced. `shared_services` are infrastructure — ignored.
+     * Upstream status "running" maps to local "active".
      */
     public function sync(ClusterServer $cluster): SyncReport
     {
         $resp = $this->ssh->run($cluster, 'nextcloud-manage', ['list', '--json'], null, 30);
 
-        // Guard: abort sync if exit code is non-zero — a failed command should not
-        // be treated as "0 customers" and wipe the local replica.
         if ($resp->exitCode !== 0) {
             Log::warning('customers.sync: nextcloud-manage list --json returned non-zero exit — skipping sync', [
                 'cluster_id' => $cluster->id,
@@ -38,21 +43,43 @@ final class CustomerSyncService
             return new SyncReport;
         }
 
-        $data = json_decode($resp->stdout, true);
-        if (! is_array($data) || ! isset($data['instances'])) {
-            Log::warning('customers.sync: unexpected JSON response from nextcloud-manage list --json', [
+        $parsed = $resp->parsedJson;
+
+        if (! is_array($parsed)) {
+            Log::warning('customers.sync: --json response could not be parsed — skipping sync', [
                 'cluster_id' => $cluster->id,
-                'stdout_preview' => substr($resp->stdout, 0, 300),
+                'stdout_preview' => mb_substr($resp->stdout, 0, 200),
             ]);
 
             return new SyncReport;
         }
 
-        $upstream = array_map(fn (array $inst) => [
-            'slug' => $inst['name'],
-            'domain' => $inst['domain'] ?? '',
-            'status' => $inst['status'] === 'running' ? 'active' : ($inst['status'] ?? 'active'),
-        ], $data['instances']);
+        $instances = $parsed['instances'] ?? null;
+
+        if (! is_array($instances)) {
+            Log::warning('customers.sync: --json response missing "instances" key — skipping sync', [
+                'cluster_id' => $cluster->id,
+                'schema_version' => $parsed['schema_version'] ?? 'unknown',
+            ]);
+
+            return new SyncReport;
+        }
+
+        $upstream = [];
+        foreach ($instances as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $slug = (string) ($entry['name'] ?? '');
+            if (! preg_match('/^[a-z0-9][a-z0-9_-]*$/', $slug)) {
+                continue;
+            }
+            $upstream[] = [
+                'slug' => $slug,
+                'domain' => (string) ($entry['domain'] ?? ''),
+                'status' => $this->translateInstanceStatus((string) ($entry['status'] ?? '')),
+            ];
+        }
 
         $upstreamSlugs = array_column($upstream, 'slug');
         $report = new SyncReport;
@@ -104,6 +131,19 @@ final class CustomerSyncService
             });
 
         return $report;
+    }
+
+    /**
+     * Maps upstream instance status to local customer status.
+     * Upstream uses "running" for healthy instances; local schema uses "active".
+     */
+    private function translateInstanceStatus(string $upstreamStatus): string
+    {
+        return match ($upstreamStatus) {
+            'running' => 'active',
+            'stopped' => 'removed',
+            default => $upstreamStatus,
+        };
     }
 
     private function auditDiverged(string $action, string $slug, array $payload, string $clusterId): void

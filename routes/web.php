@@ -12,8 +12,12 @@ use App\Http\Livewire\Customers\Index as CustomerIndex;
 use App\Http\Livewire\Customers\OccPanel as CustomerOccPanel;
 use App\Http\Livewire\Customers\Show as CustomerShow;
 use App\Http\Livewire\Jobs\Index as JobsIndex;
+use App\Http\Livewire\Jobs\Show as JobsShow;
 use App\Http\Livewire\Operators\Create;
+use App\Http\Livewire\Operators\Edit as OperatorsEdit;
 use App\Http\Livewire\Operators\Index;
+use App\Http\Livewire\Profile\ChangePassword;
+use App\Http\Livewire\Settings\WebhookIpAllowlist;
 use App\Models\ApiKey;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
@@ -30,6 +34,8 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth', 'active.operator'])->group(function () {
+    Route::get('/profile/password', ChangePassword::class)->name('profile.password');
+
     Route::post('/logout', function () {
         Auth::logout();
         session()->invalidate();
@@ -46,9 +52,27 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
         ->middleware('can:manage-operators')
         ->name('operators.create');
 
+    Route::get('/operators/{operatorId}/edit', OperatorsEdit::class)
+        ->middleware('can:manage-operators')
+        ->name('operators.edit');
+
     // ===== Dashboard =====
     Route::get('/dashboard', function () {
         $now = now();
+
+        // Chart: jobs per day for the last 7 days (success + failed)
+        $chartDays = collect(range(6, 0))->map(fn ($d) => $now->copy()->subDays($d)->startOfDay());
+
+        $jobsRaw = Job::whereIn('state', ['success', 'failed'])
+            ->where('finished_at', '>=', $now->copy()->subDays(6)->startOfDay())
+            ->selectRaw('DATE(finished_at) as day, state, COUNT(*) as total')
+            ->groupBy('day', 'state')
+            ->get()
+            ->groupBy('day');
+
+        $chartLabels = $chartDays->map(fn ($d) => $d->format('d/m'))->values();
+        $chartSuccess = $chartDays->map(fn ($d) => (int) ($jobsRaw->get($d->format('Y-m-d'))?->firstWhere('state', 'success')?->total ?? 0))->values();
+        $chartFailed = $chartDays->map(fn ($d) => (int) ($jobsRaw->get($d->format('Y-m-d'))?->firstWhere('state', 'failed')?->total ?? 0))->values();
 
         return view('admin.dashboard', [
             'recentActivity' => AuditLog::with('actor')->orderByDesc('created_at')->take(8)->get(),
@@ -65,6 +89,9 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
                 'clusters_total' => ClusterServer::count(),
                 'clusters_active' => ClusterServer::where('status', 'active')->count(),
             ],
+            'chartLabels' => $chartLabels,
+            'chartSuccess' => $chartSuccess,
+            'chartFailed' => $chartFailed,
         ]);
     })->middleware('can:manage-operators')->name('dashboard');
 
@@ -88,6 +115,10 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
         ->middleware('can:manage-cluster-servers')
         ->name('settings.index');
 
+    Route::get('/settings/webhook-ip', WebhookIpAllowlist::class)
+        ->middleware('can:manage-cluster-servers')
+        ->name('settings.webhook-ip');
+
     Route::middleware('can:manage-cluster-servers')->group(function () {
         Route::get('/cluster-servers', ClusterIndex::class)->name('cluster-servers.index');
         Route::get('/cluster-servers/create', ClusterCreate::class)->name('cluster-servers.create');
@@ -96,6 +127,7 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
 
     // ===== Logs de Provisionamento (Jobs queue) =====
     Route::get('/queue', JobsIndex::class)->name('queue.index');
+    Route::get('/queue/{jobId}', JobsShow::class)->name('queue.show');
 
     Route::get('/customers', CustomerIndex::class)->name('customers.index');
 

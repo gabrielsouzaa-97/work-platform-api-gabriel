@@ -30,7 +30,7 @@ final class VerifyWebhookHmac
         $limit = (int) config('services.webhook.rate_limit_per_minute', 100);
 
         if (RateLimiter::tooManyAttempts($rateKey, $limit)) {
-            Log::channel('security')->warning('webhook.rate_limit', ['ip' => $ip]);
+            $this->securityLog('warning', 'webhook.rate_limit', ['ip' => $ip]);
 
             return response()->json(['error' => 'rate_limit'], 429);
         }
@@ -51,18 +51,6 @@ final class VerifyWebhookHmac
             return response()->json(['error' => 'unknown_cluster'], 401);
         }
 
-        $allowedIp = Cache::remember(
-            "webhook_ip:{$cluster->id}",
-            300,
-            fn () => gethostbyname($cluster->ssh_host)
-        );
-
-        if ($ip !== $allowedIp) {
-            $this->auditFail('webhook_ip_mismatch', $ip, $cluster->id);
-
-            return response()->json(['error' => 'ip_not_whitelisted'], 401);
-        }
-
         $signature = $request->header('X-Signature', '');
         $body = $request->getContent();
 
@@ -70,6 +58,13 @@ final class VerifyWebhookHmac
             $this->auditFail('webhook_invalid_signature', $ip, $cluster->id);
 
             return response()->json(['error' => 'invalid_signature'], 401);
+        }
+
+        $configuredIp = trim((string) ($cluster->webhook_allowed_ip ?? ''));
+        if ($configuredIp !== '' && $ip !== $configuredIp) {
+            $this->auditFail('webhook_ip_not_allowed', $ip, $cluster->id);
+
+            return response()->json(['error' => 'ip_not_allowed'], 403);
         }
 
         $payload = json_decode($body, true);
@@ -127,6 +122,17 @@ final class VerifyWebhookHmac
             'ip' => $ip,
         ]);
 
-        Log::channel('security')->warning("webhook.{$action}", ['ip' => $ip, 'resource_id' => $resourceId]);
+        $this->securityLog('warning', "webhook.{$action}", ['ip' => $ip, 'resource_id' => $resourceId]);
+    }
+
+    private function securityLog(string $level, string $message, array $context = []): void
+    {
+        try {
+            Log::channel('security')->{$level}($message, $context);
+        } catch (\Throwable $e) {
+            // Log channel failure (e.g. permission denied on rotating file) must never
+            // convert a legitimate 401/429 webhook response into a 500 error.
+            report($e);
+        }
     }
 }
