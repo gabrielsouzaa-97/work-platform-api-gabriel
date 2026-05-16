@@ -164,7 +164,7 @@
             </div>
 
             {{-- Modal panel --}}
-            <div class="relative w-full max-w-lg mx-4 rounded-xl border border-outline-variant bg-surface-container-low p-lg shadow-2xl">
+            <div class="relative w-full max-w-[480px] mx-4 rounded-xl border border-outline-variant bg-surface-container-low p-lg shadow-2xl">
                 <div class="flex items-start justify-between mb-md">
                     <div>
                         <h3 class="font-semibold text-[18px] text-on-surface">Gerar Nova Credencial</h3>
@@ -241,7 +241,7 @@
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
 
             {{-- Token panel --}}
-            <div class="relative w-full max-w-lg mx-4 rounded-xl border border-primary/30 bg-surface-container-low p-lg shadow-2xl">
+            <div class="relative w-full max-w-[540px] mx-4 rounded-xl border border-primary/30 bg-surface-container-low p-lg shadow-2xl">
                 {{-- Warning header --}}
                 <div class="flex items-start gap-md mb-md">
                     <div class="w-10 h-10 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">

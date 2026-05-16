@@ -52,7 +52,11 @@
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Fira Code', ui-monospace, monospace;
 
-    /* === Custom Spacing Scale === */
+    /* === Custom Spacing Scale ===
+     * ATENÇÃO (Tailwind v4): definir --spacing-{name} aqui cria utilitários como p-sm, mx-md, gap-lg,
+     * MAS também sobrescreve max-w-{name}, min-w-{name}, w-{name}, h-{name}.
+     * Use SEMPRE valores explícitos com brackets: max-w-[480px], não max-w-lg.
+     */
     --spacing-xs: 4px;
     --spacing-sm: 8px;
     --spacing-md: 16px;

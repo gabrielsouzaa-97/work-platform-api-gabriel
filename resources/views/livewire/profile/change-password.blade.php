@@ -6,7 +6,7 @@
         </p>
     </div>
 
-    <section class="max-w-lg bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+    <section class="max-w-[560px] bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
         <div class="px-lg py-md border-b border-outline-variant bg-surface-container-high">
             <h3 class="font-semibold text-[16px] text-on-surface">Senha de acesso</h3>
             <p class="text-[12px] text-on-surface-variant mt-xs">Use uma senha forte com pelo menos 8 caracteres.</p>

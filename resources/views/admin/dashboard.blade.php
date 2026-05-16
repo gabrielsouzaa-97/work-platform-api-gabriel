@@ -22,7 +22,7 @@
                     <span class="font-semibold text-[11px] tracking-widest uppercase text-primary">Sistema Operacional</span>
                 </div>
                 <h2 class="font-bold text-[28px] leading-tight text-on-surface mb-sm">API meWork360 Deployer</h2>
-                <p class="text-[13px] text-on-surface-variant max-w-xl leading-relaxed">
+                <p class="text-[13px] text-on-surface-variant max-w-2xl leading-relaxed">
                     Gerenciamento centralizado de credenciais e orquestração de provisionamento Nextcloud via SSH/webhook.
                     Somente operações via API.
                 </p>
