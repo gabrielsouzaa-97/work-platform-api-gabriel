@@ -23,17 +23,15 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="mysql"/>
-        <env name="DB_HOST" value="database"/>
-        <env name="DB_PORT" value="3306"/>
-        <env name="DB_DATABASE" value="mework360_deployer_test"/>
-        <env name="DB_USERNAME" value="mework360_deployer"/>
-        <env name="DB_PASSWORD" value="secret"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- DB isolation is enforced via TestCase::refreshApplication() (SQLite :memory:).
+             phpunit.xml <env> tags cannot reliably override Docker container env vars
+             because Laravel's ImmutableRepository reads $_ENV (set at process start)
+             before putenv() values. The config() override in TestCase is authoritative. -->
     </php>
 </phpunit>
