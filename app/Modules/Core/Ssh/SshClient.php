@@ -319,6 +319,13 @@ class SshClient implements SshClientInterface
             $context['stderr'] = mb_substr($response->stderr, 0, 500);
         }
 
-        Log::channel('sshclient')->debug('SSH command executed', $context);
+        try {
+            Log::channel('sshclient')->debug('SSH command executed', $context);
+        } catch (\Throwable $e) {
+            // Log channel failure (e.g. permission denied on rotating file) must never
+            // propagate to callers — it would surface as a misleading "Erro inesperado"
+            // toast even when the SSH command itself succeeded.
+            report($e);
+        }
     }
 }
