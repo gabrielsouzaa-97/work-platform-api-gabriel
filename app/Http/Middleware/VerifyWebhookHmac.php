@@ -30,7 +30,7 @@ final class VerifyWebhookHmac
         $limit = (int) config('services.webhook.rate_limit_per_minute', 100);
 
         if (RateLimiter::tooManyAttempts($rateKey, $limit)) {
-            Log::channel('security')->warning('webhook.rate_limit', ['ip' => $ip]);
+            $this->securityLog('warning', 'webhook.rate_limit', ['ip' => $ip]);
 
             return response()->json(['error' => 'rate_limit'], 429);
         }
@@ -120,6 +120,17 @@ final class VerifyWebhookHmac
             'ip' => $ip,
         ]);
 
-        Log::channel('security')->warning("webhook.{$action}", ['ip' => $ip, 'resource_id' => $resourceId]);
+        $this->securityLog('warning', "webhook.{$action}", ['ip' => $ip, 'resource_id' => $resourceId]);
+    }
+
+    private function securityLog(string $level, string $message, array $context = []): void
+    {
+        try {
+            Log::channel('security')->{$level}($message, $context);
+        } catch (\Throwable $e) {
+            // Log channel failure (e.g. permission denied on rotating file) must never
+            // convert a legitimate 401/429 webhook response into a 500 error.
+            report($e);
+        }
     }
 }
