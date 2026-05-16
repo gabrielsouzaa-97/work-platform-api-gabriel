@@ -31,7 +31,7 @@ final class CustomerSyncService
         foreach ($lines as $line) {
             $parts = preg_split('/\s+/', $line, 3);
             $slug = $parts[0] ?? '';
-            if ($slug === '' || $slug === 'NAME') {
+            if ($slug === '' || ! preg_match('/^[a-z0-9][a-z0-9_-]*$/', $slug)) {
                 continue;
             }
             $upstream[] = [

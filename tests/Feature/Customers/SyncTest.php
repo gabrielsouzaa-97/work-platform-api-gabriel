@@ -87,3 +87,45 @@ it('filtros combinados status + cluster retornam subset correto', function () {
     $response = $this->actingAs($admin)->get('/customers?status=active&cluster='.$cluster->id);
     $response->assertOk();
 });
+
+it('linhas === e header NAME são ignoradas pelo parser (não inserem customers)', function () {
+    $cluster = makeSyncCluster('sync-cluster-sep');
+
+    $stdout = implode("\n", [
+        'NAME    DOMAIN                      STATUS',
+        '===     ===                         ===',
+        'acme-ok acme-ok.example.com         active',
+        '===     Serviços Compartilhados ===',
+        '',
+    ]);
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(stdout: $stdout, stderr: '', exitCode: 0, parsedJson: null));
+
+    $svc = new CustomerSyncService($sshMock);
+    $report = $svc->sync($cluster);
+
+    expect($report->inserted)->toBe(1);
+    expect(Customer::find('acme-ok'))->not->toBeNull();
+    expect(Customer::find('==='))->toBeNull();
+});
+
+it('slug com apenas hífens ou começando com dígito é aceito pelo parser', function () {
+    $cluster = makeSyncCluster('sync-cluster-slug');
+
+    $stdout = "123-corp  123-corp.example.com  active\nacme-corp-2  acme-corp-2.example.com  active\n";
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(stdout: $stdout, stderr: '', exitCode: 0, parsedJson: null));
+
+    $svc = new CustomerSyncService($sshMock);
+    $report = $svc->sync($cluster);
+
+    expect($report->inserted)->toBe(2);
+    expect(Customer::find('123-corp'))->not->toBeNull();
+    expect(Customer::find('acme-corp-2'))->not->toBeNull();
+});
