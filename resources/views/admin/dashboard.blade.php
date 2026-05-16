@@ -2,6 +2,10 @@
 
 @section('page-title', 'Dashboard')
 
+@push('head')
+    @vite('resources/js/pages/dashboard.js')
+@endpush
+
 @section('content')
 <div class="max-w-[1400px] mx-auto space-y-gutter">
 
@@ -126,7 +130,27 @@
         </div>
     </div>
 
-    {{-- ===== Row 3: Recent Activity ===== --}}
+    {{-- ===== Row 3: Jobs Chart ===== --}}
+    <div class="bg-surface border border-outline-variant rounded-lg overflow-hidden">
+        <div class="px-md py-[14px] border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+            <h3 class="font-semibold text-[16px] text-on-surface">Jobs — Últimos 7 dias</h3>
+            <a href="{{ route('queue.index') }}"
+               class="text-[11px] uppercase tracking-wide text-primary hover:text-primary-fixed transition-colors flex items-center gap-xs">
+                Ver fila
+                <span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span>
+            </a>
+        </div>
+        <div class="p-md" style="height:220px">
+            <canvas id="jobs-chart"
+                    data-labels="{{ json_encode($chartLabels) }}"
+                    data-success="{{ json_encode($chartSuccess) }}"
+                    data-failed="{{ json_encode($chartFailed) }}"
+                    style="width:100%;height:100%">
+            </canvas>
+        </div>
+    </div>
+
+    {{-- ===== Row 4: Recent Activity ===== --}}
     <div class="bg-surface border border-outline-variant rounded-lg overflow-hidden">
         <div class="px-md py-[14px] border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
             <h3 class="font-semibold text-[16px] text-on-surface">Atividade Recente</h3>

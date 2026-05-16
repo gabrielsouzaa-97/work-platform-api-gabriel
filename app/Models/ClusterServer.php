@@ -40,6 +40,7 @@ class ClusterServer extends Model
         'ssh_private_key_encrypted',
         'webhook_secret_encrypted',
         'webhook_secret_version',
+        'webhook_allowed_ip',
         'nextcloud_version',
         'schema_version',
         'status',

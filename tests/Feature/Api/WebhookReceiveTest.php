@@ -108,8 +108,11 @@ it('HMAC inválido → 401 + AuditLog com ação webhook_invalid_signature', fun
         ->exists())->toBeTrue();
 });
 
-it('IP fora do whitelist → 401 + AuditLog com ação webhook_ip_mismatch', function () {
-    $cluster = ClusterServer::factory()->create(['ssh_host' => '10.0.0.99']);
+it('webhook_allowed_ip definido mas request IP diferente → 403 + webhook_ip_not_allowed', function () {
+    $cluster = ClusterServer::factory()->create([
+        'ssh_host' => 'upstream.example.internal',
+        'webhook_allowed_ip' => '10.0.0.1',
+    ]);
 
     $secret = 'test-secret';
     WebhookSecretHistory::create([
@@ -129,10 +132,10 @@ it('IP fora do whitelist → 401 + AuditLog com ação webhook_ip_mismatch', fun
         'X-Signature' => $sig,
     ]);
 
-    $response->assertStatus(401);
-    $response->assertJson(['error' => 'ip_not_whitelisted']);
+    $response->assertForbidden();
+    $response->assertJson(['error' => 'ip_not_allowed']);
 
-    expect(AuditLog::where('action', 'webhook_ip_mismatch')
+    expect(AuditLog::where('action', 'webhook_ip_not_allowed')
         ->where('resource_id', $cluster->id)
         ->exists())->toBeTrue();
 });

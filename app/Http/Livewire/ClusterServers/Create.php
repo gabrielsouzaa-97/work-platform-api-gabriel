@@ -23,6 +23,8 @@ class Create extends Component
 
     public string $ssh_user = 'root';
 
+    /** @var string PEM — not bound via wire:model in the blade; read from request() in production. Set directly in tests. */
+    #[Locked]
     public string $ssh_private_key = '';
 
     protected array $rules = [
@@ -30,7 +32,6 @@ class Create extends Component
         'ssh_host' => ['required', 'string', 'max:255'],
         'ssh_port' => ['required', 'integer', 'min:1', 'max:65535'],
         'ssh_user' => ['required', 'string', 'max:100'],
-        'ssh_private_key' => ['required', 'string', 'regex:/-----BEGIN[\s\S]+?KEY-----[\s\S]+?-----END[\s\S]+?KEY-----/'],
     ];
 
     public function save(WebhookSecretGenerator $secretGen): mixed
@@ -38,17 +39,29 @@ class Create extends Component
         Gate::authorize('manage-cluster-servers');
         $this->validate();
 
+        // PEM is read from request() in production (no wire:model in blade).
+        // In tests, ->set('ssh_private_key', ...) populates the property directly.
+        $pem = $this->ssh_private_key !== '' ? $this->ssh_private_key : request()->input('ssh_private_key', '');
+
+        if (! preg_match('/-----BEGIN[\s\S]+?KEY-----[\s\S]+?-----END[\s\S]+?KEY-----/', $pem)) {
+            $this->addError('ssh_private_key', 'O campo chave privada SSH deve ser um PEM válido (BEGIN/END KEY).');
+
+            return null;
+        }
+
         $cluster = ClusterServer::create([
             'name' => $this->name,
             'ssh_host' => $this->ssh_host,
             'ssh_port' => $this->ssh_port,
             'ssh_user' => $this->ssh_user,
-            'ssh_private_key_encrypted' => $this->ssh_private_key,
+            'ssh_private_key_encrypted' => $pem,
             'webhook_secret_encrypted' => $secretGen->generate(),
             'webhook_secret_version' => 1,
             'schema_version' => 1,
             'status' => 'active',
         ]);
+
+        unset($pem);
 
         WebhookSecretHistory::create([
             'cluster_server_id' => $cluster->id,

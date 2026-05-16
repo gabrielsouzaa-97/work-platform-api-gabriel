@@ -70,6 +70,8 @@
 | D7     | D         | Operador define quota via UI (sync 60s); cria user via async (job_id retornado, webhook conclui)                                 | auditada  | 5     | Customers, Jobs       | OCC essenciais: sync passthrough + async lifecycle (F6)    | 1491-1700 |
 | D8     | D         | CI verde; auditorias sem CRITICAL/HIGH; staging valida fluxo Marina end-to-end; retention 12m ativo                              | concluida | 6     | todos                 | Polish: Audit retention (F7) + Auditorias + Deploy staging | 1701-1900 |
 | F1     | F         | Admin gera credencial → token exibido uma vez; revogar seta revoked_at; audit log registra ambas as acoes                        | concluida | 1     | ApiKeys               | Fix MVP incompleto: Gerar + Revogar Bearer tokens no painel | 2650+    |
+| F2     | F         | Dashboard chart 7d; clipboard fix; fila redesenhada; log detalhado job; alterar senha; editar perfil; artisan admin; findings   | concluída  | 11    | Auth, Core, Jobs, painel | Sprint 2: UX + fila provisionamento + findings backlog   | 2720+    |
+| F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
 
 ---
 
@@ -2711,9 +2713,132 @@ Apos aprovacao deste roadmap:
 
 ---
 
+## Sprint F2 — Sprint 2: UX Operadores + Chart + Findings Backlog
+
+> Categoria: F
+> Gate: operador altera senha com sucesso (sessao mantida); admin edita role de outro operador e a mudanca reflete imediatamente; `artisan operators:create-admin` cria admin funcional; dashboard exibe chart jobs 7d; findings D3-F009 + D4-F004 + D4-F008 corrigidos; 0 CRITICAL/HIGH abertos; testes passando
+> review: senior+qa (dados de operadores + autorizacao)
+> Auditado em: 2026-05-15 (planejamento via /analista escopo)
+
+| Status | Tamanho | Tarefa                                                                                                                            | Skill/Command       | Depende de |
+| ------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ---------- |
+| [x]    | P       | F2.1 — `artisan operators:create-admin` interativo (nome, email, senha via prompt)                                               | `laravel-migration` | —          |
+| [x]    | M       | F2.2 — Dashboard chart jobs 7d (Chart.js, sucesso vs falha por dia, dark M3 theme) + fix FOUC inline CSS vars                    | `laravel-livewire`  | —          |
+| [x]    | P       | F2.3 — Fix D3-F009: sentinela de autorizacao cobre remocao de customers (Gate provision-customers)                               | `laravel-api`       | —          |
+| [x]    | P       | F2.4 — Fix D4-F004: queue worker no docker-compose dev (servico `queue` com `php artisan queue:work`)                            | `laravel-docker`    | —          |
+| [x]    | P       | F2.5 — Fix D4-F008: SSH PEM fora de propriedade Livewire sincrona (mover para metodo de leitura lazy)                           | `laravel-livewire`  | —          |
+| [x]    | M       | F2.6 — Operador altera propria senha (`/profile/password` Livewire: senha atual + nova + confirmacao + audit log)                | `laravel-livewire`  | —          |
+| [x]    | M       | F2.7 — Admin edita perfil de operador (`/operators/{id}/edit`: nome, role, status, reenviar convite; audit log)                  | `laravel-livewire`  | —          |
+| [x]    | M       | F2.8 — Tela `/settings` IP allowlist webhook (admin: gerenciar IPs permitidos por cluster_server; SEC-F016 fix)                  | `laravel-livewire`  | —          |
+| [x]    | P       | F2.9 — Bug: clipboard na tela /api-keys — async/await + fallback execCommand para nao-HTTPS; remover icone de copia mascarada    | `laravel-livewire`  | —          |
+| [x]    | M       | F2.10 — Log detalhado do job (`/queue/{job_id}` Livewire Show): terminal-style [INFO/TASK/WARN/EXEC] via campo summary; polling wire:poll.5s para jobs running; botoes Export Log + Scroll to Bottom; header com job_id, estado, customer, timestamps | `laravel-livewire` | F2.11 |
+| [x]    | M       | F2.11 — Redesign tela `/queue` conforme Stitch provisioning_queue: stats cards (Active Ops, Completed 24h, Failed 24h, Avg Provision Time); tabs All/Running/Failed; progress bar para jobs running; auto-refresh 10s toggle; botao Export; link "View Logs" para F2.10 | `laravel-livewire` | — |
+
+**Contexto F2**: Sprint 2 pos-MVP. Nenhum CRITICAL/HIGH aberto apos D8+F1. Foco em: (a) UX operadores — alterar senha e editar perfil; (b) chart dashboard (SHOULD-HAVE REQUIREMENTS §7); (c) artisan create-admin; (d) fix MEDIUM backlog; (e) /settings IP allowlist; (f) bug clipboard e UX de fila de provisionamento.
+
+**Nota tecnica F2.2**: Chart.js adicionado como dependencia em `package.json`. Entry Vite dedicada em `resources/js/pages/dashboard.js`. Requer `npm install && npm run build` apos merge. FOUC fix (inline CSS vars no layout) implementado junto.
+
+**Nota tecnica F2.9**: `navigator.clipboard.writeText()` e async — sem `.catch()` falha silenciosamente em HTTP (apenas funciona em HTTPS ou localhost). Fix: `async/await` com `.catch(e => fallback execCommand('copy'))`. O icone de copia na linha da tabela nao tem handler nenhum — token mascarado nao pode ser recuperado; substituir por icone `key_off` com tooltip.
+
+**Nota tecnica F2.10**: campo `summary` no model Job e JSON (pode conter linhas de log do upstream). Para jobs running, polling via `wire:poll.5s`. Para jobs concluidos, exibir `summary` estatico. Linhas parseadas por prefixo: `[INFO]` → primary, `[TASK]` → secondary, `[WARN]` → tertiary, `[EXEC]` → on-surface-variant, `[ERROR]` → error.
+
+**Nota tecnica F2.11**: tela atual `/queue` e "Logs de Provisionamento" — renomear titulo para "Fila de Provisionamento". Avg Provision Time = `AVG(TIMESTAMPDIFF(SECOND, started_at, finished_at))` filtrado por success. Progress bar para `running`: placeholder animado (nao ha % real do upstream via webhook).
+
+---
+
+---
+
+## Sprint F3 — Tech Debt LOW: Schema, Security e Observability
+
+> Categoria: F
+> Gate: 0 findings LOW desta sprint pendentes; testes passando; mensagens de validacao em pt-BR; AuditLog `cluster_server.rotate_webhook_secret` com acao especifica; `invite_token_hash` com UNIQUE constraint; `role`/`status` fora do $fillable de Operator; args SSH sensiveis mascarados nos logs
+> Gerado por `/fix` em 2026-05-15. Fonte: 8 findings LOW (D4-F009, D4-F005, DBA-F010, DBA-F011, DBA-F012, SEC-F013, SEC-F014, SEC-F015).
+> review: skip
+
+| Status | Tamanho | Tarefa                                                                                          | Skill/Command         | Depende de |
+| ------ | ------- | ----------------------------------------------------------------------------------------------- | --------------------- | ---------- |
+| [ ]    | P       | F3.1 — [FIX] D4-F009: AuditLog especifico para `rotate_webhook_secret` em RotateWebhookSecretAction | `laravel-api`    | —          |
+| [ ]    | P       | F3.2 — [FIX] D4-F005: pt-BR — locale + laravel-lang/lang + `config/app.php`                   | `laravel-migration`   | —          |
+| [ ]    | P       | F3.3 — [FIX] DBA-F010/F011: FK `sessions.user_id` para operators + UNIQUE `invite_token_hash` (migration) | `laravel-migration` | — |
+| [ ]    | P       | F3.4 — [FIX] DBA-F012: Eager load `clusterServer` em OccController/OccPassthroughService       | `laravel-api`         | —          |
+| [ ]    | P       | F3.5 — [FIX] SEC-F013: Rate limit login secundario por email (5 tentativas, 300s block)         | `laravel-livewire`    | —          |
+| [ ]    | P       | F3.6 — [FIX] SEC-F015: Remover `role`/`status`/`invite_token_hash` do $fillable de Operator    | `laravel-migration`   | —          |
+| [ ]    | M       | F3.7 — [FIX] SEC-F014: Mascarar args SSH sensiveis nos logs (`--idempotency-key`, `--callback`) | `ssh-orchestrator`    | —          |
+
+**Contexto F3**: 8 findings LOW pos-D8 nao cobertos pelo Sprint F2. Nenhum CRITICAL/HIGH. F2 ja cobre os MEDIUM (D3-F009, D4-F008) e SEC-F016. Foco em: (a) integridade de schema (FK sessions, UNIQUE invite token); (b) housekeeping de seguranca ($fillable restrito, rate limit por conta, mascaramento SSH); (c) observabilidade semantica (AuditLog rotate); (d) i18n pt-BR.
+
+---
+
+### Task F3.1 — [FIX] D4-F009 — AuditLog especifico para rotate_webhook_secret
+
+- **Finding:** D4-F009
+- **File:** `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php`
+- **Correction:** Adicionar `AuditLog::create([..., 'action' => 'cluster_server.rotate_webhook_secret', ...])` explicitamente no `execute()` apos `$cluster->save()`. O observer continua registrando `cluster_server.update` (nao remover); o log explicito e adicional para filtragem semantica.
+- **Test:** Feature test: `RotateWebhookSecretAction::execute()` cria entry em `audit_logs` com `action = cluster_server.rotate_webhook_secret` e `actor_id` correto.
+
+---
+
+### Task F3.2 — [FIX] D4-F005 — pt-BR: locale + lang package Laravel
+
+- **Finding:** D4-F005
+- **Files:** `config/app.php`, `resources/lang/pt_BR/` (criar via artisan)
+- **Correction:**
+  1. `composer require laravel-lang/lang laravel-lang/publisher --dev`
+  2. `php artisan lang:add pt_BR`
+  3. Setar `'locale' => 'pt_BR'` e `'fallback_locale' => 'en'` em `config/app.php`
+- **Test:** Feature test: submeter form vazio retorna mensagem de erro em pt-BR ("O campo ... e obrigatorio." ou similar).
+
+---
+
+### Task F3.3 — [FIX] DBA-F010/F011 — FK sessions para operators + UNIQUE invite_token_hash
+
+- **Findings:** DBA-F010, DBA-F011
+- **Files:** nova migration `2026_05_15_000001_fix_sessions_fk_and_operator_unique.php`
+- **Correction:**
+  - DBA-F010: `$table->foreign('user_id')->references('id')->on('operators')->onDelete('cascade')` na tabela `sessions`
+  - DBA-F011: `$table->unique('invite_token_hash')` na tabela `operators`
+- **Test:** Migration sobe e reverte sem erro; FK e UNIQUE verificados via schema inspection no teste.
+
+---
+
+### Task F3.4 — [FIX] DBA-F012 — Eager load clusterServer em OccController
+
+- **Finding:** DBA-F012
+- **Files:** `app/Http/Controllers/Api/OccController.php`, `app/Modules/Customers/Services/OccPassthroughService.php`
+- **Correction:** Adicionar `$customer->load('clusterServer')` no controller antes de passar para o service, ou ajustar route model binding para eager-load `clusterServer` automaticamente em contextos OCC.
+- **Test:** Query count: 1 request OCC deve gerar <= 2 queries (customers + cluster_servers), nao 3+.
+
+---
+
+### Task F3.5 — [FIX] SEC-F013 — Rate limit login secundario por email
+
+- **Finding:** SEC-F013
+- **File:** `app/Http/Livewire/Auth/Login.php`
+- **Correction:** Adicionar rate limiter secundario por email `login_email:{email}` com max 5 tentativas / 300s alem do existente por IP. Limpar via `RateLimiter::clear()` apos login bem-sucedido.
+- **Test:** Feature test: 6 tentativas falhas com mesmo email retorna erro de rate limit na 7a tentativa.
+
+---
+
+### Task F3.6 — [FIX] SEC-F015 — Remover role/status/invite_token_hash do $fillable de Operator
+
+- **Finding:** SEC-F015
+- **File:** `app/Models/Operator.php`
+- **Correction:** Remover `'role'`, `'status'`, `'invite_token_hash'` do `$fillable`. Verificar todos os `->create()` e `->fill()` no codebase que usem esses campos e substituir por atribuicao direta.
+- **Test:** Teste unitario: `Operator::create(['role' => 'admin', ...])` nao persiste `role` via mass assignment.
+
+---
+
+### Task F3.7 — [FIX] SEC-F014 — Mascarar args SSH sensiveis nos logs
+
+- **Finding:** SEC-F014
+- **Files:** `app/Modules/Core/Ssh/SshClient.php`, mecanismo de mascaramento SSH existente
+- **Correction:** Estender o masker SSH para redactar `--idempotency-key=<valor>` e `--callback=<url>`. Regex: `/--idempotency-key=\S+/` e `/--callback=\S+/` substituidos por `***`.
+- **Test:** Teste unitario: comando com `--idempotency-key=abc123 --callback=https://...` e logado como `--idempotency-key=*** --callback=***`.
+
+---
+
 ## Historico
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| 2026-05-07 | 0.1    | Versao inicial — 8 sprints D, 44 tasks (25P / 19M / 0G), 3 tasks `critica:true`                 | Planejador de Tarefas (IA via /jarvis CONCIERGE → /pmo plan) |
-| 2026-05-14 | 0.2    | Sprint F1 adicionada — fix MVP incompleto: gerar + revogar credenciais Bearer no painel /api-keys | /dev (triagem inline)
+| 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |

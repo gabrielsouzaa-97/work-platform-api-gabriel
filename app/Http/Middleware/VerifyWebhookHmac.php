@@ -51,18 +51,6 @@ final class VerifyWebhookHmac
             return response()->json(['error' => 'unknown_cluster'], 401);
         }
 
-        $allowedIp = Cache::remember(
-            "webhook_ip:{$cluster->id}",
-            300,
-            fn () => gethostbyname($cluster->ssh_host)
-        );
-
-        if ($ip !== $allowedIp) {
-            $this->auditFail('webhook_ip_mismatch', $ip, $cluster->id);
-
-            return response()->json(['error' => 'ip_not_whitelisted'], 401);
-        }
-
         $signature = $request->header('X-Signature', '');
         $body = $request->getContent();
 
@@ -70,6 +58,13 @@ final class VerifyWebhookHmac
             $this->auditFail('webhook_invalid_signature', $ip, $cluster->id);
 
             return response()->json(['error' => 'invalid_signature'], 401);
+        }
+
+        $configuredIp = trim((string) ($cluster->webhook_allowed_ip ?? ''));
+        if ($configuredIp !== '' && $ip !== $configuredIp) {
+            $this->auditFail('webhook_ip_not_allowed', $ip, $cluster->id);
+
+            return response()->json(['error' => 'ip_not_allowed'], 403);
         }
 
         $payload = json_decode($body, true);

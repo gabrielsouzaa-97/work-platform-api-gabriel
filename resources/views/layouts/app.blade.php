@@ -12,8 +12,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;450;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 
+    {{--
+        Critical CSS inline: garante que as variáveis do @theme do Tailwind CSS v4
+        estejam disponíveis ANTES do primeiro paint, evitando FOUC no primeiro carregamento.
+        O Tailwind define vars dentro de @layer theme{:root{...}} — em alguns browsers/builds
+        isso gera um flash antes da folha CSS ser totalmente parseada. Inlinear aqui garante
+        disponibilidade imediata sem depender da ordem de cascade layers.
+    --}}
+    <style>
+        :root {
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 48px;
+            --spacing-margin: 24px;
+            --spacing-gutter: 16px;
+            --color-background: #0b1326;
+            --color-surface: #0b1326;
+            --color-surface-container: #171f33;
+            --color-surface-container-low: #131b2e;
+            --color-surface-container-high: #222a3d;
+            --color-surface-container-highest: #2d3449;
+            --color-surface-container-lowest: #060e20;
+            --color-surface-variant: #2d3449;
+            --color-outline-variant: #424754;
+            --color-on-surface: #dae2fd;
+            --color-on-surface-variant: #c2c6d6;
+            --color-primary: #adc6ff;
+            --color-secondary-container: #3e495d;
+            --color-on-secondary-container: #aeb9d0;
+            --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+            --font-mono: 'Fira Code', ui-monospace, monospace;
+        }
+    </style>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    @stack('head')
 </head>
 <body class="min-h-screen flex bg-background text-on-background font-sans text-[14px]">
 

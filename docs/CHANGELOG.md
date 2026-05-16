@@ -117,3 +117,21 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-15 03:47** `cf489b0` — chore: register CI failure on main
 - **2026-05-15 04:07** `cf489b0` — chore: register CI failure on main
 - **2026-05-15 04:12** — feat(infra): provision Let's Encrypt TLS certificate and configure nginx HTTPS for api.mework360.com.br
+- **2026-05-15 16:40** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 16:44** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 17:00** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 17:03** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 17:09** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 17:38** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 19:51** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:25** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:31** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:33** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:35** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:38** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:42** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:43** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:46** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:48** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 20:52** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 21:31** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found

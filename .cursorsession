@@ -32,16 +32,16 @@
       "descricao": "Design System consolidado. Tema High-Tech Professional, Dark mode default (Light opcional), status hibridos. Livewire + Tailwind puro."
     }
   ],
-  "fase_atual": "9",
-  "fase_nome": "Planejamento tecnico concluido",
-  "sprint_atual": null,
+  "fase_atual": "10",
+  "fase_nome": "Sprint F2 — concluida",
+  "sprint_atual": "F2",
   "previous_sprint": "F1",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-15T07:07:22Z",
+  "ultimo_update": "2026-05-15T21:45:00-03:00",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -51,10 +51,7 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Aprovar docs/ROADMAP.md (8 sprints D, 44 tasks, 3 critica:true) e iniciar via /jarvis pipeline range=D1-D8 (modo autopilot escolhido)",
-    "OU executar manual: /pmo sprint D1 para iniciar Foundation (scaffold Laravel + migrations das 8 tabelas + Pest smoke)",
-    "Configurar GitHub Secrets necessarios (nenhum obrigatorio para CI atual; opcional: SENTRY_AUTH_TOKEN)",
-    "Provisionar a VM seguindo docs/INFRASTRUCTURE.md secao 6 (humano) antes de D8 deploy staging"
+    "Sprint F3 (tech debt LOW: schema + security + observability)"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -77,7 +74,17 @@
     ".cursor/hooks/{safety-guard,pmo-update}.sh + hooks.json (criados, chmod +x)",
     "docs/CI-CD.md (criado)"
   ],
-  "features_concluidas": null,
+  "features_concluidas": [
+    "F2.1: artisan operators:create-admin interativo",
+    "F2.3: Gate provision-customers cobre remove() Livewire + testes D3-F009",
+    "F2.5: SSH PEM removido do snapshot Livewire + #[Locked]",
+    "F2.6: /profile/password — operador altera propria senha",
+    "F2.7: /operators/{id}/edit — admin edita perfil de operador",
+    "F2.8: /settings/webhook-ip — IP allowlist webhook (SEC-F016)",
+    "F2.9: Clipboard async/await + fallback execCommand em /api-keys",
+    "F2.10: /queue/{job_id} — log detalhado com terminal-style output",
+    "F2.11: Redesign /queue com stats cards, tabs, auto-refresh, export CSV"
+  ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
     "F2: Listar customers (replica local sincronizada via callbacks + sync diario manage.sh list)",
@@ -151,92 +158,20 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-15T07:05:41Z",
-    "usage_percent": 91.66149999999999,
-    "messages_lost": 318
+    "compacted_at": "2026-05-16T00:43:45Z",
+    "usage_percent": 91.5325,
+    "messages_lost": 209
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "D7",
-    "phase": "merged",
-    "branch": "sprint/D7",
-    "relevant_paths": [
-      "app/Modules/Customers/Services/OccPassthroughService.php",
-      "app/Http/Controllers/Api/OccController.php",
-      "app/Http/Controllers/Api/CustomerLifecycleController.php",
-      "app/Modules/Customers/Actions/LifecycleAsyncAction.php",
-      "app/Http/Livewire/Customers/OccPanel.php",
-      "app/Http/Requests/Occ/",
-      "app/Http/Requests/Lifecycle/",
-      "resources/views/livewire/customers/occ-panel.blade.php",
-      "routes/api.php",
-      "routes/web.php",
-      "tests/Feature/Api/OccControllerTest.php",
-      "tests/Feature/Customers/LifecycleTest.php"
-    ],
-    "last_completed_task": "8.5",
+    "sprint": "F2",
+    "phase": "done",
+    "branch": "sprint/F2",
+    "last_completed_task": "F2.11",
     "current_task": null,
-    "timestamp": "2026-05-14T01:56:00Z",
-    "d6_closure": {
-      "gate_met": true,
-      "audit_level": "senior+qa",
-      "tests_total": 156,
-      "findings_new": [
-        "D6-F001",
-        "D6-F002",
-        "D6-F003",
-        "D6-F004",
-        "D6-F005"
-      ],
-      "findings_fixed_inline": [
-        "D6-F001",
-        "D6-F002",
-        "D6-F005"
-      ],
-      "findings_pending": [
-        "D6-F003",
-        "D6-F004"
-      ],
-      "d6_status_roadmap": "auditada"
-    },
-    "d5_closure": {
-      "gate_met": true,
-      "audit_level": "senior+qa",
-      "findings_new": [
-        "D5-F001",
-        "D5-F002",
-        "D5-F003",
-        "D5-F004"
-      ],
-      "findings_fixed_inline": [
-        "D5-F001",
-        "D5-F002",
-        "D5-F003",
-        "D5-F004"
-      ],
-      "findings_pending": [],
-      "d5_status_roadmap": "auditada"
-    },
-    "d4_closure": {
-      "gate_met": true,
-      "audit_level": "senior+qa",
-      "findings_new": [
-        "D4-F006",
-        "D4-F007",
-        "D4-F008",
-        "D4-F009"
-      ],
-      "findings_fixed_inline": [
-        "D4-F006",
-        "D4-F007"
-      ],
-      "findings_pending": [
-        "D4-F004",
-        "D4-F005",
-        "D4-F008",
-        "D4-F009"
-      ],
-      "d4_status_roadmap": "auditada"
-    }
+    "tests_passing": 225,
+    "assertions": 544,
+    "audit_findings_resolved": 7,
+    "timestamp": "2026-05-15T21:45:00-03:00"
   }
 }

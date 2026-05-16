@@ -74,7 +74,7 @@
                                         sk_••••••••••••••••••••{{ strtoupper(substr(str_replace('-', '', $key->id), -4)) }}
                                     </code>
                                     @if (!$revoked)
-                                        <span class="material-symbols-outlined text-on-surface-variant group-hover/code:text-primary transition-colors" style="font-size:14px">content_copy</span>
+                                        <span class="material-symbols-outlined text-outline-variant" style="font-size:14px" title="Token mascarado — não pode ser recuperado">key_off</span>
                                     @else
                                         <span class="material-symbols-outlined text-outline-variant" style="font-size:14px">block</span>
                                     @endif
@@ -260,9 +260,22 @@
                     class="bg-black border border-outline-variant/60 rounded-lg px-md py-md mb-lg"
                     x-data="{ copied: false }"
                     x-on:click="
-                        navigator.clipboard.writeText('{{ $createdToken }}');
-                        copied = true;
-                        setTimeout(() => copied = false, 2000);
+                        navigator.clipboard.writeText({{ Js::from($createdToken) }})
+                            .then(() => {
+                                copied = true;
+                                setTimeout(() => copied = false, 2000);
+                            })
+                            .catch(() => {
+                                const el = document.createElement('textarea');
+                                el.value = {{ Js::from($createdToken) }};
+                                el.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+                                document.body.appendChild(el);
+                                el.focus(); el.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(el);
+                                copied = true;
+                                setTimeout(() => copied = false, 2000);
+                            });
                     "
                     title="Clique para copiar"
                     role="button"
