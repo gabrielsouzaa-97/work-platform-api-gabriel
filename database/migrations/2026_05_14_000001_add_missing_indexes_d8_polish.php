@@ -45,12 +45,14 @@ return new class extends Migration
             $table->index(['state', 'created_at'], 'idx_jobs_state_created_at');
         });
 
-        // ── F008: FULLTEXT indexes for text search (MariaDB) ──────────────────
-        // MariaDB uses FULLTEXT instead of pg_trgm GIN indexes.
-        // These enable efficient MATCH AGAINST queries on these columns.
-        DB::statement('ALTER TABLE audit_logs ADD FULLTEXT INDEX idx_audit_logs_action_ft (action)');
-        DB::statement('ALTER TABLE jobs ADD FULLTEXT INDEX idx_jobs_customer_slug_ft (customer_slug)');
-        DB::statement('ALTER TABLE customers ADD FULLTEXT INDEX idx_customers_slug_ft (slug)');
+        // ── F008: FULLTEXT indexes for text search (MariaDB only) ─────────────
+        // SQLite does not support FULLTEXT; these are pure query-performance
+        // optimisations and are silently skipped in the test database.
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE audit_logs ADD FULLTEXT INDEX idx_audit_logs_action_ft (action)');
+            DB::statement('ALTER TABLE jobs ADD FULLTEXT INDEX idx_jobs_customer_slug_ft (customer_slug)');
+            DB::statement('ALTER TABLE customers ADD FULLTEXT INDEX idx_customers_slug_ft (slug)');
+        }
 
         // ── F009: composite index on webhook_secret_history ───────────────────
         Schema::table('webhook_secret_history', function (Blueprint $table): void {
@@ -64,9 +66,11 @@ return new class extends Migration
             $table->dropIndex('idx_wsh_cluster_valid_until');
         });
 
-        DB::statement('ALTER TABLE customers DROP INDEX IF EXISTS idx_customers_slug_ft');
-        DB::statement('ALTER TABLE jobs DROP INDEX IF EXISTS idx_jobs_customer_slug_ft');
-        DB::statement('ALTER TABLE audit_logs DROP INDEX IF EXISTS idx_audit_logs_action_ft');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE customers DROP INDEX IF EXISTS idx_customers_slug_ft');
+            DB::statement('ALTER TABLE jobs DROP INDEX IF EXISTS idx_jobs_customer_slug_ft');
+            DB::statement('ALTER TABLE audit_logs DROP INDEX IF EXISTS idx_audit_logs_action_ft');
+        }
 
         Schema::table('jobs', function (Blueprint $table): void {
             $table->dropIndex('idx_jobs_state_created_at');
@@ -88,14 +92,15 @@ return new class extends Migration
 
     private function indexExists(string $table, string $indexName): bool
     {
-        $result = DB::selectOne(
-            'SELECT 1 FROM information_schema.statistics
-             WHERE table_schema = DATABASE()
-               AND table_name = ?
-               AND index_name = ?',
-            [$table, $indexName]
-        );
+        // Schema::getIndexes() works on all drivers (MySQL, SQLite, PostgreSQL).
+        $indexes = Schema::getIndexes($table);
 
-        return $result !== null;
+        foreach ($indexes as $index) {
+            if (($index['name'] ?? '') === $indexName) {
+                return true;
+            }
+        }
+
+        return false;
     }
 };
