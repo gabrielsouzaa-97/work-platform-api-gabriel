@@ -34,7 +34,7 @@ final class CustomerSyncService
         $resp = $this->ssh->run($cluster, 'nextcloud-manage', ['list', '--json'], null, 30);
 
         if ($resp->exitCode !== 0) {
-            Log::warning('customers.sync: nextcloud-manage list returned non-zero exit — skipping sync', [
+            Log::warning('customers.sync: nextcloud-manage list --json returned non-zero exit — skipping sync', [
                 'cluster_id' => $cluster->id,
                 'exit_code' => $resp->exitCode,
                 'stderr' => $resp->stderr,

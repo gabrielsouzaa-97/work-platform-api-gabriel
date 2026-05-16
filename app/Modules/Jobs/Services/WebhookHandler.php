@@ -72,7 +72,7 @@ final class WebhookHandler
                 'resource_id' => $job->job_id,
                 'payload' => [
                     'state' => $canonical,
-                    'cmd' => $payload->cmd,
+                    'cmd' => $payload->cmd ?? $job->job_type,
                     'exit_code' => $payload->exitCode,
                 ],
                 'cluster_server_id' => $cluster->id,

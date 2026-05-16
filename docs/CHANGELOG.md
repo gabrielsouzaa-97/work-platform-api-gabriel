@@ -117,35 +117,12 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-15 03:47** `cf489b0` — chore: register CI failure on main
 - **2026-05-15 04:07** `cf489b0` — chore: register CI failure on main
 - **2026-05-15 04:12** — feat(infra): provision Let's Encrypt TLS certificate and configure nginx HTTPS for api.mework360.com.br
-- **2026-05-15 16:40** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
+- **2026-05-15 04:13** `af86fa8` — feat(infra): provision Let's Encrypt TLS and configure nginx HTTPS
+- **2026-05-15 04:18** `291c25e` — fix(infra): fix nginx healthcheck failing after HTTPS migration
+- **2026-05-15 04:29** `089f670` — feat(infra): provision Let's Encrypt TLS and configure nginx HTTPS (#8)
+- **2026-05-15 04:45** `bc9659c` — fix(webhook): embed cluster_id in callback URL as query param
 - **2026-05-15 16:44** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 17:00** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 17:03** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 17:09** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 17:38** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 19:51** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:25** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:31** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:33** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:35** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:38** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:42** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:43** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:46** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:48** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 20:52** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
-- **2026-05-15 21:31** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
 - **2026-05-15 21:51** `8bdc698` — feat(sprint-f2): UX + fila + findings backlog (#F2)
 - **2026-05-15 22:11** `df90bf4` — fix(ux): corrige max-w-lg/xl em modais (Tailwind v4 spacing conflict)
 - **2026-05-15 22:27** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 22:41** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 22:46** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 22:56** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 23:04** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 23:15** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 23:19** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 23:21** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
-- **2026-05-15 23:27** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
 - **2026-05-15 23:28** `fe30c40` — fix(occ): remove --show-quota inválido do files:scan em quotaAudit
-- **2026-05-15 23:31** `fe30c40` — fix(occ): remove --show-quota inválido do files:scan em quotaAudit
-- **2026-05-16 00:30** `fe30c40` — fix(occ): remove --show-quota inválido do files:scan em quotaAudit

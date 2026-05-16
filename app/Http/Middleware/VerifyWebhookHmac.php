@@ -69,13 +69,15 @@ final class VerifyWebhookHmac
 
         $payload = json_decode($body, true);
 
-        $requiredFields = ['job_id', 'state', 'cmd', 'client', 'finished_at'];
+        // Upstream sends only {job_id, state, ts, schema_version}; cmd/client/finished_at are optional.
+        $requiredFields = ['job_id', 'state'];
         if (! is_array($payload) || array_diff($requiredFields, array_keys($payload))) {
             return response()->json(['error' => 'invalid_payload'], 422);
         }
 
         $replayWindow = (int) config('services.webhook.replay_window_minutes', 60);
-        $finishedAt = Carbon::parse($payload['finished_at']);
+        // Upstream uses "ts" as the event timestamp; "finished_at" kept for forward compatibility.
+        $finishedAt = Carbon::parse($payload['finished_at'] ?? $payload['ts'] ?? now()->toIso8601String());
 
         if ($finishedAt->diffInMinutes(now()) > $replayWindow) {
             $this->auditFail('webhook_replay', $ip, $cluster->id, [

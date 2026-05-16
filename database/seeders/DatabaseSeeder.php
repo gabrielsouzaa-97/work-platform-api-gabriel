@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
         $devClusterName = 'dev-cluster-local';
 
         if (! ClusterServer::where('name', $devClusterName)->exists()) {
-            ClusterServer::create([
+            $cluster = ClusterServer::create([
                 'id' => Str::uuid()->toString(),
                 'name' => $devClusterName,
                 'ssh_host' => '127.0.0.1',
@@ -41,6 +41,14 @@ class DatabaseSeeder extends Seeder
                 'webhook_secret_version' => 1,
                 'schema_version' => 1,
                 'status' => 'active',
+            ]);
+
+            WebhookSecretHistory::create([
+                'cluster_server_id' => $cluster->id,
+                'secret_encrypted' => $cluster->webhook_secret_encrypted,
+                'version' => 1,
+                'valid_from' => now(),
+                'valid_until' => null,
             ]);
         }
     }

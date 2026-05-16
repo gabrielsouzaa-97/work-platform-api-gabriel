@@ -39,10 +39,12 @@ final class OccController extends Controller
     /** PUT /customers/{customer}/occ/quota/default */
     public function setQuotaDefault(Customer $customer, SetQuotaRequest $request): JsonResponse
     {
+        // config:app:set requires --value flag which upstream dispatch strips (POSITIONAL filter bug).
+        // Workaround: pass value as 3rd positional; OCC 25+ accepts both forms.
         return $this->runOcc(
             $customer,
             'config:app:set',
-            ['files', 'default_quota', '--value', $request->string('quota')->toString()],
+            ['files', 'default_quota', $request->string('quota')->toString()],
             'occ_set_quota_default',
             $request,
         );
@@ -51,19 +53,20 @@ final class OccController extends Controller
     /** PUT /customers/{customer}/occ/quota/all */
     public function setQuotaAll(Customer $customer, SetQuotaRequest $request): JsonResponse
     {
-        return $this->runOcc(
-            $customer,
-            'user:setting',
-            ['--all', 'files', 'quota', $request->string('quota')->toString()],
-            'occ_set_quota_all',
-            $request,
-        );
+        // user:setting --all requires --all flag which upstream dispatch strips.
+        // Pending upstream fix in nextcloud-manage dispatch.sh: pass OCC flags through POSITIONAL.
+        return response()->json([
+            'error' => 'upstream_dispatch_limitation',
+            'detail' => 'user:setting --all requires --all flag; upstream dispatch strips OCC --flags. Fix dispatch_namespace_cmd in dispatch.sh to pass non-global --flags to occ-exec.',
+        ], 501);
     }
 
     /** GET /customers/{customer}/occ/quota/audit */
     public function quotaAudit(Customer $customer, Request $request): JsonResponse
     {
-        return $this->runOcc($customer, 'files:scan', ['--all'], 'occ_quota_audit', $request);
+        // files:scan --all --show-quota cannot be used: upstream dispatch strips OCC --flags.
+        // Fallback: user:list returns all users (bridge auto-appends --output=json).
+        return $this->runOcc($customer, 'user:list', [], 'occ_quota_audit', $request);
     }
 
     /** GET /customers/{customer}/occ/quota/options */
@@ -89,19 +92,31 @@ final class OccController extends Controller
     /** POST /customers/{customer}/occ/maintenance */
     public function toggleMaintenance(Customer $customer, ToggleMaintenanceRequest $request): JsonResponse
     {
-        $flag = $request->boolean('on') ? '--on' : '--off';
+        // maintenance:mode --on/--off flags are stripped by upstream dispatch.
+        // Workaround: pass "on"/"off" as positional — OCC accepts this form via Symfony Console bool option.
+        $mode = $request->boolean('on') ? 'on' : 'off';
 
-        return $this->runOcc($customer, 'maintenance:mode', [$flag], 'occ_maintenance_toggle', $request);
+        return $this->runOcc($customer, 'maintenance:mode', [$mode], 'occ_maintenance_toggle', $request);
     }
 
     /** POST /customers/{customer}/occ/files-rescan */
     public function filesRescan(Customer $customer, FilesRescanRequest $request): JsonResponse
     {
-        $args = $request->filled('username')
-            ? [$request->string('username')->toString()]
-            : ['--all'];
+        // files:scan --all strips --all via upstream dispatch; require explicit username.
+        if (! $request->filled('username')) {
+            return response()->json([
+                'error' => 'upstream_dispatch_limitation',
+                'detail' => 'files:scan --all requires --all flag; upstream dispatch strips OCC --flags. Provide ?username=<user> to scan a specific user, or fix dispatch.sh.',
+            ], 501);
+        }
 
-        return $this->runOcc($customer, 'files:scan', $args, 'occ_files_rescan', $request);
+        return $this->runOcc(
+            $customer,
+            'files:scan',
+            [$request->string('username')->toString()],
+            'occ_files_rescan',
+            $request,
+        );
     }
 
     /** POST /customers/{customer}/occ/apps/{appId}/enable */
