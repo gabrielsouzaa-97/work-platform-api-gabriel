@@ -135,3 +135,17 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-15 20:48** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
 - **2026-05-15 20:52** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
 - **2026-05-15 21:31** `ba13120` — fix(ci): move Register CI Issues to separate job to fix git not found
+- **2026-05-15 21:51** `8bdc698` — feat(sprint-f2): UX + fila + findings backlog (#F2)
+- **2026-05-15 22:11** `df90bf4` — fix(ux): corrige max-w-lg/xl em modais (Tailwind v4 spacing conflict)
+- **2026-05-15 22:27** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 22:41** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 22:46** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 22:56** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 23:04** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 23:15** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 23:19** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 23:21** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 23:27** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
+- **2026-05-15 23:28** `fe30c40` — fix(occ): remove --show-quota inválido do files:scan em quotaAudit
+- **2026-05-15 23:31** `fe30c40` — fix(occ): remove --show-quota inválido do files:scan em quotaAudit
+- **2026-05-16 00:30** `fe30c40` — fix(occ): remove --show-quota inválido do files:scan em quotaAudit

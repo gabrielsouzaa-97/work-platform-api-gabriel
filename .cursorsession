@@ -41,7 +41,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-15T21:45:00-03:00",
+  "ultimo_update": "2026-05-16T03:30:44Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -158,11 +158,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-16T00:43:45Z",
-    "usage_percent": 91.5325,
-    "messages_lost": 209
+    "compacted_at": "2026-05-16T01:39:17Z",
+    "usage_percent": 95.209,
+    "messages_lost": 251
   },
-  "compact_count": 1,
+  "compact_count": 2,
   "checkpoint": {
     "sprint": "F2",
     "phase": "done",
