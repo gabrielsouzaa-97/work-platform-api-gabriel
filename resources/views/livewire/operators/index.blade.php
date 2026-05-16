@@ -124,6 +124,9 @@
                         </td>
                         <td style="color:#718096;font-size:.8rem">{{ $op->created_at->format('d/m/Y H:i') }}</td>
                         <td>
+                            <a href="{{ route('operators.edit', $op->id) }}" class="action-btn">
+                                Editar
+                            </a>
                             @if ($op->status === 'pending')
                                 <button class="action-btn" wire:click="resendInvite('{{ $op->id }}')">
                                     Reenviar convite

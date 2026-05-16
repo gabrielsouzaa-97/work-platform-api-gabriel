@@ -115,6 +115,12 @@
             Operadores
         </a>
         @endcan
+        <a href="{{ route('profile.password') }}"
+           class="flex items-center gap-sm px-md py-[9px] rounded-lg font-semibold text-[12px] tracking-wide uppercase transition-all duration-150
+                  {{ request()->routeIs('profile.password') ? 'bg-secondary-container text-on-secondary-container shadow-[inset_2px_0_0_0_#adc6ff]' : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface' }}">
+            <span class="material-symbols-outlined {{ request()->routeIs('profile.password') ? 'icon-fill' : '' }}" style="font-size:18px">lock</span>
+            Alterar Senha
+        </a>
         <form action="{{ route('logout') }}" method="POST">
             @csrf
             <button type="submit"

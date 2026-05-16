@@ -164,7 +164,7 @@
             </div>
 
             {{-- Modal panel --}}
-            <div class="relative w-full max-w-[480px] mx-4 rounded-xl border border-outline-variant bg-surface-container-low p-lg shadow-2xl">
+            <div class="relative w-3/4 max-w-[480px] mx-4 rounded-xl border border-outline-variant bg-surface-container-low p-lg shadow-2xl">
                 <div class="flex items-start justify-between mb-md">
                     <div>
                         <h3 class="font-semibold text-[18px] text-on-surface">Gerar Nova Credencial</h3>
