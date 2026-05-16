@@ -96,6 +96,29 @@ it('GET quota/options → retorna lista estática sem SSH', function () {
     expect($response->json('options'))->toContain('1 GB');
 });
 
+// ── 7.1 Quota Audit ───────────────────────────────────────────────────────────
+
+it('GET quota/audit → SSH chama files:scan --all sem --show-quota → 200', function () {
+    $cluster = makeOccCluster();
+    $customer = makeOccCustomer($cluster);
+    $operator = makeOccOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
+            && in_array('files:scan', $args, true)
+            && in_array('--all', $args, true)
+            && ! in_array('--show-quota', $args, true))
+        ->andReturn(sshOccSuccess(['files' => 42]));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->getJson("/api/customers/{$customer->slug}/occ/quota/audit")
+        ->assertOk()
+        ->assertJsonPath('files', 42);
+});
+
 // ── 7.1 Maintenance ───────────────────────────────────────────────────────────
 
 it('POST maintenance on=true → SSH chama --on → 200', function () {

@@ -63,7 +63,7 @@ final class OccController extends Controller
     /** GET /customers/{customer}/occ/quota/audit */
     public function quotaAudit(Customer $customer, Request $request): JsonResponse
     {
-        return $this->runOcc($customer, 'files:scan', ['--all', '--show-quota'], 'occ_quota_audit', $request);
+        return $this->runOcc($customer, 'files:scan', ['--all'], 'occ_quota_audit', $request);
     }
 
     /** GET /customers/{customer}/occ/quota/options */
