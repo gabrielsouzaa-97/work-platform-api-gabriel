@@ -11,7 +11,11 @@ use App\Modules\Core\Ssh\SshConnectionPool;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Core\Translators\StateTranslator;
 use App\Observers\ClusterServerObserver;
+use Dedoc\Scramble\Scramble;
+use Dedoc\Scramble\Support\Generator\OpenApi;
+use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -69,5 +73,18 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-cluster-servers', fn (Operator $user) => $user->status === 'active' && $user->role === 'admin');
         Gate::define('provision-customers', fn (Operator $user) => $user->status === 'active'
             && in_array($user->role, ['admin', 'operador'], true));
+
+        // Only include routes registered in routes/api.php (middleware group 'api').
+        // This prevents web routes like /api-keys (Livewire) from appearing in the docs.
+        Scramble::routes(function (Route $route): bool {
+            return in_array('api', $route->gatherMiddleware(), true)
+                || str_starts_with($route->uri(), 'api/');
+        });
+
+        Scramble::extendOpenApi(function (OpenApi $openApi): void {
+            $openApi->secure(
+                SecurityScheme::http('bearer'),
+            );
+        });
     }
 }

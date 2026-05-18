@@ -104,6 +104,15 @@
                 </a>
             @endif
         @endforeach
+
+        {{-- API Docs link — opens in new tab --}}
+        <a href="{{ url('/docs/api') }}" target="_blank" rel="noopener"
+           class="flex items-center gap-sm px-md py-[9px] rounded-lg font-semibold text-[12px] tracking-wide uppercase transition-all duration-150
+                  text-on-surface-variant hover:bg-surface-variant hover:text-on-surface">
+            <span class="material-symbols-outlined" style="font-size:20px">api</span>
+            API Docs
+            <span class="material-symbols-outlined ml-auto opacity-50" style="font-size:14px">open_in_new</span>
+        </a>
     </nav>
 
     {{-- Footer: logout + profile --}}
