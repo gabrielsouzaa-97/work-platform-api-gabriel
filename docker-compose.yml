@@ -169,8 +169,8 @@ services:
     restart: unless-stopped
     ports:
       - "${MAIL_EXTERNAL_PORT:-1025}:1025"
-      # Port 8025 is NOT exposed directly — access via https://<domain>/mailpit/ (Nginx proxy).
-      # For local dev, use: ssh -L 8025:localhost:8025 <user>@<host>, then http://localhost:8025
+      # Bound to 127.0.0.1 only — accessible by host Nginx proxy, not from external internet.
+      - "127.0.0.1:8025:8025"
     environment:
       MP_MAX_MESSAGES: 500
       MP_DATABASE: /data/mailpit.db
