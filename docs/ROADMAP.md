@@ -2841,8 +2841,9 @@ Apos aprovacao deste roadmap:
 ## Sprint N1 — Webhook Token por Job (Segurança de Callback)
 
 > Categoria: N
-> Gate: `wt=<token>` presente em todas as callback URLs geradas pelos 3 Actions; middleware rejeita token inválido/ausente (para jobs com token) com 401 `invalid_webhook_token`; jobs legacy (webhook_token null) passam com log de aviso de segurança; 225+ testes passando; CI verde
+> Gate: `--webhook-token=<token>` presente nos args SSH dos 3 Actions; upstream retorna token no payload HMAC-assinado; middleware rejeita token inválido com 401 `invalid_webhook_token`; jobs legacy (webhook_token null) passam com log de aviso; 225+ testes passando; CI verde
 > Gerado por `/pmo new` em 2026-05-18. Fonte: ISSUE-001 (change request — per-job webhook token).
+> Revisão de design em 2026-05-18: token via arg CLI do manage.sh (coberto pelo HMAC), não na URL.
 > review: senior+qa
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
@@ -2855,29 +2856,37 @@ Apos aprovacao deste roadmap:
 
 ---
 
-### Task N1.1 — Per-job webhook_token na callback URL + validação no middleware
+### Task N1.1 — Per-job webhook_token via arg CLI do manage.sh + validação no middleware
 
-**Estado atual**: Callback URL enviada ao upstream: `config('app.url').'/api/jobs/hook?cluster='.$cluster->id` — sem vínculo com o job específico. Middleware `VerifyWebhookHmac` valida HMAC-SHA256 + IP whitelist + replay protection, mas não há prova criptográfica de que o callback é para o job que este sistema despachado. Construída em 3 Actions: `ProvisionCustomerAction`, `LifecycleAsyncAction`, `RemoveCustomerAction`.
+**Estado atual**: Jobs assíncronos despachados via SSH sem vínculo por job. `callbackUrl` = `?cluster=<uuid>` apenas. `VerifyWebhookHmac` valida HMAC-SHA256 + IP whitelist + replay protection, mas o payload assinado não contém nenhum token vinculado ao dispatch específico. Construída em 3 Actions: `ProvisionCustomerAction`, `LifecycleAsyncAction`, `RemoveCustomerAction`.
 
-**Estado desejado**: Cada dispatch gera `$webhookToken = bin2hex(random_bytes(16))` (32 hex chars). URL: `?cluster=<uuid>&wt=<token>`. Column `jobs.webhook_token` (nullable varchar 64) armazena o token. Middleware: após replay check, busca `Job::where('job_id', $jobId)->value('webhook_token')` e valida com `hash_equals`. Jobs sem token (legacy/null) passam com `Log::channel('security')->warning('webhook.missing_token', ...)`.
+**Estado desejado**: Cada dispatch gera `$webhookToken = bin2hex(random_bytes(16))` (32 hex chars). O token é passado ao upstream como argumento CLI (`--webhook-token={$webhookToken}`). O upstream inclui o token no payload JSON que envia ao callback (coberto pelo HMAC-SHA256). `jobs.webhook_token` armazena o token. Middleware: após replay check, lê `$payload['webhook_token']` (já extraído do body assinado) e valida com `hash_equals` contra o valor no DB. Jobs sem token no DB (legacy/null) passam com log de aviso. Callback URL não muda.
 
-**Fonte(s)**: ISSUE-001 (2026-05-18)
+**Fonte(s)**: ISSUE-001 (2026-05-18, revisado 2026-05-18)
 **Módulo(s) afetado(s)**: `app/Http/Middleware/VerifyWebhookHmac.php`, `app/Modules/Customers/Actions/` (3 files), `app/Models/Job.php`, `database/migrations/`
 **Risco**: MEDIUM — `VerifyWebhookHmac` é portão único de todos os webhooks; erro aqui bloqueia callbacks legítimos do upstream.
 **Budget**: M (7 arquivos)
 
 **executor_prompt**:
 ```
-Melhoria: adicionar webhook_token por job na callback URL SSH e validá-lo no middleware VerifyWebhookHmac.
+Melhoria: adicionar webhook_token por job como argumento CLI do nextcloud-manage. O upstream ecoa o
+token no payload HMAC-assinado do callback. O middleware valida o token do payload contra o DB.
 
 Contexto:
 - API Laravel que orquestra nextcloud-manage via SSH.
-- Jobs assíncronos enviam --callback=<url> para o upstream. Quando o job termina, o upstream faz POST /api/jobs/hook com payload JSON assinado via HMAC-SHA256.
+- Jobs assíncronos passam --callback=<url> ao upstream. O upstream faz POST /api/jobs/hook com
+  payload JSON assinado via HMAC-SHA256 (header X-Signature).
+- Payload atual do upstream: { job_id, state, cmd, client, exit_code, ts, schema_version }
+  (campos cmd/client/exit_code opcionais; ts = timestamp do evento).
 - Callback URL atual (nos 3 Actions): config('app.url').'/api/jobs/hook?cluster='.$cluster->id
-- Middleware VerifyWebhookHmac: rate limit → cluster_id → HMAC → IP whitelist → payload fields → replay protection (Cache::has dedupeKey).
-- Problema: nenhum vínculo entre a URL de callback e o job específico despachado (defense-in-depth gap).
+  — a URL NÃO muda nesta feature.
+- Middleware VerifyWebhookHmac: rate limit → cluster_id → HMAC → IP whitelist → payload fields
+  → replay protection (Cache::has dedupeKey) → passa para controller.
+- Problema: nenhum token por job que vincule o dispatch a este callback específico.
 
-Objetivo: cada dispatch gera um token aleatório por job, incluído na URL, armazenado no DB e validado no callback.
+Design escolhido (revisão 2026-05-18):
+  Token passado como arg CLI → upstream inclui no payload HMAC-assinado → validado no middleware.
+  Vantagem vs URL: token coberto criptograficamente pelo HMAC; não exposto em access logs.
 
 Arquivos a tocar:
 1. database/migrations/<timestamp>_add_webhook_token_to_jobs_table.php (nova migration)
@@ -2894,28 +2903,41 @@ Implementação detalhada:
    Schema::table('jobs', function (Blueprint $table) {
        $table->string('webhook_token', 64)->nullable()->after('idempotency_key');
    });
-   nullable para backward compat com jobs existentes (null = sem token).
+   nullable para backward compat com jobs existentes (null = legacy, sem token).
 
 2. Job::$fillable: adicionar 'webhook_token'.
 
-3. Em ProvisionCustomerAction::execute(), LifecycleAsyncAction::execute() e RemoveCustomerAction::execute():
-   - Gerar ANTES da SSH call: $webhookToken = bin2hex(random_bytes(16));
-   - Atualizar callbackUrl: config('app.url').'/api/jobs/hook?cluster='.$cluster->id.'&wt='.$webhookToken
+3. Em ProvisionCustomerAction::execute(), RemoveCustomerAction::execute() e
+   LifecycleAsyncAction::execute():
+   - Gerar ANTES da SSH call:
+       $webhookToken = bin2hex(random_bytes(16)); // 32 hex chars
+   - callbackUrl NÃO muda — continua: config('app.url').'/api/jobs/hook?cluster='.$cluster->id
+   - Adicionar arg SSH:
+       "--webhook-token={$webhookToken}"
+     (Em ProvisionCustomerAction e RemoveCustomerAction: append no array $args antes da SSH call.
+      Em LifecycleAsyncAction: append no $sshArgs array junto aos demais flags --async/--json.)
    - Incluir no Job::create: 'webhook_token' => $webhookToken
 
-4. Em VerifyWebhookHmac::handle(), APÓS o bloco Cache::has($dedupeKey) / Cache::put (replay protection),
-   adicionar (antes do $request->attributes->set):
+   ATENÇÃO — mascaramento de logs (alinha com Sprint F3 tarefa F3.7 SEC-F014):
+   O arg --webhook-token=<valor> contém dado sensível. Ao implementar, verificar se
+   SshSecretsMasker já existe no projeto — se sim, estender o padrão existente para
+   mascarar '--webhook-token=\S+'. Se não, criar issue de follow-up (não bloqueia esta task).
 
-   use App\Models\Job; // adicionar import
+4. Em VerifyWebhookHmac::handle(), APÓS o bloco Cache::has($dedupeKey) / Cache::put
+   (replay protection) e ANTES de $request->attributes->set, adicionar:
 
-   $webhookToken = (string) $request->query('wt', '');
+   use App\Models\Job; // adicionar import no topo do arquivo
+
+   $payloadToken = isset($payload['webhook_token']) ? (string) $payload['webhook_token'] : null;
    $jobToken = Job::where('job_id', $jobId)->value('webhook_token');
+
    if ($jobToken !== null) {
-       if (! hash_equals($jobToken, $webhookToken)) {
+       if ($payloadToken === null || ! hash_equals($jobToken, $payloadToken)) {
            $this->auditFail('webhook_invalid_token', $ip, $cluster->id, ['job_id' => $jobId]);
            return response()->json(['error' => 'invalid_webhook_token'], 401);
        }
    } else {
+       // Job legacy (criado antes desta feature) — aceita mas registra aviso
        $this->securityLog('warning', 'webhook.missing_token', [
            'job_id' => $jobId,
            'ip' => $ip,
@@ -2923,20 +2945,26 @@ Implementação detalhada:
        ]);
    }
 
-   IMPORTANTE: usar hash_equals para timing-safe comparison (previne timing attacks).
+   IMPORTANTE: usar hash_equals (timing-safe); nunca === direto em segredos.
+   O campo 'webhook_token' NÃO é obrigatório na validação de payload (linha $requiredFields)
+   — permanece opcional para backward compat.
 
 5. Testes:
-   - Atualizar: testes existentes de provisioning/lifecycle/remove devem verificar que webhook_token é gerado e armazenado no Job.
-   - Novo teste (middleware): webhook com token correto no wt param → passa (200/204).
-   - Novo teste: webhook com wt incorreto para job com token → 401 invalid_webhook_token.
-   - Novo teste: webhook sem wt param para job com token → 401 invalid_webhook_token.
-   - Novo teste: webhook para job sem token (legacy null) → passa com log de aviso (sem 401).
+   a. Atualizar testes existentes de ProvisionCustomerAction / RemoveCustomerAction /
+      LifecycleAsyncAction: verificar que '--webhook-token=<algo>' está presente nos args SSH
+      e que Job criado tem webhook_token não-nulo.
+   b. Novo teste no middleware (VerifyWebhookHmac):
+      - Payload com webhook_token correto → passa (200/204)
+      - Payload com webhook_token incorreto para job com token → 401 invalid_webhook_token
+      - Payload sem webhook_token para job com token → 401 invalid_webhook_token
+      - Payload para job sem token (webhook_token null no DB) → passa + log de aviso
 
 Critério de pronto:
-- wt presente em todas as callback URLs dos 3 Actions (verificar nos testes de Action existentes)
-- Middleware rejeita token inválido com 401 invalid_webhook_token
-- Jobs legados (webhook_token null) passam com log
-- php artisan migrate sobe e reverte sem erro
+- '--webhook-token=<token>' presente nos args SSH dos 3 Actions
+- jobs.webhook_token populado em todos os novos dispatches
+- Middleware rejeita token ausente/incorreto (payload) com 401 invalid_webhook_token
+- Jobs legados (null no DB) passam com log de aviso
+- php artisan migrate / rollback sem erro
 - 225+ testes passando; CI verde
 
 IMPORTANTE — Quality Brief (PATTERN-001 / Decision #187):

@@ -21,13 +21,16 @@
 
 ### Descrição
 
-A callback URL enviada ao upstream via SSH (`--callback=<url>`) não contém nenhum vínculo com o job específico despachado. Qualquer requisição com HMAC válido de um cluster e um `job_id` legítimo pode alterar o estado do job.
+Os jobs assíncronos despachados via SSH não têm vínculo criptográfico entre o dispatch e o callback recebido. Qualquer payload HMAC-válido de um cluster com um `job_id` existente poderia alterar o estado do job.
 
-A melhoria proposta: gerar um `webhook_token` aleatório por job, incluí-lo na callback URL (`?cluster=<uuid>&wt=<token>`), armazená-lo em `jobs.webhook_token`, e validá-lo no middleware `VerifyWebhookHmac` quando o upstream faz o callback. Defense in depth além do HMAC-SHA256 existente.
+**Design escolhido (revisão 2026-05-18)**: gerar um `webhook_token` aleatório por job e passá-lo ao upstream como argumento CLI do `nextcloud-manage` (`--webhook-token=<token>`). O upstream inclui esse token no payload JSON que envia ao callback — payload já coberto pelo HMAC-SHA256. O middleware `VerifyWebhookHmac` valida `payload['webhook_token']` contra `jobs.webhook_token` no DB. Callback URL não muda.
+
+Vantagem vs token na URL: o token fica dentro do body HMAC-assinado, não exposto em access logs do servidor.
 
 ### Critério de aceite
 
-- `wt=<token>` presente em todas as callback URLs geradas pelos 3 Actions (Provision, Remove, LifecycleAsync)
-- Middleware rejeita `wt` inválido/ausente (para jobs com token) com `401 invalid_webhook_token`
-- Jobs sem token (legacy/null) passam com log de aviso de segurança
+- `--webhook-token=<token>` presente nos args SSH dos 3 Actions (Provision, Remove, LifecycleAsync)
+- `jobs.webhook_token` populado em todos os novos dispatches
+- Middleware rejeita token ausente/incorreto no payload com `401 invalid_webhook_token`
+- Jobs sem token no DB (legacy/null) passam com log de aviso de segurança
 - 225+ testes passando; CI verde
