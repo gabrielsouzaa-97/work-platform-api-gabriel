@@ -138,3 +138,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-18 17:04** `c3c4566` — chore: add .gitignore for bootstrap/cache directory to exclude all files except .gitignore
 - **2026-05-18 17:15** `3553bb0` — fix(infra): corrige tempnam warning por uid mismatch em produção
 - **2026-05-18 18:53** `39594f7` — fix(infra): mailpit porta 8025 bind em 127.0.0.1 apenas (acesso via nginx proxy)
+- **2026-05-18 19:15** `7664d15` — Merge pull request #22 from SoftwareBeesy/rr/chore/session-changelog-sync
