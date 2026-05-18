@@ -34,14 +34,14 @@
   ],
   "fase_atual": "10",
   "fase_nome": "Sprint F2 — mergeada",
-  "sprint_atual": null,
+  "sprint_atual": "N1",
   "previous_sprint": "F2",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-18T22:15:20Z",
+  "ultimo_update": "2026-05-18T22:23:41Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -51,6 +51,7 @@
     "Customers"
   ],
   "proximos_passos": [
+    "Sprint N1 (per-job webhook_token na callback URL — N1.1)",
     "Sprint F3 (tech debt LOW: schema + security + observability)"
   ],
   "artefatos_atualizados_2026_05_07": [

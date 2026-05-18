@@ -72,6 +72,7 @@
 | F1     | F         | Admin gera credencial → token exibido uma vez; revogar seta revoked_at; audit log registra ambas as acoes                        | concluida | 1     | ApiKeys               | Fix MVP incompleto: Gerar + Revogar Bearer tokens no painel | 2650+    |
 | F2     | F         | Dashboard chart 7d; clipboard fix; fila redesenhada; log detalhado job; alterar senha; editar perfil; artisan admin; findings   | concluída  | 11    | Auth, Core, Jobs, painel | Sprint 2: UX + fila provisionamento + findings backlog   | 2720+    |
 | F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
+| N1     | N         | `wt=<token>` em todas as callback URLs; middleware rejeita token inválido 401; legacy jobs passam com log; CI verde | pendente | 1 | Jobs, Core, Customers | Webhook Token por Job (Segurança de Callback) | 2840+    |
 
 ---
 
@@ -2837,8 +2838,133 @@ Apos aprovacao deste roadmap:
 
 ---
 
+## Sprint N1 — Webhook Token por Job (Segurança de Callback)
+
+> Categoria: N
+> Gate: `wt=<token>` presente em todas as callback URLs geradas pelos 3 Actions; middleware rejeita token inválido/ausente (para jobs com token) com 401 `invalid_webhook_token`; jobs legacy (webhook_token null) passam com log de aviso de segurança; 225+ testes passando; CI verde
+> Gerado por `/pmo new` em 2026-05-18. Fonte: ISSUE-001 (change request — per-job webhook token).
+> review: senior+qa
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | N1.1 — Per-job webhook_token: migration + Job model + 3 Actions + middleware validation + testes | `webhook-receiver` + `ssh-orchestrator` | — |
+
+### Quality Brief (Sprint N1)
+
+> PATTERN-001 (Decision #187): ao executar a auditoria de Quality Brief, o auditor-senior DEVE criar `docs/.briefs/N1.brief.md` como PRIMEIRO Write, antes de qualquer finding ou resumo. Sem este artefato, `.githooks/pre-commit` bloqueia o commit final da sprint.
+
+---
+
+### Task N1.1 — Per-job webhook_token na callback URL + validação no middleware
+
+**Estado atual**: Callback URL enviada ao upstream: `config('app.url').'/api/jobs/hook?cluster='.$cluster->id` — sem vínculo com o job específico. Middleware `VerifyWebhookHmac` valida HMAC-SHA256 + IP whitelist + replay protection, mas não há prova criptográfica de que o callback é para o job que este sistema despachado. Construída em 3 Actions: `ProvisionCustomerAction`, `LifecycleAsyncAction`, `RemoveCustomerAction`.
+
+**Estado desejado**: Cada dispatch gera `$webhookToken = bin2hex(random_bytes(16))` (32 hex chars). URL: `?cluster=<uuid>&wt=<token>`. Column `jobs.webhook_token` (nullable varchar 64) armazena o token. Middleware: após replay check, busca `Job::where('job_id', $jobId)->value('webhook_token')` e valida com `hash_equals`. Jobs sem token (legacy/null) passam com `Log::channel('security')->warning('webhook.missing_token', ...)`.
+
+**Fonte(s)**: ISSUE-001 (2026-05-18)
+**Módulo(s) afetado(s)**: `app/Http/Middleware/VerifyWebhookHmac.php`, `app/Modules/Customers/Actions/` (3 files), `app/Models/Job.php`, `database/migrations/`
+**Risco**: MEDIUM — `VerifyWebhookHmac` é portão único de todos os webhooks; erro aqui bloqueia callbacks legítimos do upstream.
+**Budget**: M (7 arquivos)
+
+**executor_prompt**:
+```
+Melhoria: adicionar webhook_token por job na callback URL SSH e validá-lo no middleware VerifyWebhookHmac.
+
+Contexto:
+- API Laravel que orquestra nextcloud-manage via SSH.
+- Jobs assíncronos enviam --callback=<url> para o upstream. Quando o job termina, o upstream faz POST /api/jobs/hook com payload JSON assinado via HMAC-SHA256.
+- Callback URL atual (nos 3 Actions): config('app.url').'/api/jobs/hook?cluster='.$cluster->id
+- Middleware VerifyWebhookHmac: rate limit → cluster_id → HMAC → IP whitelist → payload fields → replay protection (Cache::has dedupeKey).
+- Problema: nenhum vínculo entre a URL de callback e o job específico despachado (defense-in-depth gap).
+
+Objetivo: cada dispatch gera um token aleatório por job, incluído na URL, armazenado no DB e validado no callback.
+
+Arquivos a tocar:
+1. database/migrations/<timestamp>_add_webhook_token_to_jobs_table.php (nova migration)
+2. app/Models/Job.php — adicionar 'webhook_token' ao $fillable
+3. app/Modules/Customers/Actions/ProvisionCustomerAction.php
+4. app/Modules/Customers/Actions/LifecycleAsyncAction.php
+5. app/Modules/Customers/Actions/RemoveCustomerAction.php
+6. app/Http/Middleware/VerifyWebhookHmac.php
+7. Testes (atualizar existentes + novos)
+
+Implementação detalhada:
+
+1. Migration:
+   Schema::table('jobs', function (Blueprint $table) {
+       $table->string('webhook_token', 64)->nullable()->after('idempotency_key');
+   });
+   nullable para backward compat com jobs existentes (null = sem token).
+
+2. Job::$fillable: adicionar 'webhook_token'.
+
+3. Em ProvisionCustomerAction::execute(), LifecycleAsyncAction::execute() e RemoveCustomerAction::execute():
+   - Gerar ANTES da SSH call: $webhookToken = bin2hex(random_bytes(16));
+   - Atualizar callbackUrl: config('app.url').'/api/jobs/hook?cluster='.$cluster->id.'&wt='.$webhookToken
+   - Incluir no Job::create: 'webhook_token' => $webhookToken
+
+4. Em VerifyWebhookHmac::handle(), APÓS o bloco Cache::has($dedupeKey) / Cache::put (replay protection),
+   adicionar (antes do $request->attributes->set):
+
+   use App\Models\Job; // adicionar import
+
+   $webhookToken = (string) $request->query('wt', '');
+   $jobToken = Job::where('job_id', $jobId)->value('webhook_token');
+   if ($jobToken !== null) {
+       if (! hash_equals($jobToken, $webhookToken)) {
+           $this->auditFail('webhook_invalid_token', $ip, $cluster->id, ['job_id' => $jobId]);
+           return response()->json(['error' => 'invalid_webhook_token'], 401);
+       }
+   } else {
+       $this->securityLog('warning', 'webhook.missing_token', [
+           'job_id' => $jobId,
+           'ip' => $ip,
+           'cluster_id' => $cluster->id,
+       ]);
+   }
+
+   IMPORTANTE: usar hash_equals para timing-safe comparison (previne timing attacks).
+
+5. Testes:
+   - Atualizar: testes existentes de provisioning/lifecycle/remove devem verificar que webhook_token é gerado e armazenado no Job.
+   - Novo teste (middleware): webhook com token correto no wt param → passa (200/204).
+   - Novo teste: webhook com wt incorreto para job com token → 401 invalid_webhook_token.
+   - Novo teste: webhook sem wt param para job com token → 401 invalid_webhook_token.
+   - Novo teste: webhook para job sem token (legacy null) → passa com log de aviso (sem 401).
+
+Critério de pronto:
+- wt presente em todas as callback URLs dos 3 Actions (verificar nos testes de Action existentes)
+- Middleware rejeita token inválido com 401 invalid_webhook_token
+- Jobs legados (webhook_token null) passam com log
+- php artisan migrate sobe e reverte sem erro
+- 225+ testes passando; CI verde
+
+IMPORTANTE — Quality Brief (PATTERN-001 / Decision #187):
+Como PRIMEIRO Write tool call, antes de qualquer finding, criar o arquivo:
+  docs/.briefs/N1.brief.md
+
+Frontmatter YAML obrigatória:
+  ---
+  auditor_subagent_id: "<UUID gerado>"
+  audited_at: "<ISO-8601 atual>"
+  findings_count: <n>
+  severity_summary:
+    CRITICAL: 0
+    HIGH: 0
+    MEDIUM: <n>
+    LOW: <n>
+  audit_evidence_path: ""
+  sprint_id: "N1"
+  planner: "planejador-melhorias"
+  status: "PASS"
+  ---
+```
+
+---
+
 ## Historico
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
+| 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (per-job webhook_token na callback URL)                         | /pmo new (interativo)                                        |
