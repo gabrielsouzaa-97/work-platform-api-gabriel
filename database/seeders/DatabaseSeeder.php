@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Models\ClusterServer;
 use App\Models\Operator;
+use App\Models\WebhookSecretHistory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
