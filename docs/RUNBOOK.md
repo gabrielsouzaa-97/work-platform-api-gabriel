@@ -71,7 +71,13 @@ docker compose exec app php artisan migrate --force
 # 9. Rodar seeders (apenas primeira vez)
 docker compose exec app php artisan db:seed --force
 
-# 10. Verificar logs
+# 10. Cachear config/rotas (OBRIGATÓRIO após configurar APP_KEY no .env)
+#     ATENÇÃO: execute SEMPRE depois de garantir que APP_KEY está no .env.
+#     Cachear com key vazia causa 419 Page Expired em todos os POSTs.
+docker compose exec app php artisan config:cache
+docker compose exec app php artisan route:cache
+
+# 11. Verificar logs
 docker compose logs --tail=50 app
 ```
 
