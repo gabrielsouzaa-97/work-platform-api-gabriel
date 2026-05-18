@@ -72,7 +72,7 @@
 | F1     | F         | Admin gera credencial → token exibido uma vez; revogar seta revoked_at; audit log registra ambas as acoes                        | concluida | 1     | ApiKeys               | Fix MVP incompleto: Gerar + Revogar Bearer tokens no painel | 2650+    |
 | F2     | F         | Dashboard chart 7d; clipboard fix; fila redesenhada; log detalhado job; alterar senha; editar perfil; artisan admin; findings   | concluída  | 11    | Auth, Core, Jobs, painel | Sprint 2: UX + fila provisionamento + findings backlog   | 2720+    |
 | F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
-| N1     | N         | `wt=<token>` em todas as callback URLs; middleware rejeita token inválido 401; legacy jobs passam com log; CI verde | pendente | 1 | Jobs, Core, Customers | Webhook Token por Job (Segurança de Callback) | 2840+    |
+| N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | pendente | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
 
 ---
 
@@ -2838,17 +2838,17 @@ Apos aprovacao deste roadmap:
 
 ---
 
-## Sprint N1 — Webhook Token por Job (Segurança de Callback)
+## Sprint N1 — Sync Webhook Secret com Upstream via SSH
 
 > Categoria: N
-> Gate: `--webhook-token=<token>` presente nos args SSH dos 3 Actions; upstream retorna token no payload HMAC-assinado; middleware rejeita token inválido com 401 `invalid_webhook_token`; jobs legacy (webhook_token null) passam com log de aviso; 225+ testes passando; CI verde
-> Gerado por `/pmo new` em 2026-05-18. Fonte: ISSUE-001 (change request — per-job webhook token).
-> Revisão de design em 2026-05-18: token via arg CLI do manage.sh (coberto pelo HMAC), não na URL.
+> Gate: criar ClusterServer → SSH `config set-webhook-secret` chamado; SSH falha → `status='error'` + erro no Livewire; rotacionar secret → SSH chamado com novo secret; SSH falha na rotação → log de segurança + audit (grace period mantém continuidade); secret via `--payload-stdin` (nunca arg CLI); 225+ testes passando; CI verde
+> Gerado por `/pmo new` em 2026-05-18. Fonte: ISSUE-001 (change request).
+> Revisão final de design em 2026-05-18: sync de secret de cluster (não token por job).
 > review: senior+qa
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | N1.1 — Per-job webhook_token: migration + Job model + 3 Actions + middleware validation + testes | `webhook-receiver` + `ssh-orchestrator` | — |
+| [ ] | M | N1.1 — SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync via SSH ao criar e rotacionar cluster | `ssh-orchestrator` | — |
 
 ### Quality Brief (Sprint N1)
 
@@ -2856,115 +2856,136 @@ Apos aprovacao deste roadmap:
 
 ---
 
-### Task N1.1 — Per-job webhook_token via arg CLI do manage.sh + validação no middleware
+### Task N1.1 — SyncWebhookSecretAction: sincronizar webhook secret com o upstream via SSH
 
-**Estado atual**: Jobs assíncronos despachados via SSH sem vínculo por job. `callbackUrl` = `?cluster=<uuid>` apenas. `VerifyWebhookHmac` valida HMAC-SHA256 + IP whitelist + replay protection, mas o payload assinado não contém nenhum token vinculado ao dispatch específico. Construída em 3 Actions: `ProvisionCustomerAction`, `LifecycleAsyncAction`, `RemoveCustomerAction`.
+**Estado atual**: `WebhookSecretGenerator::generate()` gera `base64_encode(random_bytes(32))` e o secret é salvo criptografado em `cluster_servers.webhook_secret_encrypted` (cast `'encrypted'` no model). O upstream **nunca recebe esse secret** — a validação HMAC-SHA256 no `VerifyWebhookHmac` usa o secret do DB, mas o upstream não sabe qual secret usar para assinar seus callbacks. Configuração manual necessária hoje. Dois pontos de update: (1) criação de ClusterServer em `ClusterServers\Create::save()`, (2) rotação em `RotateWebhookSecretAction::execute()`.
 
-**Estado desejado**: Cada dispatch gera `$webhookToken = bin2hex(random_bytes(16))` (32 hex chars). O token é passado ao upstream como argumento CLI (`--webhook-token={$webhookToken}`). O upstream inclui o token no payload JSON que envia ao callback (coberto pelo HMAC-SHA256). `jobs.webhook_token` armazena o token. Middleware: após replay check, lê `$payload['webhook_token']` (já extraído do body assinado) e valida com `hash_equals` contra o valor no DB. Jobs sem token no DB (legacy/null) passam com log de aviso. Callback URL não muda.
+**Estado desejado**: Após criar ou rotacionar o secret, a API chama `nextcloud-manage config set-webhook-secret --payload-stdin` via SSH, passando o secret plain via stdin JSON. O upstream armazena o secret e passa a assinar callbacks com ele — o `VerifyWebhookHmac` existente valida sem mudanças. `SyncWebhookSecretAction` encapsula o SSH call e é reutilizado em ambos os contextos.
 
-**Fonte(s)**: ISSUE-001 (2026-05-18, revisado 2026-05-18)
-**Módulo(s) afetado(s)**: `app/Http/Middleware/VerifyWebhookHmac.php`, `app/Modules/Customers/Actions/` (3 files), `app/Models/Job.php`, `database/migrations/`
-**Risco**: MEDIUM — `VerifyWebhookHmac` é portão único de todos os webhooks; erro aqui bloqueia callbacks legítimos do upstream.
-**Budget**: M (7 arquivos)
+**Fonte(s)**: ISSUE-001 (2026-05-18)
+**Módulo(s) afetado(s)**: `app/Modules/ClusterServers/Actions/` (nova + edit), `app/Http/Livewire/ClusterServers/Create.php`
+**Risco**: MEDIUM — erro no Create destrói UX de cadastro; erro na Rotate pode deixar secret desincronizado (mitigado pelo grace period existente).
+**Budget**: M (4 arquivos: nova action + Create.php + RotateWebhookSecretAction + testes)
 
 **executor_prompt**:
 ```
-Melhoria: adicionar webhook_token por job como argumento CLI do nextcloud-manage. O upstream ecoa o
-token no payload HMAC-assinado do callback. O middleware valida o token do payload contra o DB.
+Feature: sincronizar o webhook secret com o upstream nextcloud-saas-manager via SSH sempre que
+um ClusterServer for criado ou seu webhook secret for rotacionado.
 
-Contexto:
-- API Laravel que orquestra nextcloud-manage via SSH.
-- Jobs assíncronos passam --callback=<url> ao upstream. O upstream faz POST /api/jobs/hook com
-  payload JSON assinado via HMAC-SHA256 (header X-Signature).
-- Payload atual do upstream: { job_id, state, cmd, client, exit_code, ts, schema_version }
-  (campos cmd/client/exit_code opcionais; ts = timestamp do evento).
-- Callback URL atual (nos 3 Actions): config('app.url').'/api/jobs/hook?cluster='.$cluster->id
-  — a URL NÃO muda nesta feature.
-- Middleware VerifyWebhookHmac: rate limit → cluster_id → HMAC → IP whitelist → payload fields
-  → replay protection (Cache::has dedupeKey) → passa para controller.
-- Problema: nenhum token por job que vincule o dispatch a este callback específico.
-
-Design escolhido (revisão 2026-05-18):
-  Token passado como arg CLI → upstream inclui no payload HMAC-assinado → validado no middleware.
-  Vantagem vs URL: token coberto criptograficamente pelo HMAC; não exposto em access logs.
+Contexto do sistema:
+- API Laravel. ClusterServer armazena o webhook secret em `cluster_servers.webhook_secret_encrypted`
+  com cast 'encrypted' no model (auto-encrypt/decrypt via Laravel Crypt).
+- `WebhookSecretGenerator::generate()` retorna `base64_encode(random_bytes(32))` — valor plain.
+- `VerifyWebhookHmac` middleware valida HMAC-SHA256 usando `WebhookSecretValidator`, que lê o
+  secret do DB (já descriptografado pelo cast). O upstream precisa do mesmo secret para assinar.
+- Regra OBRIGATÓRIA (ssh-orchestrator): NUNCA passar senhas/secrets como argv CLI. Usar --payload-stdin.
+- `SshClientInterface` já existe em `app/Modules/Core/Ssh/`. Usar `executeCommand()` (síncrono,
+  não runAsync) para esta operação de configuração.
 
 Arquivos a tocar:
-1. database/migrations/<timestamp>_add_webhook_token_to_jobs_table.php (nova migration)
-2. app/Models/Job.php — adicionar 'webhook_token' ao $fillable
-3. app/Modules/Customers/Actions/ProvisionCustomerAction.php
-4. app/Modules/Customers/Actions/LifecycleAsyncAction.php
-5. app/Modules/Customers/Actions/RemoveCustomerAction.php
-6. app/Http/Middleware/VerifyWebhookHmac.php
-7. Testes (atualizar existentes + novos)
+1. app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php (NOVA — encapsula SSH call)
+2. app/Http/Livewire/ClusterServers/Create.php (injetar SyncWebhookSecretAction, chamar após create)
+3. app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php (injetar + chamar após commit)
+4. Testes (atualizar ClusterServers Create + Rotate; novos cenários de SSH failure)
 
 Implementação detalhada:
 
-1. Migration:
-   Schema::table('jobs', function (Blueprint $table) {
-       $table->string('webhook_token', 64)->nullable()->after('idempotency_key');
-   });
-   nullable para backward compat com jobs existentes (null = legacy, sem token).
+1. SyncWebhookSecretAction (nova):
+   Responsabilidade: chamar SSH `nextcloud-manage config set-webhook-secret --payload-stdin`
+   passando o secret plain via stdin.
 
-2. Job::$fillable: adicionar 'webhook_token'.
+   namespace App\Modules\ClusterServers\Actions;
 
-3. Em ProvisionCustomerAction::execute(), RemoveCustomerAction::execute() e
-   LifecycleAsyncAction::execute():
-   - Gerar ANTES da SSH call:
-       $webhookToken = bin2hex(random_bytes(16)); // 32 hex chars
-   - callbackUrl NÃO muda — continua: config('app.url').'/api/jobs/hook?cluster='.$cluster->id
-   - Adicionar arg SSH:
-       "--webhook-token={$webhookToken}"
-     (Em ProvisionCustomerAction e RemoveCustomerAction: append no array $args antes da SSH call.
-      Em LifecycleAsyncAction: append no $sshArgs array junto aos demais flags --async/--json.)
-   - Incluir no Job::create: 'webhook_token' => $webhookToken
+   final class SyncWebhookSecretAction
+   {
+       public function __construct(private readonly SshClientInterface $ssh) {}
 
-   ATENÇÃO — mascaramento de logs (alinha com Sprint F3 tarefa F3.7 SEC-F014):
-   O arg --webhook-token=<valor> contém dado sensível. Ao implementar, verificar se
-   SshSecretsMasker já existe no projeto — se sim, estender o padrão existente para
-   mascarar '--webhook-token=\S+'. Se não, criar issue de follow-up (não bloqueia esta task).
-
-4. Em VerifyWebhookHmac::handle(), APÓS o bloco Cache::has($dedupeKey) / Cache::put
-   (replay protection) e ANTES de $request->attributes->set, adicionar:
-
-   use App\Models\Job; // adicionar import no topo do arquivo
-
-   $payloadToken = isset($payload['webhook_token']) ? (string) $payload['webhook_token'] : null;
-   $jobToken = Job::where('job_id', $jobId)->value('webhook_token');
-
-   if ($jobToken !== null) {
-       if ($payloadToken === null || ! hash_equals($jobToken, $payloadToken)) {
-           $this->auditFail('webhook_invalid_token', $ip, $cluster->id, ['job_id' => $jobId]);
-           return response()->json(['error' => 'invalid_webhook_token'], 401);
+       public function execute(ClusterServer $cluster, string $plainSecret): void
+       {
+           $this->ssh->executeCommand(
+               $cluster,
+               'nextcloud-manage',
+               ['config', 'set-webhook-secret', '--payload-stdin'],
+               json_encode(['secret' => $plainSecret]),
+           );
        }
-   } else {
-       // Job legacy (criado antes desta feature) — aceita mas registra aviso
-       $this->securityLog('warning', 'webhook.missing_token', [
-           'job_id' => $jobId,
-           'ip' => $ip,
-           'cluster_id' => $cluster->id,
-       ]);
    }
 
-   IMPORTANTE: usar hash_equals (timing-safe); nunca === direto em segredos.
-   O campo 'webhook_token' NÃO é obrigatório na validação de payload (linha $requiredFields)
-   — permanece opcional para backward compat.
+   Exceções que podem propagar: SshConnectionException, SshRemoteException, SshTimeoutException.
+   Não capturar aqui — deixar o caller decidir a estratégia de erro.
 
-5. Testes:
-   a. Atualizar testes existentes de ProvisionCustomerAction / RemoveCustomerAction /
-      LifecycleAsyncAction: verificar que '--webhook-token=<algo>' está presente nos args SSH
-      e que Job criado tem webhook_token não-nulo.
-   b. Novo teste no middleware (VerifyWebhookHmac):
-      - Payload com webhook_token correto → passa (200/204)
-      - Payload com webhook_token incorreto para job com token → 401 invalid_webhook_token
-      - Payload sem webhook_token para job com token → 401 invalid_webhook_token
-      - Payload para job sem token (webhook_token null no DB) → passa + log de aviso
+2. Create.php — após ClusterServer::create() e WebhookSecretHistory::create():
+   - Injetar SyncWebhookSecretAction no método save() (Laravel injeta automaticamente)
+   - Chamar APÓS o DB estar salvo (para que $cluster->id exista):
+
+   try {
+       $syncAction->execute($cluster, $plainSecret);
+   } catch (\Throwable $e) {
+       // SSH falhou: marcar cluster como erro, NÃO redirecionar
+       $cluster->update(['status' => 'error']);
+       AuditLog::create([
+           'id' => Str::uuid()->toString(),
+           'actor_id' => auth()->id(),
+           'action' => 'cluster_server.secret_sync_failed',
+           'resource_type' => 'cluster_server',
+           'resource_id' => $cluster->id,
+           'payload' => ['error' => $e->getMessage()],
+       ]);
+       $this->addError('ssh_private_key', 'Cluster salvo mas falha ao sincronizar webhook secret: '.$e->getMessage());
+       return null; // não redireciona
+   }
+   // SSH OK — redirecionar normalmente
+
+   IMPORTANTE: guardar $plainSecret = $secretGen->generate() ANTES de ClusterServer::create(),
+   pois após create() o cast 'encrypted' não permite recuperar o plain value via $cluster->webhook_secret_encrypted
+   sem uma query de leitura (encrypted cast decrypts on read — portanto $cluster->webhook_secret_encrypted
+   APÓS create() retorna o plain value via read? Verificar: em Laravel, após ->create(), o model
+   refresca os atributos — portanto $cluster->webhook_secret_encrypted DEVE retornar o valor
+   descriptografado. Se confirmar, pode usar $cluster->webhook_secret_encrypted diretamente.
+   Caso contrário, usar $plainSecret da variável local).
+
+3. RotateWebhookSecretAction — após o DB::transaction():
+   - Injetar SyncWebhookSecretAction no construtor
+   - Chamar APÓS o commit da transação (fora do DB::transaction()):
+
+   $new = DB::transaction(function () use ($cluster) { ... }); // código existente
+
+   // Após commit: sincronizar novo secret com upstream
+   // $cluster->webhook_secret_encrypted retorna o plain value (decrypt automático pelo cast)
+   try {
+       $this->syncAction->execute($cluster->fresh(), $cluster->fresh()->webhook_secret_encrypted);
+   } catch (\Throwable $e) {
+       // Grace period garante continuidade — upstream ainda aceita secret anterior por 24h
+       AuditLog::create([
+           'id' => Str::uuid()->toString(),
+           'actor_id' => null,
+           'action' => 'cluster_server.secret_sync_failed',
+           'resource_type' => 'cluster_server',
+           'resource_id' => $cluster->id,
+           'payload' => ['error' => $e->getMessage(), 'version' => $new->version],
+       ]);
+       Log::channel('security')->warning('webhook.secret_sync_failed', [
+           'cluster_id' => $cluster->id,
+           'version' => $new->version,
+           'error' => $e->getMessage(),
+       ]);
+       // NÃO relançar — rotação de DB foi bem-sucedida; admin pode forçar re-sync manualmente
+   }
+   return $new;
+
+4. Testes:
+   a. Create com SSH success → cluster status='active', redirect
+   b. Create com SSH failure → cluster status='error', sem redirect, erro no componente
+   c. Rotate com SSH success → novo secret no DB, SSH chamado com novo secret
+   d. Rotate com SSH failure → novo secret no DB, AuditLog registra falha, sem exception relançada
+   e. SyncWebhookSecretAction: verifica que executeCommand recebe 'config', 'set-webhook-secret',
+      '--payload-stdin' e stdin contém JSON com chave 'secret'
+   f. SyncWebhookSecretAction: NUNCA passa o secret como arg CLI (assert que args não contêm o secret)
 
 Critério de pronto:
-- '--webhook-token=<token>' presente nos args SSH dos 3 Actions
-- jobs.webhook_token populado em todos os novos dispatches
-- Middleware rejeita token ausente/incorreto (payload) com 401 invalid_webhook_token
-- Jobs legados (null no DB) passam com log de aviso
-- php artisan migrate / rollback sem erro
+- SyncWebhookSecretAction chama SSH com --payload-stdin (secret no stdin JSON, não no argv)
+- Create.php chama SSH após criar cluster; falha SSH → status='error' + erro Livewire
+- RotateWebhookSecretAction chama SSH após commit; falha SSH → log + audit (sem exception)
 - 225+ testes passando; CI verde
 
 IMPORTANTE — Quality Brief (PATTERN-001 / Decision #187):
@@ -2995,4 +3016,4 @@ Frontmatter YAML obrigatória:
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
-| 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (per-job webhook_token na callback URL)                         | /pmo new (interativo)                                        |
+| 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (sync webhook secret com upstream via SSH ao criar/rotacionar cluster) | /pmo new (interativo, 2 revisões de design)            |

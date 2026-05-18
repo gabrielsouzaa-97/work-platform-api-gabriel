@@ -10,27 +10,28 @@
 
 ---
 
-## ISSUE-001 — Per-job webhook_token na callback URL
+## ISSUE-001 — Sincronizar webhook secret com o upstream via SSH
 
 - **Tipo**: change_request
 - **Prioridade**: HIGH
 - **Status**: open
 - **Registrado em**: 2026-05-18
+- **Revisado em**: 2026-05-18 (2ª revisão de design)
 - **Solicitante**: operador (dev)
-- **Módulos afetados**: `app/Http/Middleware/`, `app/Modules/Customers/Actions/`, `app/Models/`, `database/migrations/`
+- **Módulos afetados**: `app/Http/Livewire/ClusterServers/`, `app/Modules/ClusterServers/Actions/`
 
 ### Descrição
 
-Os jobs assíncronos despachados via SSH não têm vínculo criptográfico entre o dispatch e o callback recebido. Qualquer payload HMAC-válido de um cluster com um `job_id` existente poderia alterar o estado do job.
+O `webhook_secret` gerado pela API (e armazenado criptografado em `cluster_servers.webhook_secret_encrypted`) nunca é comunicado ao upstream `nextcloud-saas-manager`. O upstream usa esse secret para assinar os callbacks HMAC-SHA256 — sem sincronização, a validação de HMAC jamais funcionará sem configuração manual.
 
-**Design escolhido (revisão 2026-05-18)**: gerar um `webhook_token` aleatório por job e passá-lo ao upstream como argumento CLI do `nextcloud-manage` (`--webhook-token=<token>`). O upstream inclui esse token no payload JSON que envia ao callback — payload já coberto pelo HMAC-SHA256. O middleware `VerifyWebhookHmac` valida `payload['webhook_token']` contra `jobs.webhook_token` no DB. Callback URL não muda.
+**Design:** Sempre que um ClusterServer for criado ou o webhook secret for rotacionado, chamar o comando SSH `nextcloud-manage config set-webhook-secret --payload-stdin` passando o secret plain via stdin (JSON). O upstream armazena o secret e passa a assinar os webhooks com ele.
 
-Vantagem vs token na URL: o token fica dentro do body HMAC-assinado, não exposto em access logs do servidor.
+Nota: `webhook_secret` e `webhook_token` são o mesmo conceito neste sistema.
 
 ### Critério de aceite
 
-- `--webhook-token=<token>` presente nos args SSH dos 3 Actions (Provision, Remove, LifecycleAsync)
-- `jobs.webhook_token` populado em todos os novos dispatches
-- Middleware rejeita token ausente/incorreto no payload com `401 invalid_webhook_token`
-- Jobs sem token no DB (legacy/null) passam com log de aviso de segurança
+- Criar ClusterServer → chama SSH `config set-webhook-secret`; se SSH falhar, cluster fica com `status='error'` e Livewire exibe erro (sem redirect)
+- Rotacionar secret → chama SSH `config set-webhook-secret` com novo secret; se SSH falhar, grace period garante continuidade + log de segurança + audit
+- Secret passado via `--payload-stdin` (nunca como arg CLI, per regra do ssh-orchestrator)
+- `SyncWebhookSecretAction` encapsula o SSH call — reutilizado em Create e Rotate
 - 225+ testes passando; CI verde
