@@ -61,7 +61,7 @@ services:
           "--quiet",
           "--tries=1",
           "--spider",
-          "http://localhost/up",
+          "http://127.0.0.1/up",
         ]
       interval: 30s
       timeout: 5s

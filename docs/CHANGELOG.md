@@ -2,6 +2,7 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-18 20:00** `main` — fix(infra): tempnam warning corrigido — mismatch uid www-data (Alpine=82) vs storage owner (uid 33); entrypoint.sh corrige ownership antes do php-fpm; nginx /up responde diretamente (IPv4 127.0.0.1, evita redirect HTTPS); APP_KEY + Vite build aplicados em produção
 - **2026-05-14 00:34** `sprint/D8` — chore(qa limpar): FINDINGS.md D7-F003/F004/F005/F006/F007 → corrigido; SEC-F009/F012/F017 → corrigido inline; stats D8 adicionadas; REQUIREMENTS.md v0.3 (MariaDB 11, telas MVP, layout M3); ROADMAP.md D8=concluida, E10-E13 erratas, D8 tasks [x]; SecureHeaders middleware; OccPanel quotaUsername/rescanUsername regex; CreateGroupRequest name regex; 199/199 testes
 - **2026-05-14 00:00** `sprint/D8` — fix(qa validar): 7 bugs corrigidos — SshTimeoutException import (504), RemoveUserFromGroupRequest route username, CriticalFlowsTest mock provision→create, WebhookHandler Customer status propagation + missing import, VerifyWebhookHmac duplicate→204, admin.dashboard middleware, AuditPurgeCommand output<→anterior; db MariaDB migration; 199/199 testes
 - **2026-05-14 00:00** `sprint/D8` — feat(admin panel redesign): sidebar M3 stitch, rotas /dashboard /audit /api-keys /cluster-servers; somente gerenciador de credenciais (sem provisionamento no painel); Livewire 3 + Tailwind v4
@@ -129,3 +130,9 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-16 01:40** `eca818a` — Merge pull request #14 from SoftwareBeesy/sprint/F2
 - **2026-05-18 15:51** `eca818a` — Merge pull request #14 from SoftwareBeesy/sprint/F2
 - **2026-05-18 15:52** `c9d6e16` — fix(https): force HTTPS scheme and trust reverse proxy headers
+- **2026-05-18 16:00** `32943ec` — chore: update session context and changelog post-F2 merge
+- **2026-05-18 16:30** `c3c4566` — chore: add .gitignore for bootstrap/cache directory to exclude all files except .gitignore
+- **2026-05-18 16:42** `c3c4566` — chore: add .gitignore for bootstrap/cache directory to exclude all files except .gitignore
+- **2026-05-18 16:47** `c3c4566` — chore: add .gitignore for bootstrap/cache directory to exclude all files except .gitignore
+- **2026-05-18 17:01** `c3c4566` — chore: add .gitignore for bootstrap/cache directory to exclude all files except .gitignore
+- **2026-05-18 17:04** `c3c4566` — chore: add .gitignore for bootstrap/cache directory to exclude all files except .gitignore

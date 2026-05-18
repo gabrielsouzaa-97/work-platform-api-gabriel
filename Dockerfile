@@ -64,9 +64,12 @@ ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=1 \
 # Xdebug is installed separately when PECL network is available.
 # To install: docker compose exec app sh -c "apk add --virtual .xdebug-deps $PHPIZE_DEPS linux-headers && pecl install xdebug && docker-php-ext-enable xdebug && apk del .xdebug-deps"
 
+COPY docker/php/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 9000
 
-ENTRYPOINT ["/sbin/tini", "--"]
+# tini handles signal forwarding; entrypoint.sh fixes storage permissions before php-fpm.
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["php-fpm"]
 
 # ============================================================================
@@ -113,6 +116,8 @@ RUN addgroup -g 1000 appuser \
 
 COPY --from=build --chown=appuser:appuser /var/www/html /var/www/html
 
+COPY docker/php/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 RUN mkdir -p /var/www/html/storage/framework/{cache,sessions,views} \
              /var/www/html/storage/logs \
              /var/www/html/bootstrap/cache \
@@ -125,5 +130,5 @@ EXPOSE 9000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD php artisan about --json > /dev/null 2>&1 || exit 1
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["php-fpm"]
