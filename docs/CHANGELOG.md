@@ -126,3 +126,6 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-15 22:11** `df90bf4` — fix(ux): corrige max-w-lg/xl em modais (Tailwind v4 spacing conflict)
 - **2026-05-15 22:27** `5411ee6` — fix(sync): ignorar linhas separadoras === e header no parser upstream
 - **2026-05-15 23:28** `fe30c40` — fix(occ): remove --show-quota inválido do files:scan em quotaAudit
+- **2026-05-16 01:40** `eca818a` — Merge pull request #14 from SoftwareBeesy/sprint/F2
+- **2026-05-18 15:51** `eca818a` — Merge pull request #14 from SoftwareBeesy/sprint/F2
+- **2026-05-18 15:52** `c9d6e16` — fix(https): force HTTPS scheme and trust reverse proxy headers
