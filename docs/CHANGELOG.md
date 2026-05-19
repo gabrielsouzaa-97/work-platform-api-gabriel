@@ -150,3 +150,8 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-18 20:52** `43066a8` — docs(sprint-N1): final design — sync webhook secret via SSH on cluster create/rotate
 - **2026-05-18 21:32** `43066a8` — docs(sprint-N1): final design — sync webhook secret via SSH on cluster create/rotate
 - **2026-05-18 21:40** `43066a8` — docs(sprint-N1): final design — sync webhook secret via SSH on cluster create/rotate
+- **2026-05-18 21:49** `6ffc301` — chore(session): close sprint N1 — update checkpoint, ROADMAP and CHANGELOG
+- **2026-05-19 12:28** `6ffc301` — chore(session): close sprint N1 — update checkpoint, ROADMAP and CHANGELOG
+- **2026-05-19 12:35** `6ffc301` — chore(session): close sprint N1 — update checkpoint, ROADMAP and CHANGELOG
+- **2026-05-19 12:44** `eb4aca8` — fix(auth): use navigate:false on login redirect to avoid Livewire SPA nav failure
+- **2026-05-19 14:41** `d293a7b` — chore(session): update context snapshot and CHANGELOG
