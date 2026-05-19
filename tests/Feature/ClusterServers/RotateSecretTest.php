@@ -8,11 +8,17 @@ use App\Models\ClusterServer;
 use App\Models\Operator;
 use App\Models\WebhookSecretHistory;
 use App\Modules\ClusterServers\Services\WebhookSecretValidator;
+use App\Modules\Core\Ssh\Dto\SshResponse;
+use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 
 it('rotate secret cria versão N+1, expira versão N com valid_until, envia email', function () {
     Mail::fake();
+
+    $mock = Mockery::mock(SshClientInterface::class);
+    $mock->shouldReceive('run')->andReturn(new SshResponse('', '', 0));
+    app()->instance(SshClientInterface::class, $mock);
 
     $admin = Operator::factory()->admin()->create();
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
@@ -144,6 +150,10 @@ it('cron clean remove registros expirados há mais de 30 dias mas mantém os em 
 });
 
 it('operador comum não pode chamar rotateSecret', function () {
+    $mock = Mockery::mock(SshClientInterface::class);
+    $mock->shouldReceive('run')->never();
+    app()->instance(SshClientInterface::class, $mock);
+
     $operador = Operator::factory()->create(['role' => 'operador']);
     $cluster = ClusterServer::factory()->create();
 

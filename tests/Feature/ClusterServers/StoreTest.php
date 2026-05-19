@@ -6,10 +6,20 @@ use App\Http\Livewire\ClusterServers\Create;
 use App\Http\Livewire\ClusterServers\Edit;
 use App\Models\ClusterServer;
 use App\Models\Operator;
+use App\Modules\Core\Ssh\Dto\SshResponse;
+use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
+
+/** Bind a no-op SSH mock so SyncWebhookSecretAction does not attempt real SSH. */
+function bindSshSuccessMock(): void
+{
+    $mock = Mockery::mock(SshClientInterface::class);
+    $mock->shouldReceive('run')->andReturn(new SshResponse('', '', 0));
+    app()->instance(SshClientInterface::class, $mock);
+}
 
 /** @var string Minimal RSA PEM accepted as a private key by OpenSSL (test-only). */
 const TEST_CLUSTER_SERVER_VALID_PEM = <<<'PEM'
@@ -44,6 +54,7 @@ it('operador comum recebe 403 em GET /cluster-servers', function () {
 });
 
 it('admin cria cluster_server com PEM válido → redireciona e persiste no DB', function () {
+    bindSshSuccessMock();
     $admin = Operator::factory()->admin()->create();
     $pem = TEST_CLUSTER_SERVER_VALID_PEM;
 
@@ -131,6 +142,7 @@ it('ClusterServer listado em Index tem botões de ação (Test, Rotate, Edit)', 
 });
 
 it('webhook_secret_encrypted é gerado server-side na criação (não informado pelo usuário)', function () {
+    bindSshSuccessMock();
     $admin = Operator::factory()->admin()->create();
     $clusterName = 'Cluster Com Webhook Secret';
 
