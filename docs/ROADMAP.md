@@ -2848,7 +2848,7 @@ Apos aprovacao deste roadmap:
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | N1.1 — SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync via SSH ao criar e rotacionar cluster | `ssh-orchestrator` | — |
+| [x] | M | N1.1 — SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync via SSH ao criar e rotacionar cluster | `ssh-orchestrator` | — |
 
 ### Quality Brief (Sprint N1)
 
