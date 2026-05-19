@@ -55,7 +55,7 @@ class Login extends Component
         session()->regenerate();
         $operator->update(['last_login_at' => now()]);
 
-        $this->redirect($this->redirectByRole($operator->role), navigate: true);
+        $this->redirect($this->redirectByRole($operator->role), navigate: false);
     }
 
     private function redirectByRole(string $role): string

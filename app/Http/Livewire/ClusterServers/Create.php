@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Livewire\ClusterServers;
 
+use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\WebhookSecretHistory;
+use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -34,7 +37,7 @@ class Create extends Component
         'ssh_user' => ['required', 'string', 'max:100'],
     ];
 
-    public function save(WebhookSecretGenerator $secretGen): mixed
+    public function save(WebhookSecretGenerator $secretGen, SyncWebhookSecretAction $syncAction): mixed
     {
         Gate::authorize('manage-cluster-servers');
         $this->validate();
@@ -49,13 +52,17 @@ class Create extends Component
             return null;
         }
 
+        // Save plain secret before create() so we can pass it to SSH (cast decrypts on read,
+        // but holding the plain var is explicit and avoids any future cast-related surprises).
+        $plainSecret = $secretGen->generate();
+
         $cluster = ClusterServer::create([
             'name' => $this->name,
             'ssh_host' => $this->ssh_host,
             'ssh_port' => $this->ssh_port,
             'ssh_user' => $this->ssh_user,
             'ssh_private_key_encrypted' => $pem,
-            'webhook_secret_encrypted' => $secretGen->generate(),
+            'webhook_secret_encrypted' => $plainSecret,
             'webhook_secret_version' => 1,
             'schema_version' => 1,
             'status' => 'active',
@@ -70,6 +77,23 @@ class Create extends Component
             'valid_from' => now(),
             'valid_until' => null,
         ]);
+
+        try {
+            $syncAction->execute($cluster, $plainSecret);
+        } catch (\Throwable $e) {
+            $cluster->update(['status' => 'error']);
+            AuditLog::create([
+                'id' => Str::uuid()->toString(),
+                'actor_id' => auth()->id(),
+                'action' => 'cluster_server.secret_sync_failed',
+                'resource_type' => 'cluster_server',
+                'resource_id' => $cluster->id,
+                'payload' => ['error' => $e->getMessage()],
+            ]);
+            $this->addError('ssh_private_key', 'Cluster salvo mas falha ao sincronizar webhook secret: '.$e->getMessage());
+
+            return null;
+        }
 
         return $this->redirect(route('cluster-servers.index'), navigate: true);
     }

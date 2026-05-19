@@ -32,16 +32,16 @@
       "descricao": "Design System consolidado. Tema High-Tech Professional, Dark mode default (Light opcional), status hibridos. Livewire + Tailwind puro."
     }
   ],
-  "fase_atual": "10",
-  "fase_nome": "Sprint F2 — mergeada",
-  "sprint_atual": null,
-  "previous_sprint": "F2",
+  "fase_atual": "11",
+  "fase_nome": "Sprint N1 — concluída",
+  "sprint_atual": "F3",
+  "previous_sprint": "N1",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-18T22:15:20Z",
+  "ultimo_update": "2026-05-19T00:40:47Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -51,7 +51,8 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Sprint F3 (tech debt LOW: schema + security + observability)"
+    "Sprint F3 (tech debt LOW: schema + security + observability)",
+    "Quality Brief N1 (auditor-senior deve criar docs/.briefs/N1.brief.md)"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -83,7 +84,8 @@
     "F2.8: /settings/webhook-ip — IP allowlist webhook (SEC-F016)",
     "F2.9: Clipboard async/await + fallback execCommand em /api-keys",
     "F2.10: /queue/{job_id} — log detalhado com terminal-style output",
-    "F2.11: Redesign /queue com stats cards, tabs, auto-refresh, export CSV"
+    "F2.11: Redesign /queue com stats cards, tabs, auto-refresh, export CSV",
+    "N1.1: SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync webhook secret upstream via SSH"
   ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
@@ -145,14 +147,14 @@
   ],
   "anchor": {
     "persona": "dev",
-    "phase": "F1 concluida",
-    "intent": "Implementar Sprint F1: feature Gerar + Revogar credenciais Bearer (/api-keys) — MVP incompleto em D8",
-    "changes_made": "F1.1: ApiKeyService (generate/revoke/list) em app/Modules/Core/Services/. ApiKeys\\Index Livewire atualizado com modal criar, token reveal UMA vez, botao revogar por linha. ApiKey model: HasFactory + id em fillable. ApiKeyFactory criada. 5 testes em tests/Feature/ApiKeys/ApiKeyTest.php. 204/204 testes passing.",
-    "decisions": "Token: sk_ + bin2hex(random_bytes(32)) = 67 chars. Hash SHA-256 armazenado, raw token retornado apenas na criacao. Revogacao: revoked_at = now(). Audit log api_key.create e api_key.revoke. Service em Core pois ApiKeys e infra de plataforma. Usar protected $rules[] em vez de #[Validate] — consistente com restante do projeto.",
-    "next_steps": "Deploy staging (task 8.6 — humano). Backlog findings: D3-F009, D4-F004/005/008/009, SEC-F013-F016, DBA-F010-F012 (todos MEDIUM/LOW).",
-    "updated_at": "2026-05-14T05:46:00-03:00"
+    "phase": "N1 concluída",
+    "intent": "Implementar Sprint N1: SyncWebhookSecretAction — sync webhook secret com upstream via SSH ao criar/rotacionar cluster",
+    "changes_made": "N1.1: SyncWebhookSecretAction (nova) em app/Modules/ClusterServers/Actions/. Create.php atualizado: salva $plainSecret antes de create(), chama syncAction após criar cluster; falha SSH → status=error + AuditLog + erro Livewire. RotateWebhookSecretAction atualizado: injeta SyncWebhookSecretAction, chama após DB::transaction; falha SSH → AuditLog + Log::channel(security), sem rethrow. 7 novos testes em SyncWebhookSecretTest.php (a-f). StoreTest/RotateSecretTest atualizados com mocks SSH. 240/240 testes passing.",
+    "decisions": "Secret via --payload-stdin (JSON {secret: ...}), nunca como arg CLI. Create falha SSH → status=error (cluster salvo). Rotate falha SSH → swallowed (grace period mantém upstream funcionando). actor_id=null no AuditLog de rotate (ação do sistema).",
+    "next_steps": "Quality Brief N1 (/qa auditoria N1), depois Sprint F3 (tech debt LOW).",
+    "updated_at": "2026-05-18T21:21:00-03:00"
   },
-  "contexto_rapido": "Sprint F1 CONCLUIDA. Feature Gerar+Revogar credenciais Bearer implementada no painel /api-keys. ApiKeyService em Core, modal Livewire com token reveal unico, botao revogar por linha, 5 testes. 204/204 testes passing. MVP completo (D1-D8 + F1). Proximo: deploy staging (8.6 humano) ou planejar Sprint 2 (/analista escopo).",
+  "contexto_rapido": "Sprint N1 CONCLUÍDA. SyncWebhookSecretAction implementada — ao criar ou rotacionar um ClusterServer, o webhook secret é sincronizado com o upstream via SSH `nextcloud-manage config set-webhook-secret --payload-stdin`. Secret nunca passa como arg CLI. Falha no Create → status=error + AuditLog + erro Livewire. Falha no Rotate → AuditLog + Log(security), sem rethrow (grace period mantém continuidade). 240/240 testes passing (7 novos). Próximo: Quality Brief N1 ou Sprint F3.",
   "autopilot": {
     "active": false
   },
@@ -164,14 +166,14 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "sprint": "F2",
-    "phase": "merged",
-    "branch": "sprint/F2",
-    "last_completed_task": "F2.11",
+    "sprint": "N1",
+    "phase": "completed",
+    "branch": "sprint/N1",
+    "last_completed_task": "N1.1",
     "current_task": null,
-    "tests_passing": 225,
-    "assertions": 544,
-    "audit_findings_resolved": 7,
-    "timestamp": "2026-05-15T21:45:00-03:00"
+    "tests_passing": 240,
+    "assertions": 604,
+    "audit_findings_resolved": 0,
+    "timestamp": "2026-05-18T21:21:00-03:00"
   }
 }

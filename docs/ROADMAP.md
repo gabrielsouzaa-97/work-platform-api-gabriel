@@ -72,6 +72,7 @@
 | F1     | F         | Admin gera credencial → token exibido uma vez; revogar seta revoked_at; audit log registra ambas as acoes                        | concluida | 1     | ApiKeys               | Fix MVP incompleto: Gerar + Revogar Bearer tokens no painel | 2650+    |
 | F2     | F         | Dashboard chart 7d; clipboard fix; fila redesenhada; log detalhado job; alterar senha; editar perfil; artisan admin; findings   | concluída  | 11    | Auth, Core, Jobs, painel | Sprint 2: UX + fila provisionamento + findings backlog   | 2720+    |
 | F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
+| N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | pendente | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
 
 ---
 
@@ -2837,8 +2838,182 @@ Apos aprovacao deste roadmap:
 
 ---
 
+## Sprint N1 — Sync Webhook Secret com Upstream via SSH
+
+> Categoria: N
+> Gate: criar ClusterServer → SSH `config set-webhook-secret` chamado; SSH falha → `status='error'` + erro no Livewire; rotacionar secret → SSH chamado com novo secret; SSH falha na rotação → log de segurança + audit (grace period mantém continuidade); secret via `--payload-stdin` (nunca arg CLI); 225+ testes passando; CI verde
+> Gerado por `/pmo new` em 2026-05-18. Fonte: ISSUE-001 (change request).
+> Revisão final de design em 2026-05-18: sync de secret de cluster (não token por job).
+> review: senior+qa
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | N1.1 — SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync via SSH ao criar e rotacionar cluster | `ssh-orchestrator` | — |
+
+### Quality Brief (Sprint N1)
+
+> PATTERN-001 (Decision #187): ao executar a auditoria de Quality Brief, o auditor-senior DEVE criar `docs/.briefs/N1.brief.md` como PRIMEIRO Write, antes de qualquer finding ou resumo. Sem este artefato, `.githooks/pre-commit` bloqueia o commit final da sprint.
+
+---
+
+### Task N1.1 — SyncWebhookSecretAction: sincronizar webhook secret com o upstream via SSH
+
+**Estado atual**: `WebhookSecretGenerator::generate()` gera `base64_encode(random_bytes(32))` e o secret é salvo criptografado em `cluster_servers.webhook_secret_encrypted` (cast `'encrypted'` no model). O upstream **nunca recebe esse secret** — a validação HMAC-SHA256 no `VerifyWebhookHmac` usa o secret do DB, mas o upstream não sabe qual secret usar para assinar seus callbacks. Configuração manual necessária hoje. Dois pontos de update: (1) criação de ClusterServer em `ClusterServers\Create::save()`, (2) rotação em `RotateWebhookSecretAction::execute()`.
+
+**Estado desejado**: Após criar ou rotacionar o secret, a API chama `nextcloud-manage config set-webhook-secret --payload-stdin` via SSH, passando o secret plain via stdin JSON. O upstream armazena o secret e passa a assinar callbacks com ele — o `VerifyWebhookHmac` existente valida sem mudanças. `SyncWebhookSecretAction` encapsula o SSH call e é reutilizado em ambos os contextos.
+
+**Fonte(s)**: ISSUE-001 (2026-05-18)
+**Módulo(s) afetado(s)**: `app/Modules/ClusterServers/Actions/` (nova + edit), `app/Http/Livewire/ClusterServers/Create.php`
+**Risco**: MEDIUM — erro no Create destrói UX de cadastro; erro na Rotate pode deixar secret desincronizado (mitigado pelo grace period existente).
+**Budget**: M (4 arquivos: nova action + Create.php + RotateWebhookSecretAction + testes)
+
+**executor_prompt**:
+```
+Feature: sincronizar o webhook secret com o upstream nextcloud-saas-manager via SSH sempre que
+um ClusterServer for criado ou seu webhook secret for rotacionado.
+
+Contexto do sistema:
+- API Laravel. ClusterServer armazena o webhook secret em `cluster_servers.webhook_secret_encrypted`
+  com cast 'encrypted' no model (auto-encrypt/decrypt via Laravel Crypt).
+- `WebhookSecretGenerator::generate()` retorna `base64_encode(random_bytes(32))` — valor plain.
+- `VerifyWebhookHmac` middleware valida HMAC-SHA256 usando `WebhookSecretValidator`, que lê o
+  secret do DB (já descriptografado pelo cast). O upstream precisa do mesmo secret para assinar.
+- Regra OBRIGATÓRIA (ssh-orchestrator): NUNCA passar senhas/secrets como argv CLI. Usar --payload-stdin.
+- `SshClientInterface` já existe em `app/Modules/Core/Ssh/`. Usar `executeCommand()` (síncrono,
+  não runAsync) para esta operação de configuração.
+
+Arquivos a tocar:
+1. app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php (NOVA — encapsula SSH call)
+2. app/Http/Livewire/ClusterServers/Create.php (injetar SyncWebhookSecretAction, chamar após create)
+3. app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php (injetar + chamar após commit)
+4. Testes (atualizar ClusterServers Create + Rotate; novos cenários de SSH failure)
+
+Implementação detalhada:
+
+1. SyncWebhookSecretAction (nova):
+   Responsabilidade: chamar SSH `nextcloud-manage config set-webhook-secret --payload-stdin`
+   passando o secret plain via stdin.
+
+   namespace App\Modules\ClusterServers\Actions;
+
+   final class SyncWebhookSecretAction
+   {
+       public function __construct(private readonly SshClientInterface $ssh) {}
+
+       public function execute(ClusterServer $cluster, string $plainSecret): void
+       {
+           $this->ssh->executeCommand(
+               $cluster,
+               'nextcloud-manage',
+               ['config', 'set-webhook-secret', '--payload-stdin'],
+               json_encode(['secret' => $plainSecret]),
+           );
+       }
+   }
+
+   Exceções que podem propagar: SshConnectionException, SshRemoteException, SshTimeoutException.
+   Não capturar aqui — deixar o caller decidir a estratégia de erro.
+
+2. Create.php — após ClusterServer::create() e WebhookSecretHistory::create():
+   - Injetar SyncWebhookSecretAction no método save() (Laravel injeta automaticamente)
+   - Chamar APÓS o DB estar salvo (para que $cluster->id exista):
+
+   try {
+       $syncAction->execute($cluster, $plainSecret);
+   } catch (\Throwable $e) {
+       // SSH falhou: marcar cluster como erro, NÃO redirecionar
+       $cluster->update(['status' => 'error']);
+       AuditLog::create([
+           'id' => Str::uuid()->toString(),
+           'actor_id' => auth()->id(),
+           'action' => 'cluster_server.secret_sync_failed',
+           'resource_type' => 'cluster_server',
+           'resource_id' => $cluster->id,
+           'payload' => ['error' => $e->getMessage()],
+       ]);
+       $this->addError('ssh_private_key', 'Cluster salvo mas falha ao sincronizar webhook secret: '.$e->getMessage());
+       return null; // não redireciona
+   }
+   // SSH OK — redirecionar normalmente
+
+   IMPORTANTE: guardar $plainSecret = $secretGen->generate() ANTES de ClusterServer::create(),
+   pois após create() o cast 'encrypted' não permite recuperar o plain value via $cluster->webhook_secret_encrypted
+   sem uma query de leitura (encrypted cast decrypts on read — portanto $cluster->webhook_secret_encrypted
+   APÓS create() retorna o plain value via read? Verificar: em Laravel, após ->create(), o model
+   refresca os atributos — portanto $cluster->webhook_secret_encrypted DEVE retornar o valor
+   descriptografado. Se confirmar, pode usar $cluster->webhook_secret_encrypted diretamente.
+   Caso contrário, usar $plainSecret da variável local).
+
+3. RotateWebhookSecretAction — após o DB::transaction():
+   - Injetar SyncWebhookSecretAction no construtor
+   - Chamar APÓS o commit da transação (fora do DB::transaction()):
+
+   $new = DB::transaction(function () use ($cluster) { ... }); // código existente
+
+   // Após commit: sincronizar novo secret com upstream
+   // $cluster->webhook_secret_encrypted retorna o plain value (decrypt automático pelo cast)
+   try {
+       $this->syncAction->execute($cluster->fresh(), $cluster->fresh()->webhook_secret_encrypted);
+   } catch (\Throwable $e) {
+       // Grace period garante continuidade — upstream ainda aceita secret anterior por 24h
+       AuditLog::create([
+           'id' => Str::uuid()->toString(),
+           'actor_id' => null,
+           'action' => 'cluster_server.secret_sync_failed',
+           'resource_type' => 'cluster_server',
+           'resource_id' => $cluster->id,
+           'payload' => ['error' => $e->getMessage(), 'version' => $new->version],
+       ]);
+       Log::channel('security')->warning('webhook.secret_sync_failed', [
+           'cluster_id' => $cluster->id,
+           'version' => $new->version,
+           'error' => $e->getMessage(),
+       ]);
+       // NÃO relançar — rotação de DB foi bem-sucedida; admin pode forçar re-sync manualmente
+   }
+   return $new;
+
+4. Testes:
+   a. Create com SSH success → cluster status='active', redirect
+   b. Create com SSH failure → cluster status='error', sem redirect, erro no componente
+   c. Rotate com SSH success → novo secret no DB, SSH chamado com novo secret
+   d. Rotate com SSH failure → novo secret no DB, AuditLog registra falha, sem exception relançada
+   e. SyncWebhookSecretAction: verifica que executeCommand recebe 'config', 'set-webhook-secret',
+      '--payload-stdin' e stdin contém JSON com chave 'secret'
+   f. SyncWebhookSecretAction: NUNCA passa o secret como arg CLI (assert que args não contêm o secret)
+
+Critério de pronto:
+- SyncWebhookSecretAction chama SSH com --payload-stdin (secret no stdin JSON, não no argv)
+- Create.php chama SSH após criar cluster; falha SSH → status='error' + erro Livewire
+- RotateWebhookSecretAction chama SSH após commit; falha SSH → log + audit (sem exception)
+- 225+ testes passando; CI verde
+
+IMPORTANTE — Quality Brief (PATTERN-001 / Decision #187):
+Como PRIMEIRO Write tool call, antes de qualquer finding, criar o arquivo:
+  docs/.briefs/N1.brief.md
+
+Frontmatter YAML obrigatória:
+  ---
+  auditor_subagent_id: "<UUID gerado>"
+  audited_at: "<ISO-8601 atual>"
+  findings_count: <n>
+  severity_summary:
+    CRITICAL: 0
+    HIGH: 0
+    MEDIUM: <n>
+    LOW: <n>
+  audit_evidence_path: ""
+  sprint_id: "N1"
+  planner: "planejador-melhorias"
+  status: "PASS"
+  ---
+```
+
+---
+
 ## Historico
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
+| 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (sync webhook secret com upstream via SSH ao criar/rotacionar cluster) | /pmo new (interativo, 2 revisões de design)            |

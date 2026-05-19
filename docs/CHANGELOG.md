@@ -139,3 +139,14 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-18 17:15** `3553bb0` — fix(infra): corrige tempnam warning por uid mismatch em produção
 - **2026-05-18 18:53** `39594f7` — fix(infra): mailpit porta 8025 bind em 127.0.0.1 apenas (acesso via nginx proxy)
 - **2026-05-18 19:15** `7664d15` — Merge pull request #22 from SoftwareBeesy/rr/chore/session-changelog-sync
+- **2026-05-18 19:20** `3a9e5db` — Merge pull request #24 from SoftwareBeesy/rr/chore/resolve-stale-rebase-session
+- **2026-05-18 19:21** `3a9e5db` — Merge pull request #24 from SoftwareBeesy/rr/chore/resolve-stale-rebase-session
+- **2026-05-18 19:23** `3a9e5db` — Merge pull request #24 from SoftwareBeesy/rr/chore/resolve-stale-rebase-session
+- **2026-05-18 19:31** `f19c1f4` — docs(sprint-N1): planning output — per-job webhook_token na callback URL
+- **2026-05-18 19:51** `c6aefa7` — docs(sprint-N1): revise design — webhook_token via CLI arg, not URL param
+- **2026-05-18 20:12** `c6aefa7` — docs(sprint-N1): revise design — webhook_token via CLI arg, not URL param
+- **2026-05-18 20:15** `c6aefa7` — docs(sprint-N1): revise design — webhook_token via CLI arg, not URL param
+- **2026-05-18 20:28** `43066a8` — docs(sprint-N1): final design — sync webhook secret via SSH on cluster create/rotate
+- **2026-05-18 20:52** `43066a8` — docs(sprint-N1): final design — sync webhook secret via SSH on cluster create/rotate
+- **2026-05-18 21:32** `43066a8` — docs(sprint-N1): final design — sync webhook secret via SSH on cluster create/rotate
+- **2026-05-18 21:40** `43066a8` — docs(sprint-N1): final design — sync webhook secret via SSH on cluster create/rotate
