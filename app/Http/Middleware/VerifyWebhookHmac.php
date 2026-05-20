@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Modules\ClusterServers\Services\WebhookSecretValidator;
+use App\Modules\Jobs\Dto\WebhookPayload;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
@@ -69,38 +70,65 @@ final class VerifyWebhookHmac
 
         $payload = json_decode($body, true);
 
-        // Upstream sends only {job_id, state, ts, schema_version}; cmd/client/finished_at are optional.
+        // Upstream sends {job_id, state, ts, schema_version} on every callback.
+        // `event` is OPTIONAL on the wire (added by upstream as an additive expansion of
+        // schema_version="1"): absent payloads are treated as `job.finished` for
+        // backwards compatibility with workers predating the job.started rollout.
+        // `cmd`, `client`, `finished_at`, `started_at`, `exit_code`, `duration_ms`
+        // are all optional and validated by `WebhookPayload::fromArray()`.
         $requiredFields = ['job_id', 'state'];
         if (! is_array($payload) || array_diff($requiredFields, array_keys($payload))) {
             return response()->json(['error' => 'invalid_payload'], 422);
         }
 
-        $replayWindow = (int) config('services.webhook.replay_window_minutes', 60);
-        // Upstream uses "ts" as the event timestamp; "finished_at" kept for forward compatibility.
-        $finishedAt = Carbon::parse($payload['finished_at'] ?? $payload['ts'] ?? now()->toIso8601String());
+        // Resolve the wire-level `event` once so dedupe and replay use the same value.
+        // Unknown event values (typos or future upstream versions we don't speak yet)
+        // are rejected with 422 so we don't write a misleading dedupe key.
+        $event = $payload['event'] ?? WebhookPayload::EVENT_FINISHED;
+        if (! in_array($event, [
+            WebhookPayload::EVENT_STARTED,
+            WebhookPayload::EVENT_FINISHED,
+        ], true)) {
+            return response()->json(['error' => 'invalid_event'], 422);
+        }
 
-        if ($finishedAt->diffInMinutes(now()) > $replayWindow) {
+        $replayWindow = (int) config('services.webhook.replay_window_minutes', 60);
+        // Use `ts` (event timestamp, always present) for the replay window check.
+        // `finished_at` is unavailable on job.started callbacks and using `now()` as
+        // a fallback would silently disable the replay check for legacy payloads.
+        $eventTs = Carbon::parse($payload['ts'] ?? $payload['finished_at'] ?? now()->toIso8601String());
+
+        if ($eventTs->diffInMinutes(now()) > $replayWindow) {
             $this->auditFail('webhook_replay', $ip, $cluster->id, [
-                'finished_at' => $payload['finished_at'],
+                'event' => $event,
+                'ts' => $payload['ts'] ?? null,
+                'finished_at' => $payload['finished_at'] ?? null,
             ]);
 
             return response()->json(['error' => 'replay_window_exceeded'], 422);
         }
 
-        // Deduplicação por job_id — previne replay dentro da janela de 60 min.
+        // Deduplicação por (job_id, event) — previne replay dentro da janela de 60 min.
+        // The key is scoped per-event because a restarted worker may re-emit
+        // `(job_id, job.started)` after recovering its in-flight job from Redis,
+        // and that legitimate retry must not be silenced by a previous dedupe.
+        // Conversely, `(job_id, job.finished)` is naturally idempotent at the
+        // job level, so the per-event key remains sufficient for both flows.
+        //
         // The dedupe key is set ONLY AFTER the controller succeeds (status < 300).
-        // Setting it before $next() — as the previous implementation did — caused
+        // Setting it before $next() — as the original implementation did — caused
         // failed handler invocations (e.g. UnknownStateException → 422) to be
         // silenced on retry: the upstream's next attempt would hit the cache and
         // receive a fake 204, leaving the job permanently stuck in its previous
         // state with no record of why. See ISSUE-003.
         $jobId = $payload['job_id'] ?? '';
-        $dedupeKey = "webhook_processed:{$jobId}";
+        $dedupeKey = "webhook_processed:{$jobId}:{$event}";
         $ttlSeconds = ($replayWindow + 5) * 60;
 
         if (Cache::has($dedupeKey)) {
             $this->auditFail('webhook_replay_duplicate', $ip, $cluster->id, [
                 'job_id' => $jobId,
+                'event' => $event,
             ]);
 
             // Idempotent: duplicate delivery from upstream → 204, not 409.

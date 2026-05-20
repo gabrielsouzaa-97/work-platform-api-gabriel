@@ -46,15 +46,39 @@ function makeJob(string $clusterId): Job
     ]);
 }
 
-function webhookBody(string $jobId, string $state = 'done'): string
+function webhookBody(string $jobId, string $state = 'done', ?string $event = null): string
 {
-    return json_encode([
+    $payload = [
         'job_id' => $jobId,
         'state' => $state,
         'cmd' => 'provision',
         'client' => 'acme-test',
         'exit_code' => 0,
         'finished_at' => now()->toIso8601String(),
+        'ts' => now()->toIso8601String(),
+    ];
+
+    if ($event !== null) {
+        $payload['event'] = $event;
+    }
+
+    return json_encode($payload);
+}
+
+function startedWebhookBody(string $jobId): string
+{
+    // job.started callbacks intentionally omit finished_at/exit_code/duration_ms
+    // — the upstream worker emits them only on job.finished. See additive schema
+    // expansion in mework360-deployer-scripts (schema_version remains "1").
+    return json_encode([
+        'event' => 'job.started',
+        'schema_version' => '1',
+        'job_id' => $jobId,
+        'state' => 'running',
+        'cmd' => 'provision',
+        'client' => 'acme-test',
+        'ts' => now()->toIso8601String(),
+        'started_at' => now()->toIso8601String(),
     ]);
 }
 
@@ -335,7 +359,8 @@ it('controller falha com 422 NÃO seta dedupe — retry com payload corrigido su
     $this->postJson('/api/jobs/hook', json_decode($badBody, true), $headers)
         ->assertStatus(422);
 
-    expect(Cache::has("webhook_processed:{$job->job_id}"))->toBeFalse();
+    // Dedupe key is scoped per (job_id, event); legacy payloads default to job.finished.
+    expect(Cache::has("webhook_processed:{$job->job_id}:job.finished"))->toBeFalse();
 
     RateLimiter::clear('webhook:127.0.0.1');
 
@@ -347,5 +372,164 @@ it('controller falha com 422 NÃO seta dedupe — retry com payload corrigido su
 
     $job->refresh();
     expect($job->state)->toBe('success');
-    expect(Cache::has("webhook_processed:{$job->job_id}"))->toBeTrue();
+    expect(Cache::has("webhook_processed:{$job->job_id}:job.finished"))->toBeTrue();
+});
+
+it('event=job.started → 204 + state=running + started_at preenchido (sem finished_at/exit_code)', function () {
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+    $job->update(['state' => 'queued', 'started_at' => null]);
+
+    $body = startedWebhookBody($job->job_id);
+    $sig = hmacHeader($body, $secret);
+
+    $response = $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ]);
+
+    $response->assertNoContent();
+
+    $job->refresh();
+    expect($job->state)->toBe('running');
+    expect($job->started_at)->not->toBeNull();
+    expect($job->finished_at)->toBeNull();
+    expect($job->exit_code)->toBeNull();
+    expect($job->callback_received_at)->not->toBeNull();
+
+    $audit = AuditLog::where('action', 'webhook_received')->where('job_id', $job->job_id)->first();
+    expect($audit)->not->toBeNull();
+    expect($audit->payload['event'])->toBe('job.started');
+});
+
+it('event=job.started seguido de event=job.finished → ambos 204 (dedupe per evento)', function () {
+    // Regression: o dedupe per-job inviabilizaria a sequência started→finished do
+    // mesmo job_id porque o segundo callback bateria no cache do primeiro. A
+    // chave deve ser composta por (job_id, event) — ver ISSUE-004.
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+    $job->update(['state' => 'queued', 'started_at' => null]);
+
+    $startedBody = startedWebhookBody($job->job_id);
+    $startedSig = hmacHeader($startedBody, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($startedBody, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $startedSig,
+    ])->assertNoContent();
+
+    RateLimiter::clear('webhook:127.0.0.1');
+
+    $finishedBody = webhookBody($job->job_id, state: 'finished', event: 'job.finished');
+    $finishedSig = hmacHeader($finishedBody, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($finishedBody, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $finishedSig,
+    ])->assertNoContent();
+
+    $job->refresh();
+    expect($job->state)->toBe('success');
+    expect($job->started_at)->not->toBeNull();
+    expect($job->finished_at)->not->toBeNull();
+    expect($job->exit_code)->toBe(0);
+
+    expect(Cache::has("webhook_processed:{$job->job_id}:job.started"))->toBeTrue();
+    expect(Cache::has("webhook_processed:{$job->job_id}:job.finished"))->toBeTrue();
+});
+
+it('event=job.started reenviado após restart do worker → 204 idempotente sem regredir started_at', function () {
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+    $job->update(['state' => 'queued', 'started_at' => null]);
+
+    $body = startedWebhookBody($job->job_id);
+    $sig = hmacHeader($body, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ])->assertNoContent();
+
+    $job->refresh();
+    $firstStartedAt = $job->started_at;
+
+    RateLimiter::clear('webhook:127.0.0.1');
+
+    // Worker reinicia e reenvia o MESMO evento job.started — o dedupe deve absorver.
+    $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ])->assertNoContent();
+
+    $job->refresh();
+    expect($job->started_at->equalTo($firstStartedAt))->toBeTrue();
+    expect($job->state)->toBe('running');
+});
+
+it('event=job.started chega após job ter terminado (out-of-order) → 204 mas mantém estado terminal', function () {
+    // Cenário: webhook job.finished chegou e converteu o job para success; um
+    // job.started atrasado (retry tardio do upstream) não pode reverter para running.
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+    $job->update(['state' => 'success', 'finished_at' => now(), 'exit_code' => 0]);
+
+    $body = startedWebhookBody($job->job_id);
+    $sig = hmacHeader($body, $secret);
+
+    $response = $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ]);
+
+    $response->assertNoContent();
+
+    $job->refresh();
+    expect($job->state)->toBe('success');
+    expect($job->exit_code)->toBe(0);
+});
+
+it('payload com event desconhecido → 422 invalid_event (sem dedupe persistido)', function () {
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+
+    $body = json_encode([
+        'event' => 'job.weird_unknown',
+        'schema_version' => '1',
+        'job_id' => $job->job_id,
+        'state' => 'running',
+        'ts' => now()->toIso8601String(),
+    ]);
+    $sig = hmacHeader($body, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ])->assertStatus(422)->assertJson(['error' => 'invalid_event']);
+
+    expect(Cache::has("webhook_processed:{$job->job_id}:job.weird_unknown"))->toBeFalse();
+    expect(Cache::has("webhook_processed:{$job->job_id}:job.finished"))->toBeFalse();
+});
+
+it('payload finished SEM campo event (legacy) → 204 + tratado como job.finished', function () {
+    // Backwards compatibility: callbacks vindos de workers antigos (pré expansão
+    // aditiva do schema) continuam funcionando. Sem o campo `event`, a API
+    // assume `job.finished` e executa o fluxo terminal completo.
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+
+    $body = webhookBody($job->job_id, state: 'finished'); // sem `event`
+    $sig = hmacHeader($body, $secret);
+
+    $response = $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ]);
+
+    $response->assertNoContent();
+
+    $job->refresh();
+    expect($job->state)->toBe('success');
+    expect($job->finished_at)->not->toBeNull();
+    expect(Cache::has("webhook_processed:{$job->job_id}:job.finished"))->toBeTrue();
 });

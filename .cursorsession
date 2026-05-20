@@ -41,7 +41,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-20T01:59:55Z",
+  "ultimo_update": "2026-05-20T03:50:38Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -152,13 +152,13 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "pmo",
-    "phase": "F3 iniciada",
-    "intent": "Sprint F3 — Tech Debt LOW: schema integrity, security hardening, observabilidade semantica, i18n pt-BR",
-    "changes_made": "/pmo novo: sessão atualizada, sprint_atual=F3, previous_sprint=N1. ISSUE-001 resolvida via N1.1.",
-    "decisions": "7 tarefas P/M todas independentes entre si. Quality Brief N1 (docs/.briefs/N1.brief.md) deve ser gerado via /qa auditoria N1 para desbloquear pre-commit gate. F3 pode ser executado em paralelo ou sequencial.",
-    "next_steps": "Opção A: /qa auditoria N1 primeiro (gera brief, desbloqueia pre-commit), depois /dev F3. Opção B: /dev F3 diretamente (commits bloqueados até brief existir).",
-    "updated_at": "2026-05-19T21:24:00-03:00"
+    "persona": "dev",
+    "phase": "Sprint upstream consumer-side — webhook event expansion",
+    "intent": "Adequar a API consumer à expansão aditiva do schema do mework360-deployer-scripts (event=job.started/finished, state=running, dedupe per evento)",
+    "changes_made": "WebhookPayload DTO + WebhookHandler ramificado por evento + VerifyWebhookHmac dedupe per (job_id, event) com validação de event enum + replay window ancorada em `ts`; SSH API Reference atualizado; ISSUE-004 registrado; 250/250 testes (6 novos cenários)",
+    "decisions": "1) `event` opcional (default job.finished) — backwards-compat com workers legados; 2) dedupe per (job_id, event); 3) guarda anti-regressão terminal→running para callbacks out-of-order; 4) `duration_ms` tolerado e registrado em AuditLog.payload, sem coluna dedicada por enquanto (escopo MVP).",
+    "next_steps": "Branch feat/webhook-job-started-event-and-per-event-dedupe pronta para PR. Validação E2E pós-deploy: confirmar que callbacks reais do upstream com event=job.started chegam 204 e atualizam `started_at`.",
+    "updated_at": "2026-05-20T03:55:00Z"
   },
   "contexto_rapido": "Sprint F3 INICIADA. 7 tarefas de tech debt LOW independentes: F3.1 AuditLog rotate semantico, F3.2 pt-BR locale, F3.3 FK sessions+UNIQUE invite_token_hash, F3.4 eager load OccController, F3.5 rate limit login email, F3.6 $fillable Operator, F3.7 mascarar args SSH. Quality Brief N1 pendente (docs/.briefs/N1.brief.md) — pré-requisito para commits via pre-commit hook. Rode /qa auditoria N1 antes de fazer commits de F3.",
   "autopilot": {
@@ -166,11 +166,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-16T01:39:17Z",
-    "usage_percent": 95.209,
-    "messages_lost": 251
+    "compacted_at": "2026-05-20T03:41:32Z",
+    "usage_percent": 91.53933333333333,
+    "messages_lost": 348
   },
-  "compact_count": 2,
+  "compact_count": 1,
   "checkpoint": {
     "sprint": "hotfix/ssh-stdin",
     "phase": "merged",
