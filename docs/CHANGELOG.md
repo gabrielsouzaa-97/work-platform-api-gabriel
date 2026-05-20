@@ -172,3 +172,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-19 22:59** `1e22cd1` — fix(webhook): accept state='finished' + only persist dedupe on success
 - **2026-05-20 00:42** `b6ed1cc` — Merge pull request #36 from SoftwareBeesy/rr/chore/session-sync-post-issue-003
 - **2026-05-20 00:50** `b6ed1cc` — Merge pull request #36 from SoftwareBeesy/rr/chore/session-sync-post-issue-003
+- **2026-05-20 01:04** `78c1d0c` — test(webhook): testes dedicados para Payload DTO, Handler e Middleware
+- **2026-05-20 01:07** `78c1d0c` — test(webhook): testes dedicados para Payload DTO, Handler e Middleware
+- **2026-05-20 01:10** `78c1d0c` — test(webhook): testes dedicados para Payload DTO, Handler e Middleware
+- **2026-05-20 01:39** `78c1d0c` — test(webhook): testes dedicados para Payload DTO, Handler e Middleware

@@ -19,8 +19,11 @@ FINDINGS-INDEX -->
 | D7 | 0 | 2 | 5 | 0 | 0 | 7 | 0 |
 | D8 (DBA) | 0 | 2 | 3 | 4 | 2 | 9 | 0 |
 | D8 (SEC) | 0 | 5 | 7 | 5 | 4 | 13 | 0 |
+| N1 | 0 | 3 | 8 | 12 | 23 | 0 | 0 |
 
 > **Pendentes pós-D8**: D3-F009 (backlog), D4-F004/F008/F009/F005 (backlog), SEC-F013/F014/F015/F016 (backlog), DBA-F010/F011/F012 (backlog). Nenhum CRITICAL ou HIGH aberto.
+>
+> **Pendentes pós-N1** (2026-05-20): 3 HIGH abertos — `CQ-N1-001` (transação faltante no Create), `CQ-N1-002` (actor_id=null no AuditLog de Rotate), `QA-N1-001` (error path "sem current secret" sem teste). Plus 8 MEDIUM e 12 LOW. Brief em `docs/.briefs/N1.brief.md`. Nenhum CRITICAL aberto. Sprint `/fix` recomendada para os 3 HIGH (~2-4h de trabalho).
 
 ---
 
@@ -818,5 +821,347 @@ Nenhum finding registrado para D1 na validação atual.
 - **Arquivos**: `app/Http/Controllers/Api/OccController.php`, `app/Modules/Customers/Services/OccPassthroughService.php`
 - **Descrição**: Route model binding resolve `Customer` sem eager load de `clusterServer`; cada OCC request gera uma query extra para resolver a relação ao criar `AuditLog`.
 - **Ação**: Adicionar `->load('clusterServer')` no controller ou ajustar route binding para eager-load.
+
+---
+
+## Sprint N1 — Sync Webhook Secret com Upstream via SSH
+
+> Auditoria executada em 2026-05-20 via `/qa auditoria N1` (comprehensive). Quality Brief em `docs/.briefs/N1.brief.md`. Auditores: senior + security + qa (paralelo, readonly).
+> Sprint shippada e em produção; findings rastreados aqui para `/fix` futuro.
+
+### CQ-N1-001 — HIGH — Two writes em `Create::save()` fora de transação quebram invariante cluster ↔ history
+
+- **Sprint**: N1
+- **Severidade**: HIGH
+- **Tipo**: atomicity / data_consistency
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php:59-79`
+- **Descrição**: `ClusterServer::create()` (linha 59) e `WebhookSecretHistory::create()` (linha 73) são duas operações sequenciais SEM `DB::transaction()`. Se a inserção em `webhook_secret_history` falhar (timeout, constraint, etc.), o `ClusterServer` permanece persistido com `webhook_secret_encrypted` setado mas SEM linha correspondente em `webhook_secret_history`. `RotateWebhookSecretAction::execute()` (linhas 24-54) corretamente envolve as duas mesmas escritas em `DB::transaction()` — a assimetria é evidente.
+- **Impacto**: `WebhookSecretValidator::valid()` consulta APENAS `webhook_secret_history`. Cluster órfão (sem history row) rejeita 100% dos webhooks até intervenção manual. Recuperação manual exige `RotateWebhookSecretAction`, que falha em `! $current` (linha 30) porque também exige history row ativa. Estado de "cluster zumbi" que precisa de DB surgery.
+- **Ação necessária**: Envolver as duas inserções em `DB::transaction(function () use (...) { ... })` no `Create::save()`, espelhando o padrão de `RotateWebhookSecretAction`. SSH sync deve permanecer FORA da transação (já está).
+
+---
+
+### CQ-N1-002 — HIGH — Perda de rastreabilidade: `actor_id => null` no AuditLog de rotação
+
+- **Sprint**: N1
+- **Severidade**: HIGH
+- **Tipo**: audit_traceability / forensics
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php:64`
+- **Descrição**: AuditLog de falha de sync durante rotação grava `'actor_id' => null`. Porém o único caller produtivo é `Index::rotateSecret()` precedido por `Gate::authorize('manage-cluster-servers')` — `auth()->id()` está GARANTIDO disponível. Em `Create.php:87` o mesmo evento `cluster_server.secret_sync_failed` é registrado com `'actor_id' => auth()->id()`. Inconsistência clara.
+- **Impacto**: Em incidente de produção (admin rotacionou e SSH falhou), segurança não consegue identificar QUAL admin disparou a operação a partir do AuditLog. Quebra a cadeia de causalidade forense e contradiz a semântica do mesmo evento em outro caminho.
+- **Ação necessária**: Aceitar `?string $actorId = null` como parâmetro de `execute()` (default null para chamadas de sistema/cron) e propagá-lo no AuditLog. `Index::rotateSecret` passa `auth()->id()`. Alternativa: invocar `auth()->id()` diretamente na Action (acoplamento mais forte mas mais simples).
+
+---
+
+### CQ-N1-003 — MEDIUM — `#[Locked]` silenciosamente inoperante (import ausente)
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: defense_in_depth / silent_failure
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php:30`
+- **Descrição**: A propriedade `$ssh_private_key` recebe o atributo `#[Locked]` (linha 30), mas o `use Livewire\Attributes\Locked;` NÃO está nos imports (linhas 7-16). PHP resolve `#[Locked]` ao FQCN do namespace atual (`App\Http\Livewire\ClusterServers\Locked`) que não existe — a reflection do Livewire compara pelo FQCN da attribute class e simplesmente não encontra match. Resultado: a propriedade NÃO está locked. Os testes passam por coincidência (Livewire não lança erro de reflection para attribute classes ausentes, só "não enxerga" o atributo).
+- **Impacto**: A propriedade pública `$ssh_private_key` pode ser mutada via snapshot do Livewire pelo cliente. Como já há `Gate::authorize('manage-cluster-servers')`, o impacto real é limitado a admins, e o mesmo admin já pode setar o PEM via input HTML — então o delta de segurança é baixo. Porém: o autor claramente acreditava que a propriedade estava bloqueada (comentário em linha 29). A defesa não funciona, futuro mantenedor pode confiar nela erroneamente.
+- **Ação necessária**: Adicionar `use Livewire\Attributes\Locked;` aos imports. Adicionar teste regressivo que valida que `Livewire::test(Create::class)->set('ssh_private_key', 'x')` lança ou ignora a setagem (verificar comportamento de Locked no test harness da versão de Livewire em uso).
+
+---
+
+### CQ-N1-004 — MEDIUM — Fontes assimétricas para "plain secret" entre Create e Rotate
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: fragility / contract_drift_risk
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `app/Http/Livewire/ClusterServers/Create.php:57,82`, `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php:60`
+- **Descrição**: Os dois callers de `SyncWebhookSecretAction::execute($cluster, $plainSecret)` obtêm `$plainSecret` por caminhos diferentes: **Create** mantém `$plainSecret` local capturado no momento da geração (linha 57) e passa-a literal (linha 82); **Rotate** descarta o valor gerado e lê via `$cluster->webhook_secret_encrypted` (linha 60), confiando no cast `'encrypted'` para decifrar on-read. O autor de Create deixou comentário explicando ("holding the plain var is explicit and avoids any future cast-related surprises"); Rotate ignora essa mitigação.
+- **Impacto**: Se o cast `webhook_secret_encrypted => 'encrypted'` for renomeado/removido/alterado, Create continua funcionando e Rotate quebra silenciosamente — sincronizaria um secret CIFRADO com o upstream, derrubando todos os webhooks no grace period. Fragiliza refactors.
+- **Ação necessária**: Padronizar no caminho do Create — manter o `$newSecret` local dentro do `DB::transaction()` do Rotate e passá-lo diretamente ao `syncAction->execute($cluster, $newSecret)`.
+
+---
+
+### CQ-N1-005 — MEDIUM — Acoplamento Livewire ↔ `request()` em `Create::save()`
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: testability / coupling
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php:47`
+- **Descrição**: `$pem = $this->ssh_private_key !== '' ? $this->ssh_private_key : request()->input('ssh_private_key', '')` mescla duas fontes de input incompatíveis: estado público do componente Livewire e request HTTP global. O comentário admite a intenção (testes vs produção), mas o padrão é frágil.
+- **Impacto**: O caminho exercitado pelos testes (`->set('ssh_private_key', ...)`) NÃO é o caminho exercitado em produção (`request()->input(...)`). Teste valida o ramo "if", produção exercita "else" — cobertura ilusória. Combinado com `CQ-N1-003`, reforça o problema: a propriedade pública existe mas não tem semântica clara.
+- **Ação necessária**: Escolher um único caminho. Opção A (preferida): expor `wire:model="ssh_private_key"` no blade e remover `request()->input(...)`. Opção B: tornar a propriedade `protected`/remover e ler SEMPRE do `request()`; testes usariam HTTP factory.
+
+---
+
+### CQ-N1-006 — LOW — `unset($pem)` é placebo de memória
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: dead_code / misleading_intent
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php:71`
+- **Descrição**: `unset($pem)` remove o símbolo do scope, mas PHP não zera os bytes do string no Zend memory manager. O conteúdo pode permanecer em memória até ser sobrescrito por outra alocação.
+- **Impacto**: Cosmético/enganoso. Leitor inexperiente replicará o padrão acreditando ser proteção real.
+- **Ação necessária**: Remover a linha (GC fará o trabalho quando o escopo fechar) OU manter com comentário `// best-effort; PHP does not zero memory — see sodium_memzero() if hardening needed`. Preferência: remover.
+
+---
+
+### CQ-N1-008 — LOW — Invariante implícito `cluster_servers ↔ webhook_secret_history` sem enforcement de schema
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: domain_modeling / data_integrity
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php:48-51`, migration de `webhook_secret_history`
+- **Descrição**: A relação "secret ativo" é definida por `webhook_secret_history.valid_until IS NULL` e simultaneamente espelhada em `cluster_servers.webhook_secret_encrypted` + `cluster_servers.webhook_secret_version`. Essa duplicação só é mantida pelo código aplicacional. Não há trigger nem constraint garantindo "exatamente uma row com valid_until IS NULL por cluster_server_id".
+- **Impacto**: Drift possível em cenários degenerados: dupla rotação concorrente com worker stale, inserção manual via tinker, restore parcial de backup. Drift quebra `WebhookSecretValidator` que aceita TODOS os secrets ativos OU em grace.
+- **Ação necessária**: Adicionar índice único parcial `CREATE UNIQUE INDEX webhook_secret_history_one_active_per_cluster ON webhook_secret_history (cluster_server_id) WHERE valid_until IS NULL` (PostgreSQL suporta partial index nativamente). Decisão arquitetural — registrar como Decision se aceito.
+
+---
+
+### SEC-N1-001 — LOW — UI exibe últimos 4 caracteres do webhook secret em texto plano
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: information_disclosure
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `resources/views/livewire/cluster-servers/index.blade.php:90`
+- **Descrição**: A listagem de clusters renderiza o sufixo do secret descriptografado para "fingerprinting" visual: `••••••{{ substr($cluster->webhook_secret_encrypted ?? '????', -4) }}`. Como `webhook_secret_encrypted` tem cast `'encrypted'`, esse acesso retorna o secret PLAIN. `substr(..., -4)` extrai 4 caracteres base64 (~24 bits) do segredo de 256 bits.
+- **Impacto**: Atacante com acesso a screenshots/cache/SaaS de monitoring (Datadog RUM, FullStory) pode confirmar a qual cluster pertence um secret obtido de outra fonte (dump de log, leak, backup). Reduz entropia 256→~232 bits — ainda computacionalmente seguro mas elimina propriedade "secret 100% confidencial". Snapshot Livewire também serializa o valor renderizado.
+- **Ação necessária**: Não exibir nenhuma porção do secret. Alternativa: exibir `webhook_secret_version` (já no schema) ou hash determinístico não-invertível: `substr(hash('sha256', $cluster->webhook_secret_encrypted), 0, 8)`.
+
+---
+
+### SEC-N1-002 — MEDIUM — Estado dessincronizado persistente (secret no DB, sem upstream) sem reconciliação automática
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: operational_security / silent_failure
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `app/Http/Livewire/ClusterServers/Create.php:73-96`, `app/Http/Livewire/ClusterServers/Index.php:35`
+- **Descrição**: Fluxo de criação grava `webhook_secret_history` ANTES da chamada SSH. Se sync falha, cluster vai para `status='error'` mas o secret permanece persistido sem cópia no upstream. `SshClient::validateCluster()` impede execução SSH enquanto `status !== 'active'`, mas `Index::testConnection()` faz `update(['status' => 'active', 'last_health_at' => now()])` quando o ping responde 0, **sem revalidar se o secret está em paridade com o upstream**.
+- **Impacto**: Cluster criado com falha transitória de SSH pode ser "reativado" pelo health check sem ter o secret no upstream. Resultado: todos os webhooks do upstream chegam sem assinatura válida → callbacks 100% rejeitados em `VerifyWebhookHmac`. Jobs ficam silenciosamente travados. Não há job de reconciliação ou retry agendado. AuditLog registra o evento mas nada o torna acionável (sem alerta, sem flag `secret_sync_pending`, sem retry policy).
+- **Ação necessária**: Três camadas (ordem decrescente de impacto):
+  1. (mais forte) Adicionar coluna `webhook_secret_synced_at` em `cluster_servers`; setar como `now()` apenas após sync SSH bem-sucedido. `testConnection` deve recusar transição `error → active` se `webhook_secret_synced_at IS NULL` ou anterior à última rotação.
+  2. Job agendado (`webhook-secrets:reconcile`) detecta clusters em `status='error'` por > N minutos e tenta re-executar `SyncWebhookSecretAction`.
+  3. (mínimo) Dashboard widget contando `WHERE status='error'` para visibilidade operacional.
+
+---
+
+### SEC-N1-003 — LOW — `webhook_secret_encrypted` em `$fillable` permite mass assignment futuro
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: mass_assignment / defense_in_depth
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `app/Models/ClusterServer.php:35-48`, `app/Models/WebhookSecretHistory.php:31-37`
+- **Descrição**: `ClusterServer.$fillable` inclui `webhook_secret_encrypted` e `ssh_private_key_encrypted`. `WebhookSecretHistory.$fillable` inclui `secret_encrypted`. Verificação atual: nenhum endpoint chama `->fill($request->all())` ou `->create($request->all())` para esses models. Sem vetor explorável hoje.
+- **Impacto**: Defense-in-depth: qualquer endpoint futuro (REST API, import, bulk update, console command) que use mass assignment pode permitir a usuário sobrescrever `webhook_secret_encrypted` arbitrariamente, derrubando paridade com upstream e potencialmente controlando o canal HMAC após sync subsequente. Risco materializa apenas em futuro PR.
+- **Ação necessária**: Remover `webhook_secret_encrypted` e `ssh_private_key_encrypted` de `$fillable`; setar explicitamente nos pontos de criação. Mesmo tratamento para `WebhookSecretHistory.secret_encrypted`. Alternativa: usar `$guarded` apenas para esses campos.
+
+---
+
+### SEC-N1-004 — LOW — Mensagem de exceção SSH propagada à UI e AuditLog vaza metadados internos
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: information_disclosure
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `app/Http/Livewire/ClusterServers/Create.php:91,93`, `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php:68,73`
+- **Descrição**: `SshConnectionException::getMessage()` (construída em `SshClient::executeCommand()` como `"SSH exec failed for cluster [{id}]: {errorMsg}"`) é exibida ao admin via `addError()` e gravada em `AuditLog.payload['error']`. **Confirmação positiva**: o secret PLAIN não trafega por essa string. Mas a string pode conter: UUID interno do cluster, mensagens cruas do phpseclib (`"Authentication failed"`, `"Connection closed"`, `"Unable to negotiate kex algorithm"` — útil para fingerprinting), e potencialmente IP interno em revisões futuras de phpseclib.
+- **Impacto**: Vazamento limitado a contexto admin autenticado. Risco real baixo: admin já conhece cluster e IP. Mais relevante: `AuditLog.payload['error']` persiste em DB indefinidamente, aumentando janela de exposição se DB for comprometido.
+- **Ação necessária**: Sanitizar a mensagem antes de exibir/logar — categoria genérica (`"Falha de conexão SSH"`, `"Comando remoto rejeitado"`, `"Timeout"`) baseada no tipo da exceção. Gravar `$e->getMessage()` apenas em `Log::channel('security')` (já existe), não em `AuditLog.payload`. Pattern:
+  ```php
+  $category = match (true) {
+      $e instanceof SshTimeoutException => 'timeout',
+      $e instanceof SshConnectionException => 'connection_failed',
+      default => 'unknown',
+  };
+  ```
+
+---
+
+### SEC-N1-005 — LOW — Loop de validação HMAC em `WebhookSecretValidator` não é totalmente timing-constant
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: timing_attack / defense_in_depth
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/ClusterServers/Services/WebhookSecretValidator.php:24-29`
+- **Descrição**: Cada `hash_equals` é constant-time, mas o loop em si tem early-return: tempo total revela aproximadamente a posição do match (1 iteração ≈ X µs vs N iterações ≈ N·X µs). Para configuração típica (current + grace = 2 secrets por cluster), o oráculo expõe ~1 bit por requisição.
+- **Impacto**: Ínfimo na prática. Jitter de rede (>1 ms) e variabilidade do scheduler PHP-FPM excedem a diferença de microssegundos. Sem vetor remoto exploitable. `hash_equals` cobre o caso crítico (não vaza posição do match dentro de cada secret).
+- **Ação necessária** (defense-in-depth, custo zero): avaliar TODOS os secrets independente de match:
+  ```php
+  $valid = false;
+  foreach ($secrets as $secret) {
+      $expected = 'sha256='.hash_hmac('sha256', $body, $secret);
+      $valid = hash_equals($expected, $signature) || $valid;
+  }
+  return $valid;
+  ```
+
+---
+
+### SEC-N1-006 — LOW — Sem mecanismo de revogação imediata de secret em grace period
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: incident_response / missing_capability
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/ClusterServers/Services/WebhookSecretValidator.php:18-32` (ausência de Action)
+- **Descrição**: `WebhookSecretValidator::valid()` aceita qualquer entrada em `webhook_secret_history` cujo `valid_until > now()`. Se um secret em grace vaza (dump de log antigo, backup roubado, leak), atacante tem até 24h restantes para forjar callbacks autenticados. Única mitigação atual: rotacionar de novo (gera NOVO grace de 24h); não existe Action para "revogar este registro de grace agora".
+- **Impacto**: Janela de exploit até 24h após detecção. Atacante com secret válido em grace + conhecimento do `cluster_id` (UUID, descobrível por enumeração ou fonte pública/leak) pode forjar callbacks que passam HMAC + replay + dedupe → potencialmente injeta estados falsos em jobs reais. Mitigação parcial via `webhook_allowed_ip` é opcional.
+- **Ação necessária**: Adicionar `RevokeGraceSecretAction` que executa `WebhookSecretHistory::where('cluster_server_id', $clusterId)->whereNotNull('valid_until')->update(['valid_until' => now()->subSecond()])` — expira imediatamente todos os secrets em grace. Expor no Index como botão "Revogar grace" gated por `manage-cluster-servers` + audit log entry. ~30min de implementação, redução de janela de 24h para tempo-de-detecção.
+
+---
+
+### SEC-N1-007 — LOW — `json_encode` sem `JSON_THROW_ON_ERROR` no payload SSH (canônico — dedupa CQ-N1-007 e QA-N1-009)
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: defensive_programming
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php:26`
+- **Descrição**: `json_encode(['secret' => $plainSecret])` retorna `false` silenciosamente em falha. `$plainSecret` é `base64_encode(random_bytes(32))` → ASCII puro, `json_encode` jamais falha em prática. Mas com `strict_types=1`, um futuro caller que passar bytes binários crus geraria `TypeError` confuso em runtime ou (se cast string) enviaria `"false"` ao upstream.
+- **Impacto**: Sem vetor explorável conhecido. Defense-in-depth: comportamento atual depende de invariantes implícitos sobre o conteúdo de `$plainSecret`. Reportado por 3 auditores (Senior CQ-N1-007, Security SEC-N1-007, QA QA-N1-009) — dedup para esta entrada canônica.
+- **Ação necessária**: `json_encode(['secret' => $plainSecret], JSON_THROW_ON_ERROR)`. Sem mudança no caminho feliz; mensagem clara no infeliz.
+
+---
+
+### SEC-N1-008 — LOW — `request()->input('ssh_private_key')` envia PEM como request body em texto plano (operacional)
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: operational_security / configuration
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php:47`
+- **Descrição**: A escolha de NÃO usar `wire:model` para o PEM (com `#[Locked]` na property) protege contra round-tripping em snapshots Livewire (design correto). Porém no submit, o PEM ainda trafega como `application/x-www-form-urlencoded` no body do POST `/livewire/update`. TLS protege em trânsito; logs de Nginx/Apache por default não logam body. Mas WAF/CDN podem temporariamente reter bodies para inspeção/debug; `LOG_LEVEL=debug` com middleware logando `request->all()` gravaria PEM em log.
+- **Impacto**: Depende da infra. Não é bug de código — é orientação operacional.
+- **Ação necessária**: Garantir `LOG_LEVEL >= info` em produção, validar que nenhum middleware loga `$request->all()` para a rota Livewire `/livewire/update`, configurar masking explícito via `Request::macro('except', ...)` para `ssh_private_key`, `password`, etc. Se WAF/CDN em frente, configurar regra de redação para o campo.
+
+---
+
+### QA-N1-001 — HIGH — Error path "sem secret atual no histórico" do `RotateWebhookSecretAction` não tem teste
+
+- **Sprint**: N1
+- **Severidade**: HIGH
+- **Tipo**: missing_test / equivalence_class_uncovered
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php:30-32` (produção); nenhum teste em `tests/Feature/ClusterServers/` cobre o path
+- **Descrição**: Linha 30 lança `\RuntimeException("ClusterServer {$cluster->id} sem secret atual no histórico")` quando `WebhookSecretHistory::where(...)->whereNull('valid_until')->lockForUpdate()->first()` retorna null. Busca por `RuntimeException` e a string literal `sem secret atual` em `tests/` → zero matches. `ClusterServerFactory` NÃO cria entrada em `webhook_secret_history`, então a partição "cluster sem current secret" é alcançável.
+- **Impacto**: Equivalence partition crítica não exercitada. Se alguém remover o `if (! $current) { throw ... }` (mutation), nenhum teste falha. Bug em produção quando admin tenta rotacionar cluster órfão (ex: importação parcial, ou estado pós-CQ-N1-001 onde history insert falhou).
+- **Ação necessária**: Adicionar em `RotateSecretTest.php`:
+  ```php
+  it('rotateSecret falha com RuntimeException quando cluster não tem secret current no histórico', function () {
+      $cluster = ClusterServer::factory()->create(); // sem WebhookSecretHistory
+      expect(fn () => app(RotateWebhookSecretAction::class)->execute($cluster))
+          ->toThrow(\RuntimeException::class, 'sem secret atual no histórico');
+  });
+  ```
+  E um teste de integração via `Index::rotateSecret()` para verificar que admin recebe erro user-friendly em vez de 500.
+
+---
+
+### QA-N1-002 — MEDIUM — Boundary value `valid_until == now()` do grace period não testado
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: missing_test / boundary_value
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `app/Modules/ClusterServers/Services/WebhookSecretValidator.php:21`, cobertura em `tests/Feature/ClusterServers/RotateSecretTest.php:54-116`
+- **Descrição**: Query usa comparação estrita `where('valid_until', '>', now())`. Testes cobrem `now()->addHours(23)` e `now()->subHours(24)` — distantes do boundary. Não há teste com `valid_until == now()` (deve retornar false) nem `valid_until == now()->addSecond()` (deve retornar true).
+- **Impacto**: Mutação trocando `>` por `>=` não capturada. Equívoco comum em revisão; documentação só fala em "24h grace" sem especificar inclusivo/exclusivo.
+- **Ação necessária**: Adicionar 2 testes em `RotateSecretTest.php` com `Carbon::setTestNow(...)`:
+  - `webhook validator rejeita secret com valid_until exatamente == now()` (expected: false)
+  - `webhook validator aceita secret com valid_until == now()->addSecond()` (expected: true)
+
+---
+
+### QA-N1-003 — MEDIUM — `WebhookSecretValidator::valid()` com cluster sem nenhum histórico (coleção vazia) não testado
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: missing_test / equivalence_class
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/ClusterServers/Services/WebhookSecretValidator.php:20-31`
+- **Descrição**: Se `pluck('secret_encrypted')` retornar coleção vazia (cluster sem qualquer entrada em `webhook_secret_history`), o `foreach` não executa e retorna `false` silenciosamente. Não há teste explícito para esse equivalence class.
+- **Impacto**: Cenário fail-closed atual depende do retorno default. Se alguém mudar para `return true` ou inverter lógica em refactor de DRY, nenhum teste pega — toda a suite cria pelo menos 1 history. Bug seria catastrófico (HMAC bypass).
+- **Ação necessária**: Adicionar teste defensivo:
+  ```php
+  it('webhook validator retorna false para cluster sem nenhum WebhookSecretHistory', function () {
+      $cluster = ClusterServer::factory()->create();
+      expect(WebhookSecretHistory::where('cluster_server_id', $cluster->id)->count())->toBe(0);
+      expect(app(WebhookSecretValidator::class)->valid($cluster, 'sha256=anything', 'body'))->toBeFalse();
+  });
+  ```
+
+---
+
+### QA-N1-004 — MEDIUM — Asserção fraca em `RotateSecretTest:20` e `mockSshSuccess()`: ausência de `->once()` permite mutações silenciosas
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: weak_assertion / mutation_gap
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `tests/Feature/ClusterServers/RotateSecretTest.php:19-21`, `tests/Feature/ClusterServers/SyncWebhookSecretTest.php:35-40`
+- **Descrição**: Mock aceita 0..N chamadas sem falhar. O teste `'rotate secret cria versão N+1...'` só verifica `webhook_secret_version === 2` — coisa que acontece dentro da `DB::transaction` independente da chamada SSH externa. Se alguém remover `$this->syncAction->execute(...)` do `RotateWebhookSecretAction:60`, este teste continua VERDE. Única defesa atual: teste isolado `'SyncWebhookSecretAction chama SSH com config set-webhook-secret...'` (com `->once()`), mas esse não cobre a orquestração `Index → RotateAction → SyncAction`.
+- **Impacto**: Refactor "limpa código morto" pode remover a chamada de sync no Rotate, e produção fica sem sync no upstream após cada rotate (postmortem ISSUE-002 já queimou em padrão similar).
+- **Ação necessária**:
+  1. Em `RotateSecretTest:20`, trocar para `->shouldReceive('run')->once()->andReturn(...)`.
+  2. No helper `mockSshSuccess()`, aceitar parâmetro `int $times = 1` e usar `->times($times)`.
+  3. Adicionar teste explícito "rotate dispara SSH sync" usando `withArgs` para capturar o secret e assert que bate com `cluster->fresh()->webhook_secret_encrypted`.
+
+---
+
+### QA-N1-005 — MEDIUM — Integração `Create::save()` → `SyncWebhookSecretAction` → SSH não verifica que o secret no payload é o EXATO secret persistido no DB
+
+- **Sprint**: N1
+- **Severidade**: MEDIUM
+- **Tipo**: weak_integration_test / contract_drift_gap
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `tests/Feature/ClusterServers/SyncWebhookSecretTest.php:52-69`
+- **Descrição**: O teste "criar cluster com SSH success" valida apenas (a) `status === 'active'`, (b) `assertRedirect(...)`. Não captura o payload SSH nem asserta `json_decode($payload, true)['secret'] === $cluster->fresh()->webhook_secret_encrypted`. O teste do nível Action verifica isso para um valor literal (`'my-plain-secret'`), mas não para o secret REAL gerado pelo `WebhookSecretGenerator` dentro do `Create::save()`.
+- **Impacto**: Equivalence class "secret enviado == secret persistido (decrypted)" não exercitada end-to-end. Combinado com CQ-N1-004 (fontes assimétricas), aumenta risco de drift contract entre Create e Rotate sem detecção em testes.
+- **Ação necessária**: Refatorar o teste para capturar payload via `withArgs` e assert `$decoded['secret'] === $cluster->webhook_secret_encrypted` após o `save()`. Aplicar mesmo padrão ao teste de Rotate.
+
+---
+
+### QA-N1-006 — LOW — `WebhookSecretGenerator::generate()` sem teste defensivo de formato/aleatoriedade
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: missing_test / defense_in_depth
+- **Status**: Pendente (Backlog)
+- **Arquivo**: `app/Modules/ClusterServers/Services/WebhookSecretGenerator.php:11`
+- **Descrição**: A função é trivial (`base64_encode(random_bytes(32))`), mas não há teste verificando: (a) duas chamadas consecutivas retornam valores DIFERENTES (sanity de aleatoriedade), (b) tamanho ≈ 44 chars, (c) charset base64 válido.
+- **Impacto**: `random_bytes` é CSPRNG do PHP — falha exigiria refactor humano hostil/distraído (ex: trocar `random_bytes(32)` por `Str::random(8)` "porque é mais legível", reduzindo entropia 256→48 bits). Sem teste, regressão passa silenciosa.
+- **Ação necessária**: Criar `tests/Unit/Modules/ClusterServers/WebhookSecretGeneratorTest.php` com 2 testes simples (chamadas diferentes + tamanho mínimo).
+
+---
+
+### QA-N1-007 — LOW — Contract test do payload `nextcloud-manage config set-webhook-secret --payload-stdin` ausente (gap inter-repo)
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: missing_contract_test / inter_repo_drift
+- **Status**: Pendente (Backlog) — sprint dedicada futura
+- **Arquivo**: `app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php:22-27`
+- **Descrição**: Testes mockam `SshClientInterface` e validam que JSON contém chave `secret`. Não há contract test validando que `{"secret": "..."}` é EXATAMENTE o aceito pelo upstream (`mework360-deployer-scripts/nextcloud-manage`). Esse contrato vive em outro repositório. Postmortem ISSUE-002 já registra que webhook round-trip end-to-end não é exercitado pela suite.
+- **Impacto**: Drift inter-repo (ex: upstream renomear chave para `webhook_secret`) só seria detectado em produção via SSH stderr. Status do cluster gravaria `error` e admin receberia mensagem — não silent failure, mas feedback loop lento.
+- **Ação necessária**: Tracking item para sprint futura (categoria D ou F): smoke test em CI que executa `nextcloud-manage config set-webhook-secret --payload-stdin` em container e valida exit code 0 com payload `{"secret": "test"}`. Alternativa: registrar contract em `docs/SSH API Reference — Nextcloud SaaS.md` com versionamento explícito.
+
+---
+
+### QA-N1-008 — LOW — Helpers SSH-mock duplicados entre `bindSshSuccessMock` (StoreTest) e `mockSshSuccess` (SyncWebhookSecretTest)
+
+- **Sprint**: N1
+- **Severidade**: LOW
+- **Tipo**: test_duplication / maintainability
+- **Status**: Pendente (Backlog)
+- **Arquivos**: `tests/Feature/ClusterServers/StoreTest.php:17-22`, `tests/Feature/ClusterServers/SyncWebhookSecretTest.php:35-40`
+- **Descrição**: Mesmo padrão de mock (`Mockery::mock(SshClientInterface::class)` + `andReturn(new SshResponse('', '', 0))` + `app()->instance(...)`) duplicado em dois arquivos com nomes diferentes. Padrão é trivial (~5 linhas) mas a duplicação tende a divergir.
+- **Impacto**: Manutenção; não afeta correção. Risco de drift cosmético em futuras sprints que adicionarem SSH mocks.
+- **Ação necessária**: Mover para `tests/Pest.php` como helper global (`function mockSshSuccess(int $times = 1, ...)`) ou criar trait `MocksSshClient` em `tests/Concerns/`.
 
 ---
