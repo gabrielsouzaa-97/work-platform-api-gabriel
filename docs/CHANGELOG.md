@@ -2,6 +2,7 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-20 00:00** `main` — incident(webhook): cluster homolog (119d74df-...) recebia 401 invalid_signature — worker upstream usava secret antigo carregado via systemd LoadCredential; mitigado por systemctl restart nextcloud-saas-worker (SHA-256 dos secrets bate); fix duradouro em mework360-deployer-scripts branch rr/fix/webhook-secret-reload-worker (config set-webhook-secret agora faz try-restart automático); registrado como ISSUE-002 postmortem
 - **2026-05-18 20:00** `main` — fix(infra): tempnam warning corrigido — mismatch uid www-data (Alpine=82) vs storage owner (uid 33); entrypoint.sh corrige ownership antes do php-fpm; nginx /up responde diretamente (IPv4 127.0.0.1, evita redirect HTTPS); APP_KEY + Vite build aplicados em produção
 - **2026-05-14 00:34** `sprint/D8` — chore(qa limpar): FINDINGS.md D7-F003/F004/F005/F006/F007 → corrigido; SEC-F009/F012/F017 → corrigido inline; stats D8 adicionadas; REQUIREMENTS.md v0.3 (MariaDB 11, telas MVP, layout M3); ROADMAP.md D8=concluida, E10-E13 erratas, D8 tasks [x]; SecureHeaders middleware; OccPanel quotaUsername/rescanUsername regex; CreateGroupRequest name regex; 199/199 testes
 - **2026-05-14 00:00** `sprint/D8` — fix(qa validar): 7 bugs corrigidos — SshTimeoutException import (504), RemoveUserFromGroupRequest route username, CriticalFlowsTest mock provision→create, WebhookHandler Customer status propagation + missing import, VerifyWebhookHmac duplicate→204, admin.dashboard middleware, AuditPurgeCommand output<→anterior; db MariaDB migration; 199/199 testes
@@ -160,3 +161,8 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-19 21:01** `9232628` — chore(session): resolve post-merge stash conflicts and update CHANGELOG
 - **2026-05-19 21:12** `40bc9ab` — fix(ssh): replace pipeStdin shell pipe with native SSH channel stdin
 - **2026-05-19 21:14** `40bc9ab` — fix(ssh): replace pipeStdin shell pipe with native SSH channel stdin
+- **2026-05-19 21:17** `09ab337` — chore(session): update context snapshot and changelog after SSH fix
+- **2026-05-19 21:22** `494604a` — chore(session): clear sprint_atual after SSH stdin hotfix merge
+- **2026-05-19 21:25** `494604a` — chore(session): clear sprint_atual after SSH stdin hotfix merge
+- **2026-05-19 21:26** `494604a` — chore(session): clear sprint_atual after SSH stdin hotfix merge
+- **2026-05-19 21:27** `494604a` — chore(session): clear sprint_atual after SSH stdin hotfix merge
