@@ -178,29 +178,33 @@
     @if ($tab === 'users')
     <div class="section-card">
         <div class="section-title">Criar Usuário (async)</div>
-        <div class="grid-2">
-            <div class="form-group">
-                <label>Username *</label>
-                <input class="form-input" wire:model="userUsername" placeholder="johndoe">
-                @error('userUsername') <div class="form-error">{{ $message }}</div> @enderror
+        {{-- F5.11 (QA-F5-019): <form wire:submit> + wire:model na senha eliminam
+             test/production divergence. createUser() lê de $userPasswordPlain
+             e zera no finally. --}}
+        <form wire:submit.prevent="createUser">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Username *</label>
+                    <input class="form-input" wire:model="userUsername" placeholder="johndoe">
+                    @error('userUsername') <div class="form-error">{{ $message }}</div> @enderror
+                </div>
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input class="form-input" type="email" wire:model="userEmail" placeholder="john@acme.com">
+                    @error('userEmail') <div class="form-error">{{ $message }}</div> @enderror
+                </div>
+                <div class="form-group">
+                    <label>Senha *</label>
+                    <input class="form-input" type="password" wire:model="userPasswordPlain" autocomplete="new-password">
+                    @error('userPassword') <div class="form-error">{{ $message }}</div> @enderror
+                </div>
+                <div class="form-group">
+                    <label>Grupos (separados por vírgula)</label>
+                    <input class="form-input" wire:model="userGroups" placeholder="admins, editors">
+                </div>
             </div>
-            <div class="form-group">
-                <label>E-mail</label>
-                <input class="form-input" type="email" wire:model="userEmail" placeholder="john@acme.com">
-                @error('userEmail') <div class="form-error">{{ $message }}</div> @enderror
-            </div>
-            <div class="form-group">
-                <label>Senha *</label>
-                {{-- name="password" sem wire:model — senha nunca entra no snapshot Livewire --}}
-                <input class="form-input" type="password" name="password" autocomplete="new-password">
-                @error('userPassword') <div class="form-error">{{ $message }}</div> @enderror
-            </div>
-            <div class="form-group">
-                <label>Grupos (separados por vírgula)</label>
-                <input class="form-input" wire:model="userGroups" placeholder="admins, editors">
-            </div>
-        </div>
-        <button class="btn-primary" wire:click="createUser">Criar Usuário</button>
+            <button class="btn-primary" type="submit">Criar Usuário</button>
+        </form>
     </div>
 
     <hr class="divider">

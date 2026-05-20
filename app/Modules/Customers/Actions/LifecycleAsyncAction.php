@@ -13,6 +13,7 @@ use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
@@ -34,6 +35,8 @@ final class LifecycleAsyncAction
      * @param  array<int, string>  $args  Positional args (no credentials — those go via stdin).
      * @param  array<string, mixed>|null  $stdinPayload  Sensitive payload (e.g. password).
      *
+     * @throws BlockedOnUpstreamException When the upstream verb is not yet implemented
+     *                                    (currently: groups:add / groups:remove).
      * @throws ClusterUnreachableException
      * @throws IdempotencyConflictException
      * @throws SshRemoteException
@@ -45,6 +48,11 @@ final class LifecycleAsyncAction
         ?array $stdinPayload,
         Operator $actor,
     ): Job {
+        // Translate canonical cmd (e.g. `users:create`) into upstream argv tokens
+        // (e.g. `user`, `create`). Done FIRST so blocked-on-upstream cmds short-circuit
+        // before touching DB/SSH — keeps idempotency table clean.
+        $upstreamVerbTokens = $this->translator->cmdToCliArgv($cmd);
+
         $cluster = $customer->clusterServer ?? $customer->load('clusterServer')->clusterServer;
 
         if ($cluster === null || $cluster->status !== 'active') {
@@ -64,12 +72,12 @@ final class LifecycleAsyncAction
         $idempotencyKey = (string) Str::uuid();
         $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
+        // `--async --json` are intentionally NOT appended here — SshClient::runAsync()
+        // appends them. Duplicating the flags was Bug B of ISSUE-006.
         $sshArgs = array_merge(
-            [$customer->slug, $cmd],
+            [$customer->slug, ...$upstreamVerbTokens],
             $args,
             [
-                '--async',
-                '--json',
                 "--idempotency-key={$idempotencyKey}",
                 "--callback={$callbackUrl}",
             ],

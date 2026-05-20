@@ -39,7 +39,7 @@ info:
 
     **Content-Type:** `application/json`
     **CORS:** `Access-Control-Allow-Origin: *` (inclui `OPTIONS`).
-  version: "2.0"
+  version: "2.1"
   contact:
     name: newwork360
 
@@ -373,6 +373,65 @@ paths:
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
 
+  /customers/{customer}/groups/{group}/users:
+    post:
+      tags: [Groups]
+      summary: Adicionar usuário a um grupo (BLOQUEADO upstream — retorna 501)
+      description: |
+        Endpoint reservado para `groups:add` (membership management). O upstream
+        `nextcloud-saas-manager` v12.3.0 ainda não implementou os verbs
+        `group add-user`/`group remove-user` (sprints D3/D4 pendentes). Por
+        isso, este endpoint responde sempre HTTP 501 com payload estruturado
+        — o tradutor `JobTypeTranslator::cmdToCliArgv()` short-circuita ANTES
+        de qualquer escrita em DB ou chamada SSH (defensive contract verificado
+        em testes).
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/group"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username:
+                  type: string
+                  example: johndoe
+      responses:
+        "501":
+          $ref: "#/components/responses/NotImplementedYet"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/groups/{group}/users/{username}:
+    delete:
+      tags: [Groups]
+      summary: Remover usuário de um grupo (BLOQUEADO upstream — retorna 501)
+      description: |
+        Espelha `POST /groups/{group}/users` para o verb `groups:remove`. Mesma
+        rationale: `nextcloud-saas-manager` ainda não entregou o verb upstream;
+        retorna 501 estruturado.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/group"
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            example: johndoe
+      responses:
+        "501":
+          $ref: "#/components/responses/NotImplementedYet"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
   # ----------------------------------------------------------
   # Apps (async)
   # ----------------------------------------------------------
@@ -380,7 +439,12 @@ paths:
   /customers/{customer}/apps/enable:
     post:
       tags: [Apps]
-      summary: Habilitar apps (fila)
+      summary: Habilitar apps (fila — CSV consolidado em 1 job)
+      description: |
+        Recebe a lista de apps e dispara **um único job upstream** com a lista
+        consolidada via CSV (`<apps_csv>`). Diferente do contrato pré-F5, que
+        respondia `JobAccepted` (envelope `{data: Job}`), agora o payload é
+        plano: `{job_id, apps_csv}`.
       parameters:
         - $ref: "#/components/parameters/customer"
       requestBody:
@@ -391,16 +455,53 @@ paths:
               $ref: "#/components/schemas/AppOperationRequest"
       responses:
         "202":
-          $ref: "#/components/responses/JobAccepted"
+          description: Job enfileirado (1 job único — CSV positional no argv upstream)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id, apps_csv]
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                    example: "e3a5f7d2-1c4b-4a3f-b1f0-1d4f8c2e6a9b"
+                  apps_csv:
+                    type: string
+                    description: Lista de apps consolidada em CSV (preserva ordem de input).
+                    example: "calendar,contacts,mail"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+        "502":
+          description: Upstream falhou ao processar a chamada SSH
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, exit_code, apps_csv]
+                properties:
+                  error:
+                    type: string
+                    example: upstream_failed
+                  exit_code:
+                    type: integer
+                    description: exit_code retornado pelo `nextcloud-manage`.
+                    example: 1
+                  apps_csv:
+                    type: string
+                    example: "calendar,contacts,mail"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
 
   /customers/{customer}/apps/disable:
     post:
       tags: [Apps]
-      summary: Desabilitar apps (fila)
+      summary: Desabilitar apps (fila — CSV consolidado em 1 job)
+      description: |
+        Espelha `apps/enable` no contrato pós-F5: 1 job único com CSV positional.
+        Aceita campo opcional `remove` para também remover o app além de desabilitar.
       parameters:
         - $ref: "#/components/parameters/customer"
       requestBody:
@@ -418,11 +519,41 @@ paths:
                       default: false
       responses:
         "202":
-          $ref: "#/components/responses/JobAccepted"
+          description: Job enfileirado (1 job único — CSV positional no argv upstream)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id, apps_csv]
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                  apps_csv:
+                    type: string
+                    example: "calendar,contacts,mail"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+        "502":
+          description: Upstream falhou ao processar a chamada SSH
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, exit_code, apps_csv]
+                properties:
+                  error:
+                    type: string
+                    example: upstream_failed
+                  exit_code:
+                    type: integer
+                    example: 1
+                  apps_csv:
+                    type: string
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
 
   # ----------------------------------------------------------
   # Queue
@@ -1132,6 +1263,36 @@ components:
 
     UnprocessableEntity:
       description: Validação falhou (422)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotImplementedYet:
+      description: |
+        Funcionalidade documentada no contrato porém ainda não entregue pelo
+        upstream `nextcloud-saas-manager`. Esperado enquanto sprints D3/D4 do
+        repositório `mework360-deployer-scripts` não publicarem os verbs.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, reason, cmd]
+            properties:
+              error:
+                type: string
+                enum: [not_implemented_yet]
+                example: not_implemented_yet
+              reason:
+                type: string
+                example: "group_membership_add not implemented upstream (mework360-deployer-scripts D3/D4 pending)"
+              cmd:
+                type: string
+                description: Canonical cmd that hit the BlockedOnUpstreamException branch.
+                example: groups:add
+
+    ClusterUnreachable:
+      description: Cluster offline ou SSH inacessível (503)
       content:
         application/json:
           schema:

@@ -32,17 +32,17 @@
       "descricao": "Design System consolidado. Tema High-Tech Professional, Dark mode default (Light opcional), status hibridos. Livewire + Tailwind puro."
     }
   ],
-  "fase_atual": "11",
-  "fase_nome": "Hotfix SSH stdin — mergeado",
-  "sprint_atual": "F3",
+  "fase_atual": "12",
+  "fase_nome": "Sprint F5 — Task F5.11 em implementação (fix same-path para QA-F5-019: blade wire:submit/wire:model + remoção de escape-hatch; ISSUE backlog para E2E Dusk/Playwright)",
+  "sprint_atual": "F5",
   "previous_sprint": "N2",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-20T06:55:36Z",
-  "next_sprint_planned": "F5",
+  "ultimo_update": "2026-05-20T20:25:00Z",
+  "next_sprint_planned": null,
   "modulos": [
     "Core",
     "ClusterServers",
@@ -52,7 +52,11 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Sprint F5: ISSUE-006 — tradutor cmd → CLI argv (fix lifecycle async upstream contract). HIGH, cross-module. 7 tasks (6P + 1M + 1 opt-in). Executar via /pmo sprint F5 em nova conversa.",
+    "Implementar F5.11 (em curso): (1) refatorar OccPanel.php — substituir #[Locked] $userPassword + escape-hatch por $userPasswordPlain (wire:model), zerar no finally; (2) refatorar occ-panel.blade.php (seção Criar Usuário) — <form wire:submit.prevent='createUser'> + wire:model='userPasswordPlain' + button type=submit; (3) atualizar 4 testes createUser em OccPanelTest para usar ->set('userPasswordPlain', ...) + 2 testes novos (production scenario sem senha + cleanup pós-sucesso); (4) registrar ISSUE backlog para E2E Dusk/Playwright; (5) atualizar FINDINGS QA-F5-019 → Corrigido; (6) rodar suite (esperado 321→323+ passed); (7) commit fix(sprint-F5): task 5.11.",
+    "Pós F5.11: /qa validar R3 — diversidade de modelos (sugestão: senior=gpt-5.3-codex ou claude-opus-4-7-thinking-xhigh; qa=gemini-3.1-pro). Scope mínimo: OccPanel.php + occ-panel.blade.php + OccPanelTest.php + FINDINGS QA-F5-019 + ISSUES.md (novo).",
+    "Notes (Non-Blocking) registrados pelo R2 — out-of-scope F5.11, backlogados: (a) theming:config multi-key/value envia args inválidos ao OCC; (b) disableApps controller ignora param `remove` documentado no OpenAPI; (c) UpstreamContractTest valida `queued` state pode ser falso-positivo para schema-rejection assíncrona; (d-f) inconsistências menores em OccPanelTest (assertSeeText vs assertSet, deleteGroup sem successMessage assert) — não bloqueiam.",
+    "Notes (Non-Blocking) registrados pelo R2 — out-of-scope da sprint, backlogados: (a) theming:config multi-key/value envia args inválidos ao OCC; (b) disableApps controller ignora param `remove` documentado no OpenAPI; (c) UpstreamContractTest valida `queued` state pode ser falso-positivo para schema-rejection assíncrona; (d-f) inconsistências menores em OccPanelTest (assertSeeText vs assertSet, deleteGroup sem successMessage assert) — não bloqueiam.",
+    "Sprint F5-cleanup (opt): 2 findings MEDIUM remanescentes pós-F5.10 — CQ-F5-002 (CMD_TO_CLI_ARGV dead-code customer-level), CQ-F5-003 (extrair mapLifecycleException helper). ~1h.",
     "Sprint F4: 3 findings HIGH de N1 (CQ-N1-001 DB::transaction no Create, CQ-N1-002 actor_id no AuditLog do Rotate, QA-N1-001 teste do error path 'sem current secret') — ~2-4h",
     "Sprint F3.1: AuditLog semantico rotate_webhook_secret",
     "Sprint F3.2: pt-BR locale",
@@ -94,7 +98,17 @@
     "F2.10: /queue/{job_id} — log detalhado com terminal-style output",
     "F2.11: Redesign /queue com stats cards, tabs, auto-refresh, export CSV",
     "N1.1: SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync webhook secret upstream via SSH",
-    "N2.1: VerifyWebhookHmac.Log::debug webhook payload quando APP_ENV=local"
+    "N2.1: VerifyWebhookHmac.Log::debug webhook payload quando APP_ENV=local",
+    "F5.1: JobTypeTranslator::cmdToCliArgv() + BlockedOnUpstreamException (3 vocabulários, Decision #ARCH-4)",
+    "F5.2: LifecycleAsyncAction usa tradutor; remove --async/--json duplicado (delegado a SshClient::runAsync)",
+    "F5.3: CustomerLifecycleController retorna 501 p/ groups:add/remove; consolida apps:enable/disable em 1 job CSV; stdin schema {password, email?, groups?} em users:create",
+    "F5.4: OccPanel mirror — stdin payload + formatError(BlockedOnUpstreamException)",
+    "F5.5: LifecycleTest reescrito (argv assertions) + JobTypeTranslatorTest com cmdToCliArgv coverage",
+    "F5.6: Decision #ARCH-4 (DECISION-BRIEF.md) + skill vocabulary-translator rewrite (3 vocabulários)",
+    "F5.7: UpstreamContractTest opt-in (RUN_UPSTREAM_CONTRACT=1) em tests/Contract/ (separado de Feature/RefreshDatabase per QA-F5-001)",
+    "F5.8: Rollback de IdempotencyKey assertado em 3 testes SSH-failure + novo teste SshConnectionException em cluster ativo (QA-F5-017 HIGH + QA-F5-018 MED)",
+    "F5.9: Helper noUpstreamFlagDuplication() global aplicado em 7 testes LifecycleTest + email/groups no stdin do UpstreamContractTest (QA-F5-005 MED ampliado + QA-F5-015 MED)",
+    "F5.10: docs/openapi.yaml v2.0→v2.1 (apps/* novo shape + 501 groups/{g}/users) + OccPanelTest novo (19 testes) + Gate import fix em OccPanel.php (CQ-F5-001 HIGH + QA-F5-016 MED)"
   ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
@@ -155,35 +169,96 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "qa-debug+fix-planning",
-    "phase": "Sprint F5 planejada — ISSUE-006 (lifecycle async upstream contract bug)",
-    "intent": "Diagnóstico via /qa debug do log de produção `cmd_not_allowed` no SSH lifecycle async; root cause = camada de tradução cmd canônico → CLI argv upstream ausente + duplicação de --async --json. Mapping fechado via SSH probing real contra cluster homolog v12.3.0. Sprint F5 cirúrgica gerada via /fix.",
-    "changes_made": "1) Registrado ISSUE-006 em docs/ISSUES.md (postmortem HIGH com Fix Brief, mapping de 8 verbs, design points e riscos). 2) Sprint F5 adicionada ao ROADMAP.md (7 tasks: F5.1-F5.7, 6P + 1M + 1 opt-in; review senior+qa obrigatório). 3) .cursorsession atualizado com next_sprint_planned=F5 e proximos_passos.",
-    "decisions": "1) Sistema tem 3 vocabulários (cmd_canonical interno, job_type webhook, CLI argv upstream); só 2 tradutores existiam — F5.1 fecha o gap. 2) groups:add/groups:remove ficam blocked-on-upstream (D3/D4 pending); API retorna HTTP 501 explícito. 3) apps:enable/disable consolidam em 1 job com CSV (não loop dispatchMulti). 4) Email/groups movem de positional para stdin payload em user:create. 5) Sprint F5 cirúrgica isolada (não combinada com 3 HIGH N1 da F4) — escopo limpo para auditoria HIGH.",
-    "next_steps": "Executar Sprint F5 em nova conversa via /pmo sprint F5 (sprint-init precisa contexto limpo, executor com modelo diferente do diagnosticador para diversidade). Antes: criar branch de feature (main protegida — hook healthcheck). Após F5 mergeada: validar fix com 1 chamada real do OccPanel contra cluster homolog.",
-    "updated_at": "2026-05-20T06:42:00Z"
+    "persona": "implementer+auditor (parent: Opus 4.7; subagents senior+qa readonly)",
+    "phase": "Sprint F5 R2 — REPROVADA por 1 finding HIGH convergente (QA-F5-019 OccPanel::createUser quebrado em produção via wire:click + request()->input fallback). 5 dos 6 R1-followup-findings VALIDADOS, 1 (QA-F5-016) validado-parcial. Testes 321/6/830 estáveis. Aguardando decisão usuário via AskQuestion.",
+    "intent": "Decidir caminho pós-R2-REPROVADA: [A] F5.11 fix in-sprint OccPanel createUser blade/test E2E + /qa validar R3, ou [B] aceitar COM_RESSALVAS (bug pré-existente em main desde F2.5, workaround via API REST, fora da raiz da sprint F5).",
+    "changes_made": "(R2 via /qa validar R2 em 2026-05-20T19:30Z) 1) validation_round 1→2 + bloco validation_round_r1 archivado. 2) Senior R2 (claude-4.6-sonnet-medium-thinking, readonly) detectou 1 HIGH: CQ-F5-008 → dedup com QA → QA-F5-019. 3) QA R2 (gemini-3.1-pro, readonly) detectou 1 CRITICAL convergente (downgrade p/ HIGH) + 3 out-of-scope (theming/disableApps/Contract). 4) docs/FINDINGS.md: QA-F5-019 registrado (HIGH, convergente, 2 auditores); estatísticas F5 atualizadas (HIGH 5→6, pendentes 16→17); status R1-followup: 5 Validado + 1 Validado parcial. 5) .cursorsession.checkpoint.validation_gate populado com result=REPROVADA + last_validated_sha=abb82b4. 6) NÃO foram modificados arquivos fora da whitelist (read-only respeitado). 7) Testes confirmados in-container: 321/6/830 (estável vs R1 follow-up).",
+    "decisions": "1) ARCH-4: estender JobTypeTranslator (alt B). 2) UpstreamContractTest em tests/Contract/. 3) R1 (2026-05-20T17:30Z): REPROVADA — PROC-012 corrige in-sprint. 4) R1 follow-up implementado em mesma branch. 5) Refactor menor OccPanel::createUser (param opcional $password) registrado QA-F5-016. 6) R2 (2026-05-20T19:30Z): REPROVADA — convergência crítica 2 auditores em QA-F5-019. Severidade mantida HIGH (não CRITICAL como QA sugeriu) por workaround via API. Notes Non-Blocking de QA registrados em validation_gate.findings_out_of_scope_r2_to_backlog.",
+    "next_steps": "1) AskQuestion ao usuário: [A] continuar sprint F5 + F5.11 (fix createUser wire:submit + E2E test) + /qa validar R3 com diversidade (sugestão: senior=gpt-5.5-medium, qa=gemini-3.1-pro novamente). [B] aceitar COM_RESSALVAS justificando bug pré-existente em main desde F2.5; criar PR `uds/fix/lifecycle-async-cmd-argv` → main com `[F5 R2 COM_RESSALVAS]` no título. [C] dúvida → explicar impacto antes de decidir. 2) Pós-decisão: atualizar FINDINGS QA-F5-019.status e validation_gate.result se [B]. 3) Pós-merge (se [B]): limpar checkpoint, próxima sprint F4 (3 HIGH N1) ou backlog.",
+    "updated_at": "2026-05-20T19:30:00Z"
   },
-  "contexto_rapido": "Sprint F5 PLANEJADA (postmortem HIGH ISSUE-006): tradutor cmd → CLI argv ausente quebrou lifecycle async users/groups/apps em produção. Sprint F3 (tech debt LOW) continua aberta — sprint_atual ainda aponta para F3 mas execução pausada para resolver F5 primeiro. Sprint F4 (3 HIGH N1) e F5 (ISSUE-006) são paralelas conceitualmente; recomendado executar F5 ANTES de F4 por bloqueio de feature em produção. Sprint F5 gate inclui auditoria senior+qa obrigatória.",
+  "contexto_rapido": "Sprint F5 R2 REPROVADA (2026-05-20T19:30Z, /qa validar R2): senior=claude-4.6-sonnet, qa=gemini-3.1-pro (diversidade ok, ambos diferentes de R1). 5 dos 6 R1-followup-findings VALIDADOS (CQ-F5-001, QA-F5-005/015/017/018). 1 VALIDADO PARCIAL (QA-F5-016) — testes do escape-hatch passam mas não cobrem produção. 1 NOVO HIGH convergente: QA-F5-019 — `createUser` quebrado em produção via wire:click + request()->input (pre-existing on main desde F2.5, mas mascarado pelos testes R1). 3 HIGH/MEDIUM out-of-scope da QA registrados como Notes (Non-Blocking) — backlog. Testes: 321 passed, 6 skipped (Contract opt-in), 830 assertions. Próximo: AskQuestion [A] F5.11 in-sprint | [B] COM_RESSALVAS + PR | [C] dúvida.",
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-20T04:33:56Z",
-    "usage_percent": 94.33833333333334,
-    "messages_lost": 301
+    "compacted_at": "2026-05-20T19:06:38Z",
+    "usage_percent": 97.361,
+    "messages_lost": 231
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "hotfix/ssh-stdin",
-    "phase": "merged",
-    "branch": "fix/ssh-stdin-metachar-upstream",
-    "last_completed_task": "fix: SSH channel stdin (exit 100 metacharacter)",
-    "current_task": null,
-    "tests_passing": 240,
-    "assertions": 605,
-    "audit_findings_resolved": 0,
-    "timestamp": "2026-05-20T00:20:00Z"
+    "sprint": "F5",
+    "phase": "implementation",
+    "branch": "uds/fix/lifecycle-async-cmd-argv",
+    "last_completed_task": "/qa validar R2 — REPROVADA por 1 finding HIGH convergente (QA-F5-019); decisão usuário: [A] continuar in-sprint via F5.11 (same-path strategy)",
+    "current_task": "F5.11",
+    "tests_passing": 321,
+    "tests_skipped": 6,
+    "assertions": 830,
+    "audit_findings_resolved": 10,
+    "audit_findings_pending": 17,
+    "audit_findings_validated_r2": 5,
+    "audit_findings_validated_partial_r2": 1,
+    "audit_status": "FAIL_WITH_BLOCKERS",
+    "timestamp": "2026-05-20T19:30:00Z",
+    "validation_gate": {
+      "validation_round": 2,
+      "validation_round_r1": {
+        "findings_found": 4,
+        "findings_registered": [
+          "QA-F5-015",
+          "QA-F5-016",
+          "QA-F5-017",
+          "QA-F5-018"
+        ],
+        "findings_modified": [
+          "QA-F5-005"
+        ],
+        "files_modified_outside_findings": 0,
+        "askquestion_shown": true,
+        "senior_review_status": "PASS",
+        "qa_review_status": "PASS_WITH_NOTES",
+        "senior_model": "gpt-5.3-codex",
+        "qa_model": "gemini-3.1-pro",
+        "result": "REPROVADA",
+        "result_rationale": "2 HIGH pendentes em sprint aberta (CQ-F5-001 OpenAPI drift + novo QA-F5-017 IdempotencyKey rollback assertion); PROC-012 exige corrigir in-sprint antes de merge.",
+        "timestamp": "2026-05-20T17:30:00Z"
+      },
+      "scope_files_audited": [
+        "tests/Feature/Customers/LifecycleTest.php",
+        "tests/Pest.php",
+        "tests/Contract/Customers/UpstreamContractTest.php",
+        "tests/Feature/Livewire/Customers/OccPanelTest.php",
+        "app/Http/Livewire/Customers/OccPanel.php",
+        "docs/openapi.yaml"
+      ],
+      "findings_validated_from_r1": [
+        "CQ-F5-001",
+        "QA-F5-005",
+        "QA-F5-015",
+        "QA-F5-017",
+        "QA-F5-018"
+      ],
+      "findings_validated_partial_from_r1": [
+        "QA-F5-016"
+      ],
+      "findings_found": 1,
+      "findings_registered": [
+        "QA-F5-019"
+      ],
+      "files_modified_outside_findings": 0,
+      "askquestion_shown": true,
+      "senior_review_status": "FAIL",
+      "qa_review_status": "FAIL",
+      "senior_model": "claude-4.6-sonnet-medium-thinking",
+      "qa_model": "gemini-3.1-pro",
+      "result": "REPROVADA",
+      "result_rationale": "1 finding HIGH pendente em sprint aberta (QA-F5-019 — OccPanel::createUser quebrado em produção via wire:click + request()->input fallback inviável em Livewire 3; convergência crítica entre auditor-senior claude-4.6-sonnet e auditor-qa gemini-3.1-pro). Cobertura de teste R1 (QA-F5-016) é falso-positiva (escape-hatch via param). PROC-012 exige correção in-sprint ou justificação documentada para COM_RESSALVAS.",
+      "last_validated_sha": "abb82b4527c50454f1921e19572c9a2fdd30f07c",
+      "timestamp": "2026-05-20T19:30:00Z"
+    }
   },
   "planning_history": [
     {
@@ -209,6 +284,122 @@
       },
       "review_level": "senior+qa",
       "source_skill_invocation": "/qa debug (mesma conversa) → registro de ISSUE-006 → /fix"
+    },
+    {
+      "timestamp": "2026-05-20T07:50:00Z",
+      "action": "/pmo sprint F5",
+      "sprints_executed": [
+        "F5"
+      ],
+      "tasks_completed": [
+        "F5.1",
+        "F5.2",
+        "F5.3",
+        "F5.4",
+        "F5.5",
+        "F5.6",
+        "F5.7"
+      ],
+      "audit_invoked": [
+        "auditor-senior",
+        "auditor-qa"
+      ],
+      "audit_findings_total": 22,
+      "audit_findings_breakdown": {
+        "CRITICAL": 1,
+        "HIGH": 4,
+        "MEDIUM": 9,
+        "LOW": 8
+      },
+      "audit_blockers_resolved_in_pr": [
+        "QA-F5-001",
+        "QA-F5-002",
+        "QA-F5-003",
+        "QA-F5-004"
+      ],
+      "audit_status": "PASS_WITH_FINDINGS",
+      "tests_final": "301 passed, 6 skipped (Contract opt-in), 781 assertions",
+      "brief_path": "docs/.briefs/F5.brief.md"
+    },
+    {
+      "timestamp": "2026-05-20T18:10:00Z",
+      "action": "/pmo sprint F5 (R1 follow-up)",
+      "sprints_executed": [
+        "F5.8",
+        "F5.9",
+        "F5.10"
+      ],
+      "tasks_completed": [
+        "F5.8",
+        "F5.9",
+        "F5.10"
+      ],
+      "findings_resolved_in_followup": [
+        "CQ-F5-001",
+        "QA-F5-005",
+        "QA-F5-015",
+        "QA-F5-016",
+        "QA-F5-017",
+        "QA-F5-018"
+      ],
+      "tests_final": "321 passed, 6 skipped (Contract opt-in), 830 assertions (+20/+49 vs R1)",
+      "next_action": "/qa validar R2 (mesma branch uds/fix/lifecycle-async-cmd-argv)"
+    },
+    {
+      "timestamp": "2026-05-20T19:30:00Z",
+      "action": "/qa validar R2",
+      "validation_round": 2,
+      "scope_files_audited": [
+        "tests/Feature/Customers/LifecycleTest.php",
+        "tests/Pest.php",
+        "tests/Contract/Customers/UpstreamContractTest.php",
+        "tests/Feature/Livewire/Customers/OccPanelTest.php",
+        "app/Http/Livewire/Customers/OccPanel.php",
+        "docs/openapi.yaml"
+      ],
+      "audit_invoked": [
+        {
+          "agent": "auditor-senior",
+          "model": "claude-4.6-sonnet-medium-thinking",
+          "findings": 1,
+          "severities": {
+            "HIGH": 1
+          }
+        },
+        {
+          "agent": "auditor-qa",
+          "model": "gemini-3.1-pro",
+          "findings": 4,
+          "severities": {
+            "CRITICAL": 1,
+            "HIGH": 3,
+            "MEDIUM": 2
+          }
+        }
+      ],
+      "findings_validated_from_r1": [
+        "CQ-F5-001",
+        "QA-F5-005",
+        "QA-F5-015",
+        "QA-F5-017",
+        "QA-F5-018"
+      ],
+      "findings_validated_partial_from_r1": [
+        "QA-F5-016"
+      ],
+      "findings_registered_r2": [
+        "QA-F5-019"
+      ],
+      "findings_out_of_scope_r2_to_backlog": [
+        "submitBranding theming:config multi-key (pré-existente em main, controller logic, não foi tocado em R1)",
+        "disableApps ignora param 'remove' documentado em OpenAPI (pré-existente em main)",
+        "UpstreamContractTest queued state pode ser falso-positivo (mitigada por design opt-in)"
+      ],
+      "tests_final": "321 passed, 6 skipped (Contract opt-in), 830 assertions",
+      "audit_status": "FAIL_WITH_BLOCKERS",
+      "result": "REPROVADA",
+      "rationale": "1 finding HIGH pendente em sprint aberta (QA-F5-019 OccPanel::createUser quebrado em produção; convergência crítica entre auditor-senior claude-4.6-sonnet e auditor-qa gemini-3.1-pro). PROC-012 exige correção in-sprint OU justificação documentada para COM_RESSALVAS.",
+      "next_action": "AskQuestion ao usuário: [A] continuar sprint (F5.11 fix createUser) | [B] aceitar COM_RESSALVAS (justificar bug pré-existente em main) | [C] dúvida"
     }
   ]
 }

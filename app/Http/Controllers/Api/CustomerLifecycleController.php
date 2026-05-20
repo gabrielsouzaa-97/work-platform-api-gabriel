@@ -15,6 +15,7 @@ use App\Models\Customer;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
+use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
@@ -28,16 +29,30 @@ final class CustomerLifecycleController extends Controller
     /** POST /customers/{customer}/users */
     public function createUser(Customer $customer, CreateUserRequest $request): JsonResponse
     {
-        $args = array_filter([$request->string('username')->toString(), $request->string('email', '')->toString()]);
-        foreach ($request->array('groups', []) as $group) {
-            $args[] = "--group={$group}";
+        // Upstream `user create` accepts a single positional <username>; email and groups
+        // must travel via the JSON `--payload-stdin` (alongside the password). Passing them
+        // as positional args / --group flags silently no-ops upstream (per SSH probing).
+        // See ISSUE-006 §"Design points" DP3.
+        $stdinPayload = ['password' => $request->string('password')->toString()];
+
+        $email = $request->string('email', '')->toString();
+        if ($email !== '') {
+            $stdinPayload['email'] = $email;
+        }
+
+        $groups = array_values(array_filter(
+            $request->array('groups', []),
+            static fn (mixed $g): bool => is_string($g) && $g !== '',
+        ));
+        if ($groups !== []) {
+            $stdinPayload['groups'] = $groups;
         }
 
         return $this->dispatch(
             $customer,
             'users:create',
-            array_values($args),
-            ['password' => $request->string('password')->toString()],
+            [$request->string('username')->toString()],
+            $stdinPayload,
             $request,
         );
     }
@@ -107,13 +122,13 @@ final class CustomerLifecycleController extends Controller
     /** POST /customers/{customer}/apps/enable */
     public function enableApps(Customer $customer, EnableAppsRequest $request): JsonResponse
     {
-        return $this->dispatchMulti($customer, 'apps:enable', $request->array('apps'), $request);
+        return $this->dispatchAppsCsv($customer, 'apps:enable', $request->array('apps'), $request);
     }
 
     /** POST /customers/{customer}/apps/disable */
     public function disableApps(Customer $customer, DisableAppsRequest $request): JsonResponse
     {
-        return $this->dispatchMulti($customer, 'apps:disable', $request->array('apps'), $request);
+        return $this->dispatchAppsCsv($customer, 'apps:disable', $request->array('apps'), $request);
     }
 
     /**
@@ -134,6 +149,14 @@ final class CustomerLifecycleController extends Controller
 
         try {
             $job = $this->action->execute($customer, $cmd, $args, $stdinPayload, $actor);
+        } catch (BlockedOnUpstreamException $e) {
+            // Verb is pending in mework360-deployer-scripts (D3/D4) — surface HTTP 501
+            // so clients know this is *intentionally* unavailable, not a transient bug.
+            return response()->json([
+                'error' => 'not_implemented_yet',
+                'reason' => 'upstream group membership pending mework360-deployer-scripts D3/D4',
+                'cmd' => $e->cmd,
+            ], 501);
         } catch (ClusterUnreachableException) {
             return response()->json(['error' => 'cluster_unreachable'], 503)
                 ->header('Retry-After', '60');
@@ -159,30 +182,45 @@ final class CustomerLifecycleController extends Controller
     }
 
     /**
-     * Dispatch one lifecycle command per app ID (bulk enable/disable).
+     * Dispatch a single async apps:enable / apps:disable job carrying ALL app IDs
+     * consolidated as a CSV positional arg.
+     *
+     * Upstream `apps enable|disable <apps_csv>` is natively CSV (confirmed via SSH
+     * probing — ISSUE-006 §DP2). The previous N-jobs-per-app loop was a workaround
+     * that wasted N SSH round-trips and broke atomicity.
      *
      * @param  array<int, string>  $apps
      */
-    private function dispatchMulti(Customer $customer, string $cmd, array $apps, Request $request): JsonResponse
+    private function dispatchAppsCsv(Customer $customer, string $cmd, array $apps, Request $request): JsonResponse
     {
         /** @var Operator $actor */
         $actor = $request->user();
-        $jobIds = [];
 
-        foreach ($apps as $appId) {
-            try {
-                $job = $this->action->execute($customer, $cmd, [$appId], null, $actor);
-                $jobIds[] = $job->job_id;
-            } catch (ClusterUnreachableException) {
-                return response()->json(['error' => 'cluster_unreachable'], 503)
-                    ->header('Retry-After', '60');
-            } catch (IdempotencyConflictException $e) {
-                $jobIds[] = $e->getExistingJobId();
-            } catch (SshRemoteException $e) {
-                return response()->json(['error' => 'upstream_error', 'exit_code' => $e->remoteExitCode, 'app' => $appId], 502);
-            }
+        $appsCsv = implode(',', $apps);
+
+        try {
+            $job = $this->action->execute($customer, $cmd, [$appsCsv], null, $actor);
+        } catch (ClusterUnreachableException) {
+            return response()->json(['error' => 'cluster_unreachable'], 503)
+                ->header('Retry-After', '60');
+        } catch (SshTimeoutException) {
+            return response()->json(['error' => 'lifecycle_timeout'], 504);
+        } catch (IdempotencyConflictException $e) {
+            return response()->json([
+                'error' => 'idempotency_conflict',
+                'existing_job_id' => $e->getExistingJobId(),
+            ], 409);
+        } catch (SshRemoteException $e) {
+            return response()->json([
+                'error' => 'upstream_error',
+                'exit_code' => $e->remoteExitCode,
+                'apps_csv' => $appsCsv,
+            ], 502);
         }
 
-        return response()->json(['job_ids' => $jobIds], 202);
+        return response()->json([
+            'job_id' => $job->job_id,
+            'apps_csv' => $appsCsv,
+        ], 202);
     }
 }

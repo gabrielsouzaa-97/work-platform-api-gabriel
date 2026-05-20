@@ -3048,13 +3048,20 @@ Frontmatter YAML obrigatória:
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | F5.1 — [FIX] `JobTypeTranslator::cmdToCliArgv()` + `BlockedOnUpstreamException` | `vocabulary-translator` | — |
-| [ ] | P | F5.2 — [FIX] `LifecycleAsyncAction`: usar tradutor + remover `--async/--json` manual | `ssh-orchestrator` | F5.1 |
-| [ ] | M | F5.3 — [FIX] `CustomerLifecycleController`: 501 p/ `groups:add/remove` + `apps enable/disable` consolidado em CSV + email/groups via stdin | `laravel-api` | F5.2 |
-| [ ] | P | F5.4 — [FIX] `OccPanel.php` (Livewire): espelhar mudanças do controller (501 + CSV apps + stdin schema) | `laravel-livewire` | F5.3 |
-| [ ] | P | F5.5 — [FIX] Reescrever asserções de `LifecycleTest.php` para argv upstream-correto + adicionar pares cmd→argv em `JobTypeTranslatorTest` | `laravel-testing` | F5.2, F5.3 |
-| [ ] | P | F5.6 — [FIX] Docs: `docs/SETUP-DECISIONS.md` (3º vocabulário) + `.cursor/skills/vocabulary-translator/SKILL.md` | `laravel-api` | F5.1 |
-| [ ] | M | F5.7 — [FIX] (opt-in) Teste de contrato SSH real contra cluster `homolog` (atrás de flag `RUN_UPSTREAM_CONTRACT=1`) | `ssh-orchestrator` | F5.2 |
+| [x] | P | F5.1 — [FIX] `JobTypeTranslator::cmdToCliArgv()` + `BlockedOnUpstreamException` | `vocabulary-translator` | — |
+| [x] | P | F5.2 — [FIX] `LifecycleAsyncAction`: usar tradutor + remover `--async/--json` manual | `ssh-orchestrator` | F5.1 |
+| [x] | M | F5.3 — [FIX] `CustomerLifecycleController`: 501 p/ `groups:add/remove` + `apps enable/disable` consolidado em CSV + email/groups via stdin | `laravel-api` | F5.2 |
+| [x] | P | F5.4 — [FIX] `OccPanel.php` (Livewire): espelhar mudanças do controller (501 + CSV apps + stdin schema) | `laravel-livewire` | F5.3 |
+| [x] | P | F5.5 — [FIX] Reescrever asserções de `LifecycleTest.php` para argv upstream-correto + adicionar pares cmd→argv em `JobTypeTranslatorTest` | `laravel-testing` | F5.2, F5.3 |
+| [x] | P | F5.6 — [FIX] Docs: `docs/DECISION-BRIEF.md` (Decision #ARCH-4, 3º vocabulário) + `.cursor/skills/vocabulary-translator/SKILL.md` | `laravel-api` | F5.1 |
+| [x] | M | F5.7 — [FIX] (opt-in) Teste de contrato SSH real contra cluster `homolog` (movido p/ `tests/Contract/`, flag `RUN_UPSTREAM_CONTRACT=1`) | `ssh-orchestrator` | F5.2 |
+| [x] | P | F5.8 — [FIX-R1] Assert rollback de `IdempotencyKey` nos 3 testes SSH-failure + novo teste `SshConnectionException` em cluster ativo (QA-F5-017 HIGH + QA-F5-018 MEDIUM) | `laravel-testing` | F5.5 |
+| [x] | P | F5.9 — [FIX-R1] Helper `assertNoUpstreamFlagDuplication` aplicado nos 4 endpoints + adicionar `email`/`groups` no stdin do `UpstreamContractTest` (QA-F5-005 ampliado + QA-F5-015 MEDIUM) | `laravel-testing` | F5.5 |
+| [x] | M | F5.10 — [FIX-R1] `docs/openapi.yaml`: novo shape `apps/enable\|disable` + response 501 `groups/{g}/users` + criar `tests/Feature/Livewire/Customers/OccPanelTest.php` (CQ-F5-001 HIGH + QA-F5-016 MEDIUM) | `laravel-livewire` + docs | F5.3, F5.4 |
+| [ ] | M | F5.11 — [FIX-R2] Eliminar test/production divergence em `OccPanel::createUser`: refatorar blade para `<form wire:submit.prevent>` + `wire:model="userPasswordPlain"` em propriedade pública (sem `#[Locked]`), remover escape-hatch `?string $password` e fallback `request()->input()`; atualizar 4 testes Livewire para o same-path real; registrar ISSUE backlog para E2E Dusk/Playwright (QA-F5-019 HIGH) | `laravel-livewire` | F5.4, F5.10 |
+
+> **R1 follow-up (2026-05-20T17:30Z)**: `/qa validar R1` resultou REPROVADA — 2 HIGH pendentes em sprint aberta (`CQ-F5-001` + `QA-F5-017`). Per PROC-012 + Hard Rule 5, F5.8–F5.10 corrigidos in-sprint (mesma branch `uds/fix/lifecycle-async-cmd-argv`).
+> **R2 follow-up (2026-05-20T19:30Z)**: `/qa validar R2` resultou REPROVADA — 1 HIGH convergente (`QA-F5-019` OccPanel::createUser quebrado em produção; test/production divergence via escape-hatch). Decisão usuário: continuar in-sprint via task F5.11 (estratégia same-path, opção A do finding). Re-validação R3 após F5.11.
 
 ### Quality Brief (Sprint F5)
 
@@ -3457,6 +3464,106 @@ Critério de pronto:
 
 ---
 
+### Task F5.8 — [FIX-R1] Rollback de IdempotencyKey + path negativo SshConnectionException
+
+> **Re-validação R1 follow-up.** Resolve `QA-F5-017` (HIGH — weak invariant em 3 testes SSH-failure) e `QA-F5-018` (MEDIUM — path negativo SshConnectionException em cluster ativo).
+
+**Estado atual**: `LifecycleAsyncAction::execute()` linhas 108-117 têm 3 catch blocks que deletam explicitamente a `IdempotencyKey` antes de re-throw (contrato defensivo deliberado para permitir retry). Testes em `LifecycleTest.php:415-446, 584-599` (SSH exit 4 → 409, exit 22 → 422, timeout → 504) asseram apenas HTTP status + JSON path, **sem verificar estado final do banco**. Adicionalmente, o teste `cluster offline → 503` (linha 392-413) usa cluster `status=unreachable` que dispara guard preemptiva — **nunca exercita** a catch block `SshConnectionException → ClusterUnreachableException` (linha 108-110) em cluster ativo.
+
+**Estado desejado**:
+- 3 testes existentes ganham `expect(IdempotencyKey::where('cmd', $cmd)->count())->toBe(0)` após `assertStatus()`.
+- Teste de timeout adicionalmente verifica `Job::count() === 0` + `AuditLog::where('action', $cmd.'_initiated')->count() === 0` (padrão estabelecido em QA-F5-004).
+- Novo teste `SshConnectionException em cluster ativo → 503 cluster_unreachable` em `LifecycleTest.php`, espelhando o cenário real de produção (cluster active + SSH cai em runtime).
+
+**Fonte(s)**: FINDINGS QA-F5-017 (HIGH), QA-F5-018 (MEDIUM)
+**Módulo(s) afetado(s)**: `tests/Feature/Customers/LifecycleTest.php` (3 testes alterados + 1 teste novo)
+**Risco**: LOW — só testes; reforça invariantes já implementadas
+**Budget**: P (~25min, 3 expect chains + 1 teste novo de ~20 LoC)
+
+**Test**: a própria task. Gate = `php artisan test --filter=LifecycleTest` verde + grep para confirmar que cada um dos 4 cenários (exit 4, exit 22, timeout, SshConnectionException) tem `IdempotencyKey` assertion.
+
+---
+
+### Task F5.9 — [FIX-R1] Helper anti-duplicação de flags upstream + stdin estendido no Contract test
+
+> **Re-validação R1 follow-up.** Resolve `QA-F5-005` ampliado (MEDIUM — bug-B guards incompletos em 4 endpoints) e `QA-F5-015` (MEDIUM — Contract test não exercita `email`/`groups`).
+
+**Estado atual**:
+1. `LifecycleTest.php` tem guard completo `! in_array('--async') && ! in_array('--json')` apenas em 3 testes (`POST users`, `POST apps/disable` single, `POST apps/disable` 3 apps). Os 4 demais endpoints têm guard parcial ou ausente:
+   - `POST groups` (linha 235-251): tem `! --async`, **falta `! --json`**
+   - `DELETE users/{username}` (linha 255-277): **falta ambos**
+   - `DELETE groups/{group}` (linha 473-493): **falta ambos**
+   - `POST apps/enable` (linha 295-319): **falta ambos**
+2. `tests/Contract/Customers/UpstreamContractTest.php:90-96` cenário `users:create` injeta apenas `['password' => '...']` no stdin — não valida que upstream `nextcloud-manage` aceita o JSON estendido `{password, email?, groups?}` introduzido em F5.3.
+
+**Estado desejado**:
+- Helper reusável `assertNoUpstreamFlagDuplication(array $args, string $cmd): void` em `tests/Pest.php` (ou em concern dedicado): verifica `! in_array('--async')`, `! in_array('--json')` e `! in_array($cmd, ...)` para bug-symmetry.
+- Helper chamado em todos os 7 testes de `LifecycleTest.php` que validam `withArgs` (users:create, users:delete, groups:create, groups:delete, apps:enable, apps:disable single, apps:disable 3 apps).
+- `UpstreamContractTest.php` cenário `user create`: adicionar `'email' => 'qa-contract@example.com', 'groups' => ['editors']` ao stdin payload; assertar `$job->state === 'queued'` (não falhou no parse upstream).
+
+**Fonte(s)**: FINDINGS QA-F5-005 (MEDIUM, ampliado em R1), QA-F5-015 (MEDIUM)
+**Módulo(s) afetado(s)**: `tests/Pest.php`, `tests/Feature/Customers/LifecycleTest.php`, `tests/Contract/Customers/UpstreamContractTest.php`
+**Risco**: LOW — testes; helper centralizado evita drift futuro
+**Budget**: P (~30min, 1 helper + aplicação em 7 testes + extensão do Contract test)
+
+**Test**: a própria task. Gate = `rg "in_array\('--async'" tests/` retorna apenas chamadas dentro do helper + `php artisan test --filter=LifecycleTest` verde + grep mostra `assertNoUpstreamFlagDuplication` em 7 lugares.
+
+---
+
+### Task F5.10 — [FIX-R1] OpenAPI yaml apps/* shape + 501 groups/{g}/users + OccPanelTest
+
+> **Esta é a única task M (Moderate) da rodada R1.** Re-validação R1 follow-up. Resolve `CQ-F5-001` (HIGH — OpenAPI drift bloqueando aprovação) e `QA-F5-016` (MEDIUM — OccPanel sem nenhum teste).
+
+**Estado atual**:
+1. `docs/openapi.yaml` descreve `POST /customers/{customer}/apps/enable|disable` retornando `$ref: '#/components/responses/JobAccepted'`. A implementação F5.3 retorna shape flat `{job_id, apps_csv}` em 202 e `{error, exit_code, apps_csv}` em 502. A Sprint F5.3 também introduziu HTTP 501 (`{error: not_implemented_yet, reason, cmd}`) para `POST/DELETE /customers/{customer}/groups/{group}/users` — não documentado em OpenAPI.
+2. `app/Http/Livewire/Customers/OccPanel.php` (385 LoC, 8 actions) não tem **nenhum teste de feature**. F5.4 alterou stdin payload em `createUser` e `formatError(BlockedOnUpstreamException)` em `addUserToGroup`/`removeUserFromGroup` — sem regressão guard.
+
+**Estado desejado**:
+1. `docs/openapi.yaml`:
+   - Substituir `$ref: JobAccepted` nas rotas `apps/enable` e `apps/disable` por inline schema `{job_id: uuid, apps_csv: string}` (202) + ErrorResponse com `exit_code` e `apps_csv` (502).
+   - Adicionar response 501 `{error: not_implemented_yet, reason: string, cmd: string}` em `POST /customers/{customer}/groups/{group}/users` e `DELETE /customers/{customer}/groups/{group}/users/{username}`.
+   - Bump `info.version` (0.5.0 → 0.6.0) + entrada em `docs/CHANGELOG.md`.
+2. Novo `tests/Feature/Livewire/Customers/OccPanelTest.php` cobrindo:
+   - **Happy path** para cada action: `submitQuota`, `submitBranding`, `submitMaintenance`, `createUser`, `deleteUser`, `submitApp`, `submitAppsBulk`.
+   - **Blocked-on-upstream** para `addUserToGroup`/`removeUserFromGroup` → `assertSet('errorMessage', 'Funcionalidade pendente no upstream — disponível em release futura.')` (resolve `CQ-F5-007` LOW de quebra).
+   - **Error mapping** para `BlockedOnUpstreamException`, `IdempotencyConflictException`, `SshTimeoutException` → `errorMessage` amigável.
+   - **Autorização**: operador sem `provision-customers` → 403.
+
+**Fonte(s)**: FINDINGS CQ-F5-001 (HIGH), QA-F5-016 (MEDIUM)
+**Módulo(s) afetado(s)**: `docs/openapi.yaml`, `docs/CHANGELOG.md`, `tests/Feature/Livewire/Customers/OccPanelTest.php` (novo arquivo)
+**Risco**: MEDIUM — OpenAPI tem consumidores potenciais (clientes externos); OccPanelTest cobre 8 actions com 10-15 testes
+**Budget**: M (~2-3h: OpenAPI ~30min + OccPanelTest ~2h)
+
+**Test**: a própria task. Gate = `redocly lint docs/openapi.yaml` 0 errors + `php artisan test --filter=OccPanelTest` verde + grep confirma que `OccPanel.php` tem coverage path-por-path (8 actions × pelo menos 1 happy + 1 error).
+
+---
+
+### Task F5.11 — [FIX-R2] Eliminar test/production divergence em OccPanel::createUser
+
+> **Re-validação R2 follow-up.** Resolve `QA-F5-019` (HIGH — `OccPanel::createUser` quebrado em produção; cobertura R1 falso-positiva via escape-hatch).
+
+**Estado atual**:
+- View (`resources/views/livewire/customers/occ-panel.blade.php:178-204`) usa `<input type="password" name="password">` (sem `wire:model`) e botão `wire:click="createUser"` (sem `wire:submit`). O payload Livewire JSON enviado a `/livewire/update` **não inclui** inputs sem `wire:model` — apenas o snapshot do componente. Resultado: senha digitada nunca chega ao back-end.
+- Componente (`app/Http/Livewire/Customers/OccPanel.php:214-268`) tem `#[Locked] public string $userPassword = '';` (nunca usado) + parâmetro opcional `?string $password = null` + fallback `request()->input('password', '')`. O fallback é inútil porque o payload não traz `password`. O método sempre falha com `strlen('') < 8` em produção real.
+- Testes (`tests/Feature/Livewire/Customers/OccPanelTest.php:266,293,306,321`) usam `->call('createUser', 'Secret123!')` — exercitam apenas o ramo do parâmetro (escape-hatch), **nunca** o ramo `request()->input` que é o único que produção tenta usar. False-positive coverage; bug pré-existente em main desde F2.5, mas mascarado pelos 19 testes R1 follow-up.
+
+**Estado desejado** (estratégia same-path):
+- Blade `occ-panel.blade.php` (seção "Criar Usuário"): envolver os 4 form-groups em `<form wire:submit.prevent="createUser">`, trocar `<input type="password" name="password">` por `<input type="password" wire:model="userPasswordPlain">`, trocar `<button wire:click="createUser">` por `<button type="submit">`. As demais ações (`deleteUser`, `createGroup`, etc.) ficam intactas — escopo cirúrgico.
+- `OccPanel.php`: substituir `#[Locked] public string $userPassword = '';` por `public string $userPasswordPlain = '';` (sem `#[Locked]` — o snapshot pode carregar a senha enquanto o usuário digita; é o mesmo modelo de qualquer formulário HTML, protegido por HTTPS + CSRF). Remover parâmetro `?string $password = null` e fallback `request()->input(...)`. Ler senha diretamente de `$this->userPasswordPlain`. Em `finally`, zerar `$this->userPasswordPlain = ''` para limpar o snapshot pós-uso.
+- Testes (`OccPanelTest.php`): trocar `->call('createUser', '...')` por `->set('userPasswordPlain', '...')->call('createUser')` nos 4 testes existentes — agora exercitam o **mesmo path** que produção (set propriedade pública = simulação fiel do `wire:model`). Adicionar 2 novos testes:
+  - **Production scenario** (regressão guard): `createUser` sem `set('userPasswordPlain')` → `assertHasErrors(['userPassword'])` (replica o cenário do bug original).
+  - **Cleanup**: após `createUser` bem-sucedido, `$userPasswordPlain` é `''` (verifica `assertSet('userPasswordPlain', '')`).
+- ISSUE backlog (`docs/ISSUES.md`): registrar "E2E real coverage via Dusk/Playwright" para uma sprint N-UI dedicada (cobre o wire:submit/click via navegador real; fora do budget M desta task).
+
+**Fonte(s)**: FINDINGS `QA-F5-019` (HIGH, convergente entre auditor-senior R2 claude-4.6-sonnet + auditor-qa R2 gemini-3.1-pro)
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`, `docs/ISSUES.md`
+**Risco**: LOW — wire:model é o padrão Livewire; refactor de teste é mecânico; backlog cobre o gap de browser real
+**Budget**: M (~30-60min: blade + componente + 6 testes + ISSUE + FINDINGS update)
+
+**Test**: a própria task. Gate = `docker compose exec app php artisan test --filter=OccPanelTest` verde + grep `rg "->call\('createUser'" tests/Feature/Livewire/Customers/OccPanelTest.php` mostra 0 ocorrências de escape-hatch (todos os calls passam pelo set-prop pattern) + suite global ≥ 321 passed (mantida ou aumentada com 2 novos testes).
+
+---
+
 
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
@@ -3465,3 +3572,6 @@ Critério de pronto:
 | 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (sync webhook secret com upstream via SSH ao criar/rotacionar cluster) | /pmo new (interativo, 2 revisões de design)            |
 | 2026-05-20 | 0.7    | Sprint N2 adicionada (retroativa) — ISSUE-005 (log debug do payload do webhook em APP_ENV=local)       | /pmo new (interativo)                                  |
 | 2026-05-20 | 0.8    | Sprint F5 adicionada — ISSUE-006 (tradutor cmd → CLI argv; fix lifecycle async; bug postmortem HIGH)   | /fix (interativo)                                              |
+| 2026-05-20 | 0.9    | Sprint F5 CONCLUÍDA — 7/7 tasks; brief `docs/.briefs/F5.brief.md`; 301/307 testes; PASS_WITH_FINDINGS    | /pmo sprint F5                                                 |
+| 2026-05-20 | 0.10   | Sprint F5 expandida com F5.8/F5.9/F5.10 (R1 follow-up — PROC-012 corrige in-sprint após /qa validar R1 REPROVADA) | /pmo sprint F5                                                 |
+| 2026-05-20 | 0.11   | Sprint F5 expandida com F5.11 (R2 follow-up — same-path fix para QA-F5-019; PROC-012 corrige in-sprint após /qa validar R2 REPROVADA) | /pmo sprint F5                                                 |
