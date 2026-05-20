@@ -168,3 +168,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-19 21:26** `494604a` — chore(session): clear sprint_atual after SSH stdin hotfix merge
 - **2026-05-19 21:27** `494604a` — chore(session): clear sprint_atual after SSH stdin hotfix merge
 - **2026-05-19 22:13** `6fb89dd` — docs(issues): register ISSUE-002 postmortem — webhook 401 worker reload
+- **2026-05-19 22:59** `1e22cd1` — fix(webhook): accept state='finished' + only persist dedupe on success
