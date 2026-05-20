@@ -41,7 +41,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-20T20:25:00Z",
+  "ultimo_update": "2026-05-20T21:05:14Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -108,7 +108,8 @@
     "F5.7: UpstreamContractTest opt-in (RUN_UPSTREAM_CONTRACT=1) em tests/Contract/ (separado de Feature/RefreshDatabase per QA-F5-001)",
     "F5.8: Rollback de IdempotencyKey assertado em 3 testes SSH-failure + novo teste SshConnectionException em cluster ativo (QA-F5-017 HIGH + QA-F5-018 MED)",
     "F5.9: Helper noUpstreamFlagDuplication() global aplicado em 7 testes LifecycleTest + email/groups no stdin do UpstreamContractTest (QA-F5-005 MED ampliado + QA-F5-015 MED)",
-    "F5.10: docs/openapi.yaml v2.0→v2.1 (apps/* novo shape + 501 groups/{g}/users) + OccPanelTest novo (19 testes) + Gate import fix em OccPanel.php (CQ-F5-001 HIGH + QA-F5-016 MED)"
+    "F5.10: docs/openapi.yaml v2.0→v2.1 (apps/* novo shape + 501 groups/{g}/users) + OccPanelTest novo (19 testes) + Gate import fix em OccPanel.php (CQ-F5-001 HIGH + QA-F5-016 MED)",
+    "F5.11: same-path fix p/ OccPanel::createUser (QA-F5-019 HIGH convergente) — blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch + zera no finally; 4 testes atualizados + 2 novos (production scenario + cleanup); ISSUE-007 (E2E Dusk/Playwright) backlog"
   ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
@@ -170,14 +171,14 @@
   ],
   "anchor": {
     "persona": "implementer+auditor (parent: Opus 4.7; subagents senior+qa readonly)",
-    "phase": "Sprint F5 R2 — REPROVADA por 1 finding HIGH convergente (QA-F5-019 OccPanel::createUser quebrado em produção via wire:click + request()->input fallback). 5 dos 6 R1-followup-findings VALIDADOS, 1 (QA-F5-016) validado-parcial. Testes 321/6/830 estáveis. Aguardando decisão usuário via AskQuestion.",
-    "intent": "Decidir caminho pós-R2-REPROVADA: [A] F5.11 fix in-sprint OccPanel createUser blade/test E2E + /qa validar R3, ou [B] aceitar COM_RESSALVAS (bug pré-existente em main desde F2.5, workaround via API REST, fora da raiz da sprint F5).",
-    "changes_made": "(R2 via /qa validar R2 em 2026-05-20T19:30Z) 1) validation_round 1→2 + bloco validation_round_r1 archivado. 2) Senior R2 (claude-4.6-sonnet-medium-thinking, readonly) detectou 1 HIGH: CQ-F5-008 → dedup com QA → QA-F5-019. 3) QA R2 (gemini-3.1-pro, readonly) detectou 1 CRITICAL convergente (downgrade p/ HIGH) + 3 out-of-scope (theming/disableApps/Contract). 4) docs/FINDINGS.md: QA-F5-019 registrado (HIGH, convergente, 2 auditores); estatísticas F5 atualizadas (HIGH 5→6, pendentes 16→17); status R1-followup: 5 Validado + 1 Validado parcial. 5) .cursorsession.checkpoint.validation_gate populado com result=REPROVADA + last_validated_sha=abb82b4. 6) NÃO foram modificados arquivos fora da whitelist (read-only respeitado). 7) Testes confirmados in-container: 321/6/830 (estável vs R1 follow-up).",
-    "decisions": "1) ARCH-4: estender JobTypeTranslator (alt B). 2) UpstreamContractTest em tests/Contract/. 3) R1 (2026-05-20T17:30Z): REPROVADA — PROC-012 corrige in-sprint. 4) R1 follow-up implementado em mesma branch. 5) Refactor menor OccPanel::createUser (param opcional $password) registrado QA-F5-016. 6) R2 (2026-05-20T19:30Z): REPROVADA — convergência crítica 2 auditores em QA-F5-019. Severidade mantida HIGH (não CRITICAL como QA sugeriu) por workaround via API. Notes Non-Blocking de QA registrados em validation_gate.findings_out_of_scope_r2_to_backlog.",
-    "next_steps": "1) AskQuestion ao usuário: [A] continuar sprint F5 + F5.11 (fix createUser wire:submit + E2E test) + /qa validar R3 com diversidade (sugestão: senior=gpt-5.5-medium, qa=gemini-3.1-pro novamente). [B] aceitar COM_RESSALVAS justificando bug pré-existente em main desde F2.5; criar PR `uds/fix/lifecycle-async-cmd-argv` → main com `[F5 R2 COM_RESSALVAS]` no título. [C] dúvida → explicar impacto antes de decidir. 2) Pós-decisão: atualizar FINDINGS QA-F5-019.status e validation_gate.result se [B]. 3) Pós-merge (se [B]): limpar checkpoint, próxima sprint F4 (3 HIGH N1) ou backlog.",
-    "updated_at": "2026-05-20T19:30:00Z"
+    "phase": "Sprint F5 R2 follow-up CONCLUÍDO — task F5.11 implementada (same-path strategy p/ QA-F5-019), 323 passed (+2 vs R2), 839 assertions, commit monolítico fd674cb. Aguardando /qa validar R3.",
+    "intent": "Eliminar test/production divergence em OccPanel::createUser (QA-F5-019 HIGH convergente) via refactor blade (<form wire:submit.prevent> + wire:model='userPasswordPlain') + componente (remove escape-hatch + #[Locked]) + 6 testes (4 atualizados + 2 novos) + ISSUE-007 (E2E backlog).",
+    "changes_made": "(F5.11 em 2026-05-20T20:30Z) 1) app/Http/Livewire/Customers/OccPanel.php: remove #[Locked] $userPassword + import Locked; adiciona public $userPasswordPlain; createUser() perde param $password + fallback request()->input(), lê de $this->userPasswordPlain, zera no finally. 2) resources/views/livewire/customers/occ-panel.blade.php: envolve seção 'Criar Usuário' em <form wire:submit.prevent='createUser'>; input senha agora wire:model='userPasswordPlain'; button type=submit. 3) tests/Feature/Livewire/Customers/OccPanelTest.php: 4 testes createUser trocam ->call('createUser', '...') por ->set('userPasswordPlain', '...')->call('createUser'); +2 testes novos (production scenario sem senha + cleanup pós-sucesso). 4) docs/ISSUES.md: ISSUE-007 (E2E real coverage via Dusk/Playwright, backlog sprint N-UI). 5) docs/FINDINGS.md: QA-F5-019 status → Corrigido + descrição da correção; estatísticas F5 ajustadas (resolved 10→11, pending 17→16). 6) docs/ROADMAP.md: F5.8/F5.9/F5.10 marcados [x]; F5.11 nova row + task block detalhado; CHANGELOG v0.11. 7) .cursorsession: phase=ready_for_validation_r3, head_sha=fd674cb, current_task=null. 8) Suite: 323 passed, 6 skipped, 839 assertions (vs 321/6/830 em R2).",
+    "decisions": "1) ARCH-4: estender JobTypeTranslator (alt B). 2) UpstreamContractTest em tests/Contract/. 3) R1: REPROVADA — PROC-012 corrige in-sprint. 4) R1 follow-up implementado mesma branch. 5) QA-F5-016 escape-hatch foi solução parcial (revelou QA-F5-019). 6) R2: REPROVADA — convergência 2 auditores em QA-F5-019; severidade HIGH (não CRITICAL) por workaround via API. 7) F5.11 strategy: same-path (opção A do finding) em vez de Dusk/Playwright agora — instalar Dusk excederia budget M. ISSUE-007 backloga E2E real. 8) Commit monolítico (escolha do usuário): fix(sprint-F5): tasks 5.1-5.11 em 1 SHA fd674cb.",
+    "next_steps": "1) /qa validar R3 com diversidade de modelo (sugestão: senior=gpt-5.3-codex ou claude-opus-4-7-thinking-xhigh; qa=gemini-3.1-pro). Scope mínimo R3: OccPanel.php + occ-panel.blade.php + OccPanelTest.php (4 testes alterados + 2 novos) + ISSUES.md (ISSUE-007) + FINDINGS QA-F5-019. 2) Se R3 APROVADA: criar PR `uds/fix/lifecycle-async-cmd-argv` → main + cleanup checkpoint + próxima sprint F4 (3 HIGH N1). 3) Se R3 REPROVADA novamente: avaliar stop-loss (PROC-012) ou ressalva documentada.",
+    "updated_at": "2026-05-20T20:35:00Z"
   },
-  "contexto_rapido": "Sprint F5 R2 REPROVADA (2026-05-20T19:30Z, /qa validar R2): senior=claude-4.6-sonnet, qa=gemini-3.1-pro (diversidade ok, ambos diferentes de R1). 5 dos 6 R1-followup-findings VALIDADOS (CQ-F5-001, QA-F5-005/015/017/018). 1 VALIDADO PARCIAL (QA-F5-016) — testes do escape-hatch passam mas não cobrem produção. 1 NOVO HIGH convergente: QA-F5-019 — `createUser` quebrado em produção via wire:click + request()->input (pre-existing on main desde F2.5, mas mascarado pelos testes R1). 3 HIGH/MEDIUM out-of-scope da QA registrados como Notes (Non-Blocking) — backlog. Testes: 321 passed, 6 skipped (Contract opt-in), 830 assertions. Próximo: AskQuestion [A] F5.11 in-sprint | [B] COM_RESSALVAS + PR | [C] dúvida.",
+  "contexto_rapido": "Sprint F5 R2 follow-up CONCLUÍDO (2026-05-20T20:35Z) — task F5.11 implementada via same-path strategy: blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch; 4 testes atualizados + 2 novos; ISSUE-007 (E2E Dusk/Playwright) backlogada. Suite 323 passed (+2 vs R2), 839 assertions, 6 skipped (Contract opt-in). Commit monolítico fd674cb. Próximo: /qa validar R3 com diversidade de modelo (senior=gpt-5.3-codex sugerido; qa=gemini-3.1-pro).",
   "autopilot": {
     "active": false
   },
@@ -190,19 +191,20 @@
   "compact_count": 1,
   "checkpoint": {
     "sprint": "F5",
-    "phase": "implementation",
+    "phase": "ready_for_validation_r3",
     "branch": "uds/fix/lifecycle-async-cmd-argv",
-    "last_completed_task": "/qa validar R2 — REPROVADA por 1 finding HIGH convergente (QA-F5-019); decisão usuário: [A] continuar in-sprint via F5.11 (same-path strategy)",
-    "current_task": "F5.11",
-    "tests_passing": 321,
+    "head_sha": "fd674cb",
+    "last_completed_task": "F5.11 — same-path fix p/ QA-F5-019 (OccPanel createUser) + commit monolítico fd674cb (Sprint F5 tasks 5.1→5.11)",
+    "current_task": null,
+    "tests_passing": 323,
     "tests_skipped": 6,
-    "assertions": 830,
-    "audit_findings_resolved": 10,
-    "audit_findings_pending": 17,
+    "assertions": 839,
+    "audit_findings_resolved": 11,
+    "audit_findings_pending": 16,
     "audit_findings_validated_r2": 5,
     "audit_findings_validated_partial_r2": 1,
-    "audit_status": "FAIL_WITH_BLOCKERS",
-    "timestamp": "2026-05-20T19:30:00Z",
+    "audit_status": "PENDING_R3",
+    "timestamp": "2026-05-20T20:35:00Z",
     "validation_gate": {
       "validation_round": 2,
       "validation_round_r1": {
@@ -344,6 +346,36 @@
       ],
       "tests_final": "321 passed, 6 skipped (Contract opt-in), 830 assertions (+20/+49 vs R1)",
       "next_action": "/qa validar R2 (mesma branch uds/fix/lifecycle-async-cmd-argv)"
+    },
+    {
+      "timestamp": "2026-05-20T20:35:00Z",
+      "action": "/pmo sprint F5 (R2 follow-up)",
+      "sprints_executed": [
+        "F5.11"
+      ],
+      "tasks_completed": [
+        "F5.11"
+      ],
+      "findings_resolved_in_followup": [
+        "QA-F5-019"
+      ],
+      "strategy": "same-path (opção A do finding) — eliminar test/production divergence via wire:model + wire:submit em vez de instalar Dusk/Playwright (excederia budget M)",
+      "backlog_created": [
+        "ISSUE-007 (E2E real coverage via Dusk/Playwright, sprint N-UI dedicada)"
+      ],
+      "files_changed": [
+        "app/Http/Livewire/Customers/OccPanel.php",
+        "resources/views/livewire/customers/occ-panel.blade.php",
+        "tests/Feature/Livewire/Customers/OccPanelTest.php",
+        "docs/ISSUES.md",
+        "docs/FINDINGS.md",
+        "docs/ROADMAP.md",
+        ".cursorsession"
+      ],
+      "tests_final": "323 passed, 6 skipped (Contract opt-in), 839 assertions (+2 testes/+9 assertions vs R2)",
+      "commit_strategy": "monolítico — fix(sprint-F5): tasks 5.1-5.11 (escolha do usuário)",
+      "commit_sha": "fd674cb",
+      "next_action": "/qa validar R3 (mesma branch uds/fix/lifecycle-async-cmd-argv); sugestão de diversidade: senior=gpt-5.3-codex, qa=gemini-3.1-pro"
     },
     {
       "timestamp": "2026-05-20T19:30:00Z",
