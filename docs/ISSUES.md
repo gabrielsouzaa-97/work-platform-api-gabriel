@@ -11,6 +11,8 @@
 | ISSUE-003 | postmortem | Webhook 422 — vocabulário `finished` não mapeado + dedupe persistia em falha | Jobs, Core, Webhook | HIGH | fixed in API (upstream issue #15 aberta) |
 | ISSUE-004 | change_request | Webhook receiver aceita `event=job.started` (callbacks de transição) + dedupe per `(job_id, event)` | Jobs, Core, Webhook | HIGH | implemented |
 | ISSUE-005 | change_request | Webhook receiver loga payload em nível debug quando APP_ENV=local | Jobs, Webhook | LOW | implemented |
+| ISSUE-006 | postmortem | Lifecycle async envia vocabulário canônico-API ao upstream (`users:create` em vez de `user-create`) + duplica `--async --json` | Customers, Core/Ssh | HIGH | open (Fix Brief aprovado) |
+| ISSUE-007 | change_request | E2E browser coverage via Dusk/Playwright para Livewire (cobre wire:submit/click real, MeRC ribbon do bug QA-F5-019) | DevOps, Livewire | MEDIUM | open (backlog — sprint N-UI dedicada) |
 
 ---
 
@@ -230,3 +232,192 @@ Postmortems ISSUE-002 e ISSUE-003 expuseram um gap de observabilidade: quando o 
 - Payload do webhook NÃO contém segredo (HMAC signature está no header `X-Signature`, não no body)
 - Gate por `APP_ENV=local` é mais restritivo que `APP_DEBUG` — staging com debug ativo NÃO loga
 - SEC-N1-008 trata do PEM em `/livewire/update`, não deste endpoint
+
+---
+
+## ISSUE-006 — Lifecycle async manda vocabulário canônico-API ao upstream + duplica `--async --json`
+
+- **Tipo**: postmortem
+- **Prioridade**: HIGH
+- **Status**: open (Fix Brief aprovado — aguarda `/fix` → Sprint F)
+- **Registrado em**: 2026-05-20
+- **Reportado por**: `/qa debug` sobre log de produção do cluster `homolog` (`119d74df-9011-4c0f-a6bf-ad03f84af10d`, host `dev.mework360.com.br`)
+- **Módulos afetados**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`, `app/Modules/Core/Translators/JobTypeTranslator.php`, `app/Modules/Core/Ssh/SshClient.php`, `tests/Feature/Customers/LifecycleTest.php`, `tests/Unit/Core/JobTypeTranslatorTest.php`
+
+### Sintoma
+
+Tentativa de criar usuário pelo OccPanel (Livewire) ou pelo `POST /api/customers/{c}/users` falha com upstream retornando `exit 101 / cmd_not_allowed`. Log:
+
+```
+local.DEBUG: SSH command executed {
+  "command":"nextcloud-manage teste5 users:create joao.silva joao.silva@example.com --async --json --idempotency-key=d212a0b4-08a7-44dc-93ab-a1e35c973b35 --callback=https://deployer.mework360.com.br/api/jobs/hook?cluster=119d74df-... --payload-stdin --async --json",
+  "exit_code":101,
+  "stdout":"{\"error\":\"cmd_not_allowed\",\"cmd\":\"joao.silva\"}"
+}
+```
+
+A feature inteira de lifecycle async de usuários/grupos/apps (`OccPanel::createUser/deleteUser/createGroup/deleteGroup/addUserToGroup`, `CustomerLifecycleController::createUser/deleteUser/createGroup/deleteGroup/addUserToGroup/removeUserFromGroup/enableApps/disableApps`) está quebrada.
+
+### Causa raiz
+
+Dois bugs interagindo — um arquitetural, um mecânico.
+
+**Bug A — terceiro vocabulário (CLI argv upstream) sem tradutor** (arquitetural)
+
+O sistema tem três vocabulários distintos que precisam de tradução, mas só dois estão implementados:
+
+| Vocabulário | Onde vive | Exemplo | Tradutor |
+|---|---|---|---|
+| API canônica (`cmd`) | `Job.cmd_canonical`, `IdempotencyKey.cmd`, AuditLog | `users:create` | — (é o vocabulário "raiz") |
+| `job_type` | `Job.job_type`, webhook payloads | `user_create` | `JobTypeTranslator::cmdToJobType()` |
+| **CLI argv upstream** | argv passado ao `nextcloud-manage` | **`user create`** (namespace hierárquico `user` + verb `create`, per `SSH API Reference §3.3`; §14 lista `user-create` com hífen mas isso é inconsistência da doc — o real é com espaço, confirmado via SSH em `mecloud360@MECloud360-NextCloud-SaaS-01`: `nextcloud-manage teste5 user create --async` → `{"error":"missing_username","message":"user create requer <username>"}`) | **AUSENTE** |
+
+`LifecycleAsyncAction::execute()` injeta o `$cmd` canônico (`users:create`) diretamente no argv:
+
+```php
+$sshArgs = array_merge(
+    [$customer->slug, $cmd],   // ← $cmd vai cru para o argv
+    $args,
+    ['--async', '--json', "--idempotency-key={$idempotencyKey}", "--callback={$callbackUrl}"],
+);
+```
+
+Como `users:create` não é verb async upstream válido (per §14 só aceita `user-create`, `user-remove`, `user-modify`, `group-create`, `group-remove`, `group-modify`, `apps-enable`, `apps-disable`), o parser do upstream sobe um nível e interpreta o próximo token (`joao.silva`) como subcomando → `cmd_not_allowed`.
+
+O `docs/ROADMAP.md` linha 2421 chegou a antecipar isso (`...explode(' ', $cmd)` para cmds multi-palavra), mas a implementação descartou o split e o tradutor argv nunca foi criado.
+
+**Bug B — `--async --json` duplicado no argv** (mecânico)
+
+- `LifecycleAsyncAction::execute()` linhas 70-72 adicionam `'--async', '--json'`.
+- `SshClient::runAsync()` linha 69 também faz `array_merge($args, ['--async', '--json'])`.
+
+`ProvisionCustomerAction` (linha 112) e `RemoveCustomerAction` (linha 55) seguem o contrato correto e têm comentário "runAsync appends --async --json automatically". `LifecycleAsyncAction` quebrou esse contrato e ninguém percebeu porque o upstream falhava antes no Bug A.
+
+**Por que os testes não pegaram**
+
+`tests/Feature/Customers/LifecycleTest.php:59,155,179,337,373,410` asserta `in_array('users:create', $args, true)` — ou seja, valida exatamente o vocabulário canônico-API estar no argv, justamente o comportamento bugado. Nenhum teste compara argv contra o que o upstream realmente aceita.
+
+### Critério de aceite
+
+- Criar/deletar usuário via OccPanel ou `POST/DELETE /api/customers/{c}/users` resulta em job upstream enfileirado (`exit 0` + `job_id`), não `cmd_not_allowed`
+- Criar/deletar grupo, adicionar/remover usuário do grupo, enable/disable apps idem
+- `JobTypeTranslator` ganha método `cmdToCliArgv(string $cmd): array<string>` cobrindo os 8 verbs async lifecycle + verbs estruturais (`create`/`remove`/etc se aplicável)
+- `LifecycleAsyncAction` usa o tradutor (substituindo `[$customer->slug, $cmd]` por `[$customer->slug, ...$translator->cmdToCliArgv($cmd)]`) **e** remove o `'--async', '--json'` manual (delegado a `SshClient::runAsync`)
+- Assinatura argv upstream confirmada por teste manual contra `dev.mework360.com.br` (cluster `homolog`) antes de codificar o mapping
+- Testes de `LifecycleTest` reescritos para asserir o argv **upstream-correto** (`user-create`, etc.) e ausência de `--async --json` duplicado
+- `JobTypeTranslatorTest` ganha cobertura dos pares cmd→argv
+- `docs/SETUP-DECISIONS.md` registra a decisão sobre o terceiro vocabulário
+- `.cursor/skills/vocabulary-translator/SKILL.md` documenta o terceiro vocabulário e seu tradutor
+- 230+ testes passando; CI verde
+
+### Decisões aprovadas (via Fix Brief)
+
+1. **Tradutor**: expandir `JobTypeTranslator` com `cmdToCliArgv()` (sem criar classe nova).
+2. **Assinatura upstream**: capturar via SSH (`ncsaas-api@dev.mework360.com.br`) antes de codificar mapping.
+3. **Email/groups em `createUser`**: decidir após confirmar assinatura upstream — Sprint F gather.
+
+### Descobertas via SSH (`mecloud360@MECloud360-NextCloud-SaaS-01`, upstream v12.3.0)
+
+`nextcloud-manage --help` confirma sintaxe hierárquica (`§3.3` da SSH API Reference é a verdadeira; `§14` está desatualizada):
+
+```
+nextcloud-manage <cliente> user   create|remove|modify [--async] [--payload-stdin]
+nextcloud-manage <cliente> group  create|remove|modify [--async]
+nextcloud-manage <cliente> apps   enable|disable [--async]
+nextcloud-manage <cliente> occ-exec <subcmd> [args]
+```
+
+**Mapping consolidado (FINAL):**
+
+| API canônica | CLI argv upstream | Status | Args/flags |
+|---|---|---|---|
+| `users:create` | `['user', 'create']` | ✅ pronto | `<username>` positional + `--payload-stdin` `{password, email?, groups?}` |
+| `users:delete` | `['user', 'remove']` | ✅ pronto | `<username>` positional (NÃO `user delete`) |
+| `groups:create` | `['group', 'create']` | ✅ pronto | `<groupname>` positional |
+| `groups:delete` | `['group', 'remove']` | ✅ pronto | `<groupname>` positional (NÃO `group delete`) |
+| `groups:add` | **— bloqueado upstream —** | ❌ não existe | retornar 501 até upstream D3/D4 entregar |
+| `groups:remove` | **— bloqueado upstream —** | ❌ não existe | retornar 501 até upstream D3/D4 entregar |
+| `apps:enable` | `['apps', 'enable']` | ✅ pronto | `<apps_csv>` positional (CSV nativo!) |
+| `apps:disable` | `['apps', 'disable']` | ✅ pronto | `<apps_csv>` positional (CSV nativo!) |
+
+### Design points descobertos no probing
+
+**DP1 — `group modify` NÃO faz membership; é rename**
+
+`group modify <groupname> <action> [new_name]` — o campo `new_name` no `args_json` retornado pelo probing denuncia o propósito real (renomear grupo). O upstream aceitou strings arbitrárias como `action` (até `--add-user` virou string posicional) e descartou args extras silenciosamente, criando jobs "queued" que iriam falhar na execução real do worker. **Conclusão**: `groups:add`/`groups:remove` ficam blocked-on-upstream — a API deve retornar `501 not_implemented` explícito.
+
+**DP2 — `apps enable/disable` aceita CSV nativo**
+
+Assinatura: `apps enable <apps_csv>`. O código atual `CustomerLifecycleController::dispatchMulti()` faz loop disparando N jobs (um por app), gerando N round-trips SSH + N rows em `jobs`/`idempotency_keys` e perdendo atomicidade. Sprint F deve consolidar em **um único job** passando o CSV.
+
+**DP3 — `user create` exige `--payload-stdin` (sem positional após username)**
+
+Probing confirma: nenhum positional além de `<username>` é aceito; email/groups precisam ir no JSON do stdin junto com password. Hoje `OccPanel::createUser` e `CustomerLifecycleController::createUser` passam `email` como segundo positional e `--group=X` como flag — falham silenciosamente. Schema do stdin a padronizar: `{password, email?, groups: string[]?}` (validar com upstream se aceita keys além de `password`).
+
+### Riscos descobertos
+
+1. **Upstream em desenvolvimento (D3/D4)** — vários verbs retornam `not_implemented_yet`. Coordenar com `mework360-deployer-scripts` para implementação dos verbs de membership (`group add-user`/`remove-user`) ou definir contrato alternativo.
+
+2. **Documentação upstream desatualizada** — `SSH API Reference §14` lista `user-create` (hífen) que não existe. O real é `user create` (espaço/namespace hierárquico per §3.3). Abrir issue no `mework360-deployer-scripts` para alinhar.
+
+3. **Testes mockam `SshClientInterface` com asserções simétricas ao bug** — `LifecycleTest.php` valida `in_array('users:create', $args)` (argv canônico-API). Os mocks nunca compararam contra contrato upstream real. Sprint F precisa de pelo menos um teste de **contrato/integração** (com flag de skip em CI) que dispare SSH real e valide `exit 0 + job_id`.
+
+### Próximo passo
+
+Executar `/fix` para criar Sprint F com TDD + auditoria HIGH no delta. Escopo recomendado da Sprint F:
+
+- **F1**: Implementar `JobTypeTranslator::cmdToCliArgv()` com mapping fechado acima + exceção `BlockedOnUpstreamException` para `groups:add`/`groups:remove`.
+- **F2**: Refatorar `LifecycleAsyncAction::execute()` — usar tradutor + remover `--async/--json` manual (delegação a `SshClient::runAsync`).
+- **F3**: Atualizar `CustomerLifecycleController` — `groups:add`/`groups:remove` retornam 501 explícito; `apps:enable`/`apps:disable` consolidam em job único com CSV; `createUser` move email/groups para stdin payload.
+- **F4**: Espelhar mudanças no `OccPanel` (Livewire).
+- **F5**: Reescrever asserções de teste para argv upstream-correto + adicionar testes de pares cmd→argv no tradutor.
+- **F6**: Atualizar `docs/SETUP-DECISIONS.md` (decisão sobre 3º vocabulário) e `.cursor/skills/vocabulary-translator/SKILL.md`.
+- **F7** (opcional, atrás de flag): teste de contrato SSH real disparando 1 verb de cada categoria contra cluster `homolog`.
+
+Executor deve usar modelo diferente do diagnosticador (model diversity per framework rule).
+
+---
+
+## ISSUE-007 — E2E browser coverage via Dusk/Playwright
+
+- **Tipo**: change_request
+- **Prioridade**: MEDIUM
+- **Status**: open (backlog — sprint N-UI dedicada)
+- **Registrado em**: 2026-05-20
+- **Origem**: spillover de F5 R2 — finding `QA-F5-019` apontou que cobertura de UI Livewire via `Livewire::test()` não exercita o navegador real (HTML parsing, JS Alpine, eventos `wire:submit`/`wire:click`). F5.11 corrigiu o bug em camada de same-path (`wire:model` + `set('userPasswordPlain')` em testes), mas continua faltando proteção contra divergências futuras blade↔componente que só apareçam em browser real.
+- **Solicitante**: auditor-qa R2 (gemini-3.1-pro) + auditor-senior R2 (claude-4.6-sonnet-medium-thinking)
+
+### Descrição
+
+A stack de testes do projeto cobre:
+- **Unit** (Pest): translators, slug rule, value objects.
+- **Feature/HTTP** (Pest + Laravel TestCase): controllers via `$this->get/post`, autorização via Gate, validação.
+- **Feature/Livewire** (Pest + Livewire\Livewire): componentes via `Livewire::test()->set()->call()->assert*()`.
+- **Contract** (Pest, opt-in `RUN_UPSTREAM_CONTRACT=1`): SSH real contra cluster `homolog`.
+
+Falta uma camada **browser real** (Dusk ou Playwright) para:
+1. Validar que `wire:model` e `wire:submit` populam o payload Livewire conforme a view renderizada (não apenas conforme assumimos no teste Livewire).
+2. Pegar divergências HTML/CSS/JS que `Livewire::test()` por design não enxerga (ex.: input com `type="password"` sem `wire:model` — exatamente o cenário do bug `QA-F5-019`).
+3. Cobrir interações Alpine.js, modais, navegação multi-página (login → dashboard → painel → ação).
+
+### Critério de aceite (proposta para sprint dedicada)
+
+- Instalar `laravel/dusk` (Chrome) **ou** Playwright (Node) — decidir após avaliar custo do container browser no CI/dev.
+- 1 teste E2E happy-path por área crítica:
+  - Auth: login + redirect ao dashboard.
+  - Customers: criar + ver na listagem.
+  - **OccPanel/createUser**: digitar senha no campo + click no "Criar Usuário" → job enfileirado e mensagem de sucesso visível (regressão guard sobre `QA-F5-019`).
+  - ApiKeys: criar + copiar via clipboard.
+  - Operators: criar via convite + aceitar com URL assinada.
+- Setup CI: container browser separado (Selenium standalone-chrome ou Playwright official image) com lifecycle apenas para a job `e2e`; não bloquear a job `test`.
+- Documentar em `docs/TESTING.md` quando rodar E2E (pre-release vs PR vs branch protected).
+
+### Riscos / não-decisões
+
+- **Custo de manutenção**: testes E2E são frágeis (CSS selectors mudam, animações causam flakiness). Restringir a happy paths críticos; nunca espelhar cobertura unit/feature em E2E.
+- **Custo de CI**: container browser adiciona ~30-60s ao pipeline; manter job opcional em PRs e obrigatória em releases.
+- **Decisão Dusk vs Playwright**: Dusk integra mais limpo com Laravel (factories + database transactions), Playwright tem melhor DX e suporte cross-browser (Firefox/Safari). Decidir na sprint.
+
+### Próximo passo
+
+Não há próximo passo imediato — esta issue fica em backlog até decisão de roadmap para uma sprint N-UI dedicada (não bloquear sprints F/N atuais).

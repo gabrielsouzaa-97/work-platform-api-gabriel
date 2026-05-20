@@ -11,6 +11,12 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <testsuite name="Contract">
+            <!-- Opt-in via RUN_UPSTREAM_CONTRACT=1. Default-skipped at the example level
+                 (see tests/Contract/Customers/UpstreamContractTest.php). NOT included
+                 in default test suite to avoid accidental real-SSH calls in CI. -->
+            <directory>tests/Contract</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

@@ -18,6 +18,14 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+// Contract tests run against REAL upstream — opt-in via RUN_UPSTREAM_CONTRACT=1.
+// They MUST NOT use RefreshDatabase (the operator seeds cluster/customer rows
+// before invocation; wiping them would render the suite non-functional). The
+// Pest `--filter` and the env-guard inside each `it()` keep these tests
+// inert in normal CI runs.
+pest()->extend(TestCase::class)
+    ->in('Contract');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations
@@ -47,4 +55,21 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Guards against the two regression patterns that broke ISSUE-006:
+ *  - Bug A: canonical-API vocab leaking into upstream argv (e.g. 'users:create').
+ *  - Bug B: caller duplicating --async/--json (SshClient::runAsync already appends them).
+ *
+ * Use inside `withArgs(fn ($c, $cmd, $args) => ... && noUpstreamFlagDuplication($args, $canonicalCmd))`.
+ *
+ * @param  array<int, mixed>  $args  argv passed to SshClient::runAsync()
+ * @param  string  $canonicalCmd  Canonical cmd (e.g. 'groups:create') that MUST NOT leak into argv
+ */
+function noUpstreamFlagDuplication(array $args, string $canonicalCmd): bool
+{
+    return ! in_array('--async', $args, true)
+        && ! in_array('--json', $args, true)
+        && ! in_array($canonicalCmd, $args, true);
 }

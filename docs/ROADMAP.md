@@ -3039,10 +3039,539 @@ Frontmatter YAML obrigatória:
 
 ---
 
-## Historico
+## Sprint F5 — Tradutor cmd → CLI argv: fix lifecycle async upstream contract
+
+> Categoria: F
+> Gate: criar usuário pelo `OccPanel` ou `POST /api/customers/{c}/users` enfileira job upstream com `exit 0 + job_id` (não `cmd_not_allowed`); mesmo para deletar usuário (`['user', 'remove']`), criar/deletar grupo (`['group', 'create|remove']`) e enable/disable apps (`['apps', 'enable|disable']` com CSV consolidado em 1 job); `groups:add`/`groups:remove` retornam HTTP 501 explícito (`not_implemented_yet`) até upstream entregar; `JobTypeTranslator::cmdToCliArgv()` cobre 100% dos pares; argv NUNCA contém `--async --json` duplicado; `cmd_canonical` no DB continua `users:create` (vocabulário interno preservado); 235+ testes passando; CI verde
+> Gerado por `/fix` em 2026-05-20. Fonte: ISSUE-006 (postmortem HIGH; SSH probing real contra `mecloud360@MECloud360-NextCloud-SaaS-01` v12.3.0).
+> review: senior+qa (severidade HIGH + cross-module Customers/Core/Ssh — obrigatório por `debugging-sistematico` Fase 4a)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F5.1 — [FIX] `JobTypeTranslator::cmdToCliArgv()` + `BlockedOnUpstreamException` | `vocabulary-translator` | — |
+| [x] | P | F5.2 — [FIX] `LifecycleAsyncAction`: usar tradutor + remover `--async/--json` manual | `ssh-orchestrator` | F5.1 |
+| [x] | M | F5.3 — [FIX] `CustomerLifecycleController`: 501 p/ `groups:add/remove` + `apps enable/disable` consolidado em CSV + email/groups via stdin | `laravel-api` | F5.2 |
+| [x] | P | F5.4 — [FIX] `OccPanel.php` (Livewire): espelhar mudanças do controller (501 + CSV apps + stdin schema) | `laravel-livewire` | F5.3 |
+| [x] | P | F5.5 — [FIX] Reescrever asserções de `LifecycleTest.php` para argv upstream-correto + adicionar pares cmd→argv em `JobTypeTranslatorTest` | `laravel-testing` | F5.2, F5.3 |
+| [x] | P | F5.6 — [FIX] Docs: `docs/DECISION-BRIEF.md` (Decision #ARCH-4, 3º vocabulário) + `.cursor/skills/vocabulary-translator/SKILL.md` | `laravel-api` | F5.1 |
+| [x] | M | F5.7 — [FIX] (opt-in) Teste de contrato SSH real contra cluster `homolog` (movido p/ `tests/Contract/`, flag `RUN_UPSTREAM_CONTRACT=1`) | `ssh-orchestrator` | F5.2 |
+| [x] | P | F5.8 — [FIX-R1] Assert rollback de `IdempotencyKey` nos 3 testes SSH-failure + novo teste `SshConnectionException` em cluster ativo (QA-F5-017 HIGH + QA-F5-018 MEDIUM) | `laravel-testing` | F5.5 |
+| [x] | P | F5.9 — [FIX-R1] Helper `assertNoUpstreamFlagDuplication` aplicado nos 4 endpoints + adicionar `email`/`groups` no stdin do `UpstreamContractTest` (QA-F5-005 ampliado + QA-F5-015 MEDIUM) | `laravel-testing` | F5.5 |
+| [x] | M | F5.10 — [FIX-R1] `docs/openapi.yaml`: novo shape `apps/enable\|disable` + response 501 `groups/{g}/users` + criar `tests/Feature/Livewire/Customers/OccPanelTest.php` (CQ-F5-001 HIGH + QA-F5-016 MEDIUM) | `laravel-livewire` + docs | F5.3, F5.4 |
+| [ ] | M | F5.11 — [FIX-R2] Eliminar test/production divergence em `OccPanel::createUser`: refatorar blade para `<form wire:submit.prevent>` + `wire:model="userPasswordPlain"` em propriedade pública (sem `#[Locked]`), remover escape-hatch `?string $password` e fallback `request()->input()`; atualizar 4 testes Livewire para o same-path real; registrar ISSUE backlog para E2E Dusk/Playwright (QA-F5-019 HIGH) | `laravel-livewire` | F5.4, F5.10 |
+
+> **R1 follow-up (2026-05-20T17:30Z)**: `/qa validar R1` resultou REPROVADA — 2 HIGH pendentes em sprint aberta (`CQ-F5-001` + `QA-F5-017`). Per PROC-012 + Hard Rule 5, F5.8–F5.10 corrigidos in-sprint (mesma branch `uds/fix/lifecycle-async-cmd-argv`).
+> **R2 follow-up (2026-05-20T19:30Z)**: `/qa validar R2` resultou REPROVADA — 1 HIGH convergente (`QA-F5-019` OccPanel::createUser quebrado em produção; test/production divergence via escape-hatch). Decisão usuário: continuar in-sprint via task F5.11 (estratégia same-path, opção A do finding). Re-validação R3 após F5.11.
+
+### Quality Brief (Sprint F5)
+
+> PATTERN-001 (Decision #187): ao executar a auditoria de Quality Brief, o auditor-senior DEVE criar `docs/.briefs/F5.brief.md` como PRIMEIRO Write, antes de qualquer finding ou resumo. Sem este artefato, `.githooks/pre-commit` bloqueia o commit final da sprint.
+
+### Contexto F5
+
+Em 2026-05-20 06:00 UTC log de produção (`local.DEBUG: SSH command executed ... exit_code: 101 stdout: {"error":"cmd_not_allowed","cmd":"joao.silva"}`) revelou que a feature **lifecycle async de users/groups/apps** (`OccPanel` Livewire + `POST/DELETE /api/customers/{c}/users|groups|apps/*`) está completamente quebrada. Análise via `/qa debug` identificou dois bugs interagindo:
+
+1. **Bug arquitetural** — vocabulário canônico-API (`users:create`) vazando direto no argv do `nextcloud-manage`. O upstream usa namespace hierárquico `user create` (per `SSH API Reference §3.3`), não `users:create`. Falta a camada de tradução **cmd canônico → CLI argv** (terceiro vocabulário do sistema; os outros dois — `cmd_canonical` ↔ `job_type` — têm tradutor: `JobTypeTranslator`).
+2. **Bug mecânico** — `--async --json` duplicado: `LifecycleAsyncAction::execute()` adiciona manualmente e `SshClient::runAsync()` adiciona de novo. Os outros chamadores (`ProvisionCustomerAction`, `RemoveCustomerAction`) seguem o contrato correto.
+
+**Por que os testes não pegaram**: `tests/Feature/Customers/LifecycleTest.php` valida `in_array('users:create', $args)` — asserta exatamente o vocabulário canônico-API no argv, ou seja, o comportamento bugado.
+
+**Mapping fechado** (via SSH probing real contra `mecloud360@MECloud360-NextCloud-SaaS-01` v12.3.0):
+
+| API canônica | CLI argv upstream | Status |
+|---|---|---|
+| `users:create` | `['user', 'create']` + `<username>` + `--payload-stdin {password, email?, groups?}` | ✅ |
+| `users:delete` | `['user', 'remove']` + `<username>` (NÃO `user delete`) | ✅ |
+| `groups:create` | `['group', 'create']` + `<groupname>` | ✅ |
+| `groups:delete` | `['group', 'remove']` + `<groupname>` (NÃO `group delete`) | ✅ |
+| `groups:add` | **blocked-on-upstream** — `group modify` upstream é rename, não membership; verbs `add-user`/`remove-user` retornam `not_implemented_yet ... D3/D4` | ❌ |
+| `groups:remove` | **blocked-on-upstream** (idem) | ❌ |
+| `apps:enable` | `['apps', 'enable']` + `<apps_csv>` (CSV nativo — substituir loop `dispatchMulti` por 1 job) | ✅ |
+| `apps:disable` | `['apps', 'disable']` + `<apps_csv>` (idem) | ✅ |
+
+### Riscos da Sprint F5
+
+- **`group modify` schema desconhecido**: o upstream aceitou strings arbitrárias como `action` no probing (criou jobs queued que iriam falhar na execução). F5.3 retorna 501 explícito para `groups:add/remove` até `mework360-deployer-scripts` D3/D4 entregar o verb correto.
+- **Schema do stdin de `user create`**: probing confirmou `--payload-stdin` obrigatório com `password`, mas não validamos se `email`/`groups` são aceitos como keys adicionais. F5.3 inicia com `{password, email?, groups?}` e ajusta após teste de integração F5.7 (se rodado).
+- **Documentação upstream inconsistente**: `SSH API Reference §14` lista `user-create` (com hífen) que NÃO existe. O real é `user create` (espaço). Abrir issue no repo `mework360-deployer-scripts` como follow-up (fora desta sprint).
+
+---
+
+### Task F5.1 — [FIX] JobTypeTranslator::cmdToCliArgv() + BlockedOnUpstreamException
+
+**Estado atual**: `JobTypeTranslator` mapeia `cmd_canonical` (ex.: `users:create`) ↔ `job_type` (ex.: `user_create`). Não há mapeamento para CLI argv upstream. `LifecycleAsyncAction::execute()` (linha 67-76) injeta `$cmd` cru no argv.
+
+**Estado desejado**: `JobTypeTranslator` ganha método `cmdToCliArgv(string $cmd): array<string>` retornando tokens upstream (ex.: `['user', 'create']`). Para `groups:add`/`groups:remove` lança nova `BlockedOnUpstreamException` que controllers mapeiam para HTTP 501.
+
+**Fonte(s)**: ISSUE-006 §"Causa raiz" + descobertas SSH probing
+**Módulo(s) afetado(s)**: `app/Modules/Core/Translators/`, `app/Modules/Core/Translators/Exceptions/`
+**Risco**: LOW — adição pura (não muda mapping existente)
+**Budget**: P (2 arquivos: `JobTypeTranslator.php` edit + nova exception class)
+
+**Correction (ANTES/DEPOIS)**:
+
+```php
+// ANTES — JobTypeTranslator.php
+final class JobTypeTranslator
+{
+    private const CMD_TO_JOB_TYPE = [/* ... 15 verbs ... */];
+    private const JOB_TYPE_TO_CMD = [/* flip ... */];
+
+    public function cmdToJobType(string $cmd): string { /* ... */ }
+    public function jobTypeToCmd(string $jobType): string { /* ... */ }
+}
+
+// DEPOIS — adicionar constante + método
+private const CMD_TO_CLI_ARGV = [
+    'create' => ['create'],
+    'remove' => ['remove'],
+    'backup' => ['backup'],
+    'restore' => ['restore'],
+    'update' => ['update'],
+    'stop' => ['stop'],
+    'start' => ['start'],
+    'users:create' => ['user', 'create'],
+    'users:delete' => ['user', 'remove'],   // NÃO 'user delete'
+    'groups:create' => ['group', 'create'],
+    'groups:delete' => ['group', 'remove'], // NÃO 'group delete'
+    // 'groups:add' e 'groups:remove' INTENCIONALMENTE ausentes:
+    //   upstream group modify atual é rename, não membership.
+    //   Verbs add-user/remove-user retornam not_implemented_yet em v12.3.0.
+    //   cmdToCliArgv() lança BlockedOnUpstreamException para esses cmds.
+    'apps:enable' => ['apps', 'enable'],
+    'apps:disable' => ['apps', 'disable'],
+];
+
+private const BLOCKED_ON_UPSTREAM = [
+    'groups:add' => 'group_membership_add not implemented upstream (mework360-deployer-scripts D3/D4 pending)',
+    'groups:remove' => 'group_membership_remove not implemented upstream (mework360-deployer-scripts D3/D4 pending)',
+];
+
+public function cmdToCliArgv(string $cmd): array
+{
+    if ($cmd === '') {
+        throw new UnknownVerbException('Command cannot be empty');
+    }
+    if (isset(self::BLOCKED_ON_UPSTREAM[$cmd])) {
+        throw new BlockedOnUpstreamException(self::BLOCKED_ON_UPSTREAM[$cmd], cmd: $cmd);
+    }
+    return self::CMD_TO_CLI_ARGV[$cmd]
+        ?? throw new UnknownVerbException(
+            "Unknown cmd: '{$cmd}'. Update CMD_TO_CLI_ARGV mapping to register new verbs."
+        );
+}
+```
+
+```php
+// NOVO — app/Modules/Core/Translators/Exceptions/BlockedOnUpstreamException.php
+namespace App\Modules\Core\Translators\Exceptions;
+
+final class BlockedOnUpstreamException extends \RuntimeException
+{
+    public function __construct(string $message, public readonly string $cmd)
+    {
+        parent::__construct($message);
+    }
+}
+```
+
+**Test**:
+- `JobTypeTranslatorTest::cmdToCliArgv_maps_all_canonical_verbs()` — dataset com 12 pares (todos exceto os 2 blocked).
+- `JobTypeTranslatorTest::cmdToCliArgv_throws_BlockedOnUpstream_for_groups_membership()` — `groups:add` e `groups:remove`.
+- `JobTypeTranslatorTest::cmdToCliArgv_throws_UnknownVerb_for_unmapped()` — `'inexistente:x'`.
+
+---
+
+### Task F5.2 — [FIX] LifecycleAsyncAction: usar tradutor + remover --async/--json manual
+
+**Estado atual**: `LifecycleAsyncAction::execute()` (linha 67-76) faz `array_merge([$customer->slug, $cmd], $args, ['--async', '--json', ...])`. `SshClient::runAsync()` (linha 69) também faz `array_merge($args, ['--async', '--json'])` → flags duplicadas no argv final.
+
+**Estado desejado**: `array_merge([$customer->slug, ...$translator->cmdToCliArgv($cmd)], $args, ['--idempotency-key=...', '--callback=...'])`. As flags `--async --json` ficam por conta do `SshClient::runAsync` (delegação correta, consistente com `ProvisionCustomerAction` e `RemoveCustomerAction`).
+
+**Fonte(s)**: ISSUE-006 §"Bug A" + §"Bug B"
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
+**Risco**: LOW — mudança cirúrgica em 1 arquivo; coberta por testes existentes (após F5.5 reescrever asserções)
+**Budget**: P (1 arquivo + branch handling de `BlockedOnUpstreamException`)
+
+**Correction (ANTES/DEPOIS)**:
+
+```php
+// ANTES — LifecycleAsyncAction.php linhas 67-76
+$sshArgs = array_merge(
+    [$customer->slug, $cmd],
+    $args,
+    [
+        '--async',
+        '--json',
+        "--idempotency-key={$idempotencyKey}",
+        "--callback={$callbackUrl}",
+    ],
+);
+
+// DEPOIS
+$sshArgs = array_merge(
+    [$customer->slug, ...$this->translator->cmdToCliArgv($cmd)],
+    $args,
+    [
+        "--idempotency-key={$idempotencyKey}",
+        "--callback={$callbackUrl}",
+    ],
+);
+```
+
+`BlockedOnUpstreamException` propaga naturalmente (controllers a tratam — ver F5.3).
+
+**Test**:
+- `LifecycleAsyncActionTest::execute_sends_user_create_argv_not_users_colon_create()` — mock recebe `args` contendo `'user'` e `'create'` consecutivos; NÃO contém `users:create`.
+- `LifecycleAsyncActionTest::execute_does_not_duplicate_async_json_flags()` — count de `'--async'` em `$args` recebido pelo mock = 0 (SshClient adiciona, action não).
+- `LifecycleAsyncActionTest::execute_propagates_BlockedOnUpstreamException()` — chamada com `cmd='groups:add'` lança exception sem disparar SSH.
+
+---
+
+### Task F5.3 — [FIX] CustomerLifecycleController: 501 + CSV consolidado + email/groups via stdin
+
+> **Esta é a única task M (Moderate) da sprint.** Decisões de design: schema do stdin payload, contrato HTTP 501, consolidação de apps.
+
+**Estado atual**:
+1. `createUser()` passa email como segundo positional e `--group={g}` como flag CLI — falha silenciosamente (upstream `user create` aceita só `<username>` positional + `--payload-stdin`).
+2. `dispatchMulti()` (enable/disable apps) faz loop disparando N jobs (1 por app) — ineficiente; upstream aceita CSV em 1 chamada.
+3. `addUserToGroup()`/`removeUserFromGroup()` chamam `LifecycleAsyncAction` que vai bater com `BlockedOnUpstreamException` (F5.1).
+
+**Estado desejado**:
+1. `createUser()` passa **só `<username>` como positional**; email/groups vão no stdin payload JSON `{password, email?, groups?}`.
+2. `enableApps()`/`disableApps()` consolidam em **1 chamada com CSV**: `LifecycleAsyncAction::execute($customer, 'apps:enable', [implode(',', $apps)], null, $actor)`.
+3. `addUserToGroup()`/`removeUserFromGroup()` capturam `BlockedOnUpstreamException` → retornam **HTTP 501** com `{"error":"not_implemented_yet","reason":"upstream group membership pending D3/D4","cmd":"groups:add"}`.
+
+**Fonte(s)**: ISSUE-006 §"Design points" DP1, DP2, DP3
+**Módulo(s) afetado(s)**: `app/Http/Controllers/Api/CustomerLifecycleController.php`
+**Risco**: MEDIUM — 4 endpoints mudam comportamento; testes existentes em `LifecycleTest.php` precisam adaptação (F5.5)
+**Budget**: M (1 arquivo de produção + decisões de design + 3 endpoints com mudança de contrato)
+
+**Decisões pendentes a confirmar dentro da sprint** (gather inicial obrigatório):
+- Schema final do stdin de `user create`: confirmar se upstream aceita `{password, email, groups}` num único `--payload-stdin` ou se precisa multistep (criar + setar email + add em groups). Confirmar com 1 chamada SSH real antes de codificar.
+- Formato exato do 501 response (alinhar com padrão de errors do projeto: ver `cluster_unreachable`, `lifecycle_timeout`, etc).
+
+**executor_prompt**:
+```
+Feature: corrigir 3 contratos do CustomerLifecycleController após mapping cmd → CLI argv upstream
+ficar disponível em F5.1/F5.2 (JobTypeTranslator::cmdToCliArgv + BlockedOnUpstreamException +
+LifecycleAsyncAction refatorado).
+
+Contexto do sistema:
+- API Laravel orquestradora. Controller em app/Http/Controllers/Api/CustomerLifecycleController.php.
+- 8 verbs lifecycle: users:create/delete, groups:create/delete/add/remove, apps:enable/disable.
+- Upstream nextcloud-saas-manager v12.3.0 confirmou via SSH probing (cluster homolog, host
+  dev.mework360.com.br) que:
+  * user create exige --payload-stdin com password; positional apenas <username>.
+  * apps enable/disable aceita <apps_csv> em 1 job único (não N jobs).
+  * group modify atual é rename, não membership; group add-user/remove-user retornam
+    not_implemented_yet (D3/D4 pending).
+- Tradutor cmdToCliArgv lança BlockedOnUpstreamException para groups:add/groups:remove (F5.1).
+
+Tasks deste arquivo (1 controller):
+
+1. createUser(Customer, CreateUserRequest) — ANTES passa email como positional + --group=X.
+   DEPOIS: positional apenas [$username]; stdin payload = ['password' => ..., 'email' => ...?, 'groups' => [...]?].
+   PRÉ-REQUISITO: confirmar com 1 chamada SSH real (sudo nextcloud-manage <client> user create
+   joao.silva --async --json --payload-stdin com payload {"password":"...","email":"...","groups":["editors"]})
+   se upstream aceita keys extras no payload. Se aceitar → schema final {password, email?, groups?}.
+   Se rejeitar → implementar como multistep follow-up (criar TODO; F5 entrega só com password).
+
+2. enableApps(Customer, EnableAppsRequest) e disableApps(...):
+   ANTES: dispatchMulti() faz loop chamando action->execute() por app.
+   DEPOIS: 1 chamada única com CSV — action->execute($customer, 'apps:enable', [implode(',', $apps)], null, $actor)
+   retornando 1 job_id. Endpoint retorna 202 + {"job_id": "...", "apps_csv": "a,b,c"}.
+   dispatchMulti() pode ser removido (não usado em outro lugar).
+
+3. addUserToGroup(Customer, AddUserToGroupRequest), removeUserFromGroup(...):
+   ANTES: chama dispatch() com 'groups:add'/'groups:remove' — vai propagar exceção via LifecycleAsyncAction.
+   DEPOIS: try/catch BlockedOnUpstreamException → response()->json([
+     'error' => 'not_implemented_yet',
+     'reason' => 'upstream group membership pending mework360-deployer-scripts D3/D4',
+     'cmd' => $e->cmd,
+   ], 501);
+   Manter no dispatch() do helper genérico (não inline) — ele já chama action->execute que vai
+   propagar a exceção. Capturar no dispatch() junto com as outras (ClusterUnreachable, etc).
+
+Critério de pronto:
+- createUser usa stdin payload schema (esquema confirmado por SSH real)
+- enableApps/disableApps consolidam em 1 job com CSV (testes refletem)
+- addUserToGroup/removeUserFromGroup retornam 501 com payload estruturado
+- Sem regressão em deleteUser, createGroup, deleteGroup (continuam funcionando após F5.2)
+- IDE lint clean, php-cs-fixer aplicado
+
+IMPORTANTE — Quality Brief (PATTERN-001 / Decision #187):
+auditor-senior cria docs/.briefs/F5.brief.md como PRIMEIRO Write.
+```
+
+**Test**:
+- `CustomerLifecycleControllerTest::create_user_passes_email_groups_via_stdin()` — `$stdin` recebido pelo mock é JSON com keys `password` + (opcional `email`, `groups`).
+- `CustomerLifecycleControllerTest::enable_apps_consolidates_into_single_csv_job()` — 3 apps → mock `runAsync` chamado **1x** com arg contendo `'app1,app2,app3'`.
+- `CustomerLifecycleControllerTest::add_user_to_group_returns_501_blocked_on_upstream()` — `POST /api/customers/{c}/groups/editors/users` → status 501, `error: not_implemented_yet`.
+- Mesmo para `remove_user_from_group`.
+
+---
+
+### Task F5.4 — [FIX] OccPanel.php (Livewire): espelhar mudanças do controller
+
+**Estado atual**: `OccPanel::createUser()`, `addUserToGroup()` etc. usam o mesmo `LifecycleAsyncAction` e têm os mesmos bugs do controller. UX hoje: form OCC parece submeter mas job falha silenciosamente upstream.
+
+**Estado desejado**: espelhar contratos de F5.3 — `createUser()` move email/groups para stdin payload; `addUserToGroup()`/`removeUserFromGroup()` exibem mensagem amigável "Funcionalidade pendente no upstream — disponível em release futura" (em vez de 500/exception); `submitApp()` (sync individual via `app:enable` OCC) NÃO MUDA — esse é o caminho síncrono via `OccPassthroughService`, fora do lifecycle async corrigido.
+
+**Fonte(s)**: ISSUE-006 §"Design points"
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`
+**Risco**: LOW — espelho do controller; mudança LIVRE de Livewire (sem mudança de view/blade)
+**Budget**: P (1 arquivo; ~3 métodos tocados)
+
+**Correction**:
+
+```php
+// createUser() — args agora puramente username; resto vai no stdin
+$args = [$this->userUsername];
+$stdin = array_filter([
+    'password' => $password,
+    'email' => $this->userEmail ?: null,
+    'groups' => array_values(array_filter(array_map('trim', explode(',', $this->userGroups)))) ?: null,
+]);
+$job = $action->execute($this->customer, 'users:create', $args, $stdin, $actor);
+```
+
+```php
+// addUserToGroup() — capturar BlockedOnUpstreamException
+try {
+    $job = $action->execute($this->customer, 'groups:add', [...], null, $actor);
+} catch (BlockedOnUpstreamException) {
+    $this->errorMessage = 'Funcionalidade pendente no upstream — disponível em release futura.';
+    return;
+}
+```
+
+**Test**:
+- `OccPanelTest::create_user_via_livewire_uses_stdin_payload()` — chamada via `Livewire::test()->call('createUser')` → mock recebe stdin com keys corretos; argv positional só com username.
+- `OccPanelTest::add_user_to_group_shows_blocked_message()` — chamada → `errorMessage === 'Funcionalidade pendente no upstream...'`.
+
+---
+
+### Task F5.5 — [FIX] Reescrever asserções de teste
+
+**Estado atual**: `tests/Feature/Customers/LifecycleTest.php` valida `in_array('users:create', $args, true)` em 6+ lugares (linhas 59, 155, 179, 337, 373, 410) — assertion simétrica ao bug. `JobTypeTranslatorTest.php` cobre só cmd↔job_type, não cmd→argv.
+
+**Estado desejado**:
+- `LifecycleTest.php`: asserções comparam contra **argv upstream-correto** (`['user', 'create']`, `['group', 'remove']`, etc.) usando o helper de match consecutivo (pares de tokens).
+- Asserir ausência de `--async --json` duplicado: `count(array_filter($args, fn($a) => $a === '--async')) === 0` (caller não duplica; SshClient adiciona).
+- `JobTypeTranslatorTest.php`: novo grupo `cmdToCliArgv` cobrindo 12 pares válidos + 2 blocked + 1 unknown.
+
+**Fonte(s)**: ISSUE-006 §"Por que os testes não pegaram"
+**Módulo(s) afetado(s)**: `tests/Feature/Customers/LifecycleTest.php`, `tests/Unit/Core/JobTypeTranslatorTest.php`
+**Risco**: LOW — testes; verde se F5.1+F5.2+F5.3 corretas
+**Budget**: P (2 arquivos de teste; ~12 asserções para revisar)
+
+**Correction (helper sugerido para LifecycleTest)**:
+
+```php
+function argsContainConsecutive(array $args, array $sequence): bool
+{
+    $n = count($sequence);
+    for ($i = 0; $i <= count($args) - $n; $i++) {
+        if (array_slice($args, $i, $n) === $sequence) return true;
+    }
+    return false;
+}
+
+// ANTES:
+// ->withArgs(fn ($c, $cmd, $args, $stdin) => in_array('users:create', $args, true) && ...)
+
+// DEPOIS:
+// ->withArgs(fn ($c, $cmd, $args, $stdin) =>
+//     argsContainConsecutive($args, ['user', 'create'])
+//     && !in_array('--async', $args, true)  // SshClient adiciona, action não
+//     && str_contains($stdin ?? '', '"password"')
+// )
+```
+
+**Test** (esta task PRODUZ testes; gate = todos os 230+ testes passando após F5.1-F5.4 + estes):
+- Suite completa passa: `php artisan test` ou `pest`
+- Nenhum teste mock asserting `in_array('users:create', $args)` (grep ZERO matches).
+
+---
+
+### Task F5.6 — [FIX] Docs: SETUP-DECISIONS + skill vocabulary-translator
+
+**Estado atual**: `docs/SETUP-DECISIONS.md` não documenta o terceiro vocabulário. `.cursor/skills/vocabulary-translator/SKILL.md` lista 2 tradutores (state, jobtype) mas não menciona cmd→argv. Skill tem `references/` inexistente (vide `ls` durante o debug).
+
+**Estado desejado**:
+- `SETUP-DECISIONS.md`: nova decisão (próximo número livre) — "3 vocabulários: cmd_canonical (interno), job_type (webhook), CLI argv (upstream); JobTypeTranslator agrega 2 dos 3 mappings; cmd↔argv é o gap fechado em F5".
+- `vocabulary-translator/SKILL.md`: adicionar 4º item em Main Flow ("Tradução cmd → CLI argv") + atualizar Rules ("3 vocabulários, não 2").
+
+**Fonte(s)**: ISSUE-006 §"Próximo passo" item docs
+**Módulo(s) afetado(s)**: `docs/SETUP-DECISIONS.md`, `.cursor/skills/vocabulary-translator/SKILL.md`
+**Risco**: LOW — docs
+**Budget**: P (2 arquivos markdown)
+
+**Test**: revisão manual no PR (auditor-senior valida que docs refletem F5.1).
+
+---
+
+### Task F5.7 — [FIX] (opt-in) Teste de contrato SSH real contra cluster homolog
+
+**Estado atual**: nenhum teste de contrato real — toda integração SSH é mockada. Bug A passou despercebido porque mock validava argv canônico-API ao invés do upstream-correto.
+
+**Estado desejado**: 1 teste por categoria de verb (criar usuário, deletar usuário, criar grupo, deletar grupo, enable app, disable app) que dispara SSH real contra cluster `homolog` (`119d74df-9011-4c0f-a6bf-ad03f84af10d`, host `dev.mework360.com.br`) e valida:
+- `exit_code === 0`
+- `parsedJson['job_id']` UUID v4 válido
+- `parsedJson['state'] === 'queued'`
+
+Atrás de env flag (`RUN_UPSTREAM_CONTRACT=1`) — não roda em CI default, só em validação manual pré-merge.
+
+**Fonte(s)**: ISSUE-006 §"Riscos descobertos" item 3
+**Módulo(s) afetado(s)**: `tests/Feature/Customers/UpstreamContractTest.php` (NOVO)
+**Risco**: MEDIUM — cria jobs reais no cluster homolog (pode poluir `jobs` table upstream; usar slug de teste descartável, ex.: `slug='qa-f5-contract'`)
+**Budget**: M (1 arquivo de teste + env flag setup + cleanup de jobs criados)
+
+**executor_prompt**:
+```
+Feature: teste de contrato SSH real contra cluster homolog para validar mapping cmd → CLI argv
+após F5.1-F5.6. Previne regressão do bug F5 (vocabulário canônico-API vazando no argv upstream).
+
+Contexto:
+- Atrás de flag de env: RUN_UPSTREAM_CONTRACT=1. Default: skip.
+- Cluster homolog em DB: 119d74df-9011-4c0f-a6bf-ad03f84af10d.
+- Slug de teste descartável (não usar slug real): 'qa-f5-contract' (criar setup/teardown).
+- LifecycleAsyncAction usa SshClient real (NÃO mockar).
+- Após cada teste, opcionalmente cancelar o job criado upstream via job cancel (cleanup).
+
+Tasks:
+1. tests/Feature/Customers/UpstreamContractTest.php:
+   - beforeAll: criar Customer com slug='qa-f5-contract', cluster=homolog
+   - it('user create dispara job upstream com exit 0', função): chama LifecycleAsyncAction->execute(
+     $customer, 'users:create', ['joao-test'], ['password' => '...']); asserta $job->job_id é UUID,
+     $job->state === 'queued'.
+   - Mesmo para user remove, group create, group remove, apps enable, apps disable.
+   - skip(!env('RUN_UPSTREAM_CONTRACT')) em todos.
+   - afterAll: cleanup do customer + tentar cancelar jobs criados.
+
+2. .github/workflows/upstream-contract.yml (NOVO, opcional):
+   - Workflow manual (workflow_dispatch) que roda RUN_UPSTREAM_CONTRACT=1.
+   - Configura secrets SSH para cluster homolog.
+
+Critério de pronto:
+- Suite normal (sem flag) → testes pulam.
+- RUN_UPSTREAM_CONTRACT=1 php artisan test --filter=UpstreamContractTest → todos passam contra cluster homolog real.
+- Cleanup deixa cluster sem rastro de testes (slug qa-f5-contract removido).
+```
+
+**Test**: o próprio. Validação manual pré-merge da F5.
+
+---
+
+### Task F5.8 — [FIX-R1] Rollback de IdempotencyKey + path negativo SshConnectionException
+
+> **Re-validação R1 follow-up.** Resolve `QA-F5-017` (HIGH — weak invariant em 3 testes SSH-failure) e `QA-F5-018` (MEDIUM — path negativo SshConnectionException em cluster ativo).
+
+**Estado atual**: `LifecycleAsyncAction::execute()` linhas 108-117 têm 3 catch blocks que deletam explicitamente a `IdempotencyKey` antes de re-throw (contrato defensivo deliberado para permitir retry). Testes em `LifecycleTest.php:415-446, 584-599` (SSH exit 4 → 409, exit 22 → 422, timeout → 504) asseram apenas HTTP status + JSON path, **sem verificar estado final do banco**. Adicionalmente, o teste `cluster offline → 503` (linha 392-413) usa cluster `status=unreachable` que dispara guard preemptiva — **nunca exercita** a catch block `SshConnectionException → ClusterUnreachableException` (linha 108-110) em cluster ativo.
+
+**Estado desejado**:
+- 3 testes existentes ganham `expect(IdempotencyKey::where('cmd', $cmd)->count())->toBe(0)` após `assertStatus()`.
+- Teste de timeout adicionalmente verifica `Job::count() === 0` + `AuditLog::where('action', $cmd.'_initiated')->count() === 0` (padrão estabelecido em QA-F5-004).
+- Novo teste `SshConnectionException em cluster ativo → 503 cluster_unreachable` em `LifecycleTest.php`, espelhando o cenário real de produção (cluster active + SSH cai em runtime).
+
+**Fonte(s)**: FINDINGS QA-F5-017 (HIGH), QA-F5-018 (MEDIUM)
+**Módulo(s) afetado(s)**: `tests/Feature/Customers/LifecycleTest.php` (3 testes alterados + 1 teste novo)
+**Risco**: LOW — só testes; reforça invariantes já implementadas
+**Budget**: P (~25min, 3 expect chains + 1 teste novo de ~20 LoC)
+
+**Test**: a própria task. Gate = `php artisan test --filter=LifecycleTest` verde + grep para confirmar que cada um dos 4 cenários (exit 4, exit 22, timeout, SshConnectionException) tem `IdempotencyKey` assertion.
+
+---
+
+### Task F5.9 — [FIX-R1] Helper anti-duplicação de flags upstream + stdin estendido no Contract test
+
+> **Re-validação R1 follow-up.** Resolve `QA-F5-005` ampliado (MEDIUM — bug-B guards incompletos em 4 endpoints) e `QA-F5-015` (MEDIUM — Contract test não exercita `email`/`groups`).
+
+**Estado atual**:
+1. `LifecycleTest.php` tem guard completo `! in_array('--async') && ! in_array('--json')` apenas em 3 testes (`POST users`, `POST apps/disable` single, `POST apps/disable` 3 apps). Os 4 demais endpoints têm guard parcial ou ausente:
+   - `POST groups` (linha 235-251): tem `! --async`, **falta `! --json`**
+   - `DELETE users/{username}` (linha 255-277): **falta ambos**
+   - `DELETE groups/{group}` (linha 473-493): **falta ambos**
+   - `POST apps/enable` (linha 295-319): **falta ambos**
+2. `tests/Contract/Customers/UpstreamContractTest.php:90-96` cenário `users:create` injeta apenas `['password' => '...']` no stdin — não valida que upstream `nextcloud-manage` aceita o JSON estendido `{password, email?, groups?}` introduzido em F5.3.
+
+**Estado desejado**:
+- Helper reusável `assertNoUpstreamFlagDuplication(array $args, string $cmd): void` em `tests/Pest.php` (ou em concern dedicado): verifica `! in_array('--async')`, `! in_array('--json')` e `! in_array($cmd, ...)` para bug-symmetry.
+- Helper chamado em todos os 7 testes de `LifecycleTest.php` que validam `withArgs` (users:create, users:delete, groups:create, groups:delete, apps:enable, apps:disable single, apps:disable 3 apps).
+- `UpstreamContractTest.php` cenário `user create`: adicionar `'email' => 'qa-contract@example.com', 'groups' => ['editors']` ao stdin payload; assertar `$job->state === 'queued'` (não falhou no parse upstream).
+
+**Fonte(s)**: FINDINGS QA-F5-005 (MEDIUM, ampliado em R1), QA-F5-015 (MEDIUM)
+**Módulo(s) afetado(s)**: `tests/Pest.php`, `tests/Feature/Customers/LifecycleTest.php`, `tests/Contract/Customers/UpstreamContractTest.php`
+**Risco**: LOW — testes; helper centralizado evita drift futuro
+**Budget**: P (~30min, 1 helper + aplicação em 7 testes + extensão do Contract test)
+
+**Test**: a própria task. Gate = `rg "in_array\('--async'" tests/` retorna apenas chamadas dentro do helper + `php artisan test --filter=LifecycleTest` verde + grep mostra `assertNoUpstreamFlagDuplication` em 7 lugares.
+
+---
+
+### Task F5.10 — [FIX-R1] OpenAPI yaml apps/* shape + 501 groups/{g}/users + OccPanelTest
+
+> **Esta é a única task M (Moderate) da rodada R1.** Re-validação R1 follow-up. Resolve `CQ-F5-001` (HIGH — OpenAPI drift bloqueando aprovação) e `QA-F5-016` (MEDIUM — OccPanel sem nenhum teste).
+
+**Estado atual**:
+1. `docs/openapi.yaml` descreve `POST /customers/{customer}/apps/enable|disable` retornando `$ref: '#/components/responses/JobAccepted'`. A implementação F5.3 retorna shape flat `{job_id, apps_csv}` em 202 e `{error, exit_code, apps_csv}` em 502. A Sprint F5.3 também introduziu HTTP 501 (`{error: not_implemented_yet, reason, cmd}`) para `POST/DELETE /customers/{customer}/groups/{group}/users` — não documentado em OpenAPI.
+2. `app/Http/Livewire/Customers/OccPanel.php` (385 LoC, 8 actions) não tem **nenhum teste de feature**. F5.4 alterou stdin payload em `createUser` e `formatError(BlockedOnUpstreamException)` em `addUserToGroup`/`removeUserFromGroup` — sem regressão guard.
+
+**Estado desejado**:
+1. `docs/openapi.yaml`:
+   - Substituir `$ref: JobAccepted` nas rotas `apps/enable` e `apps/disable` por inline schema `{job_id: uuid, apps_csv: string}` (202) + ErrorResponse com `exit_code` e `apps_csv` (502).
+   - Adicionar response 501 `{error: not_implemented_yet, reason: string, cmd: string}` em `POST /customers/{customer}/groups/{group}/users` e `DELETE /customers/{customer}/groups/{group}/users/{username}`.
+   - Bump `info.version` (0.5.0 → 0.6.0) + entrada em `docs/CHANGELOG.md`.
+2. Novo `tests/Feature/Livewire/Customers/OccPanelTest.php` cobrindo:
+   - **Happy path** para cada action: `submitQuota`, `submitBranding`, `submitMaintenance`, `createUser`, `deleteUser`, `submitApp`, `submitAppsBulk`.
+   - **Blocked-on-upstream** para `addUserToGroup`/`removeUserFromGroup` → `assertSet('errorMessage', 'Funcionalidade pendente no upstream — disponível em release futura.')` (resolve `CQ-F5-007` LOW de quebra).
+   - **Error mapping** para `BlockedOnUpstreamException`, `IdempotencyConflictException`, `SshTimeoutException` → `errorMessage` amigável.
+   - **Autorização**: operador sem `provision-customers` → 403.
+
+**Fonte(s)**: FINDINGS CQ-F5-001 (HIGH), QA-F5-016 (MEDIUM)
+**Módulo(s) afetado(s)**: `docs/openapi.yaml`, `docs/CHANGELOG.md`, `tests/Feature/Livewire/Customers/OccPanelTest.php` (novo arquivo)
+**Risco**: MEDIUM — OpenAPI tem consumidores potenciais (clientes externos); OccPanelTest cobre 8 actions com 10-15 testes
+**Budget**: M (~2-3h: OpenAPI ~30min + OccPanelTest ~2h)
+
+**Test**: a própria task. Gate = `redocly lint docs/openapi.yaml` 0 errors + `php artisan test --filter=OccPanelTest` verde + grep confirma que `OccPanel.php` tem coverage path-por-path (8 actions × pelo menos 1 happy + 1 error).
+
+---
+
+### Task F5.11 — [FIX-R2] Eliminar test/production divergence em OccPanel::createUser
+
+> **Re-validação R2 follow-up.** Resolve `QA-F5-019` (HIGH — `OccPanel::createUser` quebrado em produção; cobertura R1 falso-positiva via escape-hatch).
+
+**Estado atual**:
+- View (`resources/views/livewire/customers/occ-panel.blade.php:178-204`) usa `<input type="password" name="password">` (sem `wire:model`) e botão `wire:click="createUser"` (sem `wire:submit`). O payload Livewire JSON enviado a `/livewire/update` **não inclui** inputs sem `wire:model` — apenas o snapshot do componente. Resultado: senha digitada nunca chega ao back-end.
+- Componente (`app/Http/Livewire/Customers/OccPanel.php:214-268`) tem `#[Locked] public string $userPassword = '';` (nunca usado) + parâmetro opcional `?string $password = null` + fallback `request()->input('password', '')`. O fallback é inútil porque o payload não traz `password`. O método sempre falha com `strlen('') < 8` em produção real.
+- Testes (`tests/Feature/Livewire/Customers/OccPanelTest.php:266,293,306,321`) usam `->call('createUser', 'Secret123!')` — exercitam apenas o ramo do parâmetro (escape-hatch), **nunca** o ramo `request()->input` que é o único que produção tenta usar. False-positive coverage; bug pré-existente em main desde F2.5, mas mascarado pelos 19 testes R1 follow-up.
+
+**Estado desejado** (estratégia same-path):
+- Blade `occ-panel.blade.php` (seção "Criar Usuário"): envolver os 4 form-groups em `<form wire:submit.prevent="createUser">`, trocar `<input type="password" name="password">` por `<input type="password" wire:model="userPasswordPlain">`, trocar `<button wire:click="createUser">` por `<button type="submit">`. As demais ações (`deleteUser`, `createGroup`, etc.) ficam intactas — escopo cirúrgico.
+- `OccPanel.php`: substituir `#[Locked] public string $userPassword = '';` por `public string $userPasswordPlain = '';` (sem `#[Locked]` — o snapshot pode carregar a senha enquanto o usuário digita; é o mesmo modelo de qualquer formulário HTML, protegido por HTTPS + CSRF). Remover parâmetro `?string $password = null` e fallback `request()->input(...)`. Ler senha diretamente de `$this->userPasswordPlain`. Em `finally`, zerar `$this->userPasswordPlain = ''` para limpar o snapshot pós-uso.
+- Testes (`OccPanelTest.php`): trocar `->call('createUser', '...')` por `->set('userPasswordPlain', '...')->call('createUser')` nos 4 testes existentes — agora exercitam o **mesmo path** que produção (set propriedade pública = simulação fiel do `wire:model`). Adicionar 2 novos testes:
+  - **Production scenario** (regressão guard): `createUser` sem `set('userPasswordPlain')` → `assertHasErrors(['userPassword'])` (replica o cenário do bug original).
+  - **Cleanup**: após `createUser` bem-sucedido, `$userPasswordPlain` é `''` (verifica `assertSet('userPasswordPlain', '')`).
+- ISSUE backlog (`docs/ISSUES.md`): registrar "E2E real coverage via Dusk/Playwright" para uma sprint N-UI dedicada (cobre o wire:submit/click via navegador real; fora do budget M desta task).
+
+**Fonte(s)**: FINDINGS `QA-F5-019` (HIGH, convergente entre auditor-senior R2 claude-4.6-sonnet + auditor-qa R2 gemini-3.1-pro)
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`, `docs/ISSUES.md`
+**Risco**: LOW — wire:model é o padrão Livewire; refactor de teste é mecânico; backlog cobre o gap de browser real
+**Budget**: M (~30-60min: blade + componente + 6 testes + ISSUE + FINDINGS update)
+
+**Test**: a própria task. Gate = `docker compose exec app php artisan test --filter=OccPanelTest` verde + grep `rg "->call\('createUser'" tests/Feature/Livewire/Customers/OccPanelTest.php` mostra 0 ocorrências de escape-hatch (todos os calls passam pelo set-prop pattern) + suite global ≥ 321 passed (mantida ou aumentada com 2 novos testes).
+
+---
+
+
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
 | 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (sync webhook secret com upstream via SSH ao criar/rotacionar cluster) | /pmo new (interativo, 2 revisões de design)            |
 | 2026-05-20 | 0.7    | Sprint N2 adicionada (retroativa) — ISSUE-005 (log debug do payload do webhook em APP_ENV=local)       | /pmo new (interativo)                                  |
+| 2026-05-20 | 0.8    | Sprint F5 adicionada — ISSUE-006 (tradutor cmd → CLI argv; fix lifecycle async; bug postmortem HIGH)   | /fix (interativo)                                              |
+| 2026-05-20 | 0.9    | Sprint F5 CONCLUÍDA — 7/7 tasks; brief `docs/.briefs/F5.brief.md`; 301/307 testes; PASS_WITH_FINDINGS    | /pmo sprint F5                                                 |
+| 2026-05-20 | 0.10   | Sprint F5 expandida com F5.8/F5.9/F5.10 (R1 follow-up — PROC-012 corrige in-sprint após /qa validar R1 REPROVADA) | /pmo sprint F5                                                 |
+| 2026-05-20 | 0.11   | Sprint F5 expandida com F5.11 (R2 follow-up — same-path fix para QA-F5-019; PROC-012 corrige in-sprint após /qa validar R2 REPROVADA) | /pmo sprint F5                                                 |

@@ -20,10 +20,21 @@ FINDINGS-INDEX -->
 | D8 (DBA) | 0 | 2 | 3 | 4 | 2 | 9 | 0 |
 | D8 (SEC) | 0 | 5 | 7 | 5 | 4 | 13 | 0 |
 | N1 | 0 | 3 | 8 | 12 | 23 | 0 | 0 |
+| F5 | 1 | 6 | 12 | 8 | 16 | 11 | 0 |
 
 > **Pendentes pós-D8**: D3-F009 (backlog), D4-F004/F008/F009/F005 (backlog), SEC-F013/F014/F015/F016 (backlog), DBA-F010/F011/F012 (backlog). Nenhum CRITICAL ou HIGH aberto.
 >
 > **Pendentes pós-N1** (2026-05-20): 3 HIGH abertos — `CQ-N1-001` (transação faltante no Create), `CQ-N1-002` (actor_id=null no AuditLog de Rotate), `QA-N1-001` (error path "sem current secret" sem teste). Plus 8 MEDIUM e 12 LOW. Brief em `docs/.briefs/N1.brief.md`. Nenhum CRITICAL aberto. Sprint `/fix` recomendada para os 3 HIGH (~2-4h de trabalho).
+>
+> **Pós-F5** (2026-05-20): 4 blockers resolvidos in-PR (QA-F5-001 CRITICAL + QA-F5-002/003/004 HIGH). Remanescentes: 1 HIGH (`CQ-F5-001` OpenAPI drift), 9 MEDIUM, 8 LOW. Brief em `docs/.briefs/F5.brief.md`. Sprint `/fix` recomendada para `CQ-F5-001/002/003` (~1-3h).
+>
+> **Re-validação F5 (R1)** (2026-05-20T17:30Z, `/qa validar`): senior review (gpt-5.3-codex, readonly) → 0 novos findings. QA review (gemini-3.1-pro, readonly) → 5 candidatos; após verificação: **3 novos registrados** (`QA-F5-017` HIGH + `QA-F5-015` MEDIUM + `QA-F5-016` MEDIUM + `QA-F5-018` MEDIUM) e 1 dedup (estende `QA-F5-005`). Testes: 301 passed, 6 skipped, 781 assertions. **Resultado: REPROVADA** — 2 HIGH pendentes em sprint aberta (`CQ-F5-001`, `QA-F5-017`) — PROC-012 exige corrigir in-sprint antes de merge.
+>
+> **Sprint F5 R1 follow-up implementado** (2026-05-20T18:00Z, `/pmo sprint F5` continuação): F5.8/F5.9/F5.10 corrigem 6 findings (2 HIGH + 4 MEDIUM) — `CQ-F5-001` (OpenAPI v2.0→v2.1), `QA-F5-017` (rollback assertions nos 3 testes SSH-failure), `QA-F5-005` ampliado (helper `noUpstreamFlagDuplication` em 7 testes), `QA-F5-015` (stdin email/groups no Contract test), `QA-F5-016` (OccPanelTest novo, 19 testes), `QA-F5-018` (SshConnectionException em cluster ativo). Testes: **321 passed, 6 skipped, 830 assertions** (+20 testes vs R1). Status: aguardando `/qa validar R2` para reaprovação.
+>
+> **Re-validação F5 (R2)** (2026-05-20T19:30Z, `/qa validar R2`): scope = 6 arquivos do R1 follow-up (LifecycleTest, Pest, UpstreamContractTest, OccPanelTest, OccPanel, openapi.yaml); rubric R2 round-aware (apenas HIGH/CRITICAL ou regressões diretas). Senior R2 (claude-4.6-sonnet-medium-thinking, readonly) + QA R2 (gemini-3.1-pro, readonly). **Convergência crítica**: 1 finding HIGH detectado pelos 2 auditores — `QA-F5-019` (createUser quebrado em produção; teste cobertura falso-positiva via escape-hatch). QA também detectou 2 HIGH out-of-scope (theming:config multi-key, disableApps `remove` ignorado) e 1 MEDIUM out-of-scope (Contract test false positive em queued state) — registrados como Notes (Non-Blocking) por serem pré-existentes em `main` e fora do escopo R1 follow-up. As 6 correções R1 foram **validadas in-code**: CQ-F5-001, QA-F5-005/015/016/017/018 → `Validado`. Testes: 321 passed, 6 skipped, 830 assertions. **Resultado: REPROVADA** — 1 HIGH pendente (QA-F5-019) em sprint aberta — PROC-012 exige correção in-sprint ou justificação documentada para COM_RESSALVAS.
+>
+> **Sprint F5 R2 follow-up implementado** (2026-05-20T20:30Z, `/pmo sprint F5` continuação): task F5.11 corrige `QA-F5-019` via **same-path strategy**: blade refatorada (`<form wire:submit.prevent="createUser">` + `wire:model="userPasswordPlain"`), componente sem escape-hatch (lê de propriedade pública e zera no `finally`), 4 testes atualizados + 2 novos (production scenario sem senha + cleanup pós-sucesso). E2E real coverage backlogada como `ISSUE-007` (Dusk/Playwright em sprint N-UI dedicada). Status: aguardando `/qa validar R3` para reaprovação.
 
 ---
 
@@ -1163,5 +1174,377 @@ Nenhum finding registrado para D1 na validação atual.
 - **Descrição**: Mesmo padrão de mock (`Mockery::mock(SshClientInterface::class)` + `andReturn(new SshResponse('', '', 0))` + `app()->instance(...)`) duplicado em dois arquivos com nomes diferentes. Padrão é trivial (~5 linhas) mas a duplicação tende a divergir.
 - **Impacto**: Manutenção; não afeta correção. Risco de drift cosmético em futuras sprints que adicionarem SSH mocks.
 - **Ação necessária**: Mover para `tests/Pest.php` como helper global (`function mockSshSuccess(int $times = 1, ...)`) ou criar trait `MocksSshClient` em `tests/Concerns/`.
+
+---
+
+## Sprint F5 — Lifecycle async cmd → CLI argv translator (ISSUE-006 fix)
+
+> Auditoria executada em 2026-05-20 via `/pmo sprint F5` (auditor-senior + auditor-qa em paralelo, ambos readonly). Quality Brief em `docs/.briefs/F5.brief.md`. 4 blockers resolvidos in-PR (1 CRITICAL + 3 HIGH).
+
+### QA-F5-001 — CRITICAL — `UpstreamContractTest` em `tests/Feature/` torna o opt-in inviável por colisão com `RefreshDatabase`
+
+- **Sprint**: F5
+- **Severidade**: CRITICAL
+- **Tipo**: test_architecture_defect
+- **Status**: **Corrigido (in-PR)** — arquivo movido para `tests/Contract/Customers/`; `tests/Pest.php` ganhou regra `->in('Contract')` sem `RefreshDatabase`; `phpunit.xml` ganhou testsuite `Contract`.
+- **Arquivos (antes)**: `tests/Feature/Customers/UpstreamContractTest.php`, `tests/Pest.php`
+- **Descrição**: O opt-in `UpstreamContractTest` foi colocado em `tests/Feature/`, que aplica `RefreshDatabase` globalmente. Quando o operador setasse `RUN_UPSTREAM_CONTRACT=1` para rodar contra o cluster homolog, o `setUp()` wiparia as rows seed de `ClusterServer` e `Customer`, e `upstreamContractCluster()` falharia em `ClusterServer::find($id) === null` via `test()->fail("...not found")`. O gate de regressão contra ISSUE-006 — toda a razão de existir do arquivo — seria não-funcional.
+- **Impacto**: Quem rodasse o opt-in pré-merge encontraria erro `Cluster not found` e poderia (a) desativar o gate, (b) introduzir hack que mascarasse a falha, (c) shippar uma futura regressão do CMD_TO_CLI_ARGV. Anular a entrega da Sprint F5.
+- **Ação executada**: `mv tests/Feature/Customers/UpstreamContractTest.php tests/Contract/Customers/UpstreamContractTest.php`; adicionado em `tests/Pest.php` `pest()->extend(TestCase::class)->in('Contract')` (sem `RefreshDatabase`); adicionado em `phpunit.xml` `<testsuite name="Contract">`; docblock do arquivo atualizado para refletir o novo path e o motivo (`testsuite=Contract`, não `--filter`).
+
+---
+
+### QA-F5-002 — HIGH — Teste `apps:disable` sem guard de bug-symmetry (`! in_array('apps:disable', $args)`)
+
+- **Sprint**: F5
+- **Severidade**: HIGH
+- **Tipo**: test_quality / bug_symmetry_gap
+- **Status**: **Corrigido (in-PR)**
+- **Arquivo**: `tests/Feature/Customers/LifecycleTest.php:325-348`
+- **Descrição**: O teste de `apps:enable` (linha 304-306) usa o triple guard `argsContainConsecutive(['apps','enable']) + !in_array('apps:enable') + presence check`. O irmão `apps:disable` (linha 330-332) usava apenas presença + token consecutivo; faltava o `!in_array('apps:disable', $args)`. Bug B (`--async/--json` duplicados) tampouco tinha guard. Se uma futura refatoração reintroduzisse o bug específico para o verb `apps:disable`, o test passaria.
+- **Ação executada**: Adicionado ao `withArgs` do teste: `! in_array('apps:disable', $args, true)` + `! in_array('--async', $args, true)` + `! in_array('--json', $args, true)`. Adicionado teste extra "POST apps/disable com 3 apps" para cobrir QA-F5-007 (multi-CSV) no mesmo PR.
+
+---
+
+### QA-F5-003 — HIGH — Teste `groups:remove → 501` sem assertion de `IdempotencyKey` hygiene
+
+- **Sprint**: F5
+- **Severidade**: HIGH
+- **Tipo**: test_coverage / asymmetric_assertion
+- **Status**: **Corrigido (in-PR)**
+- **Arquivo**: `tests/Feature/Customers/LifecycleTest.php:528-550`
+- **Descrição**: O teste de `groups:add → 501` assertava `expect(IdempotencyKey::where('cmd', 'groups:add')->count())->toBe(0)` para provar que blocked verbs short-circuit antes de tocar DB. O teste irmão de `groups:remove → 501` omitia essa assertion. Risco de divergência futura: se um refactor movesse `cmdToCliArgv()` para depois de `IdempotencyKey::create()` apenas para `groups:remove`, o bug passaria.
+- **Ação executada**: Adicionado expect chain combinado com QA-F5-004 (ver abaixo) — verifica `IdempotencyKey`, `Job` e `AuditLog` em ambos os testes 501.
+
+---
+
+### QA-F5-004 — HIGH — Testes blocked-verb não validam Job + AuditLog hygiene (só IdempotencyKey)
+
+- **Sprint**: F5
+- **Severidade**: HIGH
+- **Tipo**: test_coverage / weak_invariant
+- **Status**: **Corrigido (in-PR)**
+- **Arquivos**: `tests/Feature/Customers/LifecycleTest.php` (ambos os testes 501)
+- **Descrição**: O contrato defensivo para blocked verbs é "short-circuit ANTES de QUALQUER write" (a chamada `cmdToCliArgv()` é a primeira instrução de `LifecycleAsyncAction::execute()`). Os testes só checavam `IdempotencyKey`. Faltavam `Job::where('cmd_canonical', 'groups:add')->count() === 0` e `AuditLog::where('action', 'groups_add_initiated')->count() === 0`. Uma regressão por reordenação interna poderia escrever `Job + AuditLog` mesmo sem `IdempotencyKey`.
+- **Ação executada**: Ambos os testes 501 (`groups:add` e `groups:remove`) agora verificam **as 3 tabelas** de side-effect via `expect(...)->toBe(0)->and(...)->toBe(0)->and(...)->toBe(0)`.
+
+---
+
+### CQ-F5-001 — HIGH — OpenAPI não reflete novo shape de `apps/enable|disable` (breaking) nem HTTP 501
+
+- **Sprint**: F5
+- **Severidade**: HIGH
+- **Tipo**: api_contract_drift / documentation
+- **Status**: **Validado (R2 — 2026-05-20T19:30Z)**
+- **Arquivos**: `docs/openapi.yaml:380-425`, `app/Http/Controllers/Api/CustomerLifecycleController.php`
+- **Descrição**: `docs/openapi.yaml` descreve `POST /customers/{customer}/apps/enable` e `/apps/disable` retornando `$ref: '#/components/responses/JobAccepted'`. A implementação F5 retorna `{job_id, apps_csv}` flat em 202 e `{error, exit_code, apps_csv}` em 502. Adicionalmente, a Sprint F5 introduziu HTTP 501 (`{error: not_implemented_yet, reason, cmd}`) para `POST/DELETE /customers/{customer}/groups/{group}/users` — não documentado em OpenAPI.
+- **Correção (F5.10)**: `docs/openapi.yaml` v2.0 → v2.1: (a) `apps/enable` e `apps/disable` agora declaram inline schema `{job_id: uuid, apps_csv: string}` (202) + ErrorResponse com `exit_code`/`apps_csv` (502) + `ClusterUnreachable` (503); (b) novo response component `NotImplementedYet` (`{error, reason, cmd}`) referenciado em `POST /customers/{customer}/groups/{group}/users` e `DELETE /customers/{customer}/groups/{group}/users/{username}`; (c) bump `info.version` 2.0 → 2.1 + entrada em `docs/CHANGELOG.md` (versão 0.10 do ROADMAP).
+
+---
+
+### CQ-F5-002 — MEDIUM — `CMD_TO_CLI_ARGV` tem 7 entradas customer-level dead-code / risco de drift silencioso
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM
+- **Tipo**: dead_code / contract_drift_risk / YAGNI
+- **Status**: Pendente (próximo `/fix`)
+- **Arquivos**: `app/Modules/Core/Translators/JobTypeTranslator.php:76-82`, `app/Modules/Customers/Actions/ProvisionCustomerAction.php`, `app/Modules/Customers/Actions/RemoveCustomerAction.php`
+- **Descrição**: `CMD_TO_CLI_ARGV` mapeia `create/remove/backup/restore/update/stop/start` (customer-level), mas nenhum caller de `cmdToCliArgv()` consome essas entradas — `ProvisionCustomerAction` e `RemoveCustomerAction` constroem argv à mão. Drift silencioso se o upstream renomear verb.
+- **Ação necessária**: (A) deletar entradas YAGNI + comentário TODO de forward-compat, OU (B) refatorar as 2 actions para consumir `cmdToCliArgv('create')` / `cmdToCliArgv('remove')` — DRY alinhado com Decision #ARCH-4.
+
+---
+
+### CQ-F5-003 — MEDIUM — Duplicate exception handling entre `dispatch()` e `dispatchAppsCsv()`
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM
+- **Tipo**: dry_violation / maintainability
+- **Status**: Pendente (próximo `/fix`)
+- **Arquivo**: `app/Http/Controllers/Api/CustomerLifecycleController.php:144-185, 199-230`
+- **Descrição**: Ambos os métodos privados capturam 4 exceções idênticas (`ClusterUnreachableException`, `SshTimeoutException`, `IdempotencyConflictException`, `SshRemoteException`) com corpos quase idênticos. Diferenças mínimas: `dispatch()` adicionalmente captura `BlockedOnUpstreamException` (501); `dispatchAppsCsv()` injeta `apps_csv` no error payload. ~30 LoC duplicadas.
+- **Ação necessária**: Extrair `private function mapLifecycleException(\Throwable $e, array $extraPayload = []): JsonResponse`. Ambos os métodos delegam.
+
+---
+
+### CQ-F5-004 — LOW — `LifecycleAsyncAction::execute()` ~110 LoC misturando 7 responsabilidades
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: clean_code / function_length / srp
+- **Status**: Pendente (backlog)
+- **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
+- **Descrição**: O método concentra: (1) tradução cmd→argv, (2) resolução de cluster, (3) idempotency check, (4) construção SSH argv, (5) persist idempotency, (6) SSH dispatch + exception branches, (7) persist Job + AuditLog. F5 adiciona ~7 LoC modestamente, mas total ultrapassa threshold de 30 LoC do `.cursor/rules/10-general`.
+- **Ação necessária** (futura): decompor em privados (`buildSshArgs`, `persistIdempotency`, `persistJobAndAudit`). Manter `execute()` como orquestrador < 40 LoC.
+
+---
+
+### CQ-F5-005 — LOW — `OccPanel::addUserToGroup()` tem código de sucesso unreachable até D3/D4
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: dead_code / misleading_code
+- **Status**: Pendente (backlog)
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:316-341`
+- **Descrição**: A chamada `$action->execute($this->customer, 'groups:add', ...)` sempre lança `BlockedOnUpstreamException`. Linhas `$this->successMessage = "Adição ao grupo enfileirada — job {$job->job_id}."` e o reset de variáveis são unreachable. `catch (\Throwable)` + `formatError()` rotam para a mensagem amigável.
+- **Ação necessária**: (A) short-circuit no topo do método com mensagem amigável, OU (B) manter + adicionar comentário `// blocked-on-upstream; success branch wakes up when CMD_TO_CLI_ARGV gains 'groups:add'`.
+
+---
+
+### CQ-F5-006 — LOW — `argsContainConsecutive` não valida ordenação `[slug, verb_token_1, verb_token_2]`
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: test_quality / weak_assertion
+- **Status**: Pendente (backlog)
+- **Arquivo**: `tests/Feature/Customers/LifecycleTest.php:46-71`
+- **Descrição**: O helper valida que tokens aparecem consecutivos, mas não que `<slug>` vem IMEDIATAMENTE antes (a ordem que o upstream `nextcloud-manage <slug> <verb> ...` exige). Hoje o código está correto, mas refactor poderia mover o slug sem detecção.
+- **Ação necessária**: Estender helper para `argsStartWithSequence($args, [$slug, ...])` OU adicionar `expect($args[0])->toBe($slug)` em pelo menos 1 teste por verb.
+
+---
+
+### CQ-F5-007 — LOW — Sem teste Livewire para `BlockedOnUpstreamException → friendly message` em `OccPanel`
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: test_coverage_gap
+- **Status**: Pendente (backlog)
+- **Arquivos**: `app/Http/Livewire/Customers/OccPanel.php`, `tests/Feature/Livewire/` (target)
+- **Descrição**: O path HTTP `groups:add → 501` é coberto. O path Livewire análogo (`OccPanel::addUserToGroup → formatError(BlockedOnUpstreamException) → errorMessage = "Funcionalidade pendente..."`) não tem teste regressivo.
+- **Ação necessária**: Adicionar teste `Livewire::test(OccPanel::class)->call('addUserToGroup')->assertSet('errorMessage', 'Funcionalidade pendente no upstream — disponível em release futura.');`.
+
+---
+
+### QA-F5-005 — MEDIUM — Bug-B guards incompletos em múltiplos endpoints (`--async`/`--json` asymmetry)
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM
+- **Tipo**: test_quality / bug_symmetry_gap
+- **Status**: **Validado (R2 — 2026-05-20T19:30Z)**
+- **Arquivos**: `tests/Feature/Customers/LifecycleTest.php` (vários testes)
+- **Descrição (ampliada pela re-validação R1)**: Apenas 3 testes tinham guard completo `! in_array('--async')` + `! in_array('--json')`. Os demais 4 endpoints (`POST groups`, `DELETE users/{username}`, `DELETE groups/{group}`, `POST apps/enable`) tinham guard parcial ou ausente. Bug B (`--json` duplicado causando JSON envelope malformado upstream) poderia regredir sem alarme.
+- **Correção (F5.9)**: Helper global `noUpstreamFlagDuplication(array $args, string $canonicalCmd): bool` em `tests/Pest.php` centraliza a checagem (`! --async`, `! --json`, `! $canonicalCmd`). Aplicado em 7 testes de sucesso: `POST users` (happy + groups), `POST groups`, `DELETE users/{username}`, `DELETE groups/{group}`, `POST apps/enable`, `POST apps/disable` (single + 3 apps).
+
+---
+
+### QA-F5-006 — MEDIUM — Tests não verificam que `--idempotency-key=` e `--callback=` chegam ao SSH
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM
+- **Tipo**: test_coverage / contract_invariant
+- **Status**: Pendente (próximo `/fix`)
+- **Arquivo**: `tests/Feature/Customers/LifecycleTest.php`
+- **Descrição**: `LifecycleAsyncAction::execute()` anexa `--idempotency-key={UUID}` e `--callback={url}` ao `$sshArgs`. Nenhum `withArgs` asserta presença. Regressão droppando uma das flags seria silenciosa: job dispatched, mas webhook callback nunca chega → jobs ficam zombie em `queued`.
+- **Ação necessária**: Adicionar a 1 teste representativo: verify `str_starts_with($a, '--idempotency-key=')` e `str_contains($a, '/api/jobs/hook?cluster=')`.
+
+---
+
+### QA-F5-008 — MEDIUM — Idempotency hash order-sensitivity para CSV apps não documentada nem testada
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM
+- **Tipo**: design_decision_gap / test_coverage
+- **Status**: Pendente (próximo `/fix` ou Decision)
+- **Arquivo**: `app/Http/Controllers/Api/CustomerLifecycleController.php:204` + `app/Modules/Customers/Actions/LifecycleAsyncAction.php:60`
+- **Descrição**: `implode(',', $apps)` preserva ordem de input. O hash `$customer->slug.'|'.$cmd.'|'.json_encode($args)` torna `'calendar,mail'` ≠ `'mail,calendar'` em deduplicação. Política não documentada nem testada.
+- **Ação necessária**: Decidir entre (A) preservar ordem (atual; documentar em Decision); (B) canonicalizar via `sort($apps)` antes do `implode`. Adicionar teste assertindo a política escolhida.
+
+---
+
+### QA-F5-009 — MEDIUM — Boundary value tests faltando (max-length, empty array, password edge)
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM
+- **Tipo**: test_coverage / equivalence_partitioning
+- **Status**: Pendente (backlog)
+- **Arquivo**: `tests/Feature/Customers/LifecycleTest.php`
+- **Descrição**: Gaps de boundary value: username exatamente 64 chars (valid edge), group exatamente 256 chars, `apps: []` empty array, email com `+`, password exatamente 8 chars, App ID com uppercase apenas.
+- **Ação necessária**: Adicionar testes Pest dataset cobrindo cada boundary (valor válido na borda + valor inválido off-by-one).
+
+---
+
+### QA-F5-010 — MEDIUM — `phpunit.xml` não força `RUN_UPSTREAM_CONTRACT=0` (defense-in-depth)
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM
+- **Tipo**: test_safety / defense_in_depth
+- **Status**: Pendente (próximo `/fix`)
+- **Arquivo**: `phpunit.xml`
+- **Descrição**: Mitigado **parcialmente** pela movimentação para `tests/Contract/` (testsuite separada — não roda no default). Mas se alguém invocar `--testsuite=Contract` por engano em CI, e `RUN_UPSTREAM_CONTRACT=1` estiver setado, dispara SSH real. Defense-in-depth pediria `<env name="RUN_UPSTREAM_CONTRACT" value="0" force="true"/>`.
+- **Ação necessária**: Adicionar `<env name="RUN_UPSTREAM_CONTRACT" value="0" force="true"/>` ao bloco `<php>` do `phpunit.xml` — `force="true"` é crítico para sobrescrever env de processo.
+
+---
+
+### QA-F5-011 — LOW — `UpstreamContractTest` não asserta argv canônico, só presença de job_id
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: test_quality / blind_spot
+- **Status**: Pendente (backlog)
+- **Arquivo**: `tests/Contract/Customers/UpstreamContractTest.php`
+- **Descrição**: Cada cenário valida `$job->job_id` UUID + `$job->state === 'queued'`. Não valida que o argv ENVIADO foi o canônico (`['user','create']`). Se um typo regredisse `CMD_TO_CLI_ARGV['users:create']` para `['users','create']` (com `s`) e upstream aceitasse ambos, o teste passaria falsamente.
+- **Ação necessária**: Adicionar no topo de cada cenário `expect(app(JobTypeTranslator::class)->cmdToCliArgv('users:create'))->toBe(['user', 'create']);` — short-circuit por typo antes mesmo de SSH.
+
+---
+
+### QA-F5-012 — LOW — `UpstreamContractTest` deixa artifacts `qa-*` no cluster homolog sem cleanup
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: test_hygiene
+- **Status**: Pendente (backlog)
+- **Arquivo**: `tests/Contract/Customers/UpstreamContractTest.php`
+- **Descrição**: `'qa-'.substr(uniqid(), -8)` gera nomes únicos por run sem teardown. Cada execução opt-in pollui o cluster.
+- **Ação necessária**: Adicionar `afterEach()` best-effort calling `users:delete`/`groups:delete`, OR usar nome determinístico fixo + accept `already_exists` (exit 4) em runs subsequentes.
+
+---
+
+### QA-F5-013 — LOW — `JobTypeTranslatorTest` não asserta que `cmdToCliArgv` retorna `list` (re-indexado)
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: test_quality / list_contract
+- **Status**: Pendente (backlog)
+- **Arquivo**: `tests/Unit/Core/JobTypeTranslatorTest.php`
+- **Descrição**: `->toBe([...])` checa valores + keys, mas não locka explicitamente o contrato "lista (chaves int sequenciais)". `LifecycleAsyncAction` faz spread `[$slug, ...$tokens]` — se a const virasse assoc, spread injetaria string keys → fatal.
+- **Ação necessária**: Adicionar 1 test unitário `expect(array_is_list($this->translator->cmdToCliArgv('users:create')))->toBeTrue()`.
+
+---
+
+### QA-F5-014 — LOW — Auditor não pôde executar `composer audit` / `semgrep` (sandbox readonly)
+
+- **Sprint**: F5
+- **Severidade**: LOW
+- **Tipo**: audit_environment_note
+- **Status**: Pendente — delegado ao próximo `/qa auditoria` ou pré-deploy
+- **Descrição**: A sandbox readonly do auditor-qa subagent não tem acesso a Docker socket; `composer audit` e `semgrep scan` não puderam ser executados. O parent confirmou suite passando manualmente (301 passed).
+- **Ação necessária**: Em release engineering, antes de merge final, rodar `docker compose exec -T app composer audit` + `semgrep scan` localmente.
+
+---
+
+### QA-F5-015 — MEDIUM — `UpstreamContractTest` não exercita `email`/`groups` no stdin de `users:create`
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM (downgrade de HIGH detectado pelo auditor-qa Gemini; opt-in + campos opcionais)
+- **Tipo**: contract_test_integrity / test_coverage_gap
+- **Status**: **Validado (R2 — 2026-05-20T19:30Z)**
+- **Arquivo**: `tests/Contract/Customers/UpstreamContractTest.php:90-96`
+- **Correção (F5.9)**: O cenário `user create` no `UpstreamContractTest` agora injeta `{password, email: 'qa-contract@example.com', groups: ['editors']}` no stdin (vez de só `password`). O comentário no teste documenta a motivação (gate de regressão para schema-strict upstream). Assertion `$job->state === 'queued'` confirma que o upstream `nextcloud-manage` parseou o payload estendido sem rejeitar.
+
+---
+
+### QA-F5-016 — MEDIUM — Ausência total de testes para `OccPanel` (Livewire)
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM (downgrade de HIGH detectado pelo Gemini; OccPanel é UI espelho de controller totalmente testado)
+- **Tipo**: test_coverage_gap / livewire_component_uncovered
+- **Status**: **Validado parcial (R2 — 2026-05-20T19:30Z) — fix do `Gate` import e testes adicionais válidos; estratégia do escape-hatch `$password` revelou bug pré-existente em produção registrado como `QA-F5-019` HIGH.**
+- **Arquivos**: `app/Http/Livewire/Customers/OccPanel.php` (corrigido import faltante de `Gate`); `tests/Feature/Livewire/Customers/OccPanelTest.php` (novo, 19 testes, 38 assertions)
+- **Correção (F5.10)**:
+  - Novo arquivo `tests/Feature/Livewire/Customers/OccPanelTest.php` cobrindo todas as 8 actions: `setTab`, `submitQuota`, `submitRescan`, `submitBranding`, `toggleMaintenance`, `submitApp`, `createUser` (4 cenários: happy, IdempotencyConflict, SshTimeout, weak password), `deleteUser`, `createGroup`, `deleteGroup`, `addUserToGroup` (BlockedOnUpstream).
+  - Cobertura de error mapping (`BlockedOnUpstreamException`, `IdempotencyConflictException`, `SshTimeoutException`, `SshRemoteException` exit 4) via `formatError()`.
+  - Autorização: teste com role `suporte` → 403.
+  - **Bug pré-existente descoberto + corrigido**: `OccPanel.php` usava `Gate::authorize('provision-customers')` em `mount()` SEM importar `Illuminate\Support\Facades\Gate`. Como não havia testes, o bug era latente — qualquer acesso ao painel falharia com `Class App\Http\Livewire\Customers\Gate not found`. Adicionado o import.
+  - **Refactor de testabilidade**: `OccPanel::createUser()` ganhou parâmetro opcional `?string $password = null` (fallback para `request()->input('password')` mantendo produção idêntica). Permite tests Livewire injetarem senha via `->call('createUser', 'Secret123!')` sem disparar `CannotUpdateLockedPropertyException` no `#[Locked] $userPassword`.
+
+---
+
+### QA-F5-017 — HIGH — Testes de falha SSH não assertam rollback de `IdempotencyKey` (weak invariant)
+
+- **Sprint**: F5
+- **Severidade**: HIGH
+- **Tipo**: test_coverage_gap / weak_invariant / regression_silent
+- **Status**: **Validado (R2 — 2026-05-20T19:30Z)**
+- **Arquivos**: `tests/Feature/Customers/LifecycleTest.php:415-446, 584-599`
+- **Correção (F5.8)**: 3 testes existentes ganharam expect chains após `assertStatus`:
+  - `SSH exit 4 → 409`: `expect(IdempotencyKey::where('cmd', 'groups:create')->count())->toBe(0)`.
+  - `SSH exit 22 → 422`: `expect(IdempotencyKey::where('cmd', 'users:create')->count())->toBe(0)`.
+  - `SSH timeout → 504`: triplo expect — `IdempotencyKey` + `Job::where('cmd_canonical')` + `AuditLog::where('action', 'groups_create_initiated')` todos === 0 (alinhado com padrão QA-F5-004).
+  - Comentários inline em cada teste explicam que o contrato defensivo é deliberado e o assert protege contra refactor silencioso.
+
+---
+
+### QA-F5-018 — MEDIUM — Path negativo `SshConnectionException` em cluster ativo não testado
+
+- **Sprint**: F5
+- **Severidade**: MEDIUM (downgrade de HIGH detectado pelo Gemini; o error mapping é simétrico — mesmo ClusterUnreachableException)
+- **Tipo**: test_coverage_gap / negative_path_gap
+- **Status**: **Validado (R2 — 2026-05-20T19:30Z)**
+- **Arquivos**: `tests/Feature/Customers/LifecycleTest.php:455-477`; `app/Modules/Customers/Actions/LifecycleAsyncAction.php:108-110`
+- **Correção (F5.8)**: Novo teste `SshConnectionException em cluster ativo → 503 cluster_unreachable + nada persistido` em `LifecycleTest`. Faz `ClusterServer::factory()->create(['status' => 'active'])` (cluster ATIVO — diferente do teste `cluster offline → 503` que usa `status='unreachable'`), mocka `SshClientInterface::runAsync()->andThrow(new SshConnectionException(...))`, asserta 503 + `cluster_unreachable` + verifica que `IdempotencyKey`, `Job` e `AuditLog` estão limpos. Comentário inline distingue este path (catch block) do path da guard preemptiva.
+- **Descrição**: O teste `cluster offline → 503` cria `ClusterServer::factory()->create(['status' => 'unreachable'])`, o que dispara a guard preemptiva em `LifecycleAsyncAction:58` (`$cluster->status !== 'active'`) — esse path **nunca invoca SSH**. A catch block `SshConnectionException → ClusterUnreachableException` (linha 108-110) trata o cenário oposto: **cluster ativo, conexão SSH cai em runtime** (network glitch, host down momentaneamente). Esse path não é exercitado por nenhum teste, embora seja o cenário mais comum em produção.
+- **Risco**: Médio — se a catch block `SshConnectionException` for removida em refactor, um cluster ativo com SSH morto retornaria 500 (uncaught exception) em vez de 503 amigável. Métrica de observability seria distorcida.
+- **Ação necessária**: Adicionar teste:
+  ```php
+  it('SshConnectionException em cluster ativo → 503 cluster_unreachable', function () {
+      $cluster = makeLifecycleCluster(); // status=active
+      $customer = makeLifecycleCustomer($cluster);
+      $operator = makeLifecycleOperator();
+      $ssh = Mockery::mock(SshClientInterface::class);
+      $ssh->shouldReceive('runAsync')->once()
+          ->andThrow(new SshConnectionException('Connection refused'));
+      $this->app->instance(SshClientInterface::class, $ssh);
+      $this->actingAs($operator)
+          ->postJson("/api/customers/{$customer->slug}/groups", ['name' => 'editors'])
+          ->assertStatus(503)
+          ->assertJsonPath('error', 'cluster_unreachable');
+      expect(IdempotencyKey::count())->toBe(0);
+  });
+  ```
+- **Esforço estimado**: P (~10min).
+
+---
+
+### QA-F5-019 — HIGH — `OccPanel::createUser` quebrado em produção: `request()->input('password')` sempre vazio (cobertura de teste falso-positiva via escape-hatch)
+
+- **Sprint**: F5
+- **Severidade**: HIGH
+- **Tipo**: product_bug + test_fragility (convergente: auditor-senior R2 claude-4.6-sonnet + auditor-qa R2 gemini-3.1-pro)
+- **Status**: **Corrigido (F5.11 — 2026-05-20T20:30Z) — same-path strategy: escape-hatch removido, blade refatorada com `<form wire:submit.prevent="createUser">` + `wire:model="userPasswordPlain"`; testes Livewire passam a exercitar o mesmo path da produção. E2E real coverage backlogada como ISSUE-007.**
+- **Arquivos**:
+  - `app/Http/Livewire/Customers/OccPanel.php:214-220` (createUser)
+  - `resources/views/livewire/customers/occ-panel.blade.php:180-203` (form + wire:click)
+  - `tests/Feature/Livewire/Customers/OccPanelTest.php:266,293,306,321` (4 testes usando escape-hatch)
+- **Descrição**: A fix R1 (F5.10, QA-F5-016) adicionou `?string $password = null` como escape-hatch ao `createUser` para permitir testes Livewire bypassarem `#[Locked]`. O fallback de produção `$password ?? request()->input('password', '')` é **inviável** em Livewire 3: a view dispara `wire:click="createUser"` (sem args, sem `<form wire:submit>`), e o input `<input type="password" name="password">` (sem `wire:model`) **não é incluído no payload JSON** enviado a `/livewire/update`. Resultado: `request()->input('password')` sempre retorna `''`, `strlen('') < 8` é sempre true, `addError('userPassword', ...)` dispara em **toda invocação real de criação de usuário**. Os 19 testes em `OccPanelTest` passam **exclusivamente** porque injetam a senha via `->call('createUser', 'Secret123!')` (escape-hatch — exercita o ramo do parâmetro, jamais o ramo `request()->input`). Test/production divergence — divergência semântica entre teste e produção.
+- **Histórico**: O fallback `request()->input('password')` é pré-existente em `main` (introduzido em F2.5 quando `userPassword` virou `#[Locked]`). O F5 R1 follow-up **não introduziu o bug de produção**, mas **mascarou-o** ao adicionar 19 testes que dão falsa confiança de cobertura. A view não foi modificada nesta sprint.
+- **Evidência (production):**
+  ```blade
+  {{-- resources/views/livewire/customers/occ-panel.blade.php:194-203 --}}
+  <input class="form-input" type="password" name="password" autocomplete="new-password">
+  <button class="btn-primary" wire:click="createUser">Criar Usuário</button>
+  ```
+  ```php
+  // app/Http/Livewire/Customers/OccPanel.php:214-220
+  public function createUser(LifecycleAsyncAction $action, ?string $password = null): void
+  {
+      $password = $password ?? request()->input('password', '');
+      // ...
+      if (strlen($password) < 8) {
+          $this->addError('userPassword', 'Senha deve ter ao menos 8 caracteres.');
+          return;
+      }
+  }
+  ```
+- **Evidência (test escape-hatch):**
+  ```php
+  // tests/Feature/Livewire/Customers/OccPanelTest.php:266,293,306,321
+  ->call('createUser', 'Secret123!')  // injeta password via param — não exercita request()->input
+  ```
+- **Impacto**:
+  - **Produção**: criação de usuário via OccPanel UI é **100% inoperante**. Toda tentativa retorna erro "Senha deve ter ao menos 8 caracteres" mesmo quando senha válida foi digitada.
+  - **CI**: 19 testes passam (false-positive coverage); regressão é silenciosa.
+  - **Workaround atual**: operadores devem usar `POST /api/customers/{slug}/users` (controller HTTP, funciona) ou SSH direto. UI inviável.
+- **Ação necessária** (escolher uma):
+  - **(A) Submit + wire:model.live (preferido, mínima)**: envolver o bloco "Criar Usuário" em `<form wire:submit.prevent="createUser">` + mudar botão para `type="submit"` + (opcional) `wire:model="userPasswordPlain"` em propriedade pública sem `#[Locked]` (com `unset()` no `finally`). `wire:submit` serializa FormData completo.
+  - **(B) Alpine.js bridge**: `wire:click="createUser($el.closest('form').querySelector('[name=password]').value)"` — passa senha como argumento via referência DOM.
+  - **(C) Hard fail loudly**: remover o fallback `request()->input(...)` e tornar `$password` obrigatório, forçando a view a passar o argumento explicitamente. Tests permanecem válidos.
+  - **(D) Acompanhar com teste E2E real (Browser QA)** — qualquer das acima exige novo teste cobrindo o caminho `wire:click` real (via Playwright/Dusk) para evitar repetir a regressão de teste-vs-produção.
+- **Convergência**: 2 auditores independentes (claude-4.6-sonnet-medium-thinking + gemini-3.1-pro) flagraram a mesma raiz; QA classificou CRITICAL, senior classificou HIGH. Mantida em HIGH (não CRITICAL) porque existe workaround documentado via API REST. **Decisão de stop-loss não se aplica** — HIGH em sprint aberta exige correção in-sprint (PROC-012) ou justificação documentada para COM_RESSALVAS.
+- **Esforço estimado**: M (~30-60min) para opção (A) + teste E2E mínimo.
+- **Correção (F5.11 — 2026-05-20T20:30Z)**:
+  - **Blade** (`resources/views/livewire/customers/occ-panel.blade.php`): seção "Criar Usuário" envolvida em `<form wire:submit.prevent="createUser">`; input de senha agora usa `<input type="password" wire:model="userPasswordPlain">` (era `name="password"` sem `wire:model`); botão passa a ser `type="submit"`. O payload Livewire JSON enviado a `/livewire/update` agora carrega `userPasswordPlain` como parte do snapshot.
+  - **Componente** (`app/Http/Livewire/Customers/OccPanel.php`): removida propriedade `#[Locked] public string $userPassword = '';` e atributo `Locked` (não usado em mais lugar nenhum). Adicionada `public string $userPasswordPlain = ''` (sem `#[Locked]` — é o canal natural do `wire:model`, mesmo modelo de qualquer formulário HTML, protegido por HTTPS + CSRF do endpoint Livewire). Método `createUser` perdeu o parâmetro `?string $password = null` e o fallback `request()->input('password', '')`; lê diretamente de `$this->userPasswordPlain`. `finally` zera `$this->userPasswordPlain = ''` para não persistir a senha no snapshot entre invocações. Chave da bag de erros mantida como `'userPassword'` para preservar `@error('userPassword')` na view e contratos de teste com `assertHasErrors(['userPassword'])`.
+  - **Testes** (`tests/Feature/Livewire/Customers/OccPanelTest.php`): 4 testes existentes de `createUser` trocaram `->call('createUser', 'Secret123!')` por `->set('userPasswordPlain', 'Secret123!')->call('createUser')` — escape-hatch eliminado, mesmo path da produção. Acrescentados 2 testes novos: (a) regressão guard cobrindo o cenário original do bug (`createUser` sem `set('userPasswordPlain')` → `assertHasErrors(['userPassword'])`); (b) cleanup do snapshot (`userPasswordPlain === ''` após sucesso).
+  - **Backlog**: criada `ISSUE-007` em `docs/ISSUES.md` para E2E real coverage via Dusk/Playwright (sprint N-UI dedicada — cobre o gap residual de browser real que `Livewire::test()` não cobre por design).
+  - **Validação**: aguardando `/qa validar R3` com diversidade de modelo (sugestão: senior=gpt-5.3-codex; qa=gemini-3.1-pro).
 
 ---

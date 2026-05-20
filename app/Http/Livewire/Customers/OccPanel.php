@@ -8,13 +8,14 @@ use App\Models\Customer;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
+use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
@@ -57,11 +58,17 @@ class OccPanel extends Component
     public string $userUsername = '';
 
     /**
-     * Senha NÃO é wire:model — não entra no snapshot do componente.
-     * Lida via HttpRequest::input() dentro de createUser() e apagada imediatamente.
+     * Senha bound via wire:model="userPasswordPlain" no input do formulário.
+     * O snapshot do componente carrega a senha apenas enquanto o usuário digita —
+     * mesmo modelo de qualquer formulário HTML (proteção via HTTPS + CSRF do
+     * endpoint /livewire/update). Após criação bem-sucedida (ou erro), o método
+     * createUser() zera a propriedade no finally para evitar persistência no
+     * snapshot entre invocações.
+     *
+     * Chave da bag de erros permanece "userPassword" (mantém @error('userPassword')
+     * legado e contratos de teste com assertHasErrors(['userPassword'])).
      */
-    #[Locked]
-    public string $userPassword = '';
+    public string $userPasswordPlain = '';
 
     public string $userEmail = '';
 
@@ -211,15 +218,16 @@ class OccPanel extends Component
 
     public function createUser(LifecycleAsyncAction $action): void
     {
-        // Senha lida diretamente do request HTTP — nunca transita como propriedade Livewire.
-        $password = request()->input('password', '');
-
+        // Senha viaja em $this->userPasswordPlain (bound via wire:model na view).
+        // O método valida >=8 chars antes de qualquer chamada upstream e zera a
+        // propriedade no finally — produção e testes percorrem o MESMO caminho
+        // (F5.11 elimina test/production divergence registrada em QA-F5-019).
         $this->validate([
             'userUsername' => ['required', 'string', 'regex:/^[a-zA-Z0-9._-]+$/', 'max:64'],
             'userEmail' => ['nullable', 'email'],
         ]);
 
-        if (strlen($password) < 8) {
+        if (strlen($this->userPasswordPlain) < 8) {
             $this->addError('userPassword', 'Senha deve ter ao menos 8 caracteres.');
 
             return;
@@ -229,17 +237,28 @@ class OccPanel extends Component
 
         /** @var Operator $actor */
         $actor = auth()->user();
-        $args = array_filter([$this->userUsername, $this->userEmail]);
-        foreach (array_filter(array_map('trim', explode(',', $this->userGroups))) as $group) {
-            $args[] = "--group={$group}";
+
+        // Upstream `user create` accepts only <username> as positional. Email and
+        // groups travel via the JSON --payload-stdin alongside the password.
+        // See ISSUE-006 §DP3.
+        $stdinPayload = ['password' => $this->userPasswordPlain];
+        if ($this->userEmail !== '') {
+            $stdinPayload['email'] = $this->userEmail;
+        }
+        $groups = array_values(array_filter(
+            array_map('trim', explode(',', $this->userGroups)),
+            static fn (string $g): bool => $g !== '',
+        ));
+        if ($groups !== []) {
+            $stdinPayload['groups'] = $groups;
         }
 
         try {
             $job = $action->execute(
                 $this->customer,
                 'users:create',
-                array_values($args),
-                ['password' => $password],
+                [$this->userUsername],
+                $stdinPayload,
                 $actor,
             );
             $this->successMessage = "Usuário enfileirado — job {$job->job_id}.";
@@ -247,7 +266,8 @@ class OccPanel extends Component
         } catch (\Throwable $e) {
             $this->errorMessage = $this->formatError($e);
         } finally {
-            unset($password);
+            $this->userPasswordPlain = '';
+            unset($stdinPayload);
         }
     }
 
@@ -358,6 +378,7 @@ class OccPanel extends Component
     private function formatError(\Throwable $e): string
     {
         return match (true) {
+            $e instanceof BlockedOnUpstreamException => 'Funcionalidade pendente no upstream — disponível em release futura.',
             $e instanceof ClusterUnreachableException => 'Cluster indisponível. Tente novamente em instantes.',
             $e instanceof SshTimeoutException => 'Timeout: OCC não respondeu em 60s.',
             $e instanceof IdempotencyConflictException => 'Operação já em andamento (idempotency conflict).',
