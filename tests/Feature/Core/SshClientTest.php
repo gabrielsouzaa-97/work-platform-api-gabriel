@@ -29,7 +29,13 @@ function makeSshMock(string $stdout, string $stderr, int $exitCode): MockInterfa
 {
     $ssh = Mockery::mock(SSH2::class);
     $ssh->allows('setTimeout');
+    // exec() is used both for blocking calls (returns string) and for the stdin
+    // path where exec($cmd, false) is called first (returns true/false).
     $ssh->allows('exec')->andReturn($stdout);
+    // stdin path: write() + sendEOF() + read() loop
+    $ssh->allows('write');
+    $ssh->allows('sendEOF');
+    $ssh->allows('read')->andReturn($stdout, true);
     $ssh->allows('getLastError')->andReturn($stderr ?: null);
     $ssh->allows('getExitStatus')->andReturn($exitCode);
 
@@ -185,19 +191,28 @@ it('throws SshRemoteException with stateConflict flag for exit code 4', function
     }
 });
 
-it('payloadStdin is piped into exec command — not written after exec', function (): void {
+it('payloadStdin is written to SSH channel stdin — no shell metacharacters in exec command', function (): void {
     $capturedCmd = null;
+    $capturedWrite = null;
+    $eofSent = false;
 
     $ssh = Mockery::mock(SSH2::class);
     $ssh->allows('setTimeout');
-    $ssh->allows('exec')->andReturnUsing(function (string $cmd) use (&$capturedCmd): string {
+    $ssh->allows('exec')->andReturnUsing(function (string $cmd, mixed $callback) use (&$capturedCmd): bool {
         $capturedCmd = $cmd;
 
-        return '{"job_id":"x"}';
+        return true; // exec($command, false) returns true on success
     });
+    $ssh->allows('write')->andReturnUsing(function (string $data) use (&$capturedWrite): void {
+        $capturedWrite = $data;
+    });
+    $ssh->allows('sendEOF')->andReturnUsing(function () use (&$eofSent): void {
+        $eofSent = true;
+    });
+    // read() loop: first call returns stdout chunk, second returns true (channel closed)
+    $ssh->allows('read')->andReturn('{"job_id":"x"}', true);
     $ssh->allows('getLastError')->andReturn(null);
     $ssh->allows('getExitStatus')->andReturn(0);
-    $ssh->shouldNotReceive('write');
 
     $client = makeSshClient($ssh);
     $cluster = makeActiveCluster();
@@ -205,11 +220,16 @@ it('payloadStdin is piped into exec command — not written after exec', functio
 
     $client->run($cluster, 'manage.sh', ['create', '--async', '--json'], $payload);
 
+    // SSH_ORIGINAL_COMMAND must be clean — no shell metacharacters
     expect($capturedCmd)
-        ->toContain('printf %s')
-        ->toContain(escapeshellarg($payload))
-        ->toContain('| manage.sh')
+        ->not->toContain('printf')
+        ->not->toContain('|')
+        ->toStartWith('manage.sh')
         ->not->toContain("'manage.sh'");
+
+    // Payload must be delivered via channel stdin, not embedded in the command string
+    expect($capturedWrite)->toBe($payload);
+    expect($eofSent)->toBeTrue();
 });
 
 it('payloadStdin null does not add printf pipe to exec command', function (): void {

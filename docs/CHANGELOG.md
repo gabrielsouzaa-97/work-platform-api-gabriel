@@ -155,3 +155,8 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-19 12:35** `6ffc301` — chore(session): close sprint N1 — update checkpoint, ROADMAP and CHANGELOG
 - **2026-05-19 12:44** `eb4aca8` — fix(auth): use navigate:false on login redirect to avoid Livewire SPA nav failure
 - **2026-05-19 14:41** `d293a7b` — chore(session): update context snapshot and CHANGELOG
+- **2026-05-19 14:46** `9232628` — chore(session): resolve post-merge stash conflicts and update CHANGELOG
+- **2026-05-19 20:40** `9232628` — chore(session): resolve post-merge stash conflicts and update CHANGELOG
+- **2026-05-19 21:01** `9232628` — chore(session): resolve post-merge stash conflicts and update CHANGELOG
+- **2026-05-19 21:12** `40bc9ab` — fix(ssh): replace pipeStdin shell pipe with native SSH channel stdin
+- **2026-05-19 21:14** `40bc9ab` — fix(ssh): replace pipeStdin shell pipe with native SSH channel stdin

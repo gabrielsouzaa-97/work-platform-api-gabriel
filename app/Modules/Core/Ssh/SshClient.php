@@ -12,6 +12,7 @@ use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use Illuminate\Support\Facades\Log;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Net\SFTP;
+use phpseclib3\Net\SSH2;
 
 class SshClient implements SshClientInterface
 {
@@ -153,13 +154,9 @@ class SshClient implements SshClientInterface
         $ssh = $this->pool->get($cluster);
         $ssh->setTimeout($timeoutSec);
 
-        // Pipe stdin BEFORE exec — phpseclib3 SSH2::exec() is blocking; write() after
-        // exec() writes to a closed channel and the payload never reaches the process.
-        $execCommand = $payloadStdin !== null
-            ? $this->pipeStdin($command, $payloadStdin)
-            : $command;
-
-        $stdout = $ssh->exec($execCommand);
+        $stdout = $payloadStdin !== null
+            ? $this->execWithStdin($ssh, $command, $payloadStdin)
+            : $ssh->exec($command);
 
         if ($stdout === false) {
             $errorMsg = $ssh->getLastError() ?? 'SSH exec returned false';
@@ -200,15 +197,42 @@ class SshClient implements SshClientInterface
     }
 
     /**
-     * Prepend a printf-pipe to deliver $payload via stdin to the remote command.
+     * Execute a command and deliver $payload via the SSH channel's stdin.
      *
-     * `printf %s` is used instead of `echo` because it does not append a newline
-     * and does not interpret backslash sequences, making it safe for arbitrary
-     * byte content (base64, JSON) up to 256 KB.
+     * The upstream ForceCommand filters shell metacharacters from SSH_ORIGINAL_COMMAND
+     * (exit 100, "metacharacter detected"). Using a shell pipe (`printf … | cmd`) embeds
+     * `|` in that string and triggers the filter.
+     *
+     * phpseclib3 supports an alternative protocol-level flow:
+     *   1. exec($command, false) — sends the exec request and returns without entering
+     *      the blocking read loop. Channel status is set to CHANNEL_DATA so write()
+     *      can target it via get_interactive_channel().
+     *   2. write($payload) — sends the payload to CHANNEL_EXEC stdin.
+     *   3. sendEOF()        — sends SSH_MSG_CHANNEL_EOF so the remote process sees EOF.
+     *   4. Read loop        — drains stdout until the channel closes (returns true).
+     *
+     * SSH_ORIGINAL_COMMAND received by the upstream is exactly $command — no metacharacters.
      */
-    private function pipeStdin(string $command, string $payload): string
+    private function execWithStdin(SSH2 $ssh, string $command, string $payload): string|false
     {
-        return 'printf %s '.escapeshellarg($payload).' | '.$command;
+        $started = $ssh->exec($command, false);
+        if ($started === false) {
+            return false;
+        }
+
+        $ssh->write($payload);
+        $ssh->sendEOF();
+
+        $stdout = '';
+        while (true) {
+            $chunk = $ssh->read('', SSH2::READ_NEXT);
+            if ($chunk === true || $chunk === false) {
+                break;
+            }
+            $stdout .= $chunk;
+        }
+
+        return $stdout;
     }
 
     private function buildCommand(string $cmd, array $args): string
