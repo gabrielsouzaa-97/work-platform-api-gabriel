@@ -561,20 +561,53 @@ ssh root@177.104.164.187 \
    --callback=https://api.suaprojeto.com/webhooks/nc-jobs"
 ```
 
-O worker fará `POST` na URL com o payload do job quando concluir (done/failed).
+O worker fará `POST` na URL com o payload do job nas transições de ciclo de vida (`queued→running` e `running→terminal`).
 
-**Payload do callback:**
+**Eventos emitidos** (expansão aditiva de `schema_version="1"`):
+
+| `event`         | Disparado quando            | Campos sempre presentes                      | Campos ausentes                                   |
+| --------------- | --------------------------- | -------------------------------------------- | ------------------------------------------------- |
+| `job.started`   | Job sai de `queued` p/ run  | `job_id`, `state="running"`, `ts`, `started_at` | `finished_at`, `exit_code`, `duration_ms`         |
+| `job.finished`  | Job atinge estado terminal  | `job_id`, `state`, `ts`, `finished_at`, `exit_code` | — (todos presentes)                          |
+
+**Payload `job.started`:**
 
 ```json
 {
-    "job_id": "...",
-    "state": "done",
-    "cmd": "backup",
+    "schema_version": "1",
+    "event": "job.started",
+    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+    "state": "running",
+    "cmd": "create",
     "client": "empresa",
-    "exit_code": 0,
-    "finished_at": "2026-05-13T04:12:33Z"
+    "ts": "2026-05-13T04:00:05Z",
+    "started_at": "2026-05-13T04:00:05Z"
 }
 ```
+
+**Payload `job.finished`:**
+
+```json
+{
+    "schema_version": "1",
+    "event": "job.finished",
+    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+    "state": "done",
+    "cmd": "create",
+    "client": "empresa",
+    "ts": "2026-05-13T04:12:33Z",
+    "started_at": "2026-05-13T04:00:05Z",
+    "finished_at": "2026-05-13T04:12:33Z",
+    "exit_code": 0,
+    "duration_ms": 748000
+}
+```
+
+**Notas para consumers:**
+
+- **Retro-compatibilidade**: workers em versões pré-expansão omitem o campo `event` — consumers devem assumir `job.finished` nesse caso.
+- **Dedupe**: a chave de idempotência DEVE ser composta por `(job_id, event)`. Um worker reiniciado pode reenviar `(job_id, job.started)` após recuperar o job em andamento do Redis; dedupe apenas por `job_id` silencia esse retry legítimo.
+- **Ordem de entrega**: callbacks `job.started` podem chegar APÓS `job.finished` em retries tardios. O consumer não deve regredir o estado de um job já em estado terminal.
 
 **Requisito:** URL deve ser `https://` (IPs RFC 1918 rejeitados por segurança).
 

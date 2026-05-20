@@ -2,6 +2,7 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-20 03:50** `feat/webhook-job-started-event-and-per-event-dedupe` — feat(webhook): aceita `event=job.started` (transição queued→running) + dedupe per `(job_id, event)` para tolerar retries de worker reiniciado; WebhookPayload DTO ganha event/startedAt/durationMs opcionais; WebhookHandler ramifica por evento (started seta state=running+started_at; finished mantém fluxo terminal); VerifyWebhookHmac valida event ∈ {job.started, job.finished} e usa `ts` como âncora da janela de replay; guarda contra regressão terminal→running em callbacks out-of-order; backwards-compat para payloads legados sem `event`; 250/250 testes (6 novos cenários); ISSUE-004 registrado
 - **2026-05-20 02:00** `main` — fix(webhook): aceita state="finished" do worker upstream + dedupe key só persiste em respostas 2xx (StateTranslator MAP + VerifyWebhookHmac middleware); 244/244 testes; reprocessados manualmente 3 jobs travados em queued (9b200bcb, 98f44c15, 18c6d4d4); ISSUE-003 postmortem; upstream issue mework360-deployer-scripts#15
 - **2026-05-20 00:00** `main` — incident(webhook): cluster homolog (119d74df-...) recebia 401 invalid_signature — worker upstream usava secret antigo carregado via systemd LoadCredential; mitigado por systemctl restart nextcloud-saas-worker (SHA-256 dos secrets bate); fix duradouro em mework360-deployer-scripts branch rr/fix/webhook-secret-reload-worker (config set-webhook-secret agora faz try-restart automático); registrado como ISSUE-002 postmortem
 - **2026-05-18 20:00** `main` — fix(infra): tempnam warning corrigido — mismatch uid www-data (Alpine=82) vs storage owner (uid 33); entrypoint.sh corrige ownership antes do php-fpm; nginx /up responde diretamente (IPv4 127.0.0.1, evita redirect HTTPS); APP_KEY + Vite build aplicados em produção
@@ -169,3 +170,5 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-19 21:27** `494604a` — chore(session): clear sprint_atual after SSH stdin hotfix merge
 - **2026-05-19 22:13** `6fb89dd` — docs(issues): register ISSUE-002 postmortem — webhook 401 worker reload
 - **2026-05-19 22:59** `1e22cd1` — fix(webhook): accept state='finished' + only persist dedupe on success
+- **2026-05-20 00:42** `b6ed1cc` — Merge pull request #36 from SoftwareBeesy/rr/chore/session-sync-post-issue-003
+- **2026-05-20 00:50** `b6ed1cc` — Merge pull request #36 from SoftwareBeesy/rr/chore/session-sync-post-issue-003
