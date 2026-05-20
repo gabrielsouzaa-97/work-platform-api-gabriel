@@ -33,15 +33,15 @@
     }
   ],
   "fase_atual": "11",
-  "fase_nome": "Sprint N1 — concluída",
-  "sprint_atual": "F3",
-  "previous_sprint": "N1",
+  "fase_nome": "Hotfix SSH stdin — mergeado",
+  "sprint_atual": null,
+  "previous_sprint": "F3",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-20T00:14:56Z",
+  "ultimo_update": "2026-05-20T00:20:00Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -166,14 +166,14 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "sprint": "N1",
-    "phase": "completed",
-    "branch": "sprint/N1",
-    "last_completed_task": "N1.1",
+    "sprint": "hotfix/ssh-stdin",
+    "phase": "merged",
+    "branch": "fix/ssh-stdin-metachar-upstream",
+    "last_completed_task": "fix: SSH channel stdin (exit 100 metacharacter)",
     "current_task": null,
     "tests_passing": 240,
-    "assertions": 604,
+    "assertions": 605,
     "audit_findings_resolved": 0,
-    "timestamp": "2026-05-18T21:21:00-03:00"
+    "timestamp": "2026-05-20T00:20:00Z"
   }
 }
