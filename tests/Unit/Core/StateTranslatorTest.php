@@ -17,6 +17,12 @@ it('translates done to success', function (): void {
     expect($this->translator->toCanonical('done'))->toBe('success');
 });
 
+it('translates finished to success (worker.sh real implementation)', function (): void {
+    // worker.sh emits "finished" on exit_code=0, even though nextcloud-manage §5.2
+    // docstring says "done". Both are accepted to survive an upstream rename.
+    expect($this->translator->toCanonical('finished'))->toBe('success');
+});
+
 it('translates cancelled to cancelled', function (): void {
     expect($this->translator->toCanonical('cancelled'))->toBe('cancelled');
 });
@@ -35,12 +41,13 @@ it('is case insensitive for uppercase input', function (): void {
     expect($this->translator->toCanonical('DONE'))->toBe('success');
 });
 
-it('covers all 5 upstream states', function (string $upstream, string $canonical): void {
+it('covers all upstream states (docstring + impl)', function (string $upstream, string $canonical): void {
     expect($this->translator->toCanonical($upstream))->toBe($canonical);
 })->with([
     ['queued',    'queued'],
     ['running',   'running'],
-    ['done',      'success'],
+    ['done',      'success'],   // per nextcloud-manage §5.2 docstring
+    ['finished',  'success'],   // per worker.sh real emission
     ['failed',    'failed'],
     ['cancelled', 'cancelled'],
 ]);

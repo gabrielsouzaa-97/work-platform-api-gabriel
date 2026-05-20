@@ -8,13 +8,18 @@ use App\Modules\Core\Translators\Exceptions\UnknownStateException;
 
 final class StateTranslator
 {
-    // Upstream states (nextcloud-manage §5.2): queued, running, done, failed, cancelled
+    // Upstream states (per nextcloud-manage §5.2 docstring): queued, running, done, failed, cancelled
+    // Upstream worker.sh (real implementation) emits: queued, running, finished, failed, cancelled
+    //   — see mework360-deployer-scripts/scripts/worker.sh:609,621 (`set_state "$jid" finished`).
+    // The contract docs say "done" but the implementation says "finished"; we accept BOTH so an
+    // upstream renaming to align with the docstring won't break us. Tracked in upstream issue.
+    //
     // Canonical (internal): queued, running, success, failed, cancelled
-    // Only 'done' → 'success' requires renaming; all others are identity.
     private const MAP = [
         'queued' => 'queued',
         'running' => 'running',
         'done' => 'success',
+        'finished' => 'success',
         'failed' => 'failed',
         'cancelled' => 'cancelled',
     ];

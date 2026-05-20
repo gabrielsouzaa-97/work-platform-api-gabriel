@@ -88,6 +88,12 @@ final class VerifyWebhookHmac
         }
 
         // Deduplicação por job_id — previne replay dentro da janela de 60 min.
+        // The dedupe key is set ONLY AFTER the controller succeeds (status < 300).
+        // Setting it before $next() — as the previous implementation did — caused
+        // failed handler invocations (e.g. UnknownStateException → 422) to be
+        // silenced on retry: the upstream's next attempt would hit the cache and
+        // receive a fake 204, leaving the job permanently stuck in its previous
+        // state with no record of why. See ISSUE-003.
         $jobId = $payload['job_id'] ?? '';
         $dedupeKey = "webhook_processed:{$jobId}";
         $ttlSeconds = ($replayWindow + 5) * 60;
@@ -102,12 +108,20 @@ final class VerifyWebhookHmac
             return response('', 204);
         }
 
-        Cache::put($dedupeKey, true, $ttlSeconds);
-
         $request->attributes->set('cluster_server', $cluster);
         $request->attributes->set('webhook_payload', $payload);
 
-        return $next($request);
+        $response = $next($request);
+
+        // Persist dedupe ONLY for responses that represent a fully-processed callback.
+        // Any 4xx/5xx leaves the key absent so the upstream's retry mechanism can drive
+        // a fresh attempt — important for transient errors AND for surfacing fixed bugs
+        // (e.g. once a missing state is added to StateTranslator, retried callbacks land).
+        if ($response->getStatusCode() < 300) {
+            Cache::put($dedupeKey, true, $ttlSeconds);
+        }
+
+        return $response;
     }
 
     private function auditFail(string $action, string $ip, string $resourceId, array $extra = []): void
