@@ -41,7 +41,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-20T05:14:30Z",
+  "ultimo_update": "2026-05-20T06:55:36Z",
+  "next_sprint_planned": "F5",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -51,6 +52,7 @@
     "Customers"
   ],
   "proximos_passos": [
+    "Sprint F5: ISSUE-006 — tradutor cmd → CLI argv (fix lifecycle async upstream contract). HIGH, cross-module. 7 tasks (6P + 1M + 1 opt-in). Executar via /pmo sprint F5 em nova conversa.",
     "Sprint F4: 3 findings HIGH de N1 (CQ-N1-001 DB::transaction no Create, CQ-N1-002 actor_id no AuditLog do Rotate, QA-N1-001 teste do error path 'sem current secret') — ~2-4h",
     "Sprint F3.1: AuditLog semantico rotate_webhook_secret",
     "Sprint F3.2: pt-BR locale",
@@ -153,15 +155,15 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "qa",
-    "phase": "Quality Brief N1 — auditoria comprehensive concluída",
-    "intent": "Gerar docs/.briefs/N1.brief.md (PATTERN-001 / Decision #187) liberando o gate pre-commit de F3+; consolidar findings de senior+security+qa sobre os 5 artefatos N1 (SyncWebhookSecretAction, RotateWebhookSecretAction, Create.php, WebhookSecretValidator, WebhookSecretGenerator)",
-    "changes_made": "Criado docs/.briefs/N1.brief.md (frontmatter PATTERN-001 + executive summary + nota 7.5/10) e adicionadas 23 entries em docs/FINDINGS.md (CQ-N1-001..008, SEC-N1-001..008, QA-N1-001..008; dedup do json_encode em SEC-N1-007). Stats table FINDINGS.md atualizada com linha N1.",
-    "decisions": "1) status=PASS_WITH_FINDINGS (sprint shippada, findings tracked); 2) dedup cross-audit (3 auditores) reduziu de 25→23 findings canônicos; 3) nota manutenibilidade 7.5/10 (sobe a 9 resolvendo CQ-N1-001 + CQ-N1-002 + CQ-N1-003); 4) parent escreveu o brief (Decision #170 B3); auditor-senior subagent_id 28d2cb83-1b75-46be-815b-eb92f65fd29b registrado para CI cross-check.",
-    "next_steps": "Top-3 ações (~2-4h): (a) wrappear Create::save() em DB::transaction (CQ-N1-001 HIGH); (b) propagar actor_id no AuditLog de RotateWebhookSecretAction (CQ-N1-002 HIGH); (c) adicionar 'use Livewire\\Attributes\\Locked' import + teste regressivo (CQ-N1-003 MEDIUM mas insidioso). QA gap rápido: teste do error path 'sem current secret' (QA-N1-001 HIGH).",
-    "updated_at": "2026-05-20T04:18:00Z"
+    "persona": "qa-debug+fix-planning",
+    "phase": "Sprint F5 planejada — ISSUE-006 (lifecycle async upstream contract bug)",
+    "intent": "Diagnóstico via /qa debug do log de produção `cmd_not_allowed` no SSH lifecycle async; root cause = camada de tradução cmd canônico → CLI argv upstream ausente + duplicação de --async --json. Mapping fechado via SSH probing real contra cluster homolog v12.3.0. Sprint F5 cirúrgica gerada via /fix.",
+    "changes_made": "1) Registrado ISSUE-006 em docs/ISSUES.md (postmortem HIGH com Fix Brief, mapping de 8 verbs, design points e riscos). 2) Sprint F5 adicionada ao ROADMAP.md (7 tasks: F5.1-F5.7, 6P + 1M + 1 opt-in; review senior+qa obrigatório). 3) .cursorsession atualizado com next_sprint_planned=F5 e proximos_passos.",
+    "decisions": "1) Sistema tem 3 vocabulários (cmd_canonical interno, job_type webhook, CLI argv upstream); só 2 tradutores existiam — F5.1 fecha o gap. 2) groups:add/groups:remove ficam blocked-on-upstream (D3/D4 pending); API retorna HTTP 501 explícito. 3) apps:enable/disable consolidam em 1 job com CSV (não loop dispatchMulti). 4) Email/groups movem de positional para stdin payload em user:create. 5) Sprint F5 cirúrgica isolada (não combinada com 3 HIGH N1 da F4) — escopo limpo para auditoria HIGH.",
+    "next_steps": "Executar Sprint F5 em nova conversa via /pmo sprint F5 (sprint-init precisa contexto limpo, executor com modelo diferente do diagnosticador para diversidade). Antes: criar branch de feature (main protegida — hook healthcheck). Após F5 mergeada: validar fix com 1 chamada real do OccPanel contra cluster homolog.",
+    "updated_at": "2026-05-20T06:42:00Z"
   },
-  "contexto_rapido": "Sprint F3 INICIADA (7 tarefas tech debt LOW: F3.1-F3.7). Quality Brief N1 GERADO em docs/.briefs/N1.brief.md — gate pre-commit liberado. Auditoria N1 retornou 23 findings (0 CRITICAL, 3 HIGH, 8 MEDIUM, 12 LOW), nota 7.5/10. Sugestão: priorizar 3 HIGH de N1 em sprint F4 antes de continuar F3, pois CQ-N1-001 (Create sem DB::transaction) é a única falha de atomicidade conhecida no codebase.",
+  "contexto_rapido": "Sprint F5 PLANEJADA (postmortem HIGH ISSUE-006): tradutor cmd → CLI argv ausente quebrou lifecycle async users/groups/apps em produção. Sprint F3 (tech debt LOW) continua aberta — sprint_atual ainda aponta para F3 mas execução pausada para resolver F5 primeiro. Sprint F4 (3 HIGH N1) e F5 (ISSUE-006) são paralelas conceitualmente; recomendado executar F5 ANTES de F4 por bloqueio de feature em produção. Sprint F5 gate inclui auditoria senior+qa obrigatória.",
   "autopilot": {
     "active": false
   },
@@ -182,5 +184,31 @@
     "assertions": 605,
     "audit_findings_resolved": 0,
     "timestamp": "2026-05-20T00:20:00Z"
-  }
+  },
+  "planning_history": [
+    {
+      "timestamp": "2026-05-20T06:42:00Z",
+      "action": "/fix (interativo)",
+      "sprints_generated": [
+        "F5"
+      ],
+      "findings_in_scope": [
+        "ISSUE-006"
+      ],
+      "findings_breakdown": {
+        "CRITICAL": 0,
+        "HIGH": 1,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "split_strategy": "cirurgica — só ISSUE-006; N1 HIGH continua planejada para F4 separada",
+      "tasks_count": {
+        "P": 5,
+        "M": 2,
+        "total": 7
+      },
+      "review_level": "senior+qa",
+      "source_skill_invocation": "/qa debug (mesma conversa) → registro de ISSUE-006 → /fix"
+    }
+  ]
 }
