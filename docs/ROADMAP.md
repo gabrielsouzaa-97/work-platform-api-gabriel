@@ -73,6 +73,7 @@
 | F2     | F         | Dashboard chart 7d; clipboard fix; fila redesenhada; log detalhado job; alterar senha; editar perfil; artisan admin; findings   | concluída  | 11    | Auth, Core, Jobs, painel | Sprint 2: UX + fila provisionamento + findings backlog   | 2720+    |
 | F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
 | N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | pendente | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
+| N2     | N         | APP_ENV=local emite Log::debug('webhook.payload_received'); APP_ENV=testing não emite; 46/46 testes da suite de webhook passando | concluida | 1 | Jobs | Observabilidade: log de payload do webhook em ambiente local | 3013+    |
 
 ---
 
@@ -3011,9 +3012,37 @@ Frontmatter YAML obrigatória:
 
 ---
 
+## Sprint N2 — Observabilidade: log de payload do webhook em ambiente local
+
+> Categoria: N
+> Gate: APP_ENV=local emite `Log::debug('webhook.payload_received')` com `cluster_server_id` + `ip` + `event` + `payload`; APP_ENV=testing não emite; 46/46 testes da suite de webhook passando
+> Gerado por `/pmo new` em 2026-05-20. Fonte: ISSUE-005 (change request).
+> Implementação executada inline (P-size, 1 arquivo + 2 testes); sprint registrada retroativamente para rastreabilidade.
+> review: skip
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | N2.1 — VerifyWebhookHmac: `Log::debug` payload válido quando `APP_ENV=local` | `laravel-api` | — |
+
+---
+
+### Task N2.1 — VerifyWebhookHmac: Log::debug payload quando APP_ENV=local
+
+**Estado atual** (pré-2026-05-20): desenvolvedor investiga incidentes de webhook por tcpdump ou inserindo middleware temporário. Rejeições por replay/dedupe não expõem o payload bruto — só `AuditLog` estruturado em `webhook_replay`/`webhook_replay_duplicate`.
+
+**Estado desejado**: bloco `if (app()->environment('local')) { Log::debug('webhook.payload_received', [...]) }` em `VerifyWebhookHmac` posicionado após o guard de `event` enum e ANTES do replay/dedupe. Cobre replays/dedupes rejeitados (casos mais úteis para debug). `try/catch + report` protege HTTP response contra falha de canal de log. Gate por `APP_ENV=local` é mais restritivo que `APP_DEBUG` — staging com debug ativo NÃO loga.
+
+**Fonte(s)**: ISSUE-005 (2026-05-20); postmortems ISSUE-002, ISSUE-003 (observabilidade)
+**Módulo(s) afetado(s)**: `app/Http/Middleware/VerifyWebhookHmac.php`, `tests/Feature/Middleware/VerifyWebhookHmacTest.php`
+**Risco**: LOW — feature aditiva guarded por env; payload não contém segredos (HMAC signature em header, não body); `APP_ENV=local` somente em dev
+**Budget**: P (1 arquivo de produção + 2 testes pareados local/testing)
+
+---
+
 ## Historico
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
 | 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (sync webhook secret com upstream via SSH ao criar/rotacionar cluster) | /pmo new (interativo, 2 revisões de design)            |
+| 2026-05-20 | 0.7    | Sprint N2 adicionada (retroativa) — ISSUE-005 (log debug do payload do webhook em APP_ENV=local)       | /pmo new (interativo)                                  |

@@ -10,6 +10,7 @@
 | ISSUE-002 | postmortem | Webhook 401 — worker upstream não recarregou novo secret | ClusterServers, Webhook | HIGH | mitigated (upstream PR pendente) |
 | ISSUE-003 | postmortem | Webhook 422 — vocabulário `finished` não mapeado + dedupe persistia em falha | Jobs, Core, Webhook | HIGH | fixed in API (upstream issue #15 aberta) |
 | ISSUE-004 | change_request | Webhook receiver aceita `event=job.started` (callbacks de transição) + dedupe per `(job_id, event)` | Jobs, Core, Webhook | HIGH | implemented |
+| ISSUE-005 | change_request | Webhook receiver loga payload em nível debug quando APP_ENV=local | Jobs, Webhook | LOW | implemented |
 
 ---
 
@@ -197,3 +198,35 @@ A sprint do `mework360-deployer-scripts` introduziu callbacks de transição: o 
 
 - A coluna `duration_ms` **não** foi adicionada ao modelo `Job` neste change request — o campo é tolerado e registrado no `AuditLog.payload` para forense, mas não consumido no domínio. Se virar requisito de UX (ex.: exibir duração em `/queue/{job_id}`), uma migration aditiva pode ser criada sem impacto na lógica do receiver.
 - Backwards compatibility: o release pode ser deployed **antes** do upstream começar a emitir `event` — payloads legados (sem `event`) continuam funcionando exatamente como antes.
+
+---
+
+## ISSUE-005 — Webhook receiver loga payload em nível debug quando APP_ENV=local
+
+- **Tipo**: change_request
+- **Prioridade**: LOW
+- **Status**: implemented
+- **Registrado em**: 2026-05-20
+- **Solicitante**: operador (dev)
+- **Módulos afetados**: `app/Http/Middleware/VerifyWebhookHmac.php`, `tests/Feature/Middleware/VerifyWebhookHmacTest.php`
+
+### Descrição
+
+Postmortems ISSUE-002 e ISSUE-003 expuseram um gap de observabilidade: quando o webhook receiver rejeita ou silencia callbacks (replay, dedupe, state desconhecido), o desenvolvedor não vê o payload bruto — só AuditLog estruturado. Investigar "por que esse job não atualizou?" exigia tcpdump ou middleware ad-hoc.
+
+**Design:** `Log::debug('webhook.payload_received', [...])` em `VerifyWebhookHmac` guardado por `app()->environment('local')` — gate mais restritivo que `APP_DEBUG`. Nunca dispara em staging (mesmo com `APP_DEBUG=true`) nem em produção. Posicionado após HMAC + struct + event-enum (só loga payload autêntico) e ANTES de replay/dedupe (loga inclusive os rejeitados como duplicados/replay — exatamente os casos mais úteis para forense).
+
+### Critério de aceite
+
+- ✓ `APP_ENV=local` → `Log::debug('webhook.payload_received', {cluster_server_id, ip, event, payload})`
+- ✓ `APP_ENV=testing|staging|production` → nenhum log debug emitido
+- ✓ Falha do canal de log não converte HTTP em 500 (try/catch + report seguindo padrão de `securityLog()`)
+- ✓ NÃO loga: rate-limit (429), unknown_cluster (401), invalid_signature (401), invalid_payload (422) — esses já têm AuditLog próprio
+- ✓ Testes pareados local/testing em `VerifyWebhookHmacTest`
+- ✓ 46/46 testes da suite de webhook passando
+
+### Observações de segurança
+
+- Payload do webhook NÃO contém segredo (HMAC signature está no header `X-Signature`, não no body)
+- Gate por `APP_ENV=local` é mais restritivo que `APP_DEBUG` — staging com debug ativo NÃO loga
+- SEC-N1-008 trata do PEM em `/livewire/update`, não deste endpoint

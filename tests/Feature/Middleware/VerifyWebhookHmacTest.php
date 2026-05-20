@@ -177,6 +177,63 @@ it('replay window usa ts (não finished_at) como âncora — payload de job.star
     $response->assertStatus(422)->assertJson(['error' => 'replay_window_exceeded']);
 });
 
+it('APP_ENV=local → payload válido é logado em Log::debug com cluster, ip, event e payload', function (): void {
+    app()->detectEnvironment(fn () => 'local');
+    Log::spy();
+
+    [$cluster, $secret] = middlewareCluster();
+    $job = middlewareJob($cluster->id);
+
+    $body = json_encode([
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'ts' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ]);
+    $sig = middlewareSig($body, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ])->assertNoContent();
+
+    Log::shouldHaveReceived('debug')->withArgs(function (string $message, array $context) use ($cluster, $job): bool {
+        return $message === 'webhook.payload_received'
+            && $context['cluster_server_id'] === $cluster->id
+            && $context['event'] === 'job.finished'
+            && ($context['payload']['job_id'] ?? null) === $job->job_id
+            && ($context['payload']['state'] ?? null) === 'finished'
+            && array_key_exists('ip', $context);
+    })->once();
+});
+
+it('APP_ENV=testing (não-local) → payload válido NÃO é logado em Log::debug', function (): void {
+    app()->detectEnvironment(fn () => 'testing');
+    Log::spy();
+
+    [$cluster, $secret] = middlewareCluster();
+    $job = middlewareJob($cluster->id);
+
+    $body = json_encode([
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'ts' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ]);
+    $sig = middlewareSig($body, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ])->assertNoContent();
+
+    Log::shouldNotHaveReceived('debug', ['webhook.payload_received']);
+});
+
 it('dedupe key inclui event — segunda entrega de mesmo (job_id, event) responde 204 sem invocar controller', function (): void {
     [$cluster, $secret] = middlewareCluster();
     $job = middlewareJob($cluster->id);

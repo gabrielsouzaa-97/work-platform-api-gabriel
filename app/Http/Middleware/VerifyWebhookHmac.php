@@ -92,6 +92,26 @@ final class VerifyWebhookHmac
             return response()->json(['error' => 'invalid_event'], 422);
         }
 
+        // Local-env payload dump. Gated by APP_ENV=='local' so it ONLY fires on developer
+        // machines — never in staging (where APP_DEBUG may be true) and never in production.
+        // Placed after HMAC + struct + event enum checks so we only log payloads we've
+        // already accepted as authentic — and BEFORE replay/dedupe so the developer can
+        // see WHY a payload was rejected as duplicate/replay. Payload bodies do not contain
+        // secrets (HMAC signature lives in the X-Signature header, not in the body), so
+        // logging the decoded array is safe.
+        if (app()->environment('local')) {
+            try {
+                Log::debug('webhook.payload_received', [
+                    'cluster_server_id' => $cluster->id,
+                    'ip' => $ip,
+                    'event' => $event,
+                    'payload' => $payload,
+                ]);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
         $replayWindow = (int) config('services.webhook.replay_window_minutes', 60);
         // Use `ts` (event timestamp, always present) for the replay window check.
         // `finished_at` is unavailable on job.started callbacks and using `now()` as

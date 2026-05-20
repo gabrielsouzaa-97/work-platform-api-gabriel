@@ -35,13 +35,13 @@
   "fase_atual": "11",
   "fase_nome": "Hotfix SSH stdin — mergeado",
   "sprint_atual": "F3",
-  "previous_sprint": "N1",
+  "previous_sprint": "N2",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-20T04:39:53Z",
+  "ultimo_update": "2026-05-20T05:14:30Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -91,7 +91,8 @@
     "F2.9: Clipboard async/await + fallback execCommand em /api-keys",
     "F2.10: /queue/{job_id} — log detalhado com terminal-style output",
     "F2.11: Redesign /queue com stats cards, tabs, auto-refresh, export CSV",
-    "N1.1: SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync webhook secret upstream via SSH"
+    "N1.1: SyncWebhookSecretAction + Create.php + RotateWebhookSecretAction: sync webhook secret upstream via SSH",
+    "N2.1: VerifyWebhookHmac.Log::debug webhook payload quando APP_ENV=local"
   ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
