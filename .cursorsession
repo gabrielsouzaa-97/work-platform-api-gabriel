@@ -34,14 +34,14 @@
   ],
   "fase_atual": "11",
   "fase_nome": "Hotfix SSH stdin — mergeado",
-  "sprint_atual": null,
-  "previous_sprint": "F3",
+  "sprint_atual": "F3",
+  "previous_sprint": "N1",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-20T00:20:00Z",
+  "ultimo_update": "2026-05-20T01:59:55Z",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -51,8 +51,14 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Sprint F3 (tech debt LOW: schema + security + observability)",
-    "Quality Brief N1 (auditor-senior deve criar docs/.briefs/N1.brief.md)"
+    "Executar /qa auditoria N1 para gerar docs/.briefs/N1.brief.md (Quality Brief N1 — gate pre-commit)",
+    "Sprint F3.1: AuditLog semantico rotate_webhook_secret",
+    "Sprint F3.2: pt-BR locale",
+    "Sprint F3.3: FK sessions + UNIQUE invite_token_hash (migration)",
+    "Sprint F3.4: Eager load clusterServer em OccController",
+    "Sprint F3.5: Rate limit login por email",
+    "Sprint F3.6: Remover role/status/invite_token_hash do $fillable",
+    "Sprint F3.7: Mascarar args SSH sensiveis nos logs"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -146,15 +152,15 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "dev",
-    "phase": "N1 concluída",
-    "intent": "Implementar Sprint N1: SyncWebhookSecretAction — sync webhook secret com upstream via SSH ao criar/rotacionar cluster",
-    "changes_made": "N1.1: SyncWebhookSecretAction (nova) em app/Modules/ClusterServers/Actions/. Create.php atualizado: salva $plainSecret antes de create(), chama syncAction após criar cluster; falha SSH → status=error + AuditLog + erro Livewire. RotateWebhookSecretAction atualizado: injeta SyncWebhookSecretAction, chama após DB::transaction; falha SSH → AuditLog + Log::channel(security), sem rethrow. 7 novos testes em SyncWebhookSecretTest.php (a-f). StoreTest/RotateSecretTest atualizados com mocks SSH. 240/240 testes passing.",
-    "decisions": "Secret via --payload-stdin (JSON {secret: ...}), nunca como arg CLI. Create falha SSH → status=error (cluster salvo). Rotate falha SSH → swallowed (grace period mantém upstream funcionando). actor_id=null no AuditLog de rotate (ação do sistema).",
-    "next_steps": "Quality Brief N1 (/qa auditoria N1), depois Sprint F3 (tech debt LOW).",
-    "updated_at": "2026-05-18T21:21:00-03:00"
+    "persona": "pmo",
+    "phase": "F3 iniciada",
+    "intent": "Sprint F3 — Tech Debt LOW: schema integrity, security hardening, observabilidade semantica, i18n pt-BR",
+    "changes_made": "/pmo novo: sessão atualizada, sprint_atual=F3, previous_sprint=N1. ISSUE-001 resolvida via N1.1.",
+    "decisions": "7 tarefas P/M todas independentes entre si. Quality Brief N1 (docs/.briefs/N1.brief.md) deve ser gerado via /qa auditoria N1 para desbloquear pre-commit gate. F3 pode ser executado em paralelo ou sequencial.",
+    "next_steps": "Opção A: /qa auditoria N1 primeiro (gera brief, desbloqueia pre-commit), depois /dev F3. Opção B: /dev F3 diretamente (commits bloqueados até brief existir).",
+    "updated_at": "2026-05-19T21:24:00-03:00"
   },
-  "contexto_rapido": "Sprint N1 CONCLUÍDA. SyncWebhookSecretAction implementada — ao criar ou rotacionar um ClusterServer, o webhook secret é sincronizado com o upstream via SSH `nextcloud-manage config set-webhook-secret --payload-stdin`. Secret nunca passa como arg CLI. Falha no Create → status=error + AuditLog + erro Livewire. Falha no Rotate → AuditLog + Log(security), sem rethrow (grace period mantém continuidade). 240/240 testes passing (7 novos). Próximo: Quality Brief N1 ou Sprint F3.",
+  "contexto_rapido": "Sprint F3 INICIADA. 7 tarefas de tech debt LOW independentes: F3.1 AuditLog rotate semantico, F3.2 pt-BR locale, F3.3 FK sessions+UNIQUE invite_token_hash, F3.4 eager load OccController, F3.5 rate limit login email, F3.6 $fillable Operator, F3.7 mascarar args SSH. Quality Brief N1 pendente (docs/.briefs/N1.brief.md) — pré-requisito para commits via pre-commit hook. Rode /qa auditoria N1 antes de fazer commits de F3.",
   "autopilot": {
     "active": false
   },
