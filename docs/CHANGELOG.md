@@ -176,3 +176,10 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-20 01:07** `78c1d0c` — test(webhook): testes dedicados para Payload DTO, Handler e Middleware
 - **2026-05-20 01:10** `78c1d0c` — test(webhook): testes dedicados para Payload DTO, Handler e Middleware
 - **2026-05-20 01:39** `78c1d0c` — test(webhook): testes dedicados para Payload DTO, Handler e Middleware
+- **2026-05-20 01:49** `1996afb` — docs(audit): Quality Brief N1 + 23 findings consolidados (#42)
+- **2026-05-20 01:58** `1996afb` — docs(audit): Quality Brief N1 + 23 findings consolidados (#42)
+- **2026-05-20 02:01** `1996afb` — docs(audit): Quality Brief N1 + 23 findings consolidados (#42)
+- **2026-05-20 02:05** `1996afb` — docs(audit): Quality Brief N1 + 23 findings consolidados (#42)
+- **2026-05-20 02:08** `1996afb` — docs(audit): Quality Brief N1 + 23 findings consolidados (#42)
+- **2026-05-20 02:12** `1996afb` — docs(audit): Quality Brief N1 + 23 findings consolidados (#42)
+- **2026-05-20 02:24** `96e0b00` — docs(sprint-N2): planning output + implementation
