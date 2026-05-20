@@ -287,3 +287,65 @@ it('payload com state desconhecido → 422', function () {
 
     $response->assertStatus(422);
 });
+
+it('state=finished (worker.sh real impl) → 204 + Job atualizado para success', function () {
+    // Regression: before this fix, worker.sh emitting "finished" on exit_code=0 was
+    // unknown to StateTranslator and produced 422 → upstream retry fake-204 from
+    // dedupe → job stuck in original state. See ISSUE-003 postmortem.
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+
+    $body = webhookBody($job->job_id, state: 'finished');
+    $sig = hmacHeader($body, $secret);
+
+    $response = $this->postJson('/api/jobs/hook', json_decode($body, true), [
+        'X-Cluster-Server-Id' => $cluster->id,
+        'X-Signature' => $sig,
+    ]);
+
+    $response->assertNoContent();
+
+    $job->refresh();
+    expect($job->state)->toBe('success');
+    expect($job->callback_received_at)->not->toBeNull();
+});
+
+it('controller falha com 422 NÃO seta dedupe — retry com payload corrigido sucede', function () {
+    // Regression: previous middleware persisted the dedupe key BEFORE running the
+    // controller, so any 422/4xx from the handler caused the upstream's retry to be
+    // silenced with a fake 204, leaving the job permanently stuck. The dedupe must
+    // only persist on a fully-processed (status < 300) response.
+    [$cluster, $secret] = makeCluster();
+    $job = makeJob($cluster->id);
+
+    $headers = [
+        'X-Cluster-Server-Id' => $cluster->id,
+    ];
+
+    $badBody = json_encode([
+        'job_id' => $job->job_id,
+        'state' => 'unknown_state',
+        'cmd' => 'provision',
+        'client' => 'acme-test',
+        'exit_code' => 0,
+        'finished_at' => now()->toIso8601String(),
+    ]);
+    $headers['X-Signature'] = hmacHeader($badBody, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($badBody, true), $headers)
+        ->assertStatus(422);
+
+    expect(Cache::has("webhook_processed:{$job->job_id}"))->toBeFalse();
+
+    RateLimiter::clear('webhook:127.0.0.1');
+
+    $goodBody = webhookBody($job->job_id, state: 'finished');
+    $headers['X-Signature'] = hmacHeader($goodBody, $secret);
+
+    $this->postJson('/api/jobs/hook', json_decode($goodBody, true), $headers)
+        ->assertNoContent();
+
+    $job->refresh();
+    expect($job->state)->toBe('success');
+    expect(Cache::has("webhook_processed:{$job->job_id}"))->toBeTrue();
+});
