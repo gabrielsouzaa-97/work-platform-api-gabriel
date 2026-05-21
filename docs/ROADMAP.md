@@ -74,6 +74,7 @@
 | F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
 | N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | pendente | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
 | N2     | N         | APP_ENV=local emite Log::debug('webhook.payload_received'); APP_ENV=testing não emite; 46/46 testes da suite de webhook passando | concluida | 1 | Jobs | Observabilidade: log de payload do webhook em ambiente local | 3013+    |
+| F6     | F         | Forgot-password broker nativo Laravel (operadores) + logs de Job populados via SSH `nextcloud-manage job <id> status --json` pós-`job.finished` (corrige queue/{jobId} vazio) | pendente  | 6     | Auth, Jobs, Core/Ssh | `/qa debug` 2026-05-21: ISSUE-008 (forgot-password) + ISSUE-009 (job logs via SSH pull) | 3578+    |
 
 ---
 
@@ -3562,9 +3563,244 @@ Critério de pronto:
 
 **Test**: a própria task. Gate = `docker compose exec app php artisan test --filter=OccPanelTest` verde + grep `rg "->call\('createUser'" tests/Feature/Livewire/Customers/OccPanelTest.php` mostra 0 ocorrências de escape-hatch (todos os calls passam pelo set-prop pattern) + suite global ≥ 321 passed (mantida ou aumentada com 2 novos testes).
 
+
 ---
 
+## Sprint F6 — Forgot Password (operadores) + Logs de Job populados via SSH
 
+> Categoria: F
+> Gate: (1) operador clica "Esqueci minha senha" em `/login` → recebe email com URL assinada → define nova senha → loga; (2) job `success`/`failed`/`cancelled` recebido via webhook resulta em `jobs.summary` populado com linhas do log upstream (`nextcloud-manage <client> job <id> logs --json`, fallback `job <id> status --json`); (3) `/queue/{jobId}` exibe linhas coloridas em vez de "Nenhum log disponível"; (4) suite ≥ 325 testes verde (323 atual + ≥2 novos por feature).
+> Gerado por `/fix` em 2026-05-21. Fonte: ISSUE-008 (MEDIUM) + ISSUE-009 (HIGH) — ambas originadas de `/qa debug` mesma data.
+> review: senior+qa (severidade HIGH presente — obrigatório por `debugging-sistematico` Fase 4a)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F6.1 — [ISSUE-008] Migration `password_reset_tokens` + binding broker `operators` em `config/auth.php` | `laravel-migration` | — |
+| [x] | M | F6.2 — [ISSUE-008] Livewire `Auth/ForgotPassword` + `Auth/ResetPassword` + rotas + mailable + view de email + link em `login.blade.php` + rate-limit + audit | `laravel-livewire` | F6.1 |
+| [x] | P | F6.3 — [ISSUE-009] `WebhookPayload`: tolerar campo opcional `log_tail` (vem do contrato futuro do upstream; aceitar como hint); refatorar `WebhookHandler` para chamar `JobLogFetcher` pós-`applyFinishedEvent()` | `webhook-receiver` | — |
+| [x] | M | F6.4 — [ISSUE-009] Service `App\Modules\Jobs\Services\JobLogFetcher` injetando `SshClientInterface` (timeout, idempotência, sanitização de secrets, fallback `job status --json` se `job logs --json` retornar 99=`not_implemented`) | `ssh-orchestrator` | F6.3 |
+| [x] | P | F6.5 — [ISSUE-009] Pest Feature tests: webhook `job.finished` mockado → `summary` populada; idempotência (`summary` já cheia → skip); falha SSH → `Log::warning` + `summary` permanece null (não quebra webhook) | `laravel-testing` | F6.4 |
+| [x] | P | F6.6 — [ISSUE-009] Pest Contract test (opt-in `RUN_UPSTREAM_CONTRACT=1`): SSH real contra cluster `homolog` valida formato do output de `job <id> logs --json` ou `job <id> status --json` | `ssh-orchestrator` + `laravel-testing` | F6.4 |
+
+> **Quality Brief (Sprint F6)**: PATTERN-001 (Decision #187) — auditor-senior DEVE criar `docs/.briefs/F6.brief.md` como PRIMEIRO Write na auditoria final, antes de qualquer finding.
+
+### Contexto F6
+
+Em 2026-05-21, `/qa debug` levantou 5 itens. 3 foram resolvidos via Fast-Track (sidebar sem `@can`, menu Clientes ausente, link Webhook IPs ausente) na branch `fix/sidebar-permissions-and-missing-links` — não entram nesta sprint. Os 2 que exigem TDD + design entram aqui:
+
+**ISSUE-008 (Forgot Password)** — Tela `/login` (`resources/views/livewire/auth/login.blade.php`) não tem link para recuperar senha. Verificado: 0 rotas/components/mailables de password reset existem (`grep password.request|forgot|recuperar` → só docs/config padrão). Não é só adicionar um `<a>` — é construir o fluxo completo.
+
+**ISSUE-009 (Logs de Job)** — `/queue/{jobId}` (`resources/views/livewire/jobs/show.blade.php`) renderiza `$logLines` de `Job::$summary` (JSON cast). Confirmado:
+
+- `app/Modules/Jobs/Services/WebhookHandler::applyFinishedEvent()` nunca toca `summary`.
+- `app/Modules/Jobs/Dto/WebhookPayload::fromArray()` não lê `summary`/`log_tail`/`stdout`.
+- **Errata E7** da ROADMAP confirma: "Campo `summary` não existe no payload webhook (existe apenas em `job status`)".
+
+Resultado: 100% dos jobs exibem "Nenhum log disponível" em produção.
+
+### Riscos da Sprint F6
+
+- **Comando SSH `nextcloud-manage <client> job <id> logs --json` pode não existir no upstream** — `SSH API Reference §7` documenta `job status` como o único endpoint que carrega `summary`. F6.4 deve probar contra `homolog` ANTES de codar (fast-fail), com fallback automático para `job <id> status --json` se exit_code=99. Documentar mapping em `JobLogFetcher` similar a `JobTypeTranslator`.
+- **Vazamento de secrets em logs** — output upstream pode conter `--password-stdin`, `--token=*`, `password=*`. Sanitizar via regex similar a `Job::$payload_sanitized` ANTES de persistir. Test obrigatório com fixture contendo `password=segredo123` → asserta `[REDACTED]` no `summary` final.
+- **Latência do callback** — fetch SSH adiciona ~200-800ms ao processamento do webhook `job.finished`. Atualmente o handler retorna `204` em <50ms. Decisão: aceitar o overhead (webhook é fire-and-forget assíncrono do lado upstream); medir via `Log::info('jobs.log_fetch.duration_ms', [...])`.
+- **Enumeração de e-mail no forgot-password** — `Password::sendResetLink()` retorna `INVALID_USER` quando o e-mail não existe. Front-end DEVE retornar mensagem genérica ("se o e-mail existir, enviaremos instruções") em todos os outcomes. Test obrigatório: 3 cenários (email válido + ativo, email válido + inactive, email inexistente) → todos exibem a mesma string.
+- **Operador `status != active`** — bloquear silenciosamente o envio de email, logar audit `password_reset_blocked` com `actor_id=null` + `payload.email=<hash>`.
+
+### Tarefas detalhadas
+
+---
+
+### Task F6.1 — [ISSUE-008] Migration password_reset_tokens + broker config
+
+**Estado atual**: `config/auth.php` tem provider `operators` mas seção `passwords` está padrão (`provider: 'users'`). Tabela `password_reset_tokens` não existe nas migrations.
+
+**Estado desejado**: migration cria tabela padrão do Laravel + `config/auth.php` ganha broker `operators` (provider=`operators`, table=`password_reset_tokens`, expire=60min, throttle=60s).
+
+**Fonte(s)**: ISSUE-008
+**Módulo(s) afetado(s)**: `database/migrations/`, `config/auth.php`
+**Risco**: LOW — adição pura
+**Budget**: P
+
+**Correction (ANTES/DEPOIS)**:
+
+```php
+// ANTES — config/auth.php
+'passwords' => [
+    'users' => [
+        'provider' => 'users',
+        'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+        'expire' => 60,
+        'throttle' => 60,
+    ],
+],
+
+// DEPOIS
+'passwords' => [
+    'operators' => [
+        'provider' => 'operators',
+        'table' => 'password_reset_tokens',
+        'expire' => 60,
+        'throttle' => 60,
+    ],
+],
+
+'defaults' => [
+    // ...
+    'passwords' => 'operators',
+],
+```
+
+Migration: `database/migrations/2026_05_21_000001_create_password_reset_tokens_table.php` — schema canônico do Laravel (`email PK`, `token`, `created_at`).
+
+**Test**: `php artisan migrate:fresh` verde + `Password::broker('operators')` resolve sem erro (smoke).
+
+---
+
+### Task F6.2 — [ISSUE-008] Forgot/Reset Livewire + rotas + mailable + link + rate-limit + audit
+
+**Estado atual**: 0 código de password reset.
+
+**Estado desejado**:
+
+1. Rotas em `routes/web.php` (grupo `guest`):
+   - `GET /forgot-password` → `Auth\ForgotPassword` (Livewire) → `password.request`
+   - `POST /forgot-password` (form submit do Livewire) → `password.email`
+   - `GET /reset-password/{token}` → `Auth\ResetPassword` (Livewire) → `password.reset`
+   - `POST /reset-password` (form submit) → `password.update`
+2. Livewire `App\Http\Livewire\Auth\ForgotPassword` — campo `email`, validação `required|email`, chama `Password::broker('operators')->sendResetLink([...])`, sempre retorna mensagem genérica.
+3. Livewire `App\Http\Livewire\Auth\ResetPassword` — campos `email`, `password`, `password_confirmation`, `token` (vem da URL via `mount`). Validação: `password: required|confirmed|min:8`. Chama `Password::broker('operators')->reset([...])`.
+4. Mailable `App\Mail\OperatorPasswordResetMail` com template em `resources/views/emails/operator-password-reset.blade.php` (URL assinada via `URL::temporarySignedRoute('password.reset', now()->addMinutes(60), [...])`).
+5. Override `Operator::sendPasswordResetNotification($token)` para usar o mailable customizado.
+6. Link em `resources/views/livewire/auth/login.blade.php` — `<a href="{{ route('password.request') }}">Esqueci minha senha</a>` abaixo do botão Entrar.
+7. Rate-limit em `POST /forgot-password`: middleware `throttle:3,15` por IP+email.
+8. Audit: registrar `password_reset_requested` (no submit do ForgotPassword) e `password_reset_completed` (no sucesso do ResetPassword). Para operador `status != active`: `password_reset_blocked`.
+
+**Fonte(s)**: ISSUE-008
+**Módulo(s) afetado(s)**: `routes/web.php`, `app/Http/Livewire/Auth/`, `app/Mail/`, `app/Models/Operator.php`, `resources/views/livewire/auth/`, `resources/views/emails/`
+**Risco**: MEDIUM — surface de auth ampliada; cuidado com enumeração de e-mail e replay
+**Budget**: M
+
+**Test**: Pest Feature tests obrigatórios:
+- `it sends reset link for active operator`
+- `it returns generic message for unknown email` (anti-enumeração)
+- `it returns generic message + logs audit blocked for inactive operator`
+- `it rate-limits 4th request within 15min`
+- `it accepts valid token and updates password`
+- `it rejects expired token (>60min)`
+- `it rejects mismatched email/token pair`
+
+Gate: `docker compose exec app php artisan test --filter=ForgotPassword --filter=ResetPassword` verde + suite global ≥ 323+7 = 330 testes.
+
+---
+
+### Task F6.3 — [ISSUE-009] WebhookPayload + WebhookHandler hook para JobLogFetcher
+
+**Estado atual**: `WebhookHandler::applyFinishedEvent()` (linhas 112-167) faz `$job->update([...])` e cria `AuditLog`. Nunca chama serviço de fetch de log.
+
+**Estado desejado**: após o `update()` do estado terminal, dentro da mesma transação, chamar `$this->jobLogFetcher->fetch($job, $cluster)` e mesclar `summary` no `$updates` quando o retorno for não-vazio. Falha do fetcher NÃO aborta a transação (try/catch + `Log::warning`).
+
+**Fonte(s)**: ISSUE-009
+**Módulo(s) afetado(s)**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Jobs/Dto/WebhookPayload.php` (opcional — só se quiser aceitar `log_tail` hint do upstream futuro)
+**Risco**: MEDIUM — toca o caminho crítico de finalização de job
+**Budget**: P
+
+**Correction (DEPOIS)**:
+
+```php
+// app/Modules/Jobs/Services/WebhookHandler.php
+public function __construct(
+    private readonly StateTranslator $stateTranslator,
+    private readonly JobLogFetcher $jobLogFetcher,
+) {}
+
+// dentro de applyFinishedEvent(), após $updates ser montado:
+DB::transaction(function () use ($job, $canonical, $payload, $cluster): void {
+    $updates = [/* ... existente ... */];
+
+    if ($payload->finishedAt !== null) {
+        $updates['finished_at'] = Carbon::parse($payload->finishedAt);
+    }
+
+    if (empty($job->summary)) {
+        try {
+            $lines = $this->jobLogFetcher->fetch($job, $cluster);
+            if ($lines !== []) {
+                $updates['summary'] = $lines;
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('jobs.log_fetch.failed', [
+                'job_id' => $job->job_id,
+                'cluster_id' => $cluster->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    $job->update($updates);
+
+    // ... resto (customer status, audit log) ...
+});
+```
+
+**Test**: F6.5 (Feature tests com fetcher mockado cobrem o hook).
+
+---
+
+### Task F6.4 — [ISSUE-009] JobLogFetcher service
+
+**Estado atual**: serviço inexistente.
+
+**Estado desejado**: `App\Modules\Jobs\Services\JobLogFetcher` injetando `SshClientInterface`. Método `fetch(Job $job, ClusterServer $cluster): array<string>` retorna lista de linhas (vazias filtradas, secrets sanitizados). Idempotência: se `$job->summary` já populada, retorna `[]` sem fazer SSH (caller já filtra, mas double-check).
+
+**Algoritmo**:
+1. Comando primário: `nextcloud-manage <client> job <job_id> logs --json` — passa `$job->customer_slug` como `<client>` (ou `_` se for job sem cliente). Timeout 15s (config `services.ssh.log_fetch_timeout_seconds`).
+2. Se `exit_code === 99` (notImplemented per E6) → fallback: `nextcloud-manage <client> job <job_id> status --json` e extrair `data.summary` ou `data.logs`.
+3. Parsear JSON. Esperar `array<string>` ou `{lines: array<string>}` ou `{summary: array<string>}` — tolerante.
+4. Sanitizar cada linha: regex `(password|token|secret|pwd)\s*[:=]\s*\S+` → `$1=[REDACTED]`. Também remover linhas com `--payload-stdin` content.
+5. Retornar array. Em qualquer erro de parse/exec, lançar `JobLogFetchException` (handler captura).
+
+**Fonte(s)**: ISSUE-009, Errata E7 (`summary` em `job status`), Errata E6 (exit code 99)
+**Módulo(s) afetado(s)**: `app/Modules/Jobs/Services/JobLogFetcher.php`, `app/Modules/Jobs/Exceptions/JobLogFetchException.php`, `config/services.php` (ssh.log_fetch_timeout_seconds)
+**Risco**: MEDIUM — novo SSH path; precisa de cuidado com timeout e parsing tolerante
+**Budget**: M
+
+**Test**: F6.5 (unit/feature com mock) + F6.6 (contract opt-in).
+
+---
+
+### Task F6.5 — [ISSUE-009] Pest Feature tests do hook + JobLogFetcher (mock)
+
+Cenários obrigatórios:
+- `webhook job.finished populates summary from fetcher result`
+- `webhook job.finished idempotency: summary already populated → fetcher not called`
+- `webhook job.finished tolerates fetcher exception (logs warning, persists state)`
+- `webhook job.started does NOT call fetcher`
+- `webhook job.finished with empty fetcher result keeps summary null`
+- `JobLogFetcher sanitizes password=foo to password=[REDACTED]`
+- `JobLogFetcher falls back to job status when exit_code=99`
+
+Mock `SshClientInterface` via `Mockery` (padrão estabelecido em `tests/Feature/Customers/LifecycleTest.php`).
+
+**Budget**: P (testes, sem produção)
+**Gate**: suite ≥ 330 testes verde.
+
+---
+
+### Task F6.6 — [ISSUE-009] Contract test opt-in (RUN_UPSTREAM_CONTRACT=1)
+
+Espelhando o padrão de `tests/Contract/Customers/UpstreamContractTest.php`:
+
+```php
+test('nextcloud-manage job logs --json returns parseable array')
+    ->skipUnless(env('RUN_UPSTREAM_CONTRACT') === '1');
+```
+
+Provisiona um job de teste (ou usa job_id conhecido do `homolog`), executa SSH real e asserta formato esperado. Falha pega divergência upstream antes de produção.
+
+**Budget**: P
+**Gate**: rodar manual; documentar resultado em `docs/.briefs/F6.brief.md`.
+
+---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -3575,3 +3811,4 @@ Critério de pronto:
 | 2026-05-20 | 0.9    | Sprint F5 CONCLUÍDA — 7/7 tasks; brief `docs/.briefs/F5.brief.md`; 301/307 testes; PASS_WITH_FINDINGS    | /pmo sprint F5                                                 |
 | 2026-05-20 | 0.10   | Sprint F5 expandida com F5.8/F5.9/F5.10 (R1 follow-up — PROC-012 corrige in-sprint após /qa validar R1 REPROVADA) | /pmo sprint F5                                                 |
 | 2026-05-20 | 0.11   | Sprint F5 expandida com F5.11 (R2 follow-up — same-path fix para QA-F5-019; PROC-012 corrige in-sprint após /qa validar R2 REPROVADA) | /pmo sprint F5                                                 |
+| 2026-05-21 | 0.12   | Sprint F6 adicionada — ISSUE-008 (forgot-password broker nativo Laravel) + ISSUE-009 (logs de job via SSH pull pós job.finished); originada de `/qa debug` | /fix (interativo)                                              |

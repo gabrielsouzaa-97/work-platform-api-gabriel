@@ -20,6 +20,8 @@ final readonly class WebhookPayload
         public ?string $startedAt,
         public ?string $finishedAt,
         public ?int $durationMs,
+        /** @var array<int, string>|null Hint from future upstream contract; empty means fetch via SSH. */
+        public ?array $logTail,
     ) {}
 
     /**
@@ -30,6 +32,7 @@ final readonly class WebhookPayload
      *  - `finished_at`, `exit_code`, `duration_ms` are absent on `job.started`.
      *  - `ts` (event timestamp) is the fallback for `finished_at` on `job.finished`
      *    and for `started_at` on `job.started` — see upstream `_fire_callback`.
+     *  - `log_tail` is an optional future hint; accepted when present but never required.
      */
     public static function fromArray(array $data): self
     {
@@ -49,6 +52,11 @@ final readonly class WebhookPayload
             $finishedAt = $ts;
         }
 
+        $logTail = null;
+        if (isset($data['log_tail']) && is_array($data['log_tail'])) {
+            $logTail = array_values(array_filter($data['log_tail'], 'is_string'));
+        }
+
         return new self(
             jobId: $data['job_id'],
             state: $data['state'],
@@ -59,6 +67,7 @@ final readonly class WebhookPayload
             startedAt: $startedAt,
             finishedAt: $finishedAt,
             durationMs: isset($data['duration_ms']) ? (int) $data['duration_ms'] : null,
+            logTail: $logTail,
         );
     }
 

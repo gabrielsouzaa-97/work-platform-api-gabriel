@@ -13,6 +13,7 @@ use App\Modules\Jobs\Dto\WebhookPayload;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class WebhookHandler
@@ -21,6 +22,7 @@ final class WebhookHandler
 
     public function __construct(
         private readonly StateTranslator $stateTranslator,
+        private readonly JobLogFetcher $jobLogFetcher,
     ) {}
 
     public function handle(ClusterServer $cluster, array $rawPayload): void
@@ -40,11 +42,6 @@ final class WebhookHandler
         $canonical = $this->stateTranslator->toCanonical($payload->state);
 
         // Out-of-order guard: never overwrite a terminal state with `running`.
-        // The upstream worker may deliver `job.started` AFTER `job.finished` if
-        // the started callback was retried after the worker had already moved on
-        // (the dedupe lives in our cache, not the upstream queue, so a missed
-        // 2xx upstream-side can trigger a late retry). The job has already
-        // converged; we acknowledge the delivery silently.
         if ($canonical === 'running' && in_array($job->state, self::TERMINAL_STATES, true)) {
             return;
         }
@@ -105,9 +102,9 @@ final class WebhookHandler
     }
 
     /**
-     * `job.finished` lifecycle event (or pre-event legacy callbacks). Persists
-     * the terminal state, finished_at, exit_code and — for terminal canonical
-     * states — propagates the customer.status transition.
+     * `job.finished` lifecycle event. Persists the terminal state, finished_at,
+     * exit_code and — for terminal canonical states — propagates the
+     * customer.status transition and fetches job logs via SSH.
      */
     private function applyFinishedEvent(
         Job $job,
@@ -128,6 +125,28 @@ final class WebhookHandler
 
             if ($payload->finishedAt !== null) {
                 $updates['finished_at'] = Carbon::parse($payload->finishedAt);
+            }
+
+            // Fetch log lines: prefer log_tail hint from payload (future contract),
+            // fall back to SSH pull. Failure is non-fatal — webhook must still 204.
+            if (empty($job->summary)) {
+                $fetchStart = microtime(true);
+                try {
+                    $lines = $payload->logTail ?? $this->jobLogFetcher->fetch($job, $cluster);
+                    if ($lines !== []) {
+                        $updates['summary'] = $lines;
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('jobs.log_fetch.failed', [
+                        'job_id' => $job->job_id,
+                        'cluster_id' => $cluster->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+                Log::info('jobs.log_fetch.duration_ms', [
+                    'job_id' => $job->job_id,
+                    'duration_ms' => (int) round((microtime(true) - $fetchStart) * 1000),
+                ]);
             }
 
             $job->update($updates);
