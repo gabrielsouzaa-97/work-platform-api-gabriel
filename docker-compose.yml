@@ -23,9 +23,12 @@ services:
       CACHE_STORE: redis
       SESSION_DRIVER: redis
       QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
-      MAIL_MAILER: smtp
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
+      # MAIL_* intencionalmente NAO definidos aqui — Laravel le do .env montado
+      # via volume (/var/www/html/.env). Definir aqui sobrescreveria o .env
+      # (env do container vence sobre phpdotenv em modo imutavel), o que
+      # mascarou em producao o SMTP externo (skymail) direcionando todo email
+      # ao mailpit. Mailpit continua disponivel para dev local — basta o .env
+      # de desenvolvimento apontar MAIL_HOST=mailpit MAIL_PORT=1025.
     depends_on:
       database:
         condition: service_healthy
@@ -152,9 +155,8 @@ services:
       CACHE_STORE: redis
       SESSION_DRIVER: redis
       QUEUE_CONNECTION: redis
-      MAIL_MAILER: smtp
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
+      # MAIL_* — ver comentario em services.app. Mesmo motivo: deixar Laravel
+      # ler do .env montado para que o worker use o mailer real em producao.
     depends_on:
       app:
         condition: service_healthy
