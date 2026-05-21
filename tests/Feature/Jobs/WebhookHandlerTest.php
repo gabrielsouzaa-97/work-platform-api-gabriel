@@ -6,6 +6,8 @@ use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
+use App\Modules\Core\Ssh\Dto\SshResponse;
+use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\Exceptions\UnknownStateException;
 use App\Modules\Jobs\Services\WebhookHandler;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -15,7 +17,23 @@ use Illuminate\Support\Str;
  * Direct service-level tests for WebhookHandler — bypasses the HTTP pipeline so
  * domain branches (started vs finished, out-of-order guards, customer status
  * propagation) can be exercised in isolation from middleware concerns.
+ *
+ * A no-op SshClientInterface mock is bound globally for this suite so that the
+ * JobLogFetcher dependency added in F6.3 does not attempt real SSH connections
+ * (which would add 3s of retry-sleep per test).
  */
+
+beforeEach(function () {
+    $noop = Mockery::mock(SshClientInterface::class);
+    $noop->shouldReceive('run')->andReturn(new SshResponse(
+        stdout: '[]',
+        stderr: '',
+        exitCode: 0,
+        parsedJson: [],
+    ));
+    $this->app->instance(SshClientInterface::class, $noop);
+});
+
 function handlerCluster(): ClusterServer
 {
     return ClusterServer::factory()->create(['ssh_host' => '127.0.0.1']);

@@ -13,6 +13,8 @@
 | ISSUE-005 | change_request | Webhook receiver loga payload em nível debug quando APP_ENV=local | Jobs, Webhook | LOW | implemented |
 | ISSUE-006 | postmortem | Lifecycle async envia vocabulário canônico-API ao upstream (`users:create` em vez de `user-create`) + duplica `--async --json` | Customers, Core/Ssh | HIGH | open (Fix Brief aprovado) |
 | ISSUE-007 | change_request | E2E browser coverage via Dusk/Playwright para Livewire (cobre wire:submit/click real, MeRC ribbon do bug QA-F5-019) | DevOps, Livewire | MEDIUM | open (backlog — sprint N-UI dedicada) |
+| ISSUE-008 | change_request | Fluxo de "Esqueci a senha" para operadores (broker nativo Laravel) | Auth | MEDIUM | open |
+| ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | open |
 
 ---
 
@@ -421,3 +423,87 @@ Falta uma camada **browser real** (Dusk ou Playwright) para:
 ### Próximo passo
 
 Não há próximo passo imediato — esta issue fica em backlog até decisão de roadmap para uma sprint N-UI dedicada (não bloquear sprints F/N atuais).
+
+
+---
+
+## ISSUE-008 — Fluxo de "Esqueci a senha" para operadores
+
+- **Tipo**: change_request
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-05-21
+- **Solicitante**: `/qa debug` (operador)
+- **Módulos afetados**: `app/Http/Livewire/Auth/`, `routes/web.php`, `resources/views/livewire/auth/`, `resources/views/emails/`, `config/auth.php`
+
+### Descrição
+
+A tela `/login` (`resources/views/livewire/auth/login.blade.php`) não oferece link "Esqueci minha senha". Verificado por `grep password.request|forgot|recuperar|esqueci`: nenhuma rota, Livewire component ou mailable de password reset existe no código. Apenas a senha trocada manualmente (via `/profile/password`) ou via convite (`AcceptInvite`) está implementada.
+
+### Critério de aceite
+
+- Adicionar rotas `password.request` (GET form), `password.email` (POST submit), `password.reset` (GET form com token), `password.update` (POST submit) — todas dentro do grupo `guest` em `routes/web.php`.
+- Criar Livewire `Auth/ForgotPassword` (form com `email`) e `Auth/ResetPassword` (form com `email`, `password`, `password_confirmation`, `token`).
+- Usar `Illuminate\Support\Facades\Password` (broker padrão sobre tabela `password_reset_tokens` + provider `operators` já configurado em `config/auth.php`).
+- Mailable `OperatorPasswordResetMail` com URL assinada (template em `resources/views/emails/`).
+- Link "Esqueci minha senha" em `login.blade.php` abaixo do botão "Entrar".
+- Auditar via `AuditLog` (`action=password_reset_requested`, `action=password_reset_completed`).
+- Rate-limit `password.email` (3 tentativas / 15 min por IP+email).
+
+### Riscos / decisões
+
+- **Enumeração de e-mail**: usar resposta genérica ("se o e-mail existir, enviaremos instruções") independentemente do resultado de `Password::sendResetLink()`.
+- **Operadores `status != active`**: bloquear silenciosamente o envio (mesma resposta genérica), logar em audit como `password_reset_blocked`.
+
+### Próximo passo
+
+Aguardar `/fix` para gerar Sprint F com TDD (Pest Feature tests cobrindo happy path + rate limit + invalid token).
+
+---
+
+## ISSUE-009 — Logs de Job ausentes na tela `queue/{jobId}`
+
+- **Tipo**: change_request
+- **Prioridade**: HIGH
+- **Status**: open
+- **Registrado em**: 2026-05-21
+- **Solicitante**: `/qa debug` (operador)
+- **Módulos afetados**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Core/Ssh/SshClient.php`, `app/Modules/Jobs/Services/` (novo), `app/Http/Livewire/Jobs/Show.php`
+
+### Descrição
+
+A view `resources/views/livewire/jobs/show.blade.php` renderiza `$logLines` a partir de `Job::$summary` (cast JSON). Confirmado:
+
+- `app/Http/Livewire/Jobs/Show.php::parsedLogLines()` retorna `[]` quando `$job->summary` é vazio.
+- `app/Modules/Jobs/Services/WebhookHandler.php` (callback `job.started`/`job.finished`) **nunca** atribui `summary`. Só toca `state`, `started_at`, `finished_at`, `exit_code`, `callback_received_at`.
+- `app/Modules/Jobs/Dto/WebhookPayload::fromArray()` sequer lê campo `summary`/`log_tail`/`stdout` — o contrato upstream não envia logs no callback.
+
+Resultado: 100% dos jobs exibem "Nenhum log disponível." em produção/staging.
+
+### Design escolhido
+
+**Pull SSH pós-`job.finished`**: após o `applyFinishedEvent()` persistir o estado terminal, executar via `SshClient` o comando `nextcloud-manage job <job_id> logs --json` no cluster do job, parsear `stdout` e persistir em `jobs.summary` (array JSON). Decisão tomada para evitar dependência de PR upstream e desacoplar logging do canal de callback.
+
+### Critério de aceite
+
+- Novo serviço `App\Modules\Jobs\Services\JobLogFetcher` injetando `SshClientInterface`:
+  - método `fetch(Job $job, ClusterServer $cluster): array` retorna lista de linhas (sem nulls/vazios).
+  - timeout configurável (`config('services.ssh.log_fetch_timeout_seconds', 15)`).
+  - tolera comando ausente / exit_code != 0 → não falha o webhook, só loga em `Log::warning()` com `job_id` e `cluster_id`.
+- `WebhookHandler::applyFinishedEvent()` chama `JobLogFetcher` dentro da transação **após** o `update()` do estado terminal, persistindo `summary`. Em estados não-terminais (`running`), não fetcha.
+- Idempotência: se `summary` já estiver populado, pular fetch (proteção contra retry de webhook).
+- Comando SSH alvo: `nextcloud-manage job <job_id> logs --json`. Esperar JSON array de strings ou objeto `{"lines": [...]}` (ajustar parser conforme contrato real do upstream — validar antes da implementação executando contra cluster `homolog`).
+- Audit: incluir `log_lines_count` no payload da entry `webhook_received` em `applyFinishedEvent()`.
+- Pest Feature test: webhook `job.finished` → `summary` populada com fixture do `SshClient` mockado.
+- Pest Contract test (opt-in `RUN_UPSTREAM_CONTRACT=1`): comando SSH real em cluster `homolog` retorna formato esperado.
+
+### Riscos / decisões
+
+- **Custo SSH por job**: cada `job.finished` agora abre/usa conexão pooled. Latência adicional ~200-800ms — aceitável pois o callback já é assíncrono. Monitorar via `Log::info('job.log_fetch.duration_ms')`.
+- **Falha do `nextcloud-manage job logs`**: NÃO deve marcar o job como `failed` — só falha o enriquecimento. View já tolera `summary` vazia.
+- **Contrato upstream pendente**: se o subcomando `job <id> logs --json` não existir ainda no `nextcloud-manage`, abrir PR upstream em paralelo (acoplar a ISSUE-001/006).
+- **Vazamento de secrets**: logs do upstream podem conter linhas com tokens/senhas. Aplicar sanitização similar a `payload_sanitized` antes de persistir (regex sobre `password=`, `token=`, `--password-stdin`).
+
+### Próximo passo
+
+Aguardar `/fix` para gerar Sprint F (TDD obrigatório, auditor diferente do implementador conforme Decision #119).

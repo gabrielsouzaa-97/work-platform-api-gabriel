@@ -67,33 +67,41 @@
                 <p class="text-[11px] font-mono text-on-surface-variant mt-0.5">Deployer API</p>
             </div>
         </div>
+        @can('manage-operators')
         <a href="{{ route('api-keys.index') }}"
            class="w-full bg-primary text-on-primary rounded py-[9px] px-md font-semibold text-[12px] tracking-wide uppercase hover:bg-primary-fixed transition-colors flex items-center justify-center gap-xs">
             <span class="material-symbols-outlined" style="font-size:16px">add</span>
             Nova Credencial
         </a>
+        @endcan
     </div>
 
     {{-- Navigation --}}
     <nav class="flex-1 overflow-y-auto px-sm py-sm space-y-[2px]">
         @php
+            // Cada item declara o gate exigido. `null` = acessível a qualquer operador
+            // autenticado (rota não protegida por can:* em routes/web.php).
             $navItems = [
-                ['icon' => 'dashboard',    'label' => 'Dashboard',              'route' => 'dashboard'],
-                ['icon' => 'vpn_key',      'label' => 'Credenciais',            'route' => 'api-keys.index'],
-                ['icon' => 'list_alt',     'label' => 'Logs de Requisição',     'route' => 'audit.index'],
-                ['icon' => 'cloud_queue',  'label' => 'Logs de Provisionamento','route' => 'queue.index'],
-                ['icon' => 'settings',     'label' => 'Configurações',          'route' => 'settings.index'],
+                ['icon' => 'dashboard',     'label' => 'Dashboard',              'route' => 'dashboard',           'gate' => 'manage-operators'],
+                ['icon' => 'groups',        'label' => 'Clientes',               'route' => 'customers.index',     'gate' => null],
+                ['icon' => 'cloud_queue',   'label' => 'Logs de Provisionamento','route' => 'queue.index',         'gate' => null],
+                ['icon' => 'vpn_key',       'label' => 'Credenciais',            'route' => 'api-keys.index',      'gate' => 'manage-operators'],
+                ['icon' => 'list_alt',      'label' => 'Logs de Requisição',     'route' => 'audit.index',         'gate' => 'manage-operators'],
+                ['icon' => 'settings',      'label' => 'Configurações',          'route' => 'settings.index',      'gate' => 'manage-cluster-servers'],
+                ['icon' => 'security',      'label' => 'Webhook IPs',            'route' => 'settings.webhook-ip', 'gate' => 'manage-cluster-servers'],
             ];
         @endphp
 
         @foreach ($navItems as $item)
             @php
                 $active = request()->routeIs($item['route'])
-                    || ($item['route'] === 'settings.index' && request()->routeIs('cluster-servers.*'));
+                    || ($item['route'] === 'settings.index' && request()->routeIs('cluster-servers.*'))
+                    || ($item['route'] === 'customers.index' && request()->routeIs('customers.*'));
                 $routeUrl = null;
                 try { $routeUrl = route($item['route']); } catch (\Exception) {}
+                $allowed = $item['gate'] === null || auth()->user()?->can($item['gate']);
             @endphp
-            @if ($routeUrl)
+            @if ($routeUrl && $allowed)
                 <a href="{{ $routeUrl }}"
                    class="flex items-center gap-sm px-md py-[9px] rounded-lg font-semibold text-[12px] tracking-wide uppercase transition-all duration-150
                           {{ $active

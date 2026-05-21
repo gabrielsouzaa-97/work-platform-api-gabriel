@@ -40,6 +40,7 @@ return [
         'pool_ttl_seconds' => 300,
         'max_pool_size' => 5,
         'connect_timeout_seconds' => 30,
+        'log_fetch_timeout_seconds' => env('SSH_LOG_FETCH_TIMEOUT', 15),
     ],
 
     'webhook' => [

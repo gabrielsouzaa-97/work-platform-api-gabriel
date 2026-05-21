@@ -3,7 +3,9 @@
 use App\Http\Livewire\ApiKeys\Index as ApiKeysIndex;
 use App\Http\Livewire\Audit\Index as AuditIndex;
 use App\Http\Livewire\Auth\AcceptInvite;
+use App\Http\Livewire\Auth\ForgotPassword;
 use App\Http\Livewire\Auth\Login;
+use App\Http\Livewire\Auth\ResetPassword;
 use App\Http\Livewire\ClusterServers\Create as ClusterCreate;
 use App\Http\Livewire\ClusterServers\Edit as ClusterEdit;
 use App\Http\Livewire\ClusterServers\Index as ClusterIndex;
@@ -31,6 +33,8 @@ Route::get('/', function () {
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', Login::class)->name('login');
+    Route::get('/forgot-password', ForgotPassword::class)->name('password.request');
+    Route::get('/reset-password/{token}', ResetPassword::class)->middleware('signed')->name('password.reset');
 });
 
 Route::middleware(['auth', 'active.operator'])->group(function () {
