@@ -41,13 +41,27 @@ it('is case insensitive for uppercase input', function (): void {
     expect($this->translator->toCanonical('DONE'))->toBe('success');
 });
 
-it('covers all upstream states (docstring + impl)', function (string $upstream, string $canonical): void {
+it('translates success (callback wire value) to success', function (): void {
+    // worker.sh emits state="success" on the HTTP callback payload (see worker.sh
+    // comment near `final_state="success"`: "estado interno Redis = finished;
+    // payload de callback = success"). Missing this caused 422 → http_code:0 retries.
+    expect($this->translator->toCanonical('success'))->toBe('success');
+});
+
+it('translates canceled (US spelling, callback wire value) to cancelled', function (): void {
+    // Worker comment references CONTRACTS.md §5.3 enum with "canceled" (one L).
+    expect($this->translator->toCanonical('canceled'))->toBe('cancelled');
+});
+
+it('covers all upstream states (docstring + impl + wire)', function (string $upstream, string $canonical): void {
     expect($this->translator->toCanonical($upstream))->toBe($canonical);
 })->with([
     ['queued',    'queued'],
     ['running',   'running'],
     ['done',      'success'],   // per nextcloud-manage §5.2 docstring
-    ['finished',  'success'],   // per worker.sh real emission
+    ['finished',  'success'],   // per worker.sh internal Redis state
+    ['success',   'success'],   // per worker.sh callback wire payload
     ['failed',    'failed'],
     ['cancelled', 'cancelled'],
+    ['canceled',  'cancelled'], // US spelling on the wire
 ]);

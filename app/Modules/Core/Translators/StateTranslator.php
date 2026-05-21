@@ -8,11 +8,24 @@ use App\Modules\Core\Translators\Exceptions\UnknownStateException;
 
 final class StateTranslator
 {
-    // Upstream states (per nextcloud-manage §5.2 docstring): queued, running, done, failed, cancelled
-    // Upstream worker.sh (real implementation) emits: queued, running, finished, failed, cancelled
-    //   — see mework360-deployer-scripts/scripts/worker.sh:609,621 (`set_state "$jid" finished`).
-    // The contract docs say "done" but the implementation says "finished"; we accept BOTH so an
-    // upstream renaming to align with the docstring won't break us. Tracked in upstream issue.
+    // Two distinct upstream vocabularies converge into this map:
+    //   1. Redis/state-machine values set by `set_state` inside worker.sh:
+    //      queued, running, finished, failed, cancelled.
+    //      Plus the docstring of nextcloud-manage §5.2 which uses `done` instead
+    //      of `finished` — accepted to survive an upstream rename.
+    //   2. WIRE values carried by the HTTP callback payload `state` field
+    //      (worker.sh comment: "estado interno Redis = finished; payload de
+    //      callback = success" — CONTRACTS.md §5.3 callback schema enum:
+    //      success/failed/canceled). The callback never sends `done`/`finished`.
+    //
+    // The map must accept BOTH families because:
+    //   - `StateTranslator` is invoked by `WebhookHandler` against the wire value
+    //     (`success`/`failed`/`canceled`), AND
+    //   - it is also invoked by upstream-status pollers against Redis values
+    //     (`finished`/`failed`/`cancelled`).
+    // Missing `success` here caused every job.finished callback to fail with
+    // UnknownStateException → 422; the worker (curl -sf) translated that into
+    // http_code:0 and retried until exhaustion. See FINDINGS-…
     //
     // Canonical (internal): queued, running, success, failed, cancelled
     private const MAP = [
@@ -20,8 +33,10 @@ final class StateTranslator
         'running' => 'running',
         'done' => 'success',
         'finished' => 'success',
+        'success' => 'success',
         'failed' => 'failed',
         'cancelled' => 'cancelled',
+        'canceled' => 'cancelled',
     ];
 
     public function toCanonical(string $upstreamState): string
