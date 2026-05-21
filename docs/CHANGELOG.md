@@ -207,3 +207,11 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-21 13:38** `ccfad0d` — fix(docker): remove MAIL_* hardcoded de app/worker — usa .env
 - **2026-05-21 15:10** `ccfad0d` — fix(docker): remove MAIL_* hardcoded de app/worker — usa .env
 - **2026-05-21 15:20** `ccfad0d` — fix(docker): remove MAIL_* hardcoded de app/worker — usa .env
+- **2026-05-21 15:37** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 15:42** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 15:43** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 15:48** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 15:49** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 15:52** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 16:01** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 16:03** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)

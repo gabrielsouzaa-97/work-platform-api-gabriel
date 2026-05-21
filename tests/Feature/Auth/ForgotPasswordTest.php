@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -126,4 +127,18 @@ it('rejects mismatched password confirmation', function (): void {
         ->set('password_confirmation', 'DifferentPass!')
         ->call('resetPassword')
         ->assertHasErrors(['password']);
+});
+
+it('password reset route requires a valid signature', function (): void {
+    $operator = Operator::factory()->create(['status' => 'active']);
+    $token = Password::broker('operators')->createToken($operator);
+
+    $signedUrl = URL::temporarySignedRoute(
+        'password.reset',
+        now()->addMinutes(60),
+        ['token' => $token, 'email' => $operator->email],
+    );
+
+    $this->get($signedUrl)->assertOk();
+    $this->get(route('password.reset', ['token' => $token, 'email' => $operator->email]))->assertForbidden();
 });

@@ -120,14 +120,13 @@ final class JobLogFetcher
 
     /**
      * @return array<int, string>
-     *
-     * @throws JobLogFetchException
      */
     private function parseAndSanitize(string $stdout, string $jobId): array
     {
         $decoded = json_decode($stdout, true);
         if (! is_array($decoded)) {
-            throw new JobLogFetchException("Could not parse JSON from job logs for {$jobId}");
+            // Upstream may return plain text lines instead of JSON.
+            return $this->sanitizeLines(preg_split('/\R/', $stdout) ?: []);
         }
 
         // Accept either a plain array of lines or an object with a lines/summary key.

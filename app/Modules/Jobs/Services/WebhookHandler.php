@@ -112,19 +112,26 @@ final class WebhookHandler
         WebhookPayload $payload,
         ClusterServer $cluster,
     ): void {
-        if ($job->state === $canonical) {
+        $isSummaryRecoveryRetry = $job->state === $canonical
+            && $payload->isFinished()
+            && empty($job->summary);
+
+        if ($job->state === $canonical && ! $isSummaryRecoveryRetry) {
             return;
         }
 
-        DB::transaction(function () use ($job, $canonical, $payload, $cluster): void {
+        DB::transaction(function () use ($job, $canonical, $payload, $cluster, $isSummaryRecoveryRetry): void {
             $updates = [
-                'state' => $canonical,
                 'callback_received_at' => now(),
-                'exit_code' => $payload->exitCode,
             ];
 
-            if ($payload->finishedAt !== null) {
-                $updates['finished_at'] = Carbon::parse($payload->finishedAt);
+            if (! $isSummaryRecoveryRetry) {
+                $updates['state'] = $canonical;
+                $updates['exit_code'] = $payload->exitCode;
+
+                if ($payload->finishedAt !== null) {
+                    $updates['finished_at'] = Carbon::parse($payload->finishedAt);
+                }
             }
 
             // Fetch log lines: prefer log_tail hint from payload (future contract),
@@ -152,7 +159,7 @@ final class WebhookHandler
             $job->update($updates);
 
             // Propagate terminal job states to the owning Customer.
-            if ($job->customer_slug && in_array($canonical, self::TERMINAL_STATES, true)) {
+            if (! $isSummaryRecoveryRetry && $job->customer_slug && in_array($canonical, self::TERMINAL_STATES, true)) {
                 $customerStatus = match (true) {
                     $job->job_type === 'provision' && $canonical === 'success' => 'active',
                     $job->job_type === 'provision' && in_array($canonical, ['failed', 'cancelled'], true) => 'failed',
@@ -164,6 +171,10 @@ final class WebhookHandler
                     Customer::where('slug', $job->customer_slug)
                         ->update(['status' => $customerStatus]);
                 }
+            }
+
+            if ($isSummaryRecoveryRetry) {
+                return;
             }
 
             AuditLog::create([

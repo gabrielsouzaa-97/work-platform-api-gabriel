@@ -53,6 +53,15 @@ function sshLogsResponse(array $lines): SshResponse
     );
 }
 
+function sshPlainTextLogsResponse(string $stdout): SshResponse
+{
+    return new SshResponse(
+        stdout: $stdout,
+        stderr: '',
+        exitCode: 0,
+    );
+}
+
 function sshNotImplementedResponse(): SshResponse
 {
     return new SshResponse(stdout: '', stderr: 'not implemented', exitCode: 99);
@@ -131,6 +140,30 @@ it('JobLogFetcher: sanitiza password=foo para password=[REDACTED] antes de persi
         ->and($lines[1])->toContain('[REDACTED]')
         ->and($lines[1])->not->toContain('abc123xyz')
         ->and($lines[2])->toBe('Normal log line');
+});
+
+it('JobLogFetcher: aceita stdout em texto puro no comando logs e separa por linhas', function (): void {
+    $cluster = fetcherCluster();
+    $job = fetcherJob($cluster->id);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andReturn(sshPlainTextLogsResponse(implode(PHP_EOL, [
+            'Line 1',
+            'token=super-secret',
+            '',
+            'Line 3',
+        ])));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $lines = app(JobLogFetcher::class)->fetch($job, $cluster);
+
+    expect($lines)->toBe([
+        'Line 1',
+        'token=[REDACTED]',
+        'Line 3',
+    ]);
 });
 
 it('JobLogFetcher: retorna [] quando job já tem summary preenchido (idempotência)', function (): void {
@@ -222,6 +255,42 @@ it('webhook job.finished tolera falha do fetcher: estado persistido, summary nul
     expect($job->state)->toBe('success')
         ->and($job->summary)->toBeNull()
         ->and($logged)->toBeTrue();
+});
+
+it('webhook job.finished retry com mesmo estado recupera summary quando primeiro fetch falhou', function (): void {
+    $cluster = fetcherCluster();
+    $job = fetcherJob($cluster->id);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andThrow(new SshConnectionException('SSH unreachable'));
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andReturn(sshLogsResponse(['Recovered line']));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    Log::shouldReceive('warning')
+        ->once()
+        ->withArgs(fn ($key) => $key === 'jobs.log_fetch.failed');
+    Log::shouldReceive('info')->zeroOrMoreTimes();
+
+    $payload = [
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ];
+
+    app(WebhookHandler::class)->handle($cluster, $payload);
+    $job->refresh();
+    expect($job->state)->toBe('success')
+        ->and($job->summary)->toBeNull();
+
+    app(WebhookHandler::class)->handle($cluster, $payload);
+    $job->refresh();
+    expect($job->summary)->toBe(['Recovered line']);
 });
 
 it('webhook job.started NÃO chama fetcher (apenas job.finished dispara pull)', function (): void {
