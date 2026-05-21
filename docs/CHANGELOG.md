@@ -215,3 +215,5 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-21 15:52** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
 - **2026-05-21 16:01** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
 - **2026-05-21 16:03** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
+- **2026-05-21 16:06** `8585a51` — fix(auth-jobs): harden reset-link validation and job log hydration
+- **2026-05-21 16:10** `8585a51` — fix(auth-jobs): harden reset-link validation and job log hydration
