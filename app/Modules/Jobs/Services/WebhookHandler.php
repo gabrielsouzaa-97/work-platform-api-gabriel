@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Jobs\Services;
 
+use App\Jobs\ProbeCustomerReadinessJob;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
 use App\Modules\Core\Translators\StateTranslator;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Jobs\Dto\WebhookPayload;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -120,7 +122,9 @@ final class WebhookHandler
             return;
         }
 
-        DB::transaction(function () use ($job, $canonical, $payload, $cluster, $isSummaryRecoveryRetry): void {
+        $probeCustomerSlug = null;
+
+        DB::transaction(function () use ($job, $canonical, $payload, $cluster, $isSummaryRecoveryRetry, &$probeCustomerSlug): void {
             $updates = [
                 'callback_received_at' => now(),
             ];
@@ -161,7 +165,7 @@ final class WebhookHandler
             // Propagate terminal job states to the owning Customer.
             if (! $isSummaryRecoveryRetry && $job->customer_slug && in_array($canonical, self::TERMINAL_STATES, true)) {
                 $customerStatus = match (true) {
-                    $job->job_type === 'provision' && $canonical === 'success' => 'active',
+                    $job->job_type === 'provision' && $canonical === 'success' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
                     $job->job_type === 'provision' && in_array($canonical, ['failed', 'cancelled'], true) => 'failed',
                     $job->job_type === 'deprovision' && $canonical === 'success' => 'removed',
                     default => null,
@@ -170,6 +174,10 @@ final class WebhookHandler
                 if ($customerStatus !== null) {
                     Customer::where('slug', $job->customer_slug)
                         ->update(['status' => $customerStatus]);
+
+                    if ($customerStatus === CustomerLifecycleStatus::PROVISIONING_FINISHING) {
+                        $probeCustomerSlug = $job->customer_slug;
+                    }
                 }
             }
 
@@ -195,5 +203,9 @@ final class WebhookHandler
                 'ip' => null,
             ]);
         });
+
+        if ($probeCustomerSlug !== null) {
+            ProbeCustomerReadinessJob::dispatch($probeCustomerSlug);
+        }
     }
 }

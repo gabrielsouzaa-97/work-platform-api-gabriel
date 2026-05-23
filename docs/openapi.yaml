@@ -33,13 +33,21 @@ info:
     estado via webhook HMAC-SHA256 (caminho preferido) ou polling SSH (fallback após 60s).
     Use `GET /queue/{id}` para acompanhar o status na réplica local.
 
+    ## Readiness pós-provision (ISSUE-010)
+    O callback upstream de `provision success` não garante que o subsistema de usuários
+    esteja pronto (~5–15 min de configuração interna). Após o webhook, o customer fica em
+    `provisioning_finishing` até um probe SSH (`occ-exec user:list`) confirmar readiness.
+    Enquanto `status` ∈ `{provisioning, provisioning_finishing}`, `POST/DELETE .../users`
+    retorna **503** `{error: tenant_not_ready}` com header `Retry-After: 60`.
+    `groups:*` e `apps:*` permanecem disponíveis nessa janela.
+
     ## Anexos binários (logo, background)
     - ≤ 256KB: inline via base64 (`logo_data_url`, `background_data_url`)
     - \> 256KB: SCP staging para `/opt/nextcloud-customers/inbox/<staging-id>/` antes do SSH
 
     **Content-Type:** `application/json`
     **CORS:** `Access-Control-Allow-Origin: *` (inclui `OPTIONS`).
-  version: "2.1"
+  version: "2.2"
   contact:
     name: newwork360
 
@@ -253,6 +261,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/TenantNotReady"
 
   /customers/{customer}/users/{username}:
     delete:
@@ -278,6 +288,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/TenantNotReady"
 
     patch:
       tags: [Users]
@@ -1297,6 +1309,33 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+
+    TenantNotReady:
+      description: |
+        Tenant ainda em provisionamento ou finalização pós-provision. Operações
+        `users:create` e `users:delete` são rejeitadas até probe de readiness
+        (`occ-exec user:list`) promover o customer para `active`. Retry após o
+        intervalo indicado em `Retry-After` (segundos).
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            example: 60
+          description: Segundos sugeridos antes de nova tentativa.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, status]
+            properties:
+              error:
+                type: string
+                enum: [tenant_not_ready]
+                example: tenant_not_ready
+              status:
+                type: string
+                enum: [provisioning, provisioning_finishing]
+                example: provisioning_finishing
 
   # ---------- Schemas ----------
   schemas:

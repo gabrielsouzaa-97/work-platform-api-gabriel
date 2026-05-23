@@ -2,6 +2,8 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-23** `sprint/F8-readiness-gate-iss010` — fix(sprint-F8 R1): F8.7–F8.10 — `max_wait_seconds` 1200 + deadline no probe job; testes probe failure/timeout/gates/sync; OccPanel `TenantNotReadyException` UX + import fix; JobLogFetcherTest isolado de side-effect probe; 46 testes F8, 364 suite.
+- **2026-05-23** `sprint/F8-readiness-gate-iss010` — fix(sprint-F8): ISSUE-010 readiness gate — webhook provision success → `provisioning_finishing` + `ProbeCustomerReadinessJob` (`occ-exec user:list`); gate `users:create|users:delete` → 503 `tenant_not_ready`; `CustomerSyncService` preserva finishing; OpenAPI v2.2 + Decision #ARCH-5 em `docs/DECISION-BRIEF.md`; badges UI `provisioning_finishing`.
 - **2026-05-21 18:34** `fix/sidebar-permissions-and-missing-links` — feat(sprint-F6): forgot-password broker nativo (ISSUE-008) — migration password_reset_tokens, ForgotPassword/ResetPassword Livewire, OperatorPasswordResetMail, rate-limit 3req/15min, anti-enumeration, audit password_reset_requested/blocked/completed; logs de job (ISSUE-009) — JobLogFetcher SSH pull com fallback exit_code=99, sanitização secrets ([REDACTED]), WebhookPayload log_tail hint, WebhookHandler injeta fetcher em applyFinishedEvent (non-fatal try/catch); 20 novos testes (343 total +20, 892 assertions); ROADMAP v0.13.
 - **2026-05-20 18:00** `uds/fix/lifecycle-async-cmd-argv` — fix(sprint-F5): R1 follow-up F5.8/F5.9/F5.10 — IdempotencyKey rollback assertions (QA-F5-017) + SshConnectionException test (QA-F5-018) em LifecycleTest; helper global `noUpstreamFlagDuplication` aplicado em 7 testes (QA-F5-005) + `email`/`groups` no stdin do UpstreamContractTest (QA-F5-015); `docs/openapi.yaml` v2.0→v2.1: novo shape `{job_id, apps_csv}` em `apps/enable|disable` (202+502+503) + responses 501 `NotImplementedYet` para `groups/{group}/users` POST/DELETE (CQ-F5-001); novo `tests/Feature/Livewire/Customers/OccPanelTest.php` cobrindo 8 actions com happy + error mapping (QA-F5-016); ROADMAP v0.10. Próximo passo: `/qa validar R2` (mesma branch).
 - **2026-05-20 07:50** `uds/fix/lifecycle-async-cmd-argv` — fix(lifecycle): Sprint F5 — ISSUE-006 (HIGH postmortem) — `JobTypeTranslator::cmdToCliArgv()` + `BlockedOnUpstreamException` (3º vocabulário, Decision #ARCH-4); `LifecycleAsyncAction` traduz `cmd_canonical → CLI argv upstream` (e.g. `users:create → ['user','create']`) + remove duplicação `--async/--json`; `CustomerLifecycleController` retorna HTTP 501 para `groups:add/remove` (blocked-on-upstream D3/D4), consolida `apps:enable/disable` em 1 job único com CSV, schema `{password, email?, groups?}` via `--payload-stdin` em `users:create`; `OccPanel` espelha contratos; novo `tests/Contract/` com opt-in `UpstreamContractTest` (gated `RUN_UPSTREAM_CONTRACT=1`); auditoria senior+qa (PASS_WITH_FINDINGS) — 4 blockers QA resolvidos in-PR (1 CRITICAL + 3 HIGH); brief em `docs/.briefs/F5.brief.md`; 301/307 testes passando, 781 assertions.
@@ -217,3 +219,23 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-21 16:03** `52b21d0` — feat(sprint-F6): forgot-password + job logs SSH pull (ISSUE-008 + ISSUE-009)
 - **2026-05-21 16:06** `8585a51` — fix(auth-jobs): harden reset-link validation and job log hydration
 - **2026-05-21 16:10** `8585a51` — fix(auth-jobs): harden reset-link validation and job log hydration
+- **2026-05-21 16:22** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-21 16:24** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-21 17:08** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-22 11:25** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-22 11:28** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-23 12:42** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-23 16:08** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-23 16:12** `ffedc76` — Merge pull request #53 from SoftwareBeesy/fix/sidebar-permissions-and-missing-links
+- **2026-05-23 16:28** `8c73d95` — fix(lifecycle): repassar display_name, quota e subadmin_groups no user create
+- **2026-05-23 16:34** `6409a25` — Merge pull request #55 from SoftwareBeesy/fix/user-create-stdin-payload
+- **2026-05-23 16:52** `6409a25` — Merge pull request #55 from SoftwareBeesy/fix/user-create-stdin-payload
+- **2026-05-23 17:28** `6409a25` — Merge pull request #55 from SoftwareBeesy/fix/user-create-stdin-payload
+- **2026-05-23 17:29** `6409a25` — Merge pull request #55 from SoftwareBeesy/fix/user-create-stdin-payload
+- **2026-05-23 17:30** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
+- **2026-05-23 17:32** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
+- **2026-05-23 17:34** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
+- **2026-05-23 17:40** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
+- **2026-05-23 17:49** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
+- **2026-05-23 18:17** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
+- **2026-05-23 19:00** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index

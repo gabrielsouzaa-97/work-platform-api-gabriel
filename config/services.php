@@ -49,4 +49,10 @@ return [
         'rate_limit_per_minute' => env('WEBHOOK_RATE_LIMIT', 100),
     ],
 
+    'customer_readiness' => [
+        'probe_timeout_seconds' => env('CUSTOMER_READINESS_PROBE_TIMEOUT', 30),
+        'max_attempts' => env('CUSTOMER_READINESS_MAX_ATTEMPTS', 10),
+        'max_wait_seconds' => env('CUSTOMER_READINESS_MAX_WAIT_SECONDS', 1200),
+    ],
+
 ];

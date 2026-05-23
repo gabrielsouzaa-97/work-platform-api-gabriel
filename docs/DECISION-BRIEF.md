@@ -165,3 +165,71 @@ A documentação SSH (`docs/SSH API Reference §3.3`) confirma que o upstream us
 - Quando `mework360-deployer-scripts` D3/D4 entregar `group add-user`/`remove-user`, basta adicionar ao `CMD_TO_CLI_ARGV` e remover de `BLOCKED_ON_UPSTREAM` — controllers/Livewire não mudam.
 
 ---
+
+## Decision #ARCH-5 — Readiness gate pós-provision (`provisioning_finishing`)
+
+- **Status**: accepted
+- **Date**: 2026-05-23
+- **Related skills**: webhook-receiver, ssh-orchestrator, vocabulary-translator
+- **Supersedes**: —
+- **Origem**: ISSUE-010 / QA-DYN-021 (P-21) → Sprint F8
+
+### Context
+
+O upstream `nextcloud-saas-manager` emite callback `provision success` após o passo ~6 da
+`SSH API Reference §4.1` (core install + admin), enquanto passos 7–9 (Redis, Collabora,
+14 apps, allowlists) continuam por ~5–15 minutos. A API propagava `Customer.status=active`
+no webhook, enganando consumidores: `users:create`/`users:delete` falhavam silenciosamente
+se disparados nos primeiros ~10 min (5/5 failed vs 8/8 success após 30 min — evidência
+empírica 2026-05-21).
+
+`groups:*` e `apps:*` toleram a janela; apenas operações no subsistema de usuários exigem
+readiness completa.
+
+### Alternatives considered
+
+#### A. Corrigir callback upstream (causa raiz no `nextcloud-saas-manager`)
+- **Pros**: Sinal de readiness correto na origem; `active` significa realmente pronto.
+- **Cons**: Depende de deploy upstream; não protege clientes durante rollout ou regressões.
+
+#### B. Readiness gate defensivo na API (escolhida)
+- **Pros**: Desacopla cliente do timing upstream; fail-closed explícito (503 + Retry-After)
+  em vez de 202→failed silencioso; probe reutiliza infra SSH existente.
+- **Cons**: Novo estado `provisioning_finishing`; worker/queue para probe; webhook não
+  marca `active` imediatamente (mudança de contrato observável).
+
+#### C. Retry inteligente só em `users:create` (mitigação local)
+- **Pros**: Patch mínimo no lifecycle.
+- **Cons**: Não corrige sinal `active` enganoso; `users:delete` e futuros verbs user
+  precisam do mesmo tratamento ad hoc.
+
+#### D. Documentar janela e transferir ao consumidor
+- **Pros**: Zero código.
+- **Cons**: Pior DX; quebra onboarding automatizado; reproduz bug em todo cliente novo.
+
+### Decision
+
+**Alternativa B** — após webhook `provision success`:
+
+1. `Customer.status` → `provisioning_finishing` (não `active`).
+2. `ProbeCustomerReadinessJob` executa probe periódico via `occ-exec user:list` (exit 0 → `active`).
+3. `LifecycleAsyncAction` bloqueia `users:create` e `users:delete` enquanto
+   `status` ∈ `{provisioning, provisioning_finishing}` → `TenantNotReadyException` → HTTP 503.
+4. `CustomerSyncService` não sobrescreve `provisioning_finishing` com `running→active` do upstream.
+
+Issue upstream (alternativa A) recomendada em paralelo, não bloqueante.
+
+### Rationale
+
+1. **Fail-closed > fail-silent**: 503 com `Retry-After` permite retry determinístico; 202 seguido de `failed` sem `exit_code` impossibilita diagnóstico (P-05).
+2. **Escopo mínimo do gate**: só `users:*` — evidência empírica mostrou que `groups`/`apps` funcionam na janela.
+3. **Probe via SSH existente**: reutiliza `CustomerReadinessProbe` + `OccPassthroughService` pattern; sem dependência de novo contrato webhook upstream.
+
+### Consequences
+
+- Clientes devem tratar HTTP 503 `tenant_not_ready` em `POST/DELETE .../users` após provision.
+- UI admin exibe badge `provisioning_finishing` distinto de `provisioning`.
+- OpenAPI v2.2 documenta response `TenantNotReady` (503).
+- Saga de onboarding (P-22) deve consumir este gate internamente — cliente da saga não vê a janela.
+
+---

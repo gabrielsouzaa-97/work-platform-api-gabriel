@@ -15,6 +15,130 @@
 | ISSUE-007 | change_request | E2E browser coverage via Dusk/Playwright para Livewire (cobre wire:submit/click real, MeRC ribbon do bug QA-F5-019) | DevOps, Livewire | MEDIUM | open (backlog — sprint N-UI dedicada) |
 | ISSUE-008 | change_request | Fluxo de "Esqueci a senha" para operadores (broker nativo Laravel) | Auth | MEDIUM | open |
 | ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | open |
+| ISSUE-010 | postmortem | Callback `provision success` prematuro — tenant não ready para `users:*` (~10 min pós-callback) | Jobs, Customers, Webhook | CRITICAL | closed (F8) |
+
+---
+
+## ISSUE-010 — Callback `provision success` prematuro; tenant não ready para operações de usuário
+
+- **Tipo**: postmortem (BUG — causa raiz)
+- **Prioridade**: CRITICAL
+- **Status**: implemented — **validação APROVADA (R1)**
+- **Sprint**: F8 (gerada `/fix` 2026-05-23)
+- **Registrado em**: 2026-05-23 (triagem de P-21 em `docs/PROBLEMAS-ENCONTRADOS.md`)
+- **Origem**: testes dinâmicos API dev (`deployer.mework360.com.br`) + correlação queue 2026-05-21
+- **Módulos afetados**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Customers/Actions/LifecycleAsyncAction.php`, `app/Http/Controllers/Api/CustomerLifecycleController.php`
+- **Upstream afetado**: `nextcloud-saas-manager` (timing do callback `create` / provision)
+- **Relacionados**: P-01 (sintoma), P-05 (observabilidade zero em falhas), P-22 (saga de onboarding — solução de produto)
+
+### Descrição
+
+O upstream `nextcloud-saas-manager` emite callback `state=success` para o job `create` (provision) **antes** do tenant Nextcloud estar funcionalmente pronto para operações no subsistema de usuários (`user:add`, `user:remove`). A API, ao receber o webhook, propaga imediatamente `Customer.status = active` (`WebhookHandler` linha 164), sinalizando ao cliente que o tenant está operacional.
+
+Há uma **janela de readiness de ~10 minutos** pós-callback em que `users:create` e `users:delete` falham silenciosamente (job `state=failed`, sem `exit_code`/`summary` — ver P-05). `groups:create` e `apps:enable` funcionam na mesma janela, coerente com a `SSH API Reference §4.1.7`: Redis/Collabora/14 apps ainda configurando enquanto o core install já concluiu.
+
+### Evidência empírica
+
+| Métrica | Resultado |
+|---|---|
+| Δt provision → `users:create` **< 10 min** | **5/5 failed** |
+| Δt provision → `users:create` **> 30 min** | **8/8 success** |
+| Mesmo argv/código/upstream | Falha só muda com tempo (refuta hipótese argv/stdin de P-03/P-04) |
+
+Exemplo circunstancial (`qa-test-1779378939`, ~2 min pós-provision): `groups:create` ✅, `apps:enable` ✅, `users:delete` ❌, `users:create` ❌.
+
+### Causa raiz (confirmada)
+
+1. **Upstream**: callback emitido após passo ~6 (core install + admin), antes dos passos 7–9 (Redis, Collabora, 14 apps, allowlists).
+2. **API**: `WebhookHandler` trata `provision + success` como sinal definitivo de readiness — sem probe nem estado intermediário.
+
+### Arquivos suspeitos
+
+| Arquivo | Papel |
+|---|---|
+| `app/Modules/Jobs/Services/WebhookHandler.php:161-173` | Propaga `active` imediatamente em `provision success` |
+| `app/Modules/Customers/Actions/LifecycleAsyncAction.php` | Dispatch sem gate de readiness do tenant |
+| `app/Http/Controllers/Api/CustomerLifecycleController.php` | Endpoints `users/*` aceitam dispatch em tenant recém-provisionado |
+| `tests/Feature/Jobs/WebhookHandlerTest.php:96-115` | Teste codifica comportamento atual (provision success → active) |
+| `database/migrations/2026_05_08_000004_create_customers_table.php` | Enum `status` não tem estado `provisioning_finishing` |
+
+### Reprodução
+
+1. `POST /customers` → aguardar `GET /queue/{job_id}` com `state=success` (provision).
+2. **Imediatamente** (≤10 min): `POST /customers/{slug}/users` → HTTP 202, job termina `state=failed` em ~1–4s, sem motivo (`exit_code=null`, `summary=null`).
+3. Repetir após ≥30 min no mesmo tenant → `state=success`, user visível via `user:list`.
+
+### Caminhos de fix (a decidir em `/qa debug` + Architect)
+
+| Opção | Escopo | Trade-off |
+|---|---|---|
+| **A — Upstream** | `nextcloud-saas-manager` só emite success após passos 7–9 + health probe | Causa raiz correta; depende de deploy upstream |
+| **B — API readiness gate** | Novo estado `provisioning_finishing`; probe periódico (`occ status` / `user:list`); endpoints `users/*` retornam **503 + Retry-After** até ready | Defensivo; desacopla cliente do timing upstream (**recomendado**) |
+| **C — Retry inteligente** | Reagendar jobs `users:*` com backoff se tenant <15 min | Mitigação local; não resolve contrato `active` enganoso |
+| **D — Documentar só** | OpenAPI/README avisa janela | Pior UX; transfere complexidade ao consumidor |
+
+**Não recomendado**: trocar para `occ-exec user:add` síncrono — não resolve readiness e quebra contrato 202.
+
+### Critério de aceite (mínimo)
+
+- Cliente que faz `provision → users:create` sequencial **não recebe failed silencioso** dentro da janela de readiness.
+- `Customer.status` reflete readiness real (ou endpoints retornam 503 explícito com `Retry-After` até ready).
+- Teste de contrato ou feature reproduz janela (mock ou opt-in upstream).
+- Issue upstream aberta se opção A for perseguida em paralelo.
+
+### Próximo passo
+
+`/pmo sprint F8` para executar Fix Brief (opção B — readiness gate). Issue upstream (opção A) em paralelo recomendada.
+
+### Fix Brief (2026-05-23 — `/qa debug` inline, pendente aprovação)
+
+```
+Fix Brief — Callback provision success prematuro (ISSUE-010)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Causa raiz: Upstream emite success após passo 6 (core install, §4.1);
+             passos 7–9 (Redis/Collabora/14 apps) continuam async.
+             API propaga `Customer.status=active` imediatamente (WebhookHandler:164),
+             enganando consumidores sobre readiness real do subsistema users.
+
+Tipo: contract_violation (upstream timing) + product_bug (API não protege cliente)
+
+Hipótese confirmada: H1 race readiness — refutadas H2 argv/stdin (P-03/P-04)
+                     e H1 original de ISSUE-006 (mesmo argv funciona após 30 min).
+
+Arquivos a modificar:
+  - app/Modules/Jobs/Services/WebhookHandler.php:164 — provision success → `provisioning_finishing` (não `active`)
+  - database/migrations/* — aceitar novo status OU reutilizar `provisioning` + coluna `readiness_verified_at`
+  - app/Modules/Customers/Services/CustomerReadinessProbe.php (novo) — probe via `occ-exec user:list`
+  - app/Jobs/ProbeCustomerReadinessJob.php ou Console/Commands (novo) — retry com backoff pós-webhook
+  - app/Modules/Customers/Actions/LifecycleAsyncAction.php — gate `users:create|users:delete` se !ready
+  - app/Modules/Customers/Exceptions/TenantNotReadyException.php (novo)
+  - app/Http/Controllers/Api/CustomerLifecycleController.php — 503 + Retry-After: 60
+  - tests/Feature/Jobs/WebhookHandlerTest.php — atualizar expectativa de status
+  - tests/Feature/Customers/LifecycleTest.php — cenário tenant not ready → 503
+  - docs/openapi.yaml — response `tenant_not_ready` (503)
+  - docs/DECISION-BRIEF.md — Decision #ARCH-5 (readiness gate)
+
+Plano de correcao (opção B — recomendada):
+  1. TDD: teste webhook provision success → status `provisioning_finishing` (não `active`)
+  2. Probe service: `occ-exec user:list` exit 0 → transiciona para `active`
+  3. Gate em LifecycleAsyncAction só para `users:create|users:delete` (groups/apps seguem liberados)
+  4. Controller mapeia TenantNotReadyException → 503 `{error: tenant_not_ready, retry_after: 60}`
+  5. Documentar janela na OpenAPI; abrir issue upstream (opção A) em paralelo
+
+Paralelo upstream (opção A): issue no nextcloud-saas-manager para emitir success
+  somente após passos 7–9 + health funcional — não bloqueia fix defensivo na API.
+
+Risco: MEDIO — muda semântica de `Customer.status`; UI/Livewire que assume
+       `active` imediato precisa exibir `provisioning_finishing`; sync cron
+       (CustomerSyncService) pode conflitar se upstream reportar `running` antes
+       do probe local — validar ordem de precedência.
+```
+
+**Notas de investigacao**:
+- **Padroes comparados**: `groups:create`/`apps:enable` OK na janela; `users:*` falha — subsistema users estabiliza depois.
+- **Codigo atual**: `LifecycleAsyncAction` so valida `cluster.status === active`, nunca `customer.status`.
+- **Evidencias**: matriz Δt em P-01/P-21; SSH API Ref §4.1 passos 7–9 pos-callback.
+- **Workaround atual**: aguardar 30+ min entre provision e user ops.
 
 ---
 

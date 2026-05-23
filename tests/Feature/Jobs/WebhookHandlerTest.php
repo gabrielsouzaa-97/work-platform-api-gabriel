@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Jobs\ProbeCustomerReadinessJob;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
@@ -11,6 +12,7 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\Exceptions\UnknownStateException;
 use App\Modules\Jobs\Services\WebhookHandler;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 /**
@@ -22,7 +24,6 @@ use Illuminate\Support\Str;
  * JobLogFetcher dependency added in F6.3 does not attempt real SSH connections
  * (which would add 3s of retry-sleep per test).
  */
-
 beforeEach(function () {
     $noop = Mockery::mock(SshClientInterface::class);
     $noop->shouldReceive('run')->andReturn(new SshResponse(
@@ -93,7 +94,9 @@ it('job.started: não propaga customer.status (transição intermediária)', fun
     expect(Customer::where('slug', 'acme-handler')->value('status'))->toBe('provisioning');
 });
 
-it('job.finished com state=success em provision → propaga customer.status=active', function (): void {
+it('job.finished com state=success em provision → propaga customer.status=provisioning_finishing e enfileira probe', function (): void {
+    Queue::fake();
+
     $cluster = handlerCluster();
     $job = handlerJob($cluster->id, state: 'running');
     Customer::where('slug', 'acme-handler')->update(['status' => 'provisioning']);
@@ -111,7 +114,31 @@ it('job.finished com state=success em provision → propaga customer.status=acti
         ->and($job->exit_code)->toBe(0)
         ->and($job->finished_at)->not->toBeNull();
 
-    expect(Customer::where('slug', 'acme-handler')->value('status'))->toBe('active');
+    expect(Customer::where('slug', 'acme-handler')->value('status'))->toBe('provisioning_finishing');
+
+    Queue::assertPushed(ProbeCustomerReadinessJob::class, fn (ProbeCustomerReadinessJob $probeJob) => $probeJob->customerSlug === 'acme-handler');
+});
+
+it('job.finished duplicado não re-dispatcha ProbeCustomerReadinessJob', function (): void {
+    Queue::fake();
+
+    $cluster = handlerCluster();
+    $job = handlerJob($cluster->id, state: 'running');
+    Customer::where('slug', 'acme-handler')->update(['status' => 'provisioning']);
+
+    $payload = [
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ];
+
+    $handler = app(WebhookHandler::class);
+    $handler->handle($cluster, $payload);
+    $handler->handle($cluster, $payload);
+
+    Queue::assertPushed(ProbeCustomerReadinessJob::class, 1);
 });
 
 it('job.finished com state=failed em deprovision → customer.status permanece (sem mapping)', function (): void {

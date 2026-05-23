@@ -12,7 +12,9 @@ use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
+use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Customers\Support\UserCreateStdinPayload;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -376,6 +378,7 @@ class OccPanel extends Component
     {
         return match (true) {
             $e instanceof BlockedOnUpstreamException => 'Funcionalidade pendente no upstream — disponível em release futura.',
+            $e instanceof TenantNotReadyException => 'Tenant ainda finalizando provisionamento — tente novamente em cerca de 60 segundos.',
             $e instanceof ClusterUnreachableException => 'Cluster indisponível. Tente novamente em instantes.',
             $e instanceof SshTimeoutException => 'Timeout: OCC não respondeu em 60s.',
             $e instanceof IdempotencyConflictException => 'Operação já em andamento (idempotency conflict).',

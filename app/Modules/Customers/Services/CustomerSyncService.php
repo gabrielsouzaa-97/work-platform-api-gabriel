@@ -9,6 +9,7 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Dto\SyncReport;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -102,11 +103,16 @@ final class CustomerSyncService
                 $report->inserted++;
                 $this->auditDiverged('customer_sync_inserted', $u['slug'], $u, $cluster->id);
             } elseif ($local->status !== $u['status'] || $local->domain !== $u['domain']) {
-                $local->update([
-                    'status' => $u['status'],
+                $updates = [
                     'domain' => $u['domain'],
                     'last_sync_at' => now(),
-                ]);
+                ];
+
+                if (! in_array($local->status, CustomerLifecycleStatus::USER_OPS_BLOCKED, true)) {
+                    $updates['status'] = $u['status'];
+                }
+
+                $local->update($updates);
                 $report->updated++;
                 $this->auditDiverged('customer_sync_updated', $u['slug'], [
                     'new_status' => $u['status'],

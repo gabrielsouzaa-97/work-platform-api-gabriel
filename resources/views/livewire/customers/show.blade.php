@@ -5,9 +5,11 @@
         .badge { display: inline-block; padding: .2rem .55rem; border-radius: 4px; font-size: .7rem; font-weight: 600; }
         .badge-active { background: #1c3a2f; color: #68d391; }
         .badge-provisioning { background: #1a2d4a; color: #63b3ed; }
+        .badge-provisioning_finishing { background: #2d2460; color: #b794f4; }
         .badge-removing { background: #3a2d1a; color: #d6b656; }
         .badge-removed { background: #2d2020; color: #fc8181; }
         .badge-error { background: #3a2020; color: #fc8181; }
+        .badge-failed { background: #3a2020; color: #fc8181; }
         .section-card { background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; }
         .section-title { font-size: .875rem; font-weight: 600; color: #e2e8f0; margin-bottom: .75rem; }
         .info-row { display: flex; gap: 1rem; margin-bottom: .5rem; font-size: .8rem; }

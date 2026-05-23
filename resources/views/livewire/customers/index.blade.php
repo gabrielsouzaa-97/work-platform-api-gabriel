@@ -30,9 +30,11 @@
         .badge { display: inline-block; padding: .2rem .55rem; border-radius: 4px; font-size: .7rem; font-weight: 600; }
         .badge-active { background: #1c3a2f; color: #68d391; }
         .badge-provisioning { background: #1a2d4a; color: #63b3ed; }
+        .badge-provisioning_finishing { background: #2d2460; color: #b794f4; }
         .badge-removing { background: #3a2d1a; color: #d6b656; }
         .badge-removed { background: #2d2020; color: #fc8181; }
         .badge-error { background: #3a2020; color: #fc8181; }
+        .badge-failed { background: #3a2020; color: #fc8181; }
         .mono { font-family: monospace; font-size: .75rem; color: #a0aec0; }
         .text-link { color: #4a90d9; text-decoration: none; }
         .text-link:hover { text-decoration: underline; }
@@ -58,6 +60,7 @@
             <option value="">Todos os status</option>
             <option value="active">active</option>
             <option value="provisioning">provisioning</option>
+            <option value="provisioning_finishing">provisioning_finishing</option>
             <option value="removing">removing</option>
             <option value="removed">removed</option>
             <option value="error">error</option>
