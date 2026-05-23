@@ -29,7 +29,7 @@ class Index extends Component
     #[Url(as: 'customer')]
     public string $customerFilter = '';
 
-    public bool $autoRefresh = false;
+    public bool $autoRefresh = true;
 
     public function mount(): void
     {
