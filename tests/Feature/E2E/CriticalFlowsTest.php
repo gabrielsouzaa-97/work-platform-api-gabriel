@@ -14,6 +14,7 @@ declare(strict_types=1);
  * Webhook simulado com HMAC computado + IP 127.0.0.1 (ssh_host do cluster).
  */
 
+use App\Jobs\ProbeCustomerReadinessJob;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
@@ -21,7 +22,10 @@ use App\Models\Operator;
 use App\Models\WebhookSecretHistory;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -77,7 +81,7 @@ it('[Marina] provisiona customer via API → webhook done → customer.status=ac
     $cluster = e2eCluster($secret);
     $jobId = Str::uuid()->toString();
 
-    // 1. Mockar SSH: simula resposta assíncrona com job_id
+    // 1. Mockar SSH: simula resposta assíncrona com job_id + probe user:list
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
@@ -88,6 +92,13 @@ it('[Marina] provisiona customer via API → webhook done → customer.status=ac
             stderr: '',
             exitCode: 0,
             parsedJson: ['job_id' => $jobId],
+        ));
+    $ssh->shouldReceive('run')
+        ->andReturn(new SshResponse(
+            stdout: '[]',
+            stderr: '',
+            exitCode: 0,
+            parsedJson: [],
         ));
     $this->app->instance(SshClientInterface::class, $ssh);
 
@@ -109,7 +120,9 @@ it('[Marina] provisiona customer via API → webhook done → customer.status=ac
     expect($job)->not->toBeNull();
     expect($job->state)->toBe('queued');
 
-    // 3. Upstream envia webhook done → customer vira active
+    // 3. Upstream envia webhook done → provisioning_finishing + probe enfileirado
+    Queue::fake();
+
     $body = e2eWebhookBody($jobId, 'done', 'provision', 'acme-e2e');
     $sig = e2eHmac($body, $secret);
 
@@ -117,6 +130,15 @@ it('[Marina] provisiona customer via API → webhook done → customer.status=ac
         'X-Cluster-Server-Id' => $cluster->id,
         'X-Signature' => $sig,
     ])->assertNoContent();
+
+    $customer->refresh();
+    expect($customer->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
+
+    Queue::assertPushed(ProbeCustomerReadinessJob::class);
+
+    // Sync queue may defer retries via release(); run probe inline to complete the E2E flow.
+    (new ProbeCustomerReadinessJob($customer->slug))
+        ->handle(app(CustomerReadinessProbe::class));
 
     $customer->refresh();
     expect($customer->status)->toBe('active');

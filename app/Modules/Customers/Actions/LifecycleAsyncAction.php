@@ -17,11 +17,16 @@ use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
+use App\Modules\Customers\Exceptions\TenantNotReadyException;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class LifecycleAsyncAction
 {
+    /** @var list<string> */
+    private const USER_READINESS_GATED_CMDS = ['users:create', 'users:delete'];
+
     public function __construct(
         private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
@@ -57,6 +62,13 @@ final class LifecycleAsyncAction
 
         if ($cluster === null || $cluster->status !== 'active') {
             throw new ClusterUnreachableException;
+        }
+
+        if (
+            in_array($cmd, self::USER_READINESS_GATED_CMDS, true)
+            && in_array($customer->status, CustomerLifecycleStatus::USER_OPS_BLOCKED, true)
+        ) {
+            throw new TenantNotReadyException($customer->status);
         }
 
         $argsHash = hash('sha256', $customer->slug.'|'.$cmd.'|'.json_encode($args));

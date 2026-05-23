@@ -11,6 +11,7 @@ use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
@@ -298,6 +299,26 @@ it('createUser com IdempotencyConflictException → mensagem amigável', functio
         ->call('createUser')
         ->assertSet('errorMessage', 'Operação já em andamento (idempotency conflict).')
         ->assertSet('userPasswordPlain', '');
+});
+
+it('deleteUser em tenant provisioning_finishing → mensagem tenant not ready sem SSH', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = Customer::create([
+        'slug' => 'occ-fin-'.substr(uniqid(), -8),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'occ-fin.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+    $operator = makeOccPanelOperator();
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('deleteUsername', 'alice')
+        ->call('deleteUser')
+        ->assertSet('errorMessage', 'Tenant ainda finalizando provisionamento — tente novamente em cerca de 60 segundos.');
 });
 
 it('createUser com SshTimeoutException → mensagem amigável', function () {

@@ -45,7 +45,7 @@ Table customers {
   slug varchar(64) [pk, note: '^[a-z0-9-]+$']
   cluster_server_id uuid [not null, ref: > cluster_servers.id]
   domain varchar(255) [not null]
-  status varchar(50) [not null, default: 'provisioning', note: 'provisioning|active|error|removing|removed']
+  status varchar(50) [not null, default: 'provisioning', note: 'provisioning|provisioning_finishing|active|failed|error|removing|removed']
   branding_meta jsonb [null]
   last_sync_at timestamp [null]
   created_at timestamp [default: `now()`]

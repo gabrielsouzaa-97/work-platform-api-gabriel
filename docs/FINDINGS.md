@@ -21,6 +21,9 @@ FINDINGS-INDEX -->
 | D8 (SEC) | 0 | 5 | 7 | 5 | 4 | 13 | 0 |
 | N1 | 0 | 3 | 8 | 12 | 23 | 0 | 0 |
 | F5 | 1 | 6 | 12 | 8 | 16 | 11 | 0 |
+| F8 | 0 | 0 | 2 | 2 | 4 | 6 | 6 |
+
+> **Validação F8 R1** (2026-05-23): follow-up F8.7–F8.10. Testes F8: 46 passed. **APROVADA** — QA-F8-001/002/003/004/005/006/007/009/010 corrigidos; QA-F8-008/011 remanescentes (MEDIUM/LOW, non-blocking).
 
 > **Pendentes pós-D8**: D3-F009 (backlog), D4-F004/F008/F009/F005 (backlog), SEC-F013/F014/F015/F016 (backlog), DBA-F010/F011/F012 (backlog). Nenhum CRITICAL ou HIGH aberto.
 >
@@ -35,6 +38,8 @@ FINDINGS-INDEX -->
 > **Re-validação F5 (R2)** (2026-05-20T19:30Z, `/qa validar R2`): scope = 6 arquivos do R1 follow-up (LifecycleTest, Pest, UpstreamContractTest, OccPanelTest, OccPanel, openapi.yaml); rubric R2 round-aware (apenas HIGH/CRITICAL ou regressões diretas). Senior R2 (claude-4.6-sonnet-medium-thinking, readonly) + QA R2 (gemini-3.1-pro, readonly). **Convergência crítica**: 1 finding HIGH detectado pelos 2 auditores — `QA-F5-019` (createUser quebrado em produção; teste cobertura falso-positiva via escape-hatch). QA também detectou 2 HIGH out-of-scope (theming:config multi-key, disableApps `remove` ignorado) e 1 MEDIUM out-of-scope (Contract test false positive em queued state) — registrados como Notes (Non-Blocking) por serem pré-existentes em `main` e fora do escopo R1 follow-up. As 6 correções R1 foram **validadas in-code**: CQ-F5-001, QA-F5-005/015/016/017/018 → `Validado`. Testes: 321 passed, 6 skipped, 830 assertions. **Resultado: REPROVADA** — 1 HIGH pendente (QA-F5-019) em sprint aberta — PROC-012 exige correção in-sprint ou justificação documentada para COM_RESSALVAS.
 >
 > **Sprint F5 R2 follow-up implementado** (2026-05-20T20:30Z, `/pmo sprint F5` continuação): task F5.11 corrige `QA-F5-019` via **same-path strategy**: blade refatorada (`<form wire:submit.prevent="createUser">` + `wire:model="userPasswordPlain"`), componente sem escape-hatch (lê de propriedade pública e zera no `finally`), 4 testes atualizados + 2 novos (production scenario sem senha + cleanup pós-sucesso). E2E real coverage backlogada como `ISSUE-007` (Dusk/Playwright em sprint N-UI dedicada). Status: aguardando `/qa validar R3` para reaprovação.
+>
+> **Validação F8** (2026-05-23, `/qa validar F8`): senior (auditor-senior, readonly) + QA (auditor-qa, readonly). Scope = implementação F8.1–F8.6 + docs. Testes F8: **17 passed**, 57 assertions. Full suite: **348 passed**, 10 failed pré-existentes (`OccPanelTest` — fora escopo). **Convergência**: core fix ISSUE-010 validado (webhook→finishing, probe→active, gate 503, sync guard). **2 HIGH novos**: `QA-F8-001` (timeout probe ~83 min vs spec ~20 min), `QA-F8-002` (paths failure/timeout/exhaustion do probe sem teste). **6 MEDIUM + 2 LOW**. Brief em `docs/.briefs/F8.brief.md`. **Resultado: REPROVADA** — PROC-012: corrigir HIGH in-sprint (F8.7+) antes de merge.
 
 ---
 
@@ -1546,5 +1551,135 @@ Nenhum finding registrado para D1 na validação atual.
   - **Testes** (`tests/Feature/Livewire/Customers/OccPanelTest.php`): 4 testes existentes de `createUser` trocaram `->call('createUser', 'Secret123!')` por `->set('userPasswordPlain', 'Secret123!')->call('createUser')` — escape-hatch eliminado, mesmo path da produção. Acrescentados 2 testes novos: (a) regressão guard cobrindo o cenário original do bug (`createUser` sem `set('userPasswordPlain')` → `assertHasErrors(['userPassword'])`); (b) cleanup do snapshot (`userPasswordPlain === ''` após sucesso).
   - **Backlog**: criada `ISSUE-007` em `docs/ISSUES.md` para E2E real coverage via Dusk/Playwright (sprint N-UI dedicada — cobre o gap residual de browser real que `Livewire::test()` não cobre por design).
   - **Validação**: aguardando `/qa validar R3` com diversidade de modelo (sugestão: senior=gpt-5.3-codex; qa=gemini-3.1-pro).
+
+---
+
+### QA-DYN-021 — CRITICAL — Callback `provision success` prematuro; tenant não ready para `users:*` (~10 min)
+
+- **Sprint**: F8 (implementada 2026-05-23)
+- **Severidade**: CRITICAL
+- **Tipo**: race_condition / upstream_contract / onboarding_blocker
+- **Status**: **Corrigido (F8 — Decision #ARCH-5)**
+- **Origem**: testes dinâmicos API dev 2026-05-21; promovido de P-21 via `/triagem`
+- **Arquivos**:
+  - `app/Modules/Jobs/Services/WebhookHandler.php:161-173` (provision success → `Customer.status=active`)
+  - `app/Modules/Customers/Actions/LifecycleAsyncAction.php` (sem readiness gate)
+  - `app/Http/Controllers/Api/CustomerLifecycleController.php` (`users:create`, `users:delete`)
+  - `tests/Feature/Jobs/WebhookHandlerTest.php:96-115` (assertion `active` imediato)
+- **Descrição**: Upstream emite `job.finished` + `state=success` para provision antes de Redis/Collabora/14 apps estabilizarem. API marca tenant `active` e aceita lifecycle ops. Operações `users:create`/`users:delete` falham silenciosamente na janela Δt<10min (5/5); sucesso consistente Δt>30min (8/8). `groups:*` e `apps:*` funcionam na janela — subsistema de users demora mais a estabilizar.
+- **Cadeia**: causa raiz de P-01; amplificado por P-05 (`exit_code`/`summary` null); mitigável em produto por P-22 (saga + readiness check).
+- **Ação necessária**: ~~Fix Brief via `/qa debug ISSUE-010`~~ Implementado Sprint F8. ~~Validar via `/qa validar F8`~~ Validado REPROVADA (2 HIGH — F8.7+). Issue upstream (opção A) em paralelo recomendada.
+- **Impacto**: Bloqueia onboarding automatizado ponta a ponta; fluxo manual com espera 30+ min funciona (mascara bug).
+
+---
+
+## Sprint F8 {#sprint-f8}
+
+> Validação `/qa validar F8` — 2026-05-23. Brief: `docs/.briefs/F8.brief.md`. R1 follow-up F8.7–F8.10. **Resultado: APROVADA** (HIGH resolvidos; QA-F8-008/011 remanescentes non-blocking).
+
+### QA-F8-001 — HIGH — Probe wall-clock timeout ~4× spec (~83 min vs ~20 min)
+
+- **Sprint**: F8
+- **Severidade**: HIGH
+- **Tipo**: spec_drift / operational_sla
+- **Status**: **Corrigido (F8.7)**
+- **Arquivos**:
+  - `app/Jobs/ProbeCustomerReadinessJob.php:27-30,59-77`
+  - `config/services.php:52-55`
+  - `docs/ROADMAP.md:3894,3931` (spec ~20 min)
+- **Descrição**: `max_attempts=20` + backoff `[30,60,120,300×16]` ≈ 5010 s (~83 min) de delays, além de até 20× probes SSH. ROADMAP F8.2 e Fix Brief citam timeout **~20 min** → `failed` + audit `customer_readiness_timeout`.
+- **Ação necessária**: Adicionar `max_wait_seconds` (~1200) ou reduzir attempts/intervals; teste de boundary; documentar env vars.
+
+### QA-F8-002 — HIGH — Probe failure/timeout/exhaustion paths sem cobertura de teste
+
+- **Sprint**: F8
+- **Severidade**: HIGH
+- **Tipo**: test_gap / regression_risk
+- **Status**: **Corrigido (F8.8)**
+- **Descrição**: Apenas happy path (SSH exit 0 → `active`) testado. Sem testes para: SSH connection failure, timeout, exit≠0 (not ready), max attempts → `status=failed` + audit `customer_readiness_timeout`, comportamento de `release()`/backoff.
+- **Ação necessária**: Adicionar 3–4 cenários Pest em `CustomerReadinessTest.php`.
+
+### QA-F8-003 — MEDIUM — Gate `DELETE users` → 503 não testado
+
+- **Sprint**: F8
+- **Severidade**: MEDIUM
+- **Tipo**: test_gap / contract
+- **Status**: **Corrigido (F8.9)**
+- **Descrição**: OpenAPI e ARCH-5 gateiam POST e DELETE; testes cobrem só POST.
+- **Ação necessária**: Mirror POST test para `DELETE /api/customers/{slug}/users/{username}`.
+
+### QA-F8-004 — MEDIUM — Gate em `provisioning` (pre-finishing) não testado
+
+- **Sprint**: F8
+- **Severidade**: MEDIUM
+- **Tipo**: test_gap
+- **Status**: **Corrigido (F8.9)**
+- **Descrição**: `USER_OPS_BLOCKED` inclui `provisioning` e `provisioning_finishing`; testes só exercitam finishing.
+- **Ação necessária**: Teste POST users com `status=provisioning` → 503.
+
+### QA-F8-005 — MEDIUM — Sync pode promover `provisioning` → `active` (bypass gate)
+
+- **Sprint**: F8
+- **Severidade**: MEDIUM
+- **Tipo**: race_condition / fail_open
+- **Status**: **Corrigido (F8.10)**
+- **Descrição**: Guard aplica só a `provisioning_finishing`. Resync/cron com upstream `running` pode promover `provisioning` → `active` antes do probe, reabrindo janela de race para `users:*`.
+- **Ação necessária**: Estender guard para `provisioning`; teste de regressão.
+
+### QA-F8-006 — MEDIUM — OccPanel sem UX para `TenantNotReadyException`
+
+- **Sprint**: F8
+- **Severidade**: MEDIUM
+- **Tipo**: ux / production_divergence
+- **Status**: **Corrigido (F8.10)**
+- **Descrição**: Gate funciona (mesmo `LifecycleAsyncAction`), mas `formatError()` não trata `TenantNotReadyException` → mensagem genérica. OccPanelTest sempre seeda `active`.
+- **Ação necessária**: Branch PT amigável + Livewire test com customer `provisioning_finishing`.
+
+### QA-F8-007 — MEDIUM — Idempotência webhook `job.finished` duplicado não testada
+
+- **Sprint**: F8
+- **Severidade**: MEDIUM
+- **Tipo**: test_gap
+- **Status**: **Corrigido (F8.8)**
+- **Descrição**: Guard early-return quando `$job->state === $canonical` evita re-dispatch do probe; `job.started` replay testado, `job.finished` não.
+- **Ação necessária**: `handle()` 2× com mesmo payload success → `Queue::assertPushed(ProbeCustomerReadinessJob::class, 1)`.
+
+### QA-F8-008 — MEDIUM — E2E Marina mascara dependência de queue worker
+
+- **Sprint**: F8
+- **Severidade**: MEDIUM
+- **Tipo**: test/production_divergence
+- **Status**: Pendente
+- **Arquivos**: `tests/Feature/E2E/CriticalFlowsTest.php:123-141`
+- **Descrição**: `Queue::fake()` + probe inline via `->handle()` — E2E passa mesmo se worker nunca processar job em produção.
+- **Ação necessária**: Teste negativo 503 durante finishing; documentar dependência de worker no RUNBOOK.
+
+### QA-F8-009 — MEDIUM — Job `ProbeCustomerReadinessJob` sem `$timeout`
+
+- **Sprint**: F8
+- **Severidade**: MEDIUM
+- **Tipo**: ops / spec_drift
+- **Status**: **Corrigido (F8.7)**
+- **Descrição**: ROADMAP especifica `$timeout = 120`; job não declara timeout. Worker pode ficar preso em SSH lento.
+- **Ação necessária**: `public int $timeout = 120;` (ou config-driven).
+
+### QA-F8-010 — LOW — Badge UI ausente para `status=failed` pós-timeout
+
+- **Sprint**: F8
+- **Severidade**: LOW
+- **Tipo**: ux
+- **Status**: **Corrigido (F8.10)**
+- **Descrição**: Timeout do probe seta `failed`; badges definem `badge-error` mas não mapeiam `failed` explicitamente; filtro dropdown omite `failed`.
+- **Ação necessária**: Estilo `badge-failed` ou alias para `failed`.
+
+### QA-F8-011 — LOW — Customer soft-deleted mid-probe — no-op silencioso
+
+- **Sprint**: F8
+- **Severidade**: LOW
+- **Tipo**: edge_case
+- **Status**: Pendente
+- **Arquivos**: `ProbeCustomerReadinessJob.php:35-38`
+- **Descrição**: `Customer::find()` retorna null em soft-delete → job retorna sem audit.
+- **Ação necessária**: Teste documentando comportamento; opcional audit `customer_readiness_aborted`.
 
 ---

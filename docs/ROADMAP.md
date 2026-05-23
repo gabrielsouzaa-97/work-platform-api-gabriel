@@ -75,6 +75,8 @@
 | N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | pendente | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
 | N2     | N         | APP_ENV=local emite Log::debug('webhook.payload_received'); APP_ENV=testing não emite; 46/46 testes da suite de webhook passando | concluida | 1 | Jobs | Observabilidade: log de payload do webhook em ambiente local | 3013+    |
 | F6     | F         | Forgot-password broker nativo Laravel (operadores) + logs de Job populados via SSH `nextcloud-manage job <id> status --json` pós-`job.finished` (corrige queue/{jobId} vazio) | pendente  | 6     | Auth, Jobs, Core/Ssh | `/qa debug` 2026-05-21: ISSUE-008 (forgot-password) + ISSUE-009 (job logs via SSH pull) | 3578+    |
+| F7     | F         | Create cluster atômico; actor_id no AuditLog de rotate; teste erro "sem secret atual" | pendente  | 3     | ClusterServers | 3 findings HIGH pendentes N1 | 3805+    |
+| F8     | F         | Provision success não marca tenant `active` antes de probe; `users:*` retorna 503 até readiness confirmada | **concluída** | 10    | Jobs, Customers, Webhook | ISSUE-010 — validada APROVADA R1 | 3865+    |
 
 ---
 
@@ -3802,6 +3804,204 @@ Provisiona um job de teste (ou usa job_id conhecido do `homolog`), executa SSH r
 
 ---
 
+## Sprint F7 — High findings N1: transação + rastreabilidade + teste de erro
+
+> Categoria: F
+> Gate: (1) `Create::save()` persiste `cluster_servers` + `webhook_secret_history` atomicamente; (2) rotação de secret registra `actor_id` correto no `AuditLog`; (3) existe teste cobrindo explicitamente o erro "sem secret atual no histórico". Suite permanece verde.
+> Gerado por `/fix` em 2026-05-21. Fonte: findings HIGH pendentes `CQ-N1-001`, `CQ-N1-002`, `QA-N1-001` (Sprint N1).
+> review: senior+qa (HIGH severity)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F7.1 — [CQ-N1-001] Tornar atômico o fluxo de criação de cluster + history (`DB::transaction`) | `laravel-livewire` + `50-database.mdc` | — |
+| [ ] | P | F7.2 — [CQ-N1-002] Propagar `actor_id` no `RotateWebhookSecretAction` (AuditLog de falha) | `laravel-livewire` | — |
+| [ ] | P | F7.3 — [QA-N1-001] Cobrir path "sem secret atual no histórico" com teste unitário + integração Livewire | `laravel-testing` | F7.1 |
+
+### Task F7.1 — [CQ-N1-001] Transaction em `Create::save()`
+
+**Estado atual**: `ClusterServer::create()` e `WebhookSecretHistory::create()` são escritas separadas em `Create::save()`, sem `DB::transaction`.
+
+**Estado desejado**: envolver as duas inserções numa transação única para preservar o invariante `cluster_server` ↔ `webhook_secret_history`. O sync SSH continua fora da transação.
+
+**Fonte(s)**: `CQ-N1-001` (HIGH)
+**Módulo(s) afetado(s)**: `app/Http/Livewire/ClusterServers/Create.php`
+**Risco**: MEDIUM (consistência de dados)
+**Budget**: M
+
+**Test**: falha simulada no insert de history deve efetuar rollback total (nenhum cluster órfão persistido).
+
+---
+
+### Task F7.2 — [CQ-N1-002] `actor_id` consistente no AuditLog de rotação
+
+**Estado atual**: `RotateWebhookSecretAction` registra `cluster_server.secret_sync_failed` com `actor_id => null` no caminho de erro.
+
+**Estado desejado**: `execute()` recebe `?string $actorId = null` e grava esse valor no AuditLog; caller de UI (`Index::rotateSecret`) passa `auth()->id()`.
+
+**Fonte(s)**: `CQ-N1-002` (HIGH)
+**Módulo(s) afetado(s)**: `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php`, `app/Http/Livewire/ClusterServers/Index.php`
+**Risco**: LOW (ajuste de rastreabilidade)
+**Budget**: P
+
+**Test**: caminho de falha de sync deve manter `actor_id` do operador autenticado no `AuditLog`.
+
+---
+
+### Task F7.3 — [QA-N1-001] Teste de erro "sem secret atual no histórico"
+
+**Estado atual**: não há teste cobrindo o `RuntimeException` em `RotateWebhookSecretAction` quando não existe secret ativo em `webhook_secret_history`.
+
+**Estado desejado**: adicionar:
+- teste unitário da Action validando `toThrow(RuntimeException, 'sem secret atual no histórico')`;
+- teste de integração Livewire em `Index::rotateSecret` validando erro amigável para admin (sem 500).
+
+**Fonte(s)**: `QA-N1-001` (HIGH)
+**Módulo(s) afetado(s)**: `tests/Feature/ClusterServers/RotateSecretTest.php` (ou arquivo equivalente), `app/Http/Livewire/ClusterServers/Index.php` (se necessário)
+**Risco**: LOW
+**Budget**: P
+
+**Test**: a própria task (novos testes devem falhar antes e passar depois da implementação).
+
+---
+
+## Sprint F8 — Readiness gate pós-provision (ISSUE-010)
+
+> Categoria: F
+> Gate: (1) webhook `provision` + `success` deixa tenant em `provisioning_finishing` (não `active`); (2) probe SSH (`occ-exec user:list` exit 0) promove para `active`; (3) `POST/DELETE .../users` em tenant não-ready retorna **503** `{error: tenant_not_ready}` + header `Retry-After: 60` (não enfileira job que falha silenciosamente); (4) `groups:*` e `apps:*` continuam aceitos na janela; (5) suite verde + testes novos cobrindo webhook + lifecycle gate.
+> Gerado por `/fix` em 2026-05-23. Fonte: **ISSUE-010** (postmortem CRITICAL) + finding **QA-DYN-021** (triagem P-21).
+> review: **senior+qa** (CRITICAL — obrigatório por `debugging-sistematico` Fase 4a)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F8.1 — [ISSUE-010] TDD: webhook `provision success` → `provisioning_finishing`; atualizar `WebhookHandlerTest` | `webhook-receiver` + `laravel-testing` | — |
+| [x] | M | F8.2 — [ISSUE-010] `CustomerReadinessProbe` + `ProbeCustomerReadinessJob` (probe `occ-exec user:list`, backoff, timeout 20min) | `ssh-orchestrator` | F8.1 |
+| [x] | M | F8.3 — [ISSUE-010] Gate `users:create|users:delete` em `LifecycleAsyncAction` + `TenantNotReadyException` → 503 no controller | `laravel-api` | F8.1 |
+| [x] | P | F8.4 — [ISSUE-010] Pest Feature: tenant `provisioning_finishing` + `users:create` → 503; probe mock → `active` + dispatch OK | `laravel-testing` | F8.2, F8.3 |
+| [x] | P | F8.5 — [ISSUE-010] `CustomerSyncService`: não sobrescrever `provisioning_finishing` com `running→active` do upstream | `laravel-api` | F8.1 |
+| [x] | P | F8.6 — [ISSUE-010] OpenAPI 503 `tenant_not_ready` + Decision em `SETUP-DECISIONS.md` + badge UI `provisioning_finishing` | `laravel-api` | F8.3 |
+
+> **Validação `/qa validar F8`** (2026-05-23): senior+qa → **REPROVADA**. Core fix ISSUE-010 validado (17/17 testes F8). 2 HIGH pendentes: `QA-F8-001` (timeout probe ~83 min vs ~20 min), `QA-F8-002` (probe failure paths sem teste). Brief: `docs/.briefs/F8.brief.md`. PROC-012: follow-up F8.7+ antes de merge.
+
+| [x] | P | F8.7 — [QA-F8-001] Ajustar timeout probe ~20 min + teste boundary | `laravel-api` | F8.2 |
+| [x] | P | F8.8 — [QA-F8-002] Testes probe: SSH fail, exit≠0, exhaustion → failed | `laravel-testing` | F8.2 |
+| [x] | P | F8.9 — [QA-F8-003/004] Testes gate DELETE + provisioning status | `laravel-testing` | F8.3 |
+| [x] | M | F8.10 — [QA-F8-005/006] Sync guard `provisioning` + OccPanel UX | `laravel-api` | F8.5, F8.3 |
+
+> **Re-validação F8 R1** (2026-05-23): follow-up F8.7–F8.10 implementado. Testes F8: **46 passed**. Full suite: **364 passed** (2 falhas env: permissão `storage/logs`). **Resultado: APROVADA** — HIGH blockers resolvidos; remanescentes LOW/MEDIUM (`QA-F8-008`, `QA-F8-011`).
+
+> **Quality Brief (Sprint F8)**: PATTERN-001 (Decision #187) — auditor-senior DEVE criar `docs/.briefs/F8.brief.md` como PRIMEIRO Write na auditoria final.
+
+### Contexto F8
+
+Em testes dinâmicos (2026-05-21), o upstream emite callback `provision success` após o passo 6 da `SSH API Reference §4.1` (core install), enquanto passos 7–9 (Redis, Collabora, 14 apps) ainda executam (~5–15 min). A API marca `Customer.status=active` imediatamente (`WebhookHandler:164`). Operações `users:create`/`users:delete` falham silenciosamente se disparadas nos primeiros ~10 min (5/5 failed); após ~30 min funcionam (8/8 success). `groups:*` e `apps:*` toleram a janela.
+
+**Fix Brief aprovado (opção B)**: readiness gate defensivo na API — não depende de deploy upstream imediato. Issue upstream (opção A) pode ser aberta em paralelo.
+
+### Riscos da Sprint F8
+
+- **`CustomerSyncService` pode promover `active` cedo** — cron `customers:sync` mapeia upstream `running` → `active`. F8.5 deve preservar `provisioning_finishing` até probe local confirmar.
+- **Probe `user:list` pode falhar por motivos não-readiness** — tratar exit ≠ 0 como "ainda não pronto" com retry; timeout 20min → `failed` + audit `customer_readiness_timeout`.
+- **UI/Livewire** — badges em `customers/show` e `customers/index` precisam exibir `provisioning_finishing` (distinto de `provisioning`).
+- **OpenAPI contrato** — novo 503 não quebra clientes existentes (fail-closed explícito é melhor que 202→failed).
+
+### Task F8.1 — WebhookHandler: provision success → `provisioning_finishing`
+
+**Estado atual**: `WebhookHandler::applyFinishedEvent()` linha 164: `provision + success` → `Customer.status = 'active'`.
+
+**Estado desejado**: mesmo match → `'provisioning_finishing'`. Disparar `ProbeCustomerReadinessJob::dispatch($customerSlug)` após commit (fora da transação DB).
+
+**Fonte(s)**: ISSUE-010, QA-DYN-021
+**Módulo(s)**: `app/Modules/Jobs/Services/WebhookHandler.php`, `tests/Feature/Jobs/WebhookHandlerTest.php`
+**Budget**: P
+
+**Correction (ANTES/DEPOIS)**:
+
+```php
+// ANTES
+$job->job_type === 'provision' && $canonical === 'success' => 'active',
+
+// DEPOIS
+$job->job_type === 'provision' && $canonical === 'success' => 'provisioning_finishing',
+```
+
+**Test (TDD primeiro)**: alterar teste linha 96-115 para expect `'provisioning_finishing'`; novo teste asserta que job de probe é dispatched (Bus::fake).
+
+---
+
+### Task F8.2 — CustomerReadinessProbe + Job assíncrono
+
+**Estado atual**: nenhum probe pós-provision.
+
+**Estado desejado**:
+- `App\Modules\Customers\Services\CustomerReadinessProbe` com método `isReady(Customer $customer): bool`
+- Executa via `OccPassthroughService::exec($customer, 'user:list', [])` — exit 0 = ready
+- `App\Jobs\ProbeCustomerReadinessJob` implementa `ShouldQueue`, `$tries` alto, backoff `[30, 60, 120, 300]` segundos, `$timeout = 120`
+- Sucesso → `Customer::where('slug', ...)->update(['status' => 'active'])` + audit `customer_readiness_confirmed`
+- Timeout (~20 min desde webhook) → `status = 'failed'` + audit `customer_readiness_timeout`
+
+**Fonte(s)**: ISSUE-010 §Fix Brief opção B
+**Módulo(s)**: `app/Modules/Customers/Services/`, `app/Jobs/`, `config/services.php` (readiness.max_wait_seconds, probe_interval)
+**Budget**: M
+
+**Test**: unit test com `OccPassthroughService` mockado (exit 0 → true, exit 1 → false); feature test com Bus fake + job handle mock.
+
+---
+
+### Task F8.3 — Gate lifecycle `users:*` + HTTP 503
+
+**Estado atual**: `LifecycleAsyncAction::execute()` não inspeciona `customer.status`.
+
+**Estado desejado**:
+- Nova exception `TenantNotReadyException` (carrega `$customer->status`, `$retryAfterSeconds = 60`)
+- Em `execute()`, antes do SSH, se `$cmd` ∈ `{users:create, users:delete}` e status ∈ `{provisioning, provisioning_finishing}` → throw
+- `CustomerLifecycleController::dispatch()` catch → `503` + `Retry-After: 60` + `{error: tenant_not_ready, status: ...}`
+
+**Fonte(s)**: ISSUE-010
+**Módulo(s)**: `LifecycleAsyncAction.php`, `CustomerLifecycleController.php`, nova exception
+**Budget**: M
+
+**Test**: F8.4
+
+---
+
+### Task F8.4 — Pest Feature tests (webhook + lifecycle gate)
+
+Cenários obrigatórios:
+- `webhook provision finished sets provisioning_finishing not active`
+- `ProbeCustomerReadinessJob promotes to active when probe succeeds`
+- `POST users on provisioning_finishing returns 503 tenant_not_ready`
+- `POST users on active customer still returns 202` (regressão)
+- `POST groups:create on provisioning_finishing still returns 202` (não gated)
+- `CustomerSyncService does not overwrite provisioning_finishing with active`
+
+**Budget**: P
+
+---
+
+### Task F8.5 — CustomerSyncService: precedência local
+
+**Estado atual**: `translateInstanceStatus('running')` → `'active'` sempre sobrescreve local.
+
+**Estado desejado**: se `$local->status === 'provisioning_finishing'`, pular update de status (só atualizar `last_sync_at`). Probe local é fonte de verdade para transição → `active`.
+
+**Fonte(s)**: ISSUE-010 §Riscos
+**Módulo(s)**: `app/Modules/Customers/Services/CustomerSyncService.php`
+**Budget**: P
+
+---
+
+### Task F8.6 — Contrato + Decision + UI badge
+
+**Estado desejado**:
+- `docs/openapi.yaml`: response component `TenantNotReady` (503) em `POST/DELETE .../users`
+- `docs/SETUP-DECISIONS.md`: nova Decision `#ARCH-5` (readiness gate pós-provision, opção B)
+- `resources/views/livewire/customers/show.blade.php` + `index.blade.php`: badge para `provisioning_finishing` ("Finalizando configuração")
+- `docs/db-schema.dbml`: nota em `customers.status` incluindo `provisioning_finishing`
+
+**Budget**: P
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
@@ -3812,3 +4012,6 @@ Provisiona um job de teste (ou usa job_id conhecido do `homolog`), executa SSH r
 | 2026-05-20 | 0.10   | Sprint F5 expandida com F5.8/F5.9/F5.10 (R1 follow-up — PROC-012 corrige in-sprint após /qa validar R1 REPROVADA) | /pmo sprint F5                                                 |
 | 2026-05-20 | 0.11   | Sprint F5 expandida com F5.11 (R2 follow-up — same-path fix para QA-F5-019; PROC-012 corrige in-sprint após /qa validar R2 REPROVADA) | /pmo sprint F5                                                 |
 | 2026-05-21 | 0.12   | Sprint F6 adicionada — ISSUE-008 (forgot-password broker nativo Laravel) + ISSUE-009 (logs de job via SSH pull pós job.finished); originada de `/qa debug` | /fix (interativo)                                              |
+| 2026-05-21 | 0.13   | Sprint F7 adicionada — 3 findings HIGH pendentes da N1 (`CQ-N1-001`, `CQ-N1-002`, `QA-N1-001`) | /fix (interativo)                                              |
+| 2026-05-23 | 0.14   | Sprint F8 adicionada — ISSUE-010 / QA-DYN-021 (readiness gate pós-provision; callback prematuro CRITICAL) | /fix — ISSUE-010                                              |
+| 2026-05-23 | 0.16   | Sprint F8 R1 follow-up (F8.7–F8.10) — timeout wall-clock 20min, testes probe/gate/sync, OccPanel UX | /qa validar F8 R1                                           |

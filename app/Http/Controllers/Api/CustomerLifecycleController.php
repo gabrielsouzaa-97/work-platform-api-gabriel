@@ -19,6 +19,7 @@ use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
+use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -143,6 +144,11 @@ final class CustomerLifecycleController extends Controller
 
         try {
             $job = $this->action->execute($customer, $cmd, $args, $stdinPayload, $actor);
+        } catch (TenantNotReadyException $e) {
+            return response()->json([
+                'error' => 'tenant_not_ready',
+                'status' => $e->customerStatus,
+            ], 503)->header('Retry-After', (string) $e->retryAfterSeconds);
         } catch (BlockedOnUpstreamException $e) {
             // Verb is pending in mework360-deployer-scripts (D3/D4) — surface HTTP 501
             // so clients know this is *intentionally* unavailable, not a transient bug.
