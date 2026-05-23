@@ -1480,8 +1480,14 @@ components:
           minLength: 6
           maxLength: 256
           example: "S3cr3tP@ss!"
+        display_name:
+          type: string
+          description: Nome de exibição do usuário no Nextcloud (upstream `--payload-stdin`).
+          example: "João Silva"
         displayname:
           type: string
+          deprecated: true
+          description: Alias legado de `display_name` (preferir snake_case).
           example: "João Silva"
         email:
           type: string
@@ -1489,16 +1495,22 @@ components:
           example: joao@empresa.com.br
         quota:
           type: string
-          description: "Quota no formato Nextcloud: `default`, `unlimited`, `1GB`, `5GB`, … `1TB`."
-          example: "5 GB"
+          description: "Quota no formato upstream: `5GB`, `5 GB`, `none`, `default` ou `unlimited`."
+          example: "5GB"
         groups:
           type: array
           items:
             type: string
           example: [financeiro, diretoria]
+        subadmin_groups:
+          type: array
+          description: Grupos dos quais o usuário será subadmin (upstream `--payload-stdin`).
+          items:
+            type: string
         subadmin:
           type: array
-          description: Grupos dos quais o usuário será subadmin.
+          deprecated: true
+          description: Alias legado de `subadmin_groups`.
           items:
             type: string
 

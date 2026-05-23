@@ -238,20 +238,17 @@ class OccPanel extends Component
         /** @var Operator $actor */
         $actor = auth()->user();
 
-        // Upstream `user create` accepts only <username> as positional. Email and
-        // groups travel via the JSON --payload-stdin alongside the password.
-        // See ISSUE-006 §DP3.
-        $stdinPayload = ['password' => $this->userPasswordPlain];
-        if ($this->userEmail !== '') {
-            $stdinPayload['email'] = $this->userEmail;
-        }
+        // Upstream `user create` accepts only <username> as positional; other fields
+        // travel via JSON --payload-stdin. See ISSUE-006 §DP3.
         $groups = array_values(array_filter(
             array_map('trim', explode(',', $this->userGroups)),
             static fn (string $g): bool => $g !== '',
         ));
-        if ($groups !== []) {
-            $stdinPayload['groups'] = $groups;
-        }
+        $stdinPayload = UserCreateStdinPayload::build(
+            password: $this->userPasswordPlain,
+            email: $this->userEmail !== '' ? $this->userEmail : null,
+            groups: $groups,
+        );
 
         try {
             $job = $action->execute(

@@ -157,6 +157,74 @@ it('POST users com groups → stdin payload contém groups[]', function () {
         ->assertStatus(202);
 });
 
+it('POST users com display_name, quota e subadmin_groups → stdin payload upstream completo', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $cmd, $args, $stdin) {
+            if (! argsContainConsecutive($args, ['user', 'create'])) {
+                return false;
+            }
+            $decoded = json_decode($stdin ?? '', true);
+
+            return is_array($decoded)
+                && ($decoded['password'] ?? null) === 'Secret123!'
+                && ($decoded['display_name'] ?? null) === 'Ricardo Ramos'
+                && ($decoded['email'] ?? null) === 'ricardo.ramos@me360.com.br'
+                && ($decoded['quota'] ?? null) === '5GB'
+                && ($decoded['groups'] ?? null) === ['admin']
+                && ($decoded['subadmin_groups'] ?? null) === ['financeiro'];
+        })
+        ->andReturn(sshLifecycleSuccess($jobId));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'ricardo.ramos2',
+            'password' => 'Secret123!',
+            'display_name' => 'Ricardo Ramos',
+            'email' => 'ricardo.ramos@me360.com.br',
+            'quota' => '5 GB',
+            'groups' => ['admin'],
+            'subadmin_groups' => ['financeiro'],
+        ])
+        ->assertStatus(202);
+});
+
+it('POST users aceita aliases displayname e subadmin do OpenAPI legado', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $cmd, $args, $stdin) {
+            $decoded = json_decode($stdin ?? '', true);
+
+            return is_array($decoded)
+                && ($decoded['display_name'] ?? null) === 'João Silva'
+                && ($decoded['subadmin_groups'] ?? null) === ['admin'];
+        })
+        ->andReturn(sshLifecycleSuccess($jobId));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'joao.silva',
+            'password' => 'Secret123!',
+            'displayname' => 'João Silva',
+            'subadmin' => ['admin'],
+        ])
+        ->assertStatus(202);
+});
+
 it('POST users com username inválido → 422 sem SSH', function () {
     $cluster = makeLifecycleCluster();
     $customer = makeLifecycleCustomer($cluster);
