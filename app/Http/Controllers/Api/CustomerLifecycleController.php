@@ -19,6 +19,7 @@ use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
+use App\Modules\Customers\Support\UserCreateStdinPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,24 +30,17 @@ final class CustomerLifecycleController extends Controller
     /** POST /customers/{customer}/users */
     public function createUser(Customer $customer, CreateUserRequest $request): JsonResponse
     {
-        // Upstream `user create` accepts a single positional <username>; email and groups
-        // must travel via the JSON `--payload-stdin` (alongside the password). Passing them
-        // as positional args / --group flags silently no-ops upstream (per SSH probing).
-        // See ISSUE-006 §"Design points" DP3.
-        $stdinPayload = ['password' => $request->string('password')->toString()];
-
-        $email = $request->string('email', '')->toString();
-        if ($email !== '') {
-            $stdinPayload['email'] = $email;
-        }
-
-        $groups = array_values(array_filter(
-            $request->array('groups', []),
-            static fn (mixed $g): bool => is_string($g) && $g !== '',
-        ));
-        if ($groups !== []) {
-            $stdinPayload['groups'] = $groups;
-        }
+        // Upstream `user create` accepts a single positional <username>; all other fields
+        // travel via JSON `--payload-stdin`. See ISSUE-006 §DP3 and upstream schema
+        // {password, display_name?, email?, quota?, groups?, subadmin_groups?}.
+        $stdinPayload = UserCreateStdinPayload::build(
+            password: $request->string('password')->toString(),
+            displayName: $request->string('display_name', '')->toString() ?: null,
+            email: $request->string('email', '')->toString() ?: null,
+            quota: $request->string('quota', '')->toString() ?: null,
+            groups: $request->array('groups', []),
+            subadminGroups: $request->array('subadmin_groups', []),
+        );
 
         return $this->dispatch(
             $customer,
