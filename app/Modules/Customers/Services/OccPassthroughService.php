@@ -51,6 +51,26 @@ final class OccPassthroughService
             ?? throw new \RuntimeException("OCC '{$subcmd}' did not return valid JSON (stdout: {$resp->stdout})");
     }
 
+    /**
+     * Apply theming keys one at a time — OCC `theming:config` accepts only `<key> <value>` per invocation (P-10).
+     *
+     * @param  array<string, string>  $fields
+     * @return array<string, mixed>
+     */
+    public function execThemingConfig(Customer $customer, array $fields, int $timeoutSec = 60): array
+    {
+        if ($fields === []) {
+            return $this->exec($customer, 'theming:config', [], $timeoutSec);
+        }
+
+        $last = [];
+        foreach ($fields as $key => $value) {
+            $last = $this->exec($customer, 'theming:config', [$key, $value], $timeoutSec);
+        }
+
+        return $last;
+    }
+
     /** Pre-defined quota options — no SSH call needed. */
     public static function quotaOptions(): array
     {

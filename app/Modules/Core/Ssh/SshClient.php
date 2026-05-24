@@ -241,21 +241,28 @@ class SshClient implements SshClientInterface
             throw new \InvalidArgumentException('SSH command cannot be empty');
         }
 
-        // Neither the binary name nor the arguments are shell-quoted.
-        // The remote SSH server receives this string as SSH_ORIGINAL_COMMAND
-        // and the ForceCommand does NOT perform shell quote removal — it either
-        // does `exec $SSH_ORIGINAL_COMMAND` (bash word-split, no quote stripping)
-        // or a raw string match/pass-through. Shell-quoting any part causes the
-        // literal quote characters to reach nextcloud-manage as part of the arg
-        // value, which it rejects (exit 101).
-        // Safety: all arg values flowing here are validated upstream (Slug rule,
-        // domain format, UUIDs, fixed literals) — no shell metacharacter risk.
+        // Remote ForceCommand runs SSH_ORIGINAL_COMMAND via shell word-splitting.
+        // Args with spaces (e.g. quota "5 GB") must be double-quoted so bash keeps
+        // them as a single token. Do NOT escapeshellarg() the binary name — breaks
+        // ForceCommand prefix match (see ping()).
         $parts = [$cmd];
         foreach ($args as $arg) {
-            $parts[] = (string) $arg;
+            $parts[] = $this->formatRemoteArg((string) $arg);
         }
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * Quote an argv token for remote shell word-split when it contains whitespace.
+     */
+    private function formatRemoteArg(string $arg): string
+    {
+        if ($arg === '' || ! preg_match('/\s/u', $arg)) {
+            return $arg;
+        }
+
+        return '"'.str_replace(['\\', '"'], ['\\\\', '\\"'], $arg).'"';
     }
 
     private function buildRemoteException(

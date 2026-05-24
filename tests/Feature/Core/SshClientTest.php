@@ -255,3 +255,28 @@ it('payloadStdin null does not add printf pipe to exec command', function (): vo
         ->toStartWith('manage.sh')
         ->not->toContain("'manage.sh'");
 });
+
+it('double-quotes argv tokens with spaces for remote shell word-split', function (): void {
+    $capturedCmd = null;
+
+    $ssh = Mockery::mock(SSH2::class);
+    $ssh->allows('setTimeout');
+    $ssh->allows('exec')->andReturnUsing(function (string $cmd) use (&$capturedCmd): string {
+        $capturedCmd = $cmd;
+
+        return '{"ok":true}';
+    });
+    $ssh->allows('getLastError')->andReturn(null);
+    $ssh->allows('getExitStatus')->andReturn(0);
+
+    $client = makeSshClient($ssh);
+    $cluster = makeActiveCluster();
+
+    $client->run($cluster, 'nextcloud-manage', [
+        'teste5', 'occ-exec', 'user:setting', 'admin', 'files', 'quota', '5 GB', '--json',
+    ]);
+
+    expect($capturedCmd)
+        ->toContain('quota "5 GB"')
+        ->not->toContain('quota 5 GB --json');
+});
