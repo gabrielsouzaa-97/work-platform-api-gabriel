@@ -187,7 +187,7 @@ it('suporte não pode provisionar → 422 (authorization)', function () {
     $response->assertStatus(403);
 });
 
-it('logo > 256 KB → scpUpload chamado + --staging-id repassado ao SSH', function () {
+it('logo > 256 KB → inboxInit + sftpUpload chamados + --staging-id repassado ao SSH', function () {
     $cluster = makeProvisionCluster();
     $operator = makeOperator('operador');
     $jobId = Str::uuid()->toString();
@@ -196,7 +196,8 @@ it('logo > 256 KB → scpUpload chamado + --staging-id repassado ao SSH', functi
     file_put_contents($tmpFile, str_repeat('X', 260 * 1024));
 
     $sshMock = Mockery::mock(SshClientInterface::class);
-    $sshMock->shouldReceive('scpUpload')->once();
+    $sshMock->shouldReceive('inboxInit')->once();
+    $sshMock->shouldReceive('sftpUpload')->once();
     $sshMock->shouldReceive('runAsync')
         ->once()
         ->withArgs(function ($c, $bin, $args) {

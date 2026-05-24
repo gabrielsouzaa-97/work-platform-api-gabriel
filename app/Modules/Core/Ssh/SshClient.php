@@ -18,7 +18,9 @@ class SshClient implements SshClientInterface
 {
     private const MAX_PAYLOAD_STDIN_BYTES = 262144; // 256 KB
 
-    private const MAX_SCP_BYTES = 52428800;         // 50 MB
+    private const MAX_SCP_BYTES = 52428800;         // 50 MB (legacy scpUpload)
+
+    private const MAX_SFTP_BYTES = 5242880;         // 5 MB — server-side limit per file (SSH API Reference §16)
 
     private const RETRY_DELAYS_SECONDS = [1, 2, 4];
 
@@ -102,6 +104,66 @@ class SshClient implements SshClientInterface
         throw $lastException ?? new SshConnectionException(
             "SSH ping failed after retries for cluster [{$cluster->id}]"
         );
+    }
+
+    public function inboxInit(ClusterServer $cluster, string $stagingId): void
+    {
+        $this->run($cluster, 'nextcloud-manage', ['_', '_', 'inbox-init', "--staging-id={$stagingId}"]);
+    }
+
+    /**
+     * Upload a branding file via SFTP using Canal B (ncsaas-sftp).
+     *
+     * The `ncsaas-sftp` user is chrooted to /opt/nextcloud-customers/inbox.
+     * Remote path must be relative to that chroot: /{stagingId}/{filename}
+     * Requires $cluster->sftp_user and $cluster->sftp_private_key_encrypted.
+     */
+    public function sftpUpload(ClusterServer $cluster, string $localPath, string $stagingId, string $filename): void
+    {
+        if (! file_exists($localPath)) {
+            throw new \InvalidArgumentException("Local file not found: {$localPath}");
+        }
+
+        $fileSize = filesize($localPath);
+        if ($fileSize > self::MAX_SFTP_BYTES) {
+            throw new \InvalidArgumentException(
+                "File size {$fileSize} bytes exceeds 5 MB SFTP staging limit"
+            );
+        }
+
+        if (empty($cluster->sftp_user) || empty($cluster->sftp_private_key_encrypted)) {
+            throw new SshConnectionException(
+                "Cluster [{$cluster->id}] has no SFTP credentials (sftp_user / sftp_private_key_encrypted)"
+            );
+        }
+
+        // Path relative to chroot /opt/nextcloud-customers/inbox
+        $remotePath = "/{$stagingId}/{$filename}";
+
+        try {
+            $sftp = new SFTP($cluster->ssh_host, $cluster->ssh_port ?? 22, 30);
+            $key = PublicKeyLoader::load($cluster->sftp_private_key_encrypted);
+
+            if (! $sftp->login($cluster->sftp_user, $key)) {
+                throw new SshConnectionException(
+                    "SFTP login failed for cluster [{$cluster->id}] (Canal B)"
+                );
+            }
+
+            if (! $sftp->put($remotePath, $localPath, SFTP::SOURCE_LOCAL_FILE)) {
+                throw new SshRemoteException(
+                    "SFTP upload failed: could not write to {$remotePath}",
+                    remoteExitCode: 1,
+                );
+            }
+        } catch (SshRemoteException|SshConnectionException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new SshConnectionException(
+                "SFTP connection failed for cluster [{$cluster->id}]: {$e->getMessage()}",
+                previous: $e
+            );
+        }
     }
 
     public function scpUpload(ClusterServer $cluster, string $localPath, string $remotePath): void

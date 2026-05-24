@@ -38,6 +38,8 @@ class ClusterServer extends Model
         'ssh_port',
         'ssh_user',
         'ssh_private_key_encrypted',
+        'sftp_user',
+        'sftp_private_key_encrypted',
         'webhook_secret_encrypted',
         'webhook_secret_version',
         'webhook_allowed_ip',
@@ -51,6 +53,7 @@ class ClusterServer extends Model
     {
         return [
             'ssh_private_key_encrypted' => 'encrypted',
+            'sftp_private_key_encrypted' => 'encrypted',
             'webhook_secret_encrypted' => 'encrypted',
             'last_health_at' => 'datetime',
             'deleted_at' => 'datetime',

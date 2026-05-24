@@ -63,27 +63,34 @@ final class ProvisionCustomerAction
             $args[] = '--apps='.implode(',', $payload->apps);
         }
 
-        // Annexes: > 256 KB per file → SCP staging; ≤ 256 KB → inline base64 via payload-stdin
+        // Annexes: > 256 KB per file → SFTP staging (Canal B); ≤ 256 KB → inline base64 via payload-stdin
         $stdin = [];
         $stagingId = null;
-        $useScp = ($payload->logoPath && filesize($payload->logoPath) > 256 * 1024)
+        $useSftp = ($payload->logoPath && filesize($payload->logoPath) > 256 * 1024)
             || ($payload->backgroundPath && filesize($payload->backgroundPath) > 256 * 1024);
 
         if ($payload->logoPath || $payload->backgroundPath) {
-            if ($useScp) {
+            if ($useSftp) {
                 $stagingId = (string) Str::uuid();
+
+                // Step 1 — init staging dir via Canal A
+                $this->ssh->inboxInit($cluster, $stagingId);
+
+                // Step 2 — upload files via Canal B (chroot-relative paths)
                 if ($payload->logoPath) {
-                    $this->ssh->scpUpload(
+                    $this->ssh->sftpUpload(
                         $cluster,
                         $payload->logoPath,
-                        "/opt/nextcloud-customers/inbox/{$stagingId}/logo.png"
+                        $stagingId,
+                        'logo.png'
                     );
                 }
                 if ($payload->backgroundPath) {
-                    $this->ssh->scpUpload(
+                    $this->ssh->sftpUpload(
                         $cluster,
                         $payload->backgroundPath,
-                        "/opt/nextcloud-customers/inbox/{$stagingId}/background.png"
+                        $stagingId,
+                        'background.jpg'
                     );
                 }
                 $args[] = "--staging-id={$stagingId}";
