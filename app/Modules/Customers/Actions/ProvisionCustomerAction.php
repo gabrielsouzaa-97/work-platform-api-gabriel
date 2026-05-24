@@ -101,6 +101,7 @@ final class ProvisionCustomerAction
                 if ($payload->backgroundPath) {
                     $stdin['background_data_url'] = 'data:image/png;base64,'.base64_encode((string) file_get_contents($payload->backgroundPath));
                 }
+                $args[] = '--payload-stdin';
             }
         }
 
