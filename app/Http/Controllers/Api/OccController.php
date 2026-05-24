@@ -84,19 +84,23 @@ final class OccController extends Controller
     /** PUT /customers/{customer}/occ/branding */
     public function setBranding(Customer $customer, SetBrandingRequest $request): JsonResponse
     {
-        // ISSUE-011: `theming:config` está fora da allowlist do `occ-exec` upstream (exit 16).
-        // Bug adicional latente em P-10 (multi-key não funciona em uma única chamada do OCC):
-        // não pode ser validado nem corrigido enquanto a allowlist não permitir o subcmd.
-        // runOcc mapeia exit 16 → HTTP 403 occ_subcmd_not_allowed.
-        $args = [];
+        // P-10: `theming:config` accepts one `<key> <value>` pair per OCC invocation.
+        // execThemingConfig loops non-empty fields — one SSH call per key.
+        $fields = [];
         foreach (['name', 'color', 'url', 'slogan', 'imprintUrl', 'privacyUrl'] as $field) {
             if ($request->filled($field)) {
-                $args[] = $field;
-                $args[] = $request->string($field)->toString();
+                $fields[$field] = $request->string($field)->toString();
             }
         }
 
-        return $this->runOcc($customer, 'theming:config', $args, 'occ_set_branding', $request);
+        return $this->runOccExec(
+            $customer,
+            'theming:config',
+            fn () => $this->occ->execThemingConfig($customer, $fields),
+            'occ_set_branding',
+            $request,
+            ['fields' => array_keys($fields)],
+        );
     }
 
     /** POST /customers/{customer}/occ/maintenance */
@@ -151,8 +155,30 @@ final class OccController extends Controller
      */
     private function runOcc(Customer $customer, string $subcmd, array $args, string $auditAction, Request $request): JsonResponse
     {
+        return $this->runOccExec(
+            $customer,
+            $subcmd,
+            fn () => $this->occ->exec($customer, $subcmd, $args),
+            $auditAction,
+            $request,
+            ['args' => $args],
+        );
+    }
+
+    /**
+     * @param  callable(): array<string, mixed>  $execute
+     * @param  array<string, mixed>  $auditPayloadExtra
+     */
+    private function runOccExec(
+        Customer $customer,
+        string $subcmd,
+        callable $execute,
+        string $auditAction,
+        Request $request,
+        array $auditPayloadExtra = [],
+    ): JsonResponse {
         try {
-            $result = $this->occ->exec($customer, $subcmd, $args);
+            $result = $execute();
         } catch (ClusterUnreachableException) {
             return response()->json(['error' => 'cluster_unreachable'], 503)
                 ->header('Retry-After', '60');
@@ -195,7 +221,7 @@ final class OccController extends Controller
             'action' => $auditAction,
             'resource_type' => 'customer',
             'resource_id' => $customer->slug,
-            'payload' => ['subcmd' => $subcmd, 'args' => $args],
+            'payload' => array_merge(['subcmd' => $subcmd], $auditPayloadExtra),
             'cluster_server_id' => $customer->clusterServer?->id,
         ]);
 

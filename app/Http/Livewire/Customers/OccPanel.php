@@ -156,28 +156,26 @@ class OccPanel extends Component
         ]);
 
         $this->clearMessages();
-        $args = [];
-        $fields = [
+        $fields = [];
+        foreach ([
             'name' => $this->brandingName,
             'color' => $this->brandingColor,
             'slogan' => $this->brandingSlogan,
             'url' => $this->brandingUrl,
-        ];
-        foreach ($fields as $key => $val) {
+        ] as $key => $val) {
             if ($val !== '') {
-                $args[] = $key;
-                $args[] = $val;
+                $fields[$key] = $val;
             }
         }
 
-        if (empty($args)) {
+        if ($fields === []) {
             $this->errorMessage = 'Preencha ao menos um campo de branding.';
 
             return;
         }
 
         try {
-            $occ->exec($this->customer, 'theming:config', $args);
+            $occ->execThemingConfig($this->customer, $fields);
             $this->successMessage = 'Branding atualizado.';
         } catch (\Throwable $e) {
             $this->errorMessage = $this->formatError($e);

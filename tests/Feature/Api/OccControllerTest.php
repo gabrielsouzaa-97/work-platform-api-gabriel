@@ -259,18 +259,28 @@ it('sem autenticação → 401', function () {
 
 // ── D7-F006: setBranding ───────────────────────────────────────────────────────
 
-it('PUT branding com name e color → SSH chama theming:config → 200 + audit log', function () {
+it('PUT branding com name e color → duas chamadas theming:config (P-10)', function () {
     $cluster = makeOccCluster();
     $customer = makeOccCustomer($cluster);
     $operator = makeOccOperator('admin');
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')
-        ->once()
-        ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
-            && in_array('theming:config', $args, true)
-            && in_array('name', $args, true)
-            && in_array('Acme Corp', $args, true))
+        ->twice()
+        ->withArgs(function ($c, $cmd, $args) {
+            if ($cmd !== 'nextcloud-manage' || ! in_array('theming:config', $args, true)) {
+                return false;
+            }
+
+            static $calls = 0;
+            $calls++;
+
+            return match ($calls) {
+                1 => in_array('name', $args, true) && in_array('Acme Corp', $args, true),
+                2 => in_array('color', $args, true) && in_array('#123456', $args, true),
+                default => false,
+            };
+        })
         ->andReturn(sshOccSuccess());
     $this->app->instance(SshClientInterface::class, $ssh);
 

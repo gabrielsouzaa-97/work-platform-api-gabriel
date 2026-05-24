@@ -248,6 +248,32 @@ it('submitBranding com name preenchido → SSH chamado + successMessage', functi
         ->assertSet('successMessage', 'Branding atualizado.');
 });
 
+it('submitBranding com name e color → duas chamadas theming:config (P-10)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->twice()
+        ->withArgs(fn ($clusterArg, $cmd, $args) => $cmd === 'nextcloud-manage'
+            && in_array('theming:config', $args, true))
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['ok' => true]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['ok' => true],
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('brandingName', 'Acme')
+        ->set('brandingColor', '#aabbcc')
+        ->call('submitBranding')
+        ->assertSet('successMessage', 'Branding atualizado.');
+});
+
 // ── Maintenance (sync OCC) ──────────────────────────────────────────────────
 
 it('toggleMaintenance ON gera successMessage com estado correto', function () {
