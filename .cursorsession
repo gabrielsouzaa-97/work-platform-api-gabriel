@@ -33,15 +33,15 @@
     }
   ],
   "fase_atual": "12",
-  "fase_nome": "Sprint F5 — Task F5.11 em implementação (fix same-path para QA-F5-019: blade wire:submit/wire:model + remoção de escape-hatch; ISSUE backlog para E2E Dusk/Playwright)",
-  "sprint_atual": "F5",
-  "previous_sprint": "N2",
+  "fase_nome": "Sprint F9 — validação R1 APROVADA (ISSUE-012); 5 findings MEDIUM/LOW backlogados; aguarda commit + PR",
+  "sprint_atual": "F9",
+  "previous_sprint": "F8",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-21T19:10:12Z",
+  "ultimo_update": "2026-05-24T03:09:26Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -190,76 +190,43 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "F5",
-    "phase": "ready_for_validation_r3",
-    "branch": "uds/fix/lifecycle-async-cmd-argv",
-    "head_sha": "fd674cb",
-    "last_completed_task": "F5.11 — same-path fix p/ QA-F5-019 (OccPanel createUser) + commit monolítico fd674cb (Sprint F5 tasks 5.1→5.11)",
+    "sprint": "F9",
+    "phase": "validation_r1_approved",
+    "branch": "sprint/F9-api-404-json",
+    "head_sha": "5edf10b",
+    "last_completed_task": "F9.2 — ApiNotFoundJsonTest (4 testes ISSUE-012)",
     "current_task": null,
-    "tests_passing": 323,
-    "tests_skipped": 6,
-    "assertions": 839,
-    "audit_findings_resolved": 11,
-    "audit_findings_pending": 16,
-    "audit_findings_validated_r2": 5,
-    "audit_findings_validated_partial_r2": 1,
-    "audit_status": "PENDING_R3",
-    "timestamp": "2026-05-20T20:35:00Z",
+    "tests_passing": 374,
+    "tests_skipped": 7,
+    "assertions": 982,
+    "audit_findings_resolved": 0,
+    "audit_findings_pending": 5,
+    "audit_status": "APROVADA_R1",
+    "timestamp": "2026-05-24T12:00:00Z",
     "validation_gate": {
-      "validation_round": 2,
-      "validation_round_r1": {
-        "findings_found": 4,
-        "findings_registered": [
-          "QA-F5-015",
-          "QA-F5-016",
-          "QA-F5-017",
-          "QA-F5-018"
-        ],
-        "findings_modified": [
-          "QA-F5-005"
-        ],
-        "files_modified_outside_findings": 0,
-        "askquestion_shown": true,
-        "senior_review_status": "PASS",
-        "qa_review_status": "PASS_WITH_NOTES",
-        "senior_model": "gpt-5.3-codex",
-        "qa_model": "gemini-3.1-pro",
-        "result": "REPROVADA",
-        "result_rationale": "2 HIGH pendentes em sprint aberta (CQ-F5-001 OpenAPI drift + novo QA-F5-017 IdempotencyKey rollback assertion); PROC-012 exige corrigir in-sprint antes de merge.",
-        "timestamp": "2026-05-20T17:30:00Z"
-      },
+      "validation_round": 1,
       "scope_files_audited": [
-        "tests/Feature/Customers/LifecycleTest.php",
-        "tests/Pest.php",
-        "tests/Contract/Customers/UpstreamContractTest.php",
-        "tests/Feature/Livewire/Customers/OccPanelTest.php",
-        "app/Http/Livewire/Customers/OccPanel.php",
-        "docs/openapi.yaml"
+        "bootstrap/app.php",
+        "tests/Feature/Api/ApiNotFoundJsonTest.php"
       ],
-      "findings_validated_from_r1": [
-        "CQ-F5-001",
-        "QA-F5-005",
-        "QA-F5-015",
-        "QA-F5-017",
-        "QA-F5-018"
-      ],
-      "findings_validated_partial_from_r1": [
-        "QA-F5-016"
-      ],
-      "findings_found": 1,
+      "findings_found": 5,
       "findings_registered": [
-        "QA-F5-019"
+        "QA-F9-001",
+        "QA-F9-002",
+        "QA-F9-003",
+        "QA-F9-004",
+        "QA-F9-005"
       ],
       "files_modified_outside_findings": 0,
       "askquestion_shown": true,
-      "senior_review_status": "FAIL",
-      "qa_review_status": "FAIL",
-      "senior_model": "claude-4.6-sonnet-medium-thinking",
-      "qa_model": "gemini-3.1-pro",
-      "result": "REPROVADA",
-      "result_rationale": "1 finding HIGH pendente em sprint aberta (QA-F5-019 — OccPanel::createUser quebrado em produção via wire:click + request()->input fallback inviável em Livewire 3; convergência crítica entre auditor-senior claude-4.6-sonnet e auditor-qa gemini-3.1-pro). Cobertura de teste R1 (QA-F5-016) é falso-positiva (escape-hatch via param). PROC-012 exige correção in-sprint ou justificação documentada para COM_RESSALVAS.",
-      "last_validated_sha": "abb82b4527c50454f1921e19572c9a2fdd30f07c",
-      "timestamp": "2026-05-20T19:30:00Z"
+      "senior_review_status": "PASS_WITH_NOTES",
+      "qa_review_status": "PASS_WITH_NOTES",
+      "senior_model": "auditor-senior",
+      "qa_model": "auditor-qa",
+      "result": "APROVADA",
+      "result_rationale": "ISSUE-012 core fix validado (404/405 JSON sem Accept; web HTML preservado). Suite 374 passed (+4 F9). 5 findings MEDIUM/LOW registrados; QA-F9-001 rebaixado de HIGH→MEDIUM (side effect handler amplo, fora escopo primário). Nenhum blocker CRITICAL/HIGH pendente.",
+      "last_validated_sha": "5edf10b1fd970ed2a646515b0c5cd34588159901",
+      "timestamp": "2026-05-24T12:00:00Z"
     }
   },
   "planning_history": [

@@ -22,6 +22,9 @@ FINDINGS-INDEX -->
 | N1 | 0 | 3 | 8 | 12 | 23 | 0 | 0 |
 | F5 | 1 | 6 | 12 | 8 | 16 | 11 | 0 |
 | F8 | 0 | 0 | 2 | 2 | 4 | 6 | 6 |
+| F9 | 0 | 0 | 3 | 2 | 5 | 0 | 0 |
+
+> **Validação F9 R1** (2026-05-24, `/qa validar F9`): senior (auditor-senior, readonly) → PASS_WITH_NOTES (0 blockers). QA (auditor-qa, readonly) → 5 candidatos; após triagem: **5 registrados** (`QA-F9-001` MEDIUM downgrade de HIGH — side effect handler amplo; `QA-F9-002/003` MEDIUM test gaps; `QA-F9-004/005` LOW). Testes F9: **4 passed**. Full suite: **374 passed**, 7 skipped, 982 assertions. **ISSUE-012 core fix validado** (404/405 JSON sem `Accept`). **Resultado: APROVADA** — nenhum HIGH/CRITICAL pendente; MEDIUM/LOW backlogados.
 
 > **Validação F8 R1** (2026-05-23): follow-up F8.7–F8.10. Testes F8: 46 passed. **APROVADA** — QA-F8-001/002/003/004/005/006/007/009/010 corrigidos; QA-F8-008/011 remanescentes (MEDIUM/LOW, non-blocking).
 
@@ -1681,5 +1684,63 @@ Nenhum finding registrado para D1 na validação atual.
 - **Arquivos**: `ProbeCustomerReadinessJob.php:35-38`
 - **Descrição**: `Customer::find()` retorna null em soft-delete → job retorna sem audit.
 - **Ação necessária**: Teste documentando comportamento; opcional audit `customer_readiness_aborted`.
+
+---
+
+### QA-F9-001 — MEDIUM — `ModelNotFoundException` em rotas API existentes retorna `route_not_found`
+
+- **Sprint**: F9
+- **Severidade**: MEDIUM (downgrade de HIGH proposto pelo auditor-qa — side effect do handler amplo, fora do escopo primário ISSUE-012)
+- **Tipo**: contract_violation
+- **Auditoria**: QA + Senior (convergente como nota non-blocking)
+- **Status**: Pendente
+- **Arquivo**: `bootstrap/app.php` (handler global `NotFoundHttpException`)
+- **Descrição**: O handler customizado captura **todos** os `NotFoundHttpException` sob `api/*`, incluindo os convertidos de `ModelNotFoundException` pelo Laravel (`Handler::prepareException`). Ex.: `GET /api/queue/{uuid-inexistente}` (rota existe, recurso não) retorna `{error: route_not_found}` em vez de sinal de recurso ausente (`not_found` como em `OccController`, ou `{message: ...}` padrão Laravel).
+- **Impacto**: DX/contract — clientes não distinguem URL inválida vs recurso inexistente. Melhoria líquida vs pré-F9 quando cliente não enviava `Accept` (antes: HTML; agora: JSON parseável).
+- **Ação necessária**: Guard no handler (`$e->getPrevious() instanceof ModelNotFoundException` → `{error: not_found}` ou deixar fallback Laravel); teste Feature autenticado para job/customer slug inexistente.
+
+### QA-F9-002 — MEDIUM — Critério ISSUE-012 (`APP_DEBUG` sem leak) sem teste de regressão
+
+- **Sprint**: F9
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: QA + Senior
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/Api/ApiNotFoundJsonTest.php`
+- **Descrição**: ISSUE-012 exige verificar que payload 404/405 não expõe `trace`/`file` quando `APP_DEBUG=true`. Implementação atual é segura (payload fixo), mas nenhum teste seta `config(['app.debug' => true])` e asserta ausência de chaves de debug.
+- **Ação necessária**: Adicionar testes 404/405 com `APP_DEBUG=true` + `assertJsonMissing(['trace','file','exception'])`.
+
+### QA-F9-003 — MEDIUM — 405 JSON sem `Accept: text/html` não exercitado explicitamente
+
+- **Sprint**: F9
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/Api/ApiNotFoundJsonTest.php`
+- **Descrição**: Teste 405 usa `$this->call('GET', '/api/jobs/hook')` sem `Accept` explícito, mas não prova o cenário hostil `Accept: text/html,*/*` (modo de falha original do ISSUE-012 para 404).
+- **Ação necessária**: Repetir 405 com header `HTTP_ACCEPT: text/html,application/xhtml+xml` + assert JSON.
+
+### QA-F9-004 — LOW — Cenário 405 invertido vs spec (POST em rota GET-only)
+
+- **Sprint**: F9
+- **Severidade**: LOW
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/Api/ApiNotFoundJsonTest.php`
+- **Descrição**: ROADMAP F9.2 exemplifica `POST` em rota só-GET; teste cobre `GET` em rota só-POST (`/api/jobs/hook`). Mesma exception class, mas direção inversa não testada.
+- **Ação necessária**: Adicionar `POST /api/queue` (sem auth) → 405 JSON `method_not_allowed`.
+
+### QA-F9-005 — LOW — `GET /api` (path exato) pode continuar retornando HTML
+
+- **Sprint**: F9
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Arquivo**: `bootstrap/app.php` — `$request->is('api/*')`
+- **Descrição**: `Str::is('api/*', 'api')` não casa (`api/foo` sim). Rota raiz `/api` sem segmento trailing pode cair no template HTML 404 se cliente não enviar `Accept`.
+- **Ação necessária**: Expandir match para `$request->is('api', 'api/*')`; teste `GET /api` sem Accept → JSON 404.
 
 ---
