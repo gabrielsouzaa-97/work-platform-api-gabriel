@@ -78,7 +78,12 @@ final class JobLogFetcher
             );
         }
 
-        return $this->parseAndSanitize($response->stdout, $job->job_id);
+        $lines = $this->parseAndSanitize($response->stdout, $job->job_id);
+        if ($lines !== []) {
+            return $lines;
+        }
+
+        return $this->fetchViaStatus($job, $cluster, $timeoutSec);
     }
 
     /**
@@ -114,17 +119,7 @@ final class JobLogFetcher
             throw new JobLogFetchException("Could not parse JSON from job status for {$job->job_id}");
         }
 
-        $lines = $decoded['data']['summary']
-            ?? $decoded['data']['logs']
-            ?? $decoded['summary']
-            ?? $decoded['logs']
-            ?? [];
-
-        if (! is_array($lines)) {
-            $lines = is_string($lines) ? [$lines] : [];
-        }
-
-        return $this->sanitizeLines($lines);
+        return $this->sanitizeLines($this->extractLines($decoded));
     }
 
     /**
@@ -138,15 +133,81 @@ final class JobLogFetcher
             return $this->sanitizeLines(preg_split('/\R/', $stdout) ?: []);
         }
 
-        // Accept either a plain array of lines or an object with a lines/summary key.
-        $lines = match (true) {
-            isset($decoded['lines']) && is_array($decoded['lines']) => $decoded['lines'],
-            isset($decoded['summary']) && is_array($decoded['summary']) => $decoded['summary'],
-            array_is_list($decoded) => $decoded,
-            default => [],
-        };
+        return $this->sanitizeLines($this->extractLines($decoded));
+    }
 
-        return $this->sanitizeLines($lines);
+    /**
+     * @return array<int, mixed>
+     */
+    private function extractLines(array $decoded): array
+    {
+        $lines = $this->linesFromPayload($decoded);
+        if ($lines !== []) {
+            return $lines;
+        }
+
+        if (isset($decoded['data']) && is_array($decoded['data'])) {
+            $lines = $this->linesFromPayload($decoded['data']);
+            if ($lines !== []) {
+                return $lines;
+            }
+        }
+
+        if (array_is_list($decoded)) {
+            return $decoded;
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function linesFromPayload(array $payload): array
+    {
+        foreach (['lines', 'summary', 'logs'] as $key) {
+            if (! isset($payload[$key])) {
+                continue;
+            }
+
+            if (is_array($payload[$key])) {
+                return $this->flattenLineValues($payload[$key]);
+            }
+
+            if (is_string($payload[$key]) && trim($payload[$key]) !== '') {
+                return $this->flattenLineValues(preg_split('/\R/', $payload[$key]) ?: []);
+            }
+        }
+
+        $textBlocks = [];
+        foreach (['stdout', 'stderr', 'log', 'output', 'content'] as $key) {
+            if (! isset($payload[$key]) || ! is_string($payload[$key]) || trim($payload[$key]) === '') {
+                continue;
+            }
+            $textBlocks[] = $payload[$key];
+        }
+
+        if ($textBlocks === []) {
+            return [];
+        }
+
+        return $this->flattenLineValues(preg_split('/\R/', implode("\n", $textBlocks)) ?: []);
+    }
+
+    /**
+     * @param  array<mixed>  $lines
+     * @return array<int, string>
+     */
+    private function flattenLineValues(array $lines): array
+    {
+        $flat = [];
+        foreach ($lines as $line) {
+            if (is_string($line)) {
+                $flat[] = $line;
+            }
+        }
+
+        return $flat;
     }
 
     /**

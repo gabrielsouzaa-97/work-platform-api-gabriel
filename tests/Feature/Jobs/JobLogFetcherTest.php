@@ -167,6 +167,35 @@ it('JobLogFetcher: sanitiza password=foo para password=[REDACTED] antes de persi
         ->and($lines[2])->toBe('Normal log line');
 });
 
+it('JobLogFetcher: extrai linhas de JSON upstream com stdout/stderr (formato occ-exec)', function (): void {
+    $cluster = fetcherCluster();
+    $job = fetcherJob($cluster->id);
+
+    $payload = [
+        'schema_version' => '1',
+        'occ_command' => 'user:delete',
+        'exit_code' => 0,
+        'stdout' => "The specified user was deleted\nDone.",
+        'stderr' => '',
+    ];
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($c, $cmd, $args) => isJobIntrospectionArgs($args, $job->job_id, 'logs'))
+        ->andReturn(new SshResponse(
+            stdout: json_encode($payload),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $payload,
+        ));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $lines = app(JobLogFetcher::class)->fetch($job, $cluster);
+
+    expect($lines)->toBe(['The specified user was deleted', 'Done.']);
+});
+
 it('JobLogFetcher: aceita stdout em texto puro no comando logs e separa por linhas', function (): void {
     $cluster = fetcherCluster();
     $job = fetcherJob($cluster->id);
@@ -344,7 +373,12 @@ it('webhook job.finished com fetcher retornando [] mantém summary null', functi
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')
         ->once()
+        ->withArgs(fn ($c, $cmd, $args) => isJobIntrospectionArgs($args, $job->job_id, 'logs'))
         ->andReturn(sshLogsResponse([]));
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($c, $cmd, $args) => isJobIntrospectionArgs($args, $job->job_id, 'status'))
+        ->andReturn(sshStatusWithSummaryResponse([]));
     $this->app->instance(SshClientInterface::class, $ssh);
 
     app(WebhookHandler::class)->handle($cluster, [
