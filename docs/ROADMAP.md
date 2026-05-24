@@ -77,6 +77,7 @@
 | F6     | F         | Forgot-password broker nativo Laravel (operadores) + logs de Job populados via SSH `nextcloud-manage job <id> status --json` pós-`job.finished` (corrige queue/{jobId} vazio) | pendente  | 6     | Auth, Jobs, Core/Ssh | `/qa debug` 2026-05-21: ISSUE-008 (forgot-password) + ISSUE-009 (job logs via SSH pull) | 3578+    |
 | F7     | F         | Create cluster atômico; actor_id no AuditLog de rotate; teste erro "sem secret atual" | pendente  | 3     | ClusterServers | 3 findings HIGH pendentes N1 | 3805+    |
 | F8     | F         | Provision success não marca tenant `active` antes de probe; `users:*` retorna 503 até readiness confirmada | **concluída** | 10    | Jobs, Customers, Webhook | ISSUE-010 — validada APROVADA R1 | 3865+    |
+| F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — `/fix` HIGH-only 2026-05-24 | 4003+    |
 
 ---
 
@@ -4002,8 +4003,59 @@ Cenários obrigatórios:
 
 ---
 
+## Sprint F9 — API 404 JSON contract (ISSUE-012)
+
+> Categoria: F
+> Gate: (1) `GET /api/<inexistente>` **sem** `Accept: application/json` retorna `404` + `Content-Type: application/json` + body `{"error":"route_not_found",...}`; (2) `MethodNotAllowedHttpException` sob `/api/*` idem com `method_not_allowed`; (3) rotas web (não-API) continuam retornando HTML; (4) teste `ApiNotFoundJsonTest` verde.
+> Gerado por `/fix` em 2026-05-24. Fonte: **ISSUE-012** (bug HIGH — info leak + DX).
+> review: senior+qa (HIGH severity)
+>
+> **Nota**: os 3 findings HIGH N1 (`CQ-N1-001`, `CQ-N1-002`, `QA-N1-001`) já estão planejados na **Sprint F7** — executar `/pmo sprint F7` separadamente.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F9.1 — [ISSUE-012] `shouldRenderJsonWhen` em `bootstrap/app.php` + payload 404/405 JSON sob `/api/*` | `laravel-api` | — |
+| [x] | P | F9.2 — [ISSUE-012] Pest Feature `ApiNotFoundJsonTest` (404/405 JSON com e sem `Accept`; HTML preservado fora de `/api/*`) | `laravel-testing` | F9.1 |
+
+### Task F9.1 — [ISSUE-012] Handler JSON forçado para rotas `/api/*`
+
+**Estado atual**: `NotFoundHttpException` sob `/api/*` retorna HTML (~30 KB) quando o cliente não envia `Accept: application/json`. Outros erros da API (409/422/502/503) já retornam JSON.
+
+**Estado desejado**: em `bootstrap/app.php`, registrar `shouldRenderJsonWhen` para `$request->is('api/*') || $request->expectsJson()`. Customizar payload de 404/405:
+
+```json
+{ "error": "route_not_found", "path": "/api/...", "method": "GET" }
+```
+
+**Fonte(s)**: ISSUE-012 (HIGH)
+**Módulo(s) afetado(s)**: `bootstrap/app.php`
+**Risco**: LOW — escopo isolado; UI web inalterada
+**Budget**: P
+
+**Test**: `curl -s -o /dev/null -w '%{content_type}' http://localhost/api/rota-inexistente` → `application/json`.
+
+---
+
+### Task F9.2 — [ISSUE-012] Testes de regressão ApiNotFoundJsonTest
+
+**Estado desejado**: `tests/Feature/ApiNotFoundJsonTest.php` cobrindo:
+- (a) 404 JSON sob `/api/*` **sem** `Accept: application/json`
+- (b) 404 JSON sob `/api/*` **com** `Accept: application/json` (sem regressão)
+- (c) HTML preservado fora de `/api/*` (ex.: `GET /rota-inexistente`)
+- (d) `POST` em rota só-GET → `405` JSON com `error: method_not_allowed`
+
+**Fonte(s)**: ISSUE-012 critério de aceite
+**Módulo(s) afetado(s)**: `tests/Feature/ApiNotFoundJsonTest.php`
+**Risco**: LOW
+**Budget**: P
+
+**Test**: a própria task.
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-05-24 | 0.17   | Sprint F9 adicionada — ISSUE-012 (404 `/api/*` retorna JSON sem depender de Accept header); filtro HIGH-only | /fix (interativo)                              |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
 | 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (sync webhook secret com upstream via SSH ao criar/rotacionar cluster) | /pmo new (interativo, 2 revisões de design)            |
 | 2026-05-20 | 0.7    | Sprint N2 adicionada (retroativa) — ISSUE-005 (log debug do payload do webhook em APP_ENV=local)       | /pmo new (interativo)                                  |

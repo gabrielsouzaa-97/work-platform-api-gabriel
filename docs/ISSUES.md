@@ -17,6 +17,69 @@
 | ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | open |
 | ISSUE-010 | postmortem | Callback `provision success` prematuro — tenant não ready para `users:*` (~10 min pós-callback) | Jobs, Customers, Webhook | CRITICAL | closed (F8) |
 | ISSUE-011 | postmortem | Diagnóstico errado em comentários do `OccController`: causa real é allowlist de subcmd no `occ-exec` upstream, não "flag stripping" | Occ, Core/Ssh | CRITICAL | implemented — **validação APROVADA (R1)** |
+| ISSUE-012 | bug | 404 em rotas inexistentes sob `/api/*` retorna HTML completo do Laravel (~30 KB) quando o cliente não envia `Accept: application/json` — info leak + DX ruim | Core (HTTP layer) | HIGH | closed (F9 — validação APROVADA R1) |
+
+---
+
+## ISSUE-012 — 404 sob `/api/*` retorna HTML do Laravel em vez de JSON
+
+- **Tipo**: bug (information leak + DX/contract)
+- **Prioridade**: HIGH
+- **Status**: closed (Sprint F9 — validação `/qa validar` R1 **APROVADA** 2026-05-24)
+- **Sprint**: a alocar (estimado < 1 dia; bom candidato para fast-track / "fix avulso")
+- **Origem**: testes dinâmicos API dev (`deployer.mework360.com.br/api`) em 2026-05-21 — P-19 em `docs/PROBLEMAS-ENCONTRADOS.md`
+- **Módulos afetados**: `bootstrap/app.php` (handler de exceções)
+- **Upstream afetado**: nenhum
+- **Relacionados**: P-19 (origem); contraste com 409/422/502/503 que já retornam JSON corretamente
+
+### Descrição
+
+`GET /api/<rota-inexistente>` **sem** `Accept: application/json` retorna `HTTP 404` com **HTML completo** (DOCTYPE + ~30 KB de CSS inline normalize.css/Tailwind + body com `<h1>404</h1>`). Quando o mesmo request envia `Accept: application/json`, o Laravel já responde JSON corretamente.
+
+Apenas o caminho de `NotFoundHttpException` é sensível ao `Accept` header — todos os outros erros da API (`409 Conflict`, `422 Unprocessable Entity`, `502 Bad Gateway`, `503 Service Unavailable`) já retornam JSON independentemente do `Accept` enviado.
+
+### Causa identificada
+
+O Laravel 12 usa o `Accept` header para decidir entre `renderHtmlResponse` e `renderJsonResponse` no handler de exceções padrão. Sem `Accept: application/json` explícito, `NotFoundHttpException` cai no template HTML — incluindo sob `/api/*`. Falta um handler `shouldRenderJsonWhen` em `bootstrap/app.php` que force JSON sempre que `$request->is('api/*')`, **ignorando** o `Accept` header. Clientes HTTP/SDKs frequentemente não enviam `Accept: application/json` por padrão (curl simples, `fetch` sem options, libs HTTP minimalistas), então o bug é observável na prática.
+
+### Consequências
+
+1. **Information leak (HIGH)**: HTML revela stack (Laravel + Tailwind + normalize.css 8.0.1) — útil para fingerprinting de atacante.
+2. **Quebra de contrato com clientes**: SDKs/parsers esperam JSON sob `/api/*` e recebem HTML — `JSON.parse` quebra ou mascara o erro real.
+3. **Banda desperdiçada**: ~30 KB para responder "rota não existe" em endpoint de API.
+4. **Inconsistência de contrato**: dos cinco status de erro testados (404/409/422/502/503), só 404 quebra o contrato JSON.
+
+### Caminho de fix (opção única — escopo mínimo)
+
+Em `bootstrap/app.php`:
+
+```php
+->withExceptions(function (Exceptions $exceptions) {
+    $exceptions->shouldRenderJsonWhen(function (Request $request) {
+        return $request->is('api/*') || $request->expectsJson();
+    });
+})
+```
+
+Customizar payload de `NotFoundHttpException` para:
+
+```json
+{ "error": "route_not_found", "path": "/api/...", "method": "GET" }
+```
+
+### Critério de aceite
+
+- `GET /api/rota-inexistente` **sem** `Accept: application/json` → `HTTP 404` + `Content-Type: application/json` + body `{"error":"route_not_found", ...}` (era HTML).
+- `GET /api/rota-inexistente` **com** `Accept: application/json` → idem, sem regressão (já era JSON; deve continuar).
+- `MethodNotAllowedHttpException` (e.g. `POST` em rota só `GET`) idem com `error: method_not_allowed`, **independente** do `Accept`.
+- Fluxos de UI (web não-API) **não** afetados — handler só dispara para `api/*` ou `expectsJson()`.
+- Teste de regressão: `tests/Feature/ApiNotFoundJsonTest.php` cobrindo (a) 404 JSON sob `/api/*` sem `Accept`, (b) 404 JSON sob `/api/*` com `Accept: application/json`, (c) HTML preservado fora de `/api/*`, (d) método inválido.
+- Verificar interação com regra "nunca exponha stack traces em respostas de API" — confirmar que payload novo não vaza `trace`/`file` em `APP_DEBUG=true` quando o request é de API.
+
+### Próximo passo
+
+1. Alocar fix avulso (ou anexar à próxima sprint F com capacidade < 1 dia).
+2. Validar antes do PR que nenhum dos endpoints listados em `routes/api.php` redefine 404 manualmente (grep por `abort(404`/`response()->json(...,404)` para evitar conflito de contrato).
 
 ---
 
