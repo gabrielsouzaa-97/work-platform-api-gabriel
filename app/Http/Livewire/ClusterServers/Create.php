@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
@@ -24,17 +25,24 @@ class Create extends Component
 
     public int $ssh_port = 22;
 
-    public string $ssh_user = 'root';
+    public string $ssh_user = 'ncsaas-api';
 
     /** @var string PEM — not bound via wire:model in the blade; read from request() in production. Set directly in tests. */
     #[Locked]
     public string $ssh_private_key = '';
+
+    public string $sftp_user = 'ncsaas-sftp';
+
+    /** @var string PEM — Canal B (ncsaas-sftp). Optional at creation; required when branding upload is needed. */
+    #[Locked]
+    public string $sftp_private_key = '';
 
     protected array $rules = [
         'name' => ['required', 'string', 'min:3', 'max:255'],
         'ssh_host' => ['required', 'string', 'max:255'],
         'ssh_port' => ['required', 'integer', 'min:1', 'max:65535'],
         'ssh_user' => ['required', 'string', 'max:100'],
+        'sftp_user' => ['nullable', 'string', 'max:100'],
     ];
 
     public function save(WebhookSecretGenerator $secretGen, SyncWebhookSecretAction $syncAction): mixed
@@ -52,6 +60,14 @@ class Create extends Component
             return null;
         }
 
+        $sftpPem = $this->sftp_private_key !== '' ? $this->sftp_private_key : request()->input('sftp_private_key', '');
+
+        if ($sftpPem !== '' && ! preg_match('/-----BEGIN[\s\S]+?KEY-----[\s\S]+?-----END[\s\S]+?KEY-----/', $sftpPem)) {
+            $this->addError('sftp_private_key', 'A chave privada SFTP deve ser um PEM válido (BEGIN/END KEY).');
+
+            return null;
+        }
+
         // Save plain secret before create() so we can pass it to SSH (cast decrypts on read,
         // but holding the plain var is explicit and avoids any future cast-related surprises).
         $plainSecret = $secretGen->generate();
@@ -62,6 +78,8 @@ class Create extends Component
             'ssh_port' => $this->ssh_port,
             'ssh_user' => $this->ssh_user,
             'ssh_private_key_encrypted' => $pem,
+            'sftp_user' => $this->sftp_user ?: 'ncsaas-sftp',
+            'sftp_private_key_encrypted' => $sftpPem !== '' ? $sftpPem : null,
             'webhook_secret_encrypted' => $plainSecret,
             'webhook_secret_version' => 1,
             'schema_version' => 1,

@@ -267,3 +267,6 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-24 04:16** `5bcff10` — docs(issues): link ISSUE-017 to upstream mework360-deployer-scripts#27
 - **2026-05-24 05:06** `dd51739` — chore: register CI failure on main
 - **2026-05-24 05:13** `dd51739` — chore: register CI failure on main
+- **2026-05-24 05:31** `c385085` — chore(session): update context snapshot and CHANGELOG
+- **2026-05-24 05:32** `c385085` — chore(session): update context snapshot and CHANGELOG
+- **2026-05-24 05:40** `c385085` — chore(session): update context snapshot and CHANGELOG
