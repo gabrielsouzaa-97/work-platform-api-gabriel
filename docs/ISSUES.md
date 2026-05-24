@@ -14,10 +14,292 @@
 | ISSUE-006 | postmortem | Lifecycle async envia vocabulário canônico-API ao upstream (`users:create` em vez de `user-create`) + duplica `--async --json` | Customers, Core/Ssh | HIGH | open (Fix Brief aprovado) |
 | ISSUE-007 | change_request | E2E browser coverage via Dusk/Playwright para Livewire (cobre wire:submit/click real, MeRC ribbon do bug QA-F5-019) | DevOps, Livewire | MEDIUM | open (backlog — sprint N-UI dedicada) |
 | ISSUE-008 | change_request | Fluxo de "Esqueci a senha" para operadores (broker nativo Laravel) | Auth | MEDIUM | open |
-| ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | open |
+| ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | mitigated (ISSUE-014 — SSH pull argv corrigido; validar pós-deploy) |
 | ISSUE-010 | postmortem | Callback `provision success` prematuro — tenant não ready para `users:*` (~10 min pós-callback) | Jobs, Customers, Webhook | CRITICAL | closed (F8) |
 | ISSUE-011 | postmortem | Diagnóstico errado em comentários do `OccController`: causa real é allowlist de subcmd no `occ-exec` upstream, não "flag stripping" | Occ, Core/Ssh | CRITICAL | implemented — **validação APROVADA (R1)** |
 | ISSUE-012 | bug | 404 em rotas inexistentes sob `/api/*` retorna HTML completo do Laravel (~30 KB) quando o cliente não envia `Accept: application/json` — info leak + DX ruim | Core (HTTP layer) | HIGH | closed (F9 — validação APROVADA R1) |
+| ISSUE-013 | bug | Callbacks de webhook chegam com `exit_code=null` e `summary=null` em 100% dos jobs (59/59 staging, 8 job_types) — causa raiz upstream confirmada; SSH fallback quebrado (exit 101) | Jobs, Webhook, Core/Ssh | HIGH | open (causa raiz upstream — fix na API só para mitigações secundárias) |
+| ISSUE-014 | bug | `JobLogFetcher` SSH fallback falha 100% com exit 101 (`cmd_not_allowed`) — argv incorreto inclui `<client>` em comando de introspection `job`; descoberto durante investigação de ISSUE-013 | Jobs, Core/Ssh | MEDIUM | fixed (fix/issue-014-job-log-fetcher-argv) |
+| ISSUE-015 | enhancement | `WebhookHandler` salva apenas subset reconstruído em `audit_logs.payload` (5 chaves) em vez do payload raw — descoberto durante investigação de ISSUE-013, mascarou hipótese inicial | Jobs, Webhook | MEDIUM | open (observabilidade — fast-track) |
+
+---
+
+## ISSUE-013 — Callbacks de webhook com `exit_code` e `summary` null em 100% dos jobs
+
+- **Tipo**: bug (observabilidade — diagnóstico remoto inviabilizado)
+- **Prioridade**: HIGH (não derruba produção, mas mascara P-21/P-15/P-01 e impede triagem de qualquer falha de job)
+- **Status**: investigated — **causa raiz upstream confirmada e issue aberta** (Fase 1 read-only concluída 2026-05-24); fix primário fora desta API. Fast-tracks na API: ISSUE-014 (SSH fallback quebrado) + ISSUE-015 (audit raw payload).
+- **Sprint**: a alocar — **fix primário rastreado em [`SoftwareBeesy/mework360-deployer-scripts#23`](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/23)**; mitigações ISSUE-014/ISSUE-015 nesta API podem ir como fast-track
+- **Origem**: testes dinâmicos API dev (`deployer.mework360.com.br/api`) — P-05 em `docs/PROBLEMAS-ENCONTRADOS.md` (28 jobs verificados / 5 verbos: provision, deprovision, users:create, users:delete, occ-exec)
+- **Módulos afetados (suspeitos — a confirmar pela investigação)**:
+  - `app/Modules/Jobs/Services/WebhookHandler.php` (`applyFinishedEvent` linhas 111–164 — persistência de `exit_code` e `summary`)
+  - `app/Modules/Jobs/Dto/WebhookPayload.php` (linha 66 — coerção `exit_code`; linha 24 — `logTail`)
+  - `app/Http/Middleware/VerifyWebhookHmac.php` (linhas 71–82 — só valida `job_id`+`state` como obrigatórios; demais campos opcionais sem aviso quando ausentes)
+  - `app/Http/Controllers/Api/WebhookController.php` (linhas 21–24 — passagem do payload já decodado)
+  - `app/Modules/Jobs/Services/JobLogFetcher.php` (fallback SSH quando `log_tail` ausente — `WebhookHandler` linha 146)
+  - `app/Models/AuditLog.php` + tabela `audit_logs` (`action='webhook_received'`, linhas 188–202 — **fonte de verdade do payload raw em produção**)
+- **Upstream afetado**: `nextcloud-saas-manager` (worker — emissão dos campos `exit_code`, `duration_ms`, `log_tail` no callback `job.finished`) — a confirmar pela investigação
+- **Relacionados**:
+  - **Mascara**: P-21 (a definir), P-15 (matriz de allowlist OCC — exit codes invisíveis impedem refinar matriz), P-01 (provision premature — sem `exit_code` não dá para distinguir falha real vs. janela de readiness)
+  - **Amplifica**: ISSUE-010 / FINDINGS §F8 — readiness gate diagnostica "users:create falha silenciosamente, sem exit_code" justamente por causa deste bug
+  - **Contraste**: ISSUE-009 (logs ausentes em `queue/{jobId}` — pull via SSH pós-`job.finished`); se P-05 for upstream, ISSUE-009 vira mitigação obrigatória
+
+### Descrição
+
+Em **28 de 28 jobs verificados** (5 verbos distintos) na API dev, o callback `job.finished` chega ao webhook receiver com **ambos** `exit_code=null` **e** `summary=null` na tabela `jobs` após o ciclo completo. O comportamento é 100% reprodutível, independente do verbo (provision, deprovision, users:create, users:delete, occ-exec) e do `state` final (`success` vs. `failed`).
+
+Consequência prática: quando um job falha, a API persiste apenas `state='failed'` + `finished_at` — sem **nenhum** sinal de **por que** falhou. Operadores e logs de produção veem "job failed" sem `exit_code`, sem `summary`, sem últimas linhas de log. Toda triagem remota vira "abrir SSH manualmente no node e procurar". P-21/P-15/P-01 herdam essa cegueira.
+
+### Hipóteses (a refutar/confirmar pela investigação read-only)
+
+1. **`WebhookHandler` ou `WebhookPayload` descarta os campos**
+   - **Evidência preliminar a favor**: nenhuma — leitura do código mostra `WebhookPayload::fromArray()` linha 66 lendo `$data['exit_code']` direto, e `WebhookHandler::applyFinishedEvent` linha 134 fazendo `$updates['exit_code'] = $payload->exitCode` sem filtragem.
+   - **Evidência preliminar contra**: persistência é simples e literal; testes em `tests/Unit/Modules/Jobs/Dto/WebhookPayloadTest.php` exercitam `exit_code`.
+   - **Como confirmar**: comparar `audit_logs.payload->>'exit_code'` (raw upstream) com `jobs.exit_code` em uma amostra de 5+ jobs failed.
+
+2. **Upstream não envia os campos**
+   - **Evidência preliminar a favor**: contrato em `docs/SSH API Reference — Nextcloud SaaS.md` lista `exit_code` e `duration_ms` como **opcionais** no callback (`VerifyWebhookHmac` linha 77 confirma — só `job_id`+`state` são obrigatórios); 100% de ausência é sintoma típico de campo nunca emitido pelo worker, não de bug intermitente de parsing.
+   - **Como confirmar**: inspecionar `audit_logs.payload` (JSONB completo, persistido tal-qual o upstream enviou — linhas 188–202 do `WebhookHandler` armazenam o payload bruto em `payload->>'event'`, `payload->>'state'`, `payload->>'exit_code'`, etc.). Se as chaves **não existem** no JSONB, é upstream. Se existem mas vêm `null`, é upstream emitindo null. Se existem com valor mas a coluna `jobs.exit_code` está null, é (1).
+
+3. **Ambos** (worker upstream emite parcialmente + algum caminho da API descarta em fallback)
+   - **Como confirmar**: matriz cruzada {upstream emite sim/não} × {API persiste sim/não} sobre amostra de 10 jobs.
+
+### Resultado da investigação Fase 1 (2026-05-24, staging `deployer.mework360.com.br`)
+
+Veredito **inequívoco**: **Hipótese 2 confirmada** (upstream).
+
+**Sample**: 118 audits `webhook_received` (59 `job.finished` + 59 `job.started`), 8 `job_types` distintos (provision, deprovision, user_create, user_delete, group_create, group_delete, apps_enable, apps_disable).
+
+| Métrica | Resultado |
+|---|---|
+| `jobs.exit_code IS NOT NULL` | 0 / 59 (0%) |
+| `jobs.summary IS NOT NULL` | 0 / 59 (0%) |
+| `jobs.finished_at IS NOT NULL` | **59 / 59 (100%)** — upstream **envia** `finished_at` |
+| `audit_logs payload.exit_code` chave presente / valor não-null | 59/59 / **0/59** — upstream emite key com valor `null` |
+| `audit_logs payload.duration_ms` chave presente / valor não-null | 59/59 / **0/59** — idem |
+| `audit_logs payload.log_tail` chave presente | **0/59** — upstream nunca envia |
+
+**Sample raw (job.finished)** — `audit_logs[recent]`:
+
+```json
+{"event":"job.finished","state":"success","cmd":"user_create","exit_code":null,"duration_ms":null}
+```
+
+**Ressalva metodológica**: o que está em `audit_logs.payload` **não é** o payload bruto do upstream — é uma reconstrução parcial montada pelo próprio `WebhookHandler::applyFinishedEvent` (linhas 188–202: salva só `event/state/cmd/exit_code/duration_ms`). Mas isso é prova **por implicação** da hipótese 2: como `WebhookPayload::fromArray` (linha 66) lê `(int) $data['exit_code']` literalmente, se chegou null no audit é porque chegou null em `$data['exit_code']`. E o fato de `jobs.finished_at` estar populado em 100% dos jobs prova que **o upstream envia `finished_at`** no body original — só o audit que não copia.
+
+**Achado secundário (escopo novo — virou ISSUE-014)**: `JobLogFetcher` SSH fallback é invocado em 100% dos `job.finished` (porque `log_tail` ausente) e **falha 100%** com `SSH exit code 101` (network unreachable):
+
+```
+[2026-05-24 03:29:38] local.WARNING: jobs.log_fetch.failed
+  job_id=079bdc3f-... cluster_id=1eb7e788-... exit code 101
+```
+
+**Achado terciário (virou ISSUE-015)**: `audit_logs.payload` armazena apenas reconstrução parcial — primeira hipótese de investigação (que o audit teria o payload raw) ficou comprometida. Forçar a salvar payload raw completo é mitigação independente que vale a pena.
+
+### Plano de investigação read-only — concluído (referência histórica)
+
+> **Restrição explícita do reporter**: nenhuma alteração de código antes desta fase concluir.
+
+1. **Snapshot do payload raw em produção (5 min)** — Tinker/SQL read-only:
+   ```sql
+   SELECT id, resource_id AS job_id, payload, created_at
+   FROM audit_logs
+   WHERE action = 'webhook_received'
+   ORDER BY created_at DESC
+   LIMIT 20;
+   ```
+   - Inspecionar quais chaves estão presentes em `payload` (esperado pelo contrato: `event`, `state`, `cmd`, `exit_code`, `duration_ms`, `started_at`, `finished_at`, `log_tail`).
+   - Marcar cada job como: `[A] upstream omite chave`, `[B] upstream envia null`, `[C] upstream envia valor mas API descarta`.
+
+2. **Cross-check com `jobs` table**:
+   ```sql
+   SELECT j.job_id, j.state, j.exit_code, j.summary IS NULL AS summary_null,
+          a.payload->>'exit_code' AS raw_exit_code,
+          a.payload ? 'exit_code' AS has_exit_code_key,
+          a.payload ? 'log_tail'  AS has_log_tail_key
+   FROM jobs j
+   JOIN audit_logs a ON a.resource_id = j.job_id AND a.action = 'webhook_received'
+   ORDER BY j.created_at DESC
+   LIMIT 30;
+   ```
+
+3. **Snapshot de `JobLogFetcher` (fallback SSH)** — checar `Log::warning('jobs.log_fetch.failed')` e `Log::info('jobs.log_fetch.duration_ms')` (`WebhookHandler` linhas 151–160) nos últimos 7 dias:
+   - Se 100% dos jobs estão chamando o fallback (porque `log_tail` vem null) e o fallback **também falha**, há dois problemas independentes: upstream omite `log_tail` **e** SSH pull não está conseguindo recuperar `summary`.
+
+4. **Decision Brief com matriz preenchida** — registrar conclusão em `docs/DECISION-BRIEF.md` antes de qualquer fix.
+
+### Caminho de fix definido (pós-investigação)
+
+**Fix primário — fora desta API** ([`mework360-deployer-scripts#23`](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/23)):
+
+- Smoking gun localizado em `scripts/worker.sh` linhas 144–152: `_fire_callback` (terminal) emite **apenas 4 campos** (`schema_version, job_id, state, ts`) quando o contrato `CallbackEventFinished` (CONTRACTS.md §5.3) declara **11 obrigatórios** (incluindo `event, cmd, client, exit_code, queued_at, finished_at, duration_ms, args_hash`). Sem o fix upstream, **nenhum fix nesta API resolve P-05** — ela já persiste corretamente o que recebe.
+
+**Mitigações na API (sob nosso controle, fast-track)**:
+
+- **ISSUE-014** — Consertar `JobLogFetcher` SSH fallback (exit 101). Mesmo após upstream começar a enviar `log_tail`, o fallback continua sendo backup; precisa funcionar.
+- **ISSUE-015** — Fazer `WebhookHandler` salvar payload raw completo em `audit_logs` (não a reconstrução parcial atual). Primeira fonte de verdade para qualquer P-05-like futuro.
+
+### Critério de aceite
+
+- **ISSUE-013 (este)**: fica `closed` quando o upstream começar a emitir os campos e validarmos com `audit_logs.payload->>'exit_code' IS NOT NULL` em ≥ 95% dos `job.finished` em janela de 7 dias.
+- **ISSUE-014** e **ISSUE-015**: critérios próprios nas seções respectivas.
+
+### Próximo passo
+
+1. **Rastreabilidade upstream**: ✅ feito — issue [`mework360-deployer-scripts#23`](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/23) aberta em 2026-05-24 com smoking gun em `worker.sh:144-152`, evidência empírica (118 callbacks, 0% exit_code), spec violation explícita (4/11 campos obrigatórios), patch sugerido (`HGET nc:jobs:<id>` para hidratar payload), test plan e critério de fechamento (≥ 95% non-null em janela de 7 dias).
+2. **Fast-tracks API**: rotear ISSUE-014 e ISSUE-015 via `/git` (cada um < 1 dia, isolados, sem impacto cross-module).
+3. Manter este ticket aberto até o fix upstream rolar para staging e atender o critério de aceite acima.
+
+---
+
+## ISSUE-014 — `JobLogFetcher` SSH fallback falha 100% com exit 101 (`cmd_not_allowed`)
+
+- **Tipo**: bug (mitigação quebrada — observabilidade)
+- **Prioridade**: MEDIUM (não bloqueia produção; vira HIGH se upstream começar a omitir `log_tail` por design)
+- **Status**: fixed — argv corrigido para introspection `nextcloud-manage job <id> logs|status`; `SshRemoteException(notImplemented)` tratado (2026-05-24)
+- **Sprint**: fix avulso (< 1 dia, isolado em `app/Modules/Jobs/Services/JobLogFetcher.php` + testes)
+- **Origem**: descoberto durante investigação Fase 1 de ISSUE-013 (2026-05-24, staging `deployer.mework360.com.br`)
+- **Módulos afetados**: `app/Modules/Jobs/Services/JobLogFetcher.php`, `tests/Feature/Jobs/JobLogFetcherTest.php`, `tests/Contract/Jobs/UpstreamJobLogsContractTest.php`
+- **Upstream afetado**: nenhum (problema é argv incorreto **nesta** API)
+- **Relacionados**: ISSUE-013 (parent), ISSUE-009, ISSUE-006 (mesmo exit 101 = `cmd_not_allowed` no ecossistema)
+
+### Descrição
+
+`WebhookHandler::applyFinishedEvent` invoca `JobLogFetcher::fetch($job, $cluster)` (linha 146) sempre que `WebhookPayload->logTail` é null — o que acontece em **100%** dos `job.finished` (upstream nunca envia `log_tail`, ver ISSUE-013). A chamada falha em **100%** dos casos com exit 101.
+
+### Resultado da investigação (2026-05-24, `/qa debug`)
+
+**Veredito**: causa raiz confirmada — **argv incorreto no `JobLogFetcher`**, não problema de rede/SSH.
+
+**Evidência produção** (`storage/logs/sshclient.log`, job `079bdc3f-50fc-4c51-bb79-599394061817`):
+
+```
+command: nextcloud-manage teste2 job 079bdc3f-50fc-4c51-bb79-599394061817 logs --json
+exit_code: 101
+stdout: {"error":"cmd_not_allowed","cmd":"079bdc3f-50fc-4c51-bb79-599394061817"}
+```
+
+**Comparação com código que funciona** — `JobsPollStuckCommand` (linha 45) usa sintaxe de introspection **sem** prefixo de client:
+
+```php
+['job', $job->job_id, 'status', '--json']
+// → nextcloud-manage job <job_id> status --json  ✅
+```
+
+**Contrato upstream** (`docs/SSH API Reference — Nextcloud SaaS.md` §3.4, §5.3–5.4):
+
+```
+nextcloud-manage job <job_id> status [--json]
+nextcloud-manage job <job_id> logs
+```
+
+Comandos `job` são **introspection** — não seguem a sintaxe hierárquica `<client> <namespace> <verb>`.
+
+**Hipóteses descartadas**:
+
+| # | Hipótese | Veredito |
+|---|----------|----------|
+| 1 | Cluster perdeu conectividade SSH | ❌ SSH funciona para outros comandos no mesmo cluster/host |
+| 2 | Path de log mudou no upstream | ❌ Comando nem chega a executar — rejeitado no parser (101) |
+| 3 | Regressão no `SshClient` | ❌ `JobsPollStuckCommand` usa o mesmo client com argv correto |
+
+**Bug secundário identificado**: fallback `exit_code=99` nunca dispara com `SshClient` real — o client **lança** `SshRemoteException` (flag `notImplemented=true`) em vez de retornar `SshResponse`. Testes passam porque mockam `SshClientInterface` e retornam response diretamente.
+
+### Fix Brief
+
+```
+Fix Brief — ISSUE-014 JobLogFetcher argv incorreto (exit 101 cmd_not_allowed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Causa raiz: JobLogFetcher monta `nextcloud-manage <client> job <id> logs --json`
+            mas comandos `job` são introspection e devem ser `nextcloud-manage job <id> logs`.
+            Upstream interpreta o UUID como subcomando inválido → exit 101 cmd_not_allowed.
+Tipo: contract_violation (argv diverge do SSH API Reference §3.4)
+
+Arquivos a modificar:
+  - app/Modules/Jobs/Services/JobLogFetcher.php — remover $client dos args; tratar SshRemoteException notImplemented
+  - tests/Feature/Jobs/JobLogFetcherTest.php — assertar argv sem client slug; teste fallback via exception
+  - tests/Contract/Jobs/UpstreamJobLogsContractTest.php — corrigir comentário de contrato
+
+Plano de correção:
+  1. Alterar args de `[$client, 'job', ...]` para `['job', $job->job_id, 'logs', '--json']` (logs + status fallback)
+  2. Capturar SshRemoteException com notImplemented=true e chamar fetchViaStatus (mesmo argv fix)
+  3. Adicionar teste de regressão que simula SshRemoteException(99) em vez de SshResponse
+  4. Rodar suite JobLogFetcherTest + validar em staging pós-deploy
+
+Risco: baixo — diff isolado, alinha com JobsPollStuckCommand e SSH API Reference
+```
+
+### Critério de aceite
+
+- 100% dos `job.finished` que entram no fallback SSH retornam pelo menos 1 linha de log (`jobs.summary IS NOT NULL`) para jobs com output upstream.
+- Teste de regressão em `tests/Feature/Jobs/JobLogFetcherTest.php` cobrindo argv correto + fallback via `SshRemoteException`.
+- Log `sshclient` em staging mostra `command: nextcloud-manage job <uuid> logs --json` (sem client slug) com `exit_code: 0`.
+
+### Próximo passo
+
+Fast-track via `/git` — implementar Fix Brief acima (< 1 dia, sem Sprint F).
+
+---
+
+## ISSUE-015 — `WebhookHandler` salva apenas reconstrução parcial em `audit_logs.payload` (não o raw)
+
+- **Tipo**: enhancement (observabilidade — gap de auditoria)
+- **Prioridade**: MEDIUM
+- **Status**: open — fast-track candidate
+- **Sprint**: fix avulso (< 1 dia, isolado em `app/Modules/Jobs/Services/WebhookHandler.php`)
+- **Origem**: descoberto durante investigação Fase 1 de ISSUE-013 (2026-05-24)
+- **Módulos afetados**: `app/Modules/Jobs/Services/WebhookHandler.php` (linhas 188–202), possivelmente `app/Modules/Jobs/Dto/WebhookPayload.php` (preservar `rawPayload`), `database/migrations/*audit_logs*` se quisermos coluna dedicada
+- **Upstream afetado**: nenhum
+- **Relacionados**: ISSUE-013 (parent — falha de auditoria comprometeu hipótese inicial da investigação), ISSUE-005 (já tem `Log::debug` com payload em `APP_ENV=local`, mas Monolog **trunca** em ~295 chars com "..." e não chega a staging/prod com `APP_ENV != local`)
+
+### Descrição
+
+`WebhookHandler::applyFinishedEvent` (linhas 188–202) registra em `audit_logs` apenas um subset reconstruído do payload:
+
+```php
+'payload' => [
+    'event'       => $payload->event,
+    'state'       => $canonical,
+    'cmd'         => $payload->cmd ?? $job->job_type,
+    'exit_code'   => $payload->exitCode,
+    'duration_ms' => $payload->durationMs,
+],
+```
+
+Faltam: `job_id`, `client`, `started_at`, `finished_at`, `log_tail`, `ts`, `schema_version` e qualquer campo futuro adicionado pelo upstream. Consequência:
+
+1. Investigação remota tipo P-05 fica cega — não dá para distinguir "upstream omitiu chave" de "upstream emitiu null" sem o raw.
+2. Qualquer mudança contratual no upstream (campos novos, tipos diferentes) passa despercebida na auditoria.
+3. `Log::debug('webhook.payload_received')` (`VerifyWebhookHmac` linha 104) **só roda em `APP_ENV=local`** e o Monolog default trunca a linha em 295 chars (verificado: linhas terminam em `...` literal). Não é fonte confiável.
+
+### Caminho de fix proposto
+
+Em `WebhookHandler::applyFinishedEvent`:
+
+```php
+$updates['payload'] = [
+    'event'       => $payload->event,
+    'state'       => $canonical,
+    'cmd'         => $payload->cmd ?? $job->job_type,
+    'exit_code'   => $payload->exitCode,
+    'duration_ms' => $payload->durationMs,
+    'raw'         => $payload->raw, // payload bruto preservado pelo fromArray
+];
+```
+
+E em `WebhookPayload::fromArray`, preservar o array original em uma propriedade pública `?array $raw` para uso aqui (e em testes/debug futuro). Eventualmente migrar para uma coluna dedicada `audit_logs.raw_payload JSONB` se o overhead em `payload` JSONB virar problema.
+
+Equivalente em `applyStartedEvent` (job.started também tem `audit_logs` registro).
+
+### Critério de aceite
+
+- `audit_logs.payload->>'raw'` contém o objeto JSON bruto recebido do upstream em todos os `webhook_received` posteriores ao deploy.
+- Teste de regressão em `tests/Feature/Jobs/WebhookHandlerTest.php` validando que payload customizado (com chaves não-mapeadas no DTO) é preservado em `raw`.
+- Sem regressão em performance — `audit_logs` row deve continuar < 4 KB no caso médio.
+
+### Próximo passo
+
+`/git` direto — fast-track via Fix Brief Lite (escopo trivial, sem impacto cross-module).
 
 ---
 

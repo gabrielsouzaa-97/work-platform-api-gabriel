@@ -7,14 +7,15 @@ namespace App\Modules\Jobs\Services;
 use App\Models\ClusterServer;
 use App\Models\Job;
 use App\Modules\Core\Ssh\Exceptions\SshClientException;
+use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Jobs\Exceptions\JobLogFetchException;
 
 /**
  * Fetches job log lines from the upstream nextcloud-saas-manager via SSH.
  *
- * Primary command: `nextcloud-manage <client> job <job_id> logs --json`
- * Fallback (exit_code=99 / not-implemented): `nextcloud-manage <client> job <job_id> status --json`
+ * Primary command: `nextcloud-manage job <job_id> logs --json`
+ * Fallback (exit_code=99 / not-implemented): `nextcloud-manage job <job_id> status --json`
  *   → extracts `data.summary` or `data.logs` from the status response.
  *
  * All lines are sanitised to redact credentials before persistence.
@@ -42,15 +43,23 @@ final class JobLogFetcher
         }
 
         $timeoutSec = (int) config('services.ssh.log_fetch_timeout_seconds', 15);
-        $client = $job->customer_slug ?? '_';
 
         try {
             $response = $this->ssh->run(
                 $cluster,
                 'nextcloud-manage',
-                [$client, 'job', $job->job_id, 'logs', '--json'],
+                ['job', $job->job_id, 'logs', '--json'],
                 null,
                 $timeoutSec,
+            );
+        } catch (SshRemoteException $e) {
+            if ($e->notImplemented) {
+                return $this->fetchViaStatus($job, $cluster, $timeoutSec);
+            }
+
+            throw new JobLogFetchException(
+                "SSH failed fetching logs for job {$job->job_id}: {$e->getMessage()}",
+                previous: $e,
             );
         } catch (SshClientException $e) {
             throw new JobLogFetchException(
@@ -60,7 +69,7 @@ final class JobLogFetcher
         }
 
         if ($response->exitCode === self::EXIT_NOT_IMPLEMENTED) {
-            return $this->fetchViaStatus($job, $cluster, $client, $timeoutSec);
+            return $this->fetchViaStatus($job, $cluster, $timeoutSec);
         }
 
         if ($response->exitCode !== 0) {
@@ -77,13 +86,13 @@ final class JobLogFetcher
      *
      * @throws JobLogFetchException
      */
-    private function fetchViaStatus(Job $job, ClusterServer $cluster, string $client, int $timeoutSec): array
+    private function fetchViaStatus(Job $job, ClusterServer $cluster, int $timeoutSec): array
     {
         try {
             $response = $this->ssh->run(
                 $cluster,
                 'nextcloud-manage',
-                [$client, 'job', $job->job_id, 'status', '--json'],
+                ['job', $job->job_id, 'status', '--json'],
                 null,
                 $timeoutSec,
             );

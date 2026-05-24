@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
+use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Jobs\Services\JobLogFetcher;
 use App\Modules\Jobs\Services\WebhookHandler;
@@ -79,6 +80,11 @@ function sshStatusWithSummaryResponse(array $summaryLines): SshResponse
     );
 }
 
+function isJobIntrospectionArgs(array $args, string $jobId, string $subcommand): bool
+{
+    return $args === ['job', $jobId, $subcommand, '--json'];
+}
+
 // ── JobLogFetcher unit tests ───────────────────────────────────────────────────
 
 it('JobLogFetcher: retorna linhas do SSH quando logs --json responde com exit 0', function (): void {
@@ -89,8 +95,7 @@ it('JobLogFetcher: retorna linhas do SSH quando logs --json responde com exit 0'
     $ssh->shouldReceive('run')
         ->once()
         ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
-            && in_array('logs', $args, true)
-            && in_array('--json', $args, true))
+            && isJobIntrospectionArgs($args, $job->job_id, 'logs'))
         ->andReturn(sshLogsResponse(['Line 1', 'Line 2']));
     $this->app->instance(SshClientInterface::class, $ssh);
 
@@ -106,17 +111,37 @@ it('JobLogFetcher: quando exit_code=99 faz fallback para job status --json e ext
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => in_array('logs', $args, true))
+        ->withArgs(fn ($c, $cmd, $args) => isJobIntrospectionArgs($args, $job->job_id, 'logs'))
         ->andReturn(sshNotImplementedResponse());
     $ssh->shouldReceive('run')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => in_array('status', $args, true))
+        ->withArgs(fn ($c, $cmd, $args) => isJobIntrospectionArgs($args, $job->job_id, 'status'))
         ->andReturn(sshStatusWithSummaryResponse(['Status line 1', 'Status line 2']));
     $this->app->instance(SshClientInterface::class, $ssh);
 
     $lines = app(JobLogFetcher::class)->fetch($job, $cluster);
 
     expect($lines)->toBe(['Status line 1', 'Status line 2']);
+});
+
+it('JobLogFetcher: SshRemoteException notImplemented dispara fallback para status --json', function (): void {
+    $cluster = fetcherCluster();
+    $job = fetcherJob($cluster->id);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($c, $cmd, $args) => isJobIntrospectionArgs($args, $job->job_id, 'logs'))
+        ->andThrow(new SshRemoteException('not implemented', remoteExitCode: 99, notImplemented: true));
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($c, $cmd, $args) => isJobIntrospectionArgs($args, $job->job_id, 'status'))
+        ->andReturn(sshStatusWithSummaryResponse(['Exception fallback line']));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $lines = app(JobLogFetcher::class)->fetch($job, $cluster);
+
+    expect($lines)->toBe(['Exception fallback line']);
 });
 
 it('JobLogFetcher: sanitiza password=foo para password=[REDACTED] antes de persistir', function (): void {

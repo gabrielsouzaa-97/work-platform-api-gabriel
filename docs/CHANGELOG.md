@@ -2,6 +2,7 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-24** `fix/issue-014-job-log-fetcher-argv` — fix(jobs): ISSUE-014 — corrige argv do `JobLogFetcher` para introspection `nextcloud-manage job <id> logs|status` (sem client slug); trata `SshRemoteException(notImplemented)` no fallback exit 99; mitiga ISSUE-009 (logs vazios em `/queue/{jobId}`); +1 teste regressão argv + SshRemoteException; 12 testes JobLogFetcherTest.
 - **2026-05-23** `fix/issue-011-occ-allowlist-comments` — fix(occ): ISSUE-011 (CRITICAL postmortem) — corrige diagnóstico errado embutido em 4 comentários do `OccController` que afirmavam "upstream `dispatch.sh` strips OCC `--flags`"; refutado empiricamente pela matriz P-15 (`maintenance:mode on` positional puro também falha com exit 16). Causa real: allowlist de subcmd no `nextcloud-saas-manager occ-exec`. `runOcc()` mapeia `exit_code 16` → HTTP 403 `occ_subcmd_not_allowed` (antes 502 `upstream_error`); erros 501 renomeados para `occ_subcmd_not_supported` (quota/all) e `occ_bulk_not_supported` (files-rescan sem username); Decision `#ARCH-6` em `docs/DECISION-BRIEF.md`; teste de regressão de texto + 3 novos testes para o caminho 403; 21 testes em OccControllerTest, full suite 368 passed (2 falhas pré-existentes em JobsPollStuckTest/SyncWebhookSecretTest por permissão de log). **Mudança de contrato observável**: clientes que tratavam 502 nesses endpoints devem passar a tratar 403.
 - **2026-05-23** `sprint/F8-readiness-gate-iss010` — fix(sprint-F8 R1): F8.7–F8.10 — `max_wait_seconds` 1200 + deadline no probe job; testes probe failure/timeout/gates/sync; OccPanel `TenantNotReadyException` UX + import fix; JobLogFetcherTest isolado de side-effect probe; 46 testes F8, 364 suite.
 - **2026-05-23** `sprint/F8-readiness-gate-iss010` — fix(sprint-F8): ISSUE-010 readiness gate — webhook provision success → `provisioning_finishing` + `ProbeCustomerReadinessJob` (`occ-exec user:list`); gate `users:create|users:delete` → 503 `tenant_not_ready`; `CustomerSyncService` preserva finishing; OpenAPI v2.2 + Decision #ARCH-5 em `docs/DECISION-BRIEF.md`; badges UI `provisioning_finishing`.
@@ -251,3 +252,14 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-23 22:56** `bb8c043` — fix(occ): update maintenance mode flags to use canonical format
 - **2026-05-23 23:19** `8cc3bcd` — chore: register CI security findings for PR #60
 - **2026-05-23 23:21** `8cc3bcd` — chore: register CI security findings for PR #60
+- **2026-05-24 00:23** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 00:31** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 00:38** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 00:45** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 00:50** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 00:51** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 00:52** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 01:40** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 01:44** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 01:45** `1d4f7c6` — chore: register CI failure on main
+- **2026-05-24 01:52** `1d4f7c6` — chore: register CI failure on main

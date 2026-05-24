@@ -19,8 +19,8 @@ function jobLogsContractSkipUnlessEnabled(): void
  * Contract test — opt-in via RUN_UPSTREAM_CONTRACT=1.
  *
  * Validates that the upstream nextcloud-saas-manager responds to
- * `nextcloud-manage <client> job <job_id> logs --json` (primary) or
- * `nextcloud-manage <client> job <job_id> status --json` (fallback, exit_code=99)
+ * `nextcloud-manage job <job_id> logs --json` (primary) or
+ * `nextcloud-manage job <job_id> status --json` (fallback, exit_code=99)
  * with a parseable array of strings.
  *
  * Results must be documented in docs/.briefs/F6.brief.md.
