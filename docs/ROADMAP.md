@@ -78,6 +78,7 @@
 | F7     | F         | Create cluster atômico; actor_id no AuditLog de rotate; teste erro "sem secret atual" | pendente  | 3     | ClusterServers | 3 findings HIGH pendentes N1 | 3805+    |
 | F8     | F         | Provision success não marca tenant `active` antes de probe; `users:*` retorna 503 até readiness confirmada | **concluída** | 10    | Jobs, Customers, Webhook | ISSUE-010 — validada APROVADA R1 | 3865+    |
 | F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — `/fix` HIGH-only 2026-05-24 | 4003+    |
+| F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **ativa** | 3     | Jobs, Core/Ssh | ISSUE-014 fast-track — corrige gate F6/ISSUE-009 | 4055+    |
 
 ---
 
@@ -4053,8 +4054,34 @@ Cenários obrigatórios:
 
 ---
 
+## Sprint F10 — JobLogFetcher argv fix (ISSUE-014)
+
+> Categoria: F
+> Gate: (1) `JobLogFetcher` invoca `nextcloud-manage job <id> logs --json` (sem client slug); (2) fallback `status --json` + `SshRemoteException(notImplemented)`; (3) após deploy, job novo popula `jobs.summary` e `/queue/{jobId}` exibe linhas; (4) 12 testes `JobLogFetcherTest` verde.
+> Gerado por `/pmo sprint` em 2026-05-24. Fonte: **ISSUE-014** (bug — exit 101 cmd_not_allowed) + sintoma **ISSUE-009** (logs vazios).
+> review: fast-track (diff isolado, sem auditoria formal obrigatória)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F10.1 — [ISSUE-014] Corrigir argv em `JobLogFetcher` (`['job', $id, 'logs', '--json']`) + `fetchViaStatus` idem + catch `SshRemoteException(notImplemented)` | `ssh-orchestrator` | — |
+| [x] | P | F10.2 — [ISSUE-014] Testes: assert argv sem client slug; fallback via `SshRemoteException(99)`; contract comment fix | `laravel-testing` | F10.1 |
+| [ ] | P | F10.3 — Push `main` + deploy remoto + validar job novo em produção (`summary` populado, UI com logs) | `70-devops` | F10.2 |
+
+### Contexto F10
+
+Durante triagem de `/queue/{jobId}` vazio (2026-05-24), confirmado em produção:
+
+- Webhook `job.finished` chega sem `log_tail` → `WebhookHandler` invoca `JobLogFetcher`
+- Fetch falha 100% com exit 101 — argv incorreto incluía `<client>` antes de `job`
+- Job `e6dec946-b91a-4112-ab84-916c8be5c3c7`: SUCCESS + exit_code 0, mas `summary` null
+
+Fix implementado em `197ff46` (merged local em `main`). Sprint F10 formaliza gate de deploy.
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-05-24 | 0.18   | Sprint F10 adicionada — ISSUE-014 (JobLogFetcher argv introspection; corrige logs vazios ISSUE-009) | /pmo sprint |
 | 2026-05-24 | 0.17   | Sprint F9 adicionada — ISSUE-012 (404 `/api/*` retorna JSON sem depender de Accept header); filtro HIGH-only | /fix (interativo)                              |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |
 | 2026-05-18 | 0.6    | Sprint N1 adicionada — ISSUE-001 (sync webhook secret com upstream via SSH ao criar/rotacionar cluster) | /pmo new (interativo, 2 revisões de design)            |

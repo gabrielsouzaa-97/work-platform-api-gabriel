@@ -33,16 +33,16 @@
     }
   ],
   "fase_atual": "12",
-  "fase_nome": "Sprint F9 — validação R1 APROVADA (ISSUE-012); 5 findings MEDIUM/LOW backlogados; aguarda commit + PR",
-  "sprint_atual": "F9",
-  "previous_sprint": "F8",
+  "fase_nome": "Sprint F10 ativa — ISSUE-014 JobLogFetcher argv fix (push + deploy pendente)",
+  "sprint_atual": "F10",
+  "previous_sprint": "F9",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-24T03:09:26Z",
-  "next_sprint_planned": null,
+  "ultimo_update": "2026-05-24T05:05:00Z",
+  "next_sprint_planned": "F7",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -170,13 +170,13 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "implementer+auditor (parent: Opus 4.7; subagents senior+qa readonly)",
-    "phase": "Sprint F5 R2 follow-up CONCLUÍDO — task F5.11 implementada (same-path strategy p/ QA-F5-019), 323 passed (+2 vs R2), 839 assertions, commit monolítico fd674cb. Aguardando /qa validar R3.",
-    "intent": "Eliminar test/production divergence em OccPanel::createUser (QA-F5-019 HIGH convergente) via refactor blade (<form wire:submit.prevent> + wire:model='userPasswordPlain') + componente (remove escape-hatch + #[Locked]) + 6 testes (4 atualizados + 2 novos) + ISSUE-007 (E2E backlog).",
-    "changes_made": "(F5.11 em 2026-05-20T20:30Z) 1) app/Http/Livewire/Customers/OccPanel.php: remove #[Locked] $userPassword + import Locked; adiciona public $userPasswordPlain; createUser() perde param $password + fallback request()->input(), lê de $this->userPasswordPlain, zera no finally. 2) resources/views/livewire/customers/occ-panel.blade.php: envolve seção 'Criar Usuário' em <form wire:submit.prevent='createUser'>; input senha agora wire:model='userPasswordPlain'; button type=submit. 3) tests/Feature/Livewire/Customers/OccPanelTest.php: 4 testes createUser trocam ->call('createUser', '...') por ->set('userPasswordPlain', '...')->call('createUser'); +2 testes novos (production scenario sem senha + cleanup pós-sucesso). 4) docs/ISSUES.md: ISSUE-007 (E2E real coverage via Dusk/Playwright, backlog sprint N-UI). 5) docs/FINDINGS.md: QA-F5-019 status → Corrigido + descrição da correção; estatísticas F5 ajustadas (resolved 10→11, pending 17→16). 6) docs/ROADMAP.md: F5.8/F5.9/F5.10 marcados [x]; F5.11 nova row + task block detalhado; CHANGELOG v0.11. 7) .cursorsession: phase=ready_for_validation_r3, head_sha=fd674cb, current_task=null. 8) Suite: 323 passed, 6 skipped, 839 assertions (vs 321/6/830 em R2).",
-    "decisions": "1) ARCH-4: estender JobTypeTranslator (alt B). 2) UpstreamContractTest em tests/Contract/. 3) R1: REPROVADA — PROC-012 corrige in-sprint. 4) R1 follow-up implementado mesma branch. 5) QA-F5-016 escape-hatch foi solução parcial (revelou QA-F5-019). 6) R2: REPROVADA — convergência 2 auditores em QA-F5-019; severidade HIGH (não CRITICAL) por workaround via API. 7) F5.11 strategy: same-path (opção A do finding) em vez de Dusk/Playwright agora — instalar Dusk excederia budget M. ISSUE-007 backloga E2E real. 8) Commit monolítico (escolha do usuário): fix(sprint-F5): tasks 5.1-5.11 em 1 SHA fd674cb.",
-    "next_steps": "1) /qa validar R3 com diversidade de modelo (sugestão: senior=gpt-5.3-codex ou claude-opus-4-7-thinking-xhigh; qa=gemini-3.1-pro). Scope mínimo R3: OccPanel.php + occ-panel.blade.php + OccPanelTest.php (4 testes alterados + 2 novos) + ISSUES.md (ISSUE-007) + FINDINGS QA-F5-019. 2) Se R3 APROVADA: criar PR `uds/fix/lifecycle-async-cmd-argv` → main + cleanup checkpoint + próxima sprint F4 (3 HIGH N1). 3) Se R3 REPROVADA novamente: avaliar stop-loss (PROC-012) ou ressalva documentada.",
-    "updated_at": "2026-05-20T20:35:00Z"
+    "persona": "implementer (Composer 2.5)",
+    "phase": "Sprint F10 — ISSUE-014 fix merged local; F10.1+F10.2 done; aguardando F10.3 push+deploy",
+    "intent": "Corrigir argv JobLogFetcher para introspection job (sem client slug) — resolve logs vazios em /queue/{jobId}",
+    "changes_made": "197ff46: JobLogFetcher argv fix + SshRemoteException fallback; 12 JobLogFetcherTest passed; ISSUES ISSUE-014 fixed",
+    "decisions": "Fast-track F10 (<1 dia); alinha com JobsPollStuckCommand e SSH API Reference §3.4",
+    "next_steps": "1) git push origin main 2) deploy deployer.mework360.com.br 3) rodar job teste e validar summary + UI logs",
+    "updated_at": "2026-05-24T05:05:00Z"
   },
   "contexto_rapido": "Sprint F5 R2 follow-up CONCLUÍDO (2026-05-20T20:35Z) — task F5.11 implementada via same-path strategy: blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch; 4 testes atualizados + 2 novos; ISSUE-007 (E2E Dusk/Playwright) backlogada. Suite 323 passed (+2 vs R2), 839 assertions, 6 skipped (Contract opt-in). Commit monolítico fd674cb. Próximo: /qa validar R3 com diversidade de modelo (senior=gpt-5.3-codex sugerido; qa=gemini-3.1-pro).",
   "autopilot": {
@@ -190,44 +190,19 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "F9",
-    "phase": "validation_r1_approved",
-    "branch": "sprint/F9-api-404-json",
-    "head_sha": "5edf10b",
-    "last_completed_task": "F9.2 — ApiNotFoundJsonTest (4 testes ISSUE-012)",
-    "current_task": null,
-    "tests_passing": 374,
-    "tests_skipped": 7,
-    "assertions": 982,
+    "sprint": "F10",
+    "phase": "ready_for_push",
+    "branch": "main",
+    "head_sha": "197ff46",
+    "last_completed_task": "F10.2 — testes JobLogFetcher argv + SshRemoteException fallback",
+    "current_task": "F10.3 — push main + deploy + validar logs em produção",
+    "tests_passing": 12,
+    "tests_skipped": 0,
+    "assertions": 39,
     "audit_findings_resolved": 0,
-    "audit_findings_pending": 5,
-    "audit_status": "APROVADA_R1",
-    "timestamp": "2026-05-24T12:00:00Z",
-    "validation_gate": {
-      "validation_round": 1,
-      "scope_files_audited": [
-        "bootstrap/app.php",
-        "tests/Feature/Api/ApiNotFoundJsonTest.php"
-      ],
-      "findings_found": 5,
-      "findings_registered": [
-        "QA-F9-001",
-        "QA-F9-002",
-        "QA-F9-003",
-        "QA-F9-004",
-        "QA-F9-005"
-      ],
-      "files_modified_outside_findings": 0,
-      "askquestion_shown": true,
-      "senior_review_status": "PASS_WITH_NOTES",
-      "qa_review_status": "PASS_WITH_NOTES",
-      "senior_model": "auditor-senior",
-      "qa_model": "auditor-qa",
-      "result": "APROVADA",
-      "result_rationale": "ISSUE-012 core fix validado (404/405 JSON sem Accept; web HTML preservado). Suite 374 passed (+4 F9). 5 findings MEDIUM/LOW registrados; QA-F9-001 rebaixado de HIGH→MEDIUM (side effect handler amplo, fora escopo primário). Nenhum blocker CRITICAL/HIGH pendente.",
-      "last_validated_sha": "5edf10b1fd970ed2a646515b0c5cd34588159901",
-      "timestamp": "2026-05-24T12:00:00Z"
-    }
+    "audit_findings_pending": 0,
+    "audit_status": "FAST_TRACK",
+    "timestamp": "2026-05-24T05:05:00Z"
   },
   "planning_history": [
     {
