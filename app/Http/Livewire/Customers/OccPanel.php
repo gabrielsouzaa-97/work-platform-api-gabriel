@@ -14,6 +14,7 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
@@ -114,11 +115,13 @@ class OccPanel extends Component
 
         $this->clearMessages();
 
+        $quotaForSsh = OccQuotaValue::forSshArgv($this->quotaValue);
+
         try {
             match ($this->quotaScope) {
-                'user' => $occ->exec($this->customer, 'user:setting', [$this->quotaUsername, 'files', 'quota', $this->quotaValue]),
-                'default' => $occ->exec($this->customer, 'config:app:set', ['files', 'default_quota', '--value', $this->quotaValue]),
-                'all' => $occ->exec($this->customer, 'user:setting', ['--all', 'files', 'quota', $this->quotaValue]),
+                'user' => $occ->exec($this->customer, 'user:setting', [$this->quotaUsername, 'files', 'quota', $quotaForSsh]),
+                'default' => $occ->exec($this->customer, 'config:app:set', ['files', 'default_quota', '--value', $quotaForSsh]),
+                'all' => $occ->exec($this->customer, 'user:setting', ['--all', 'files', 'quota', $quotaForSsh]),
                 default => throw new \InvalidArgumentException("Scope inválido: {$this->quotaScope}"),
             };
             $this->successMessage = 'Quota atualizada com sucesso.';

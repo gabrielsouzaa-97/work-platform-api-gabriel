@@ -16,6 +16,7 @@ use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Customers\Support\OccQuotaValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -30,7 +31,7 @@ final class OccController extends Controller
         return $this->runOcc(
             $customer,
             'user:setting',
-            [$username, 'files', 'quota', $request->string('quota')->toString()],
+            [$username, 'files', 'quota', OccQuotaValue::forSshArgv($request->string('quota')->toString())],
             'occ_set_quota',
             $request,
         );
@@ -45,7 +46,7 @@ final class OccController extends Controller
         return $this->runOcc(
             $customer,
             'config:app:set',
-            ['files', 'default_quota', '--value', $request->string('quota')->toString()],
+            ['files', 'default_quota', '--value', OccQuotaValue::forSshArgv($request->string('quota')->toString())],
             'occ_set_quota_default',
             $request,
         );

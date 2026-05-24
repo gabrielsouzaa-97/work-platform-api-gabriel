@@ -216,7 +216,7 @@ it('[Sofia] reseta quota de usuário via OCC passthrough → SSH retorna OK', fu
         ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
             && in_array('user:setting', $args, true)
             && in_array('sofiauser', $args, true)
-            && in_array('5 GB', $args, true))
+            && in_array('5GB', $args, true))
         ->andReturn(new SshResponse(
             stdout: json_encode(['result' => 'ok']),
             stderr: '',

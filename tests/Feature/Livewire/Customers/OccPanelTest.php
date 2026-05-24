@@ -171,7 +171,7 @@ it('submitQuota default usa argv com --value para config:app:set (F?-OCC-4)', fu
                 && in_array('files', $args, true)
                 && in_array('default_quota', $args, true)
                 && in_array('--value', $args, true)
-                && in_array('10 GB', $args, true);
+                && in_array('10GB', $args, true);
         })
         ->andReturn(new SshResponse(
             stdout: json_encode(['ok' => true]),
