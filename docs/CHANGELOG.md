@@ -275,3 +275,10 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-24 06:07** `d52337c` — Merge pull request #73 from SoftwareBeesy/rr/feat/sftp-two-channel-branding
 - **2026-05-24 06:12** `d52337c` — Merge pull request #73 from SoftwareBeesy/rr/feat/sftp-two-channel-branding
 - **2026-05-24 06:18** `d52337c` — Merge pull request #73 from SoftwareBeesy/rr/feat/sftp-two-channel-branding
+- **2026-05-24 06:23** `dd20969` — chore(session): update context and snapshot
+- **2026-05-24 06:36** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
+- **2026-05-24 07:01** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
+- **2026-05-24 07:03** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
+- **2026-05-24 07:04** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
+- **2026-05-24 07:05** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
+- **2026-05-24 07:10** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin

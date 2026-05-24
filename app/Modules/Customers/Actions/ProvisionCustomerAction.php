@@ -19,6 +19,7 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class ProvisionCustomerAction
@@ -116,13 +117,27 @@ final class ProvisionCustomerAction
             ]);
         });
 
+        $stdinJson = $stdin ? json_encode($stdin) : null;
+
+        Log::debug('provision.ssh_dispatch', [
+            'slug' => $payload->slug,
+            'has_logo' => isset($stdin['logo_data_url']),
+            'has_background' => isset($stdin['background_data_url']),
+            'stdin_bytes' => $stdinJson !== null ? strlen($stdinJson) : 0,
+            'has_payload_stdin_flag' => in_array('--payload-stdin', $args, true),
+            'has_staging_id' => $stagingId !== null,
+            'staging_id' => $stagingId,
+            'logo_path' => $payload->logoPath,
+            'logo_filesize' => $payload->logoPath && file_exists($payload->logoPath) ? filesize($payload->logoPath) : null,
+        ]);
+
         try {
             // runAsync appends --async --json automatically
             $resp = $this->ssh->runAsync(
                 $cluster,
                 'nextcloud-manage',
                 $args,
-                $stdin ? json_encode($stdin) : null
+                $stdinJson
             );
         } catch (SshRemoteException $e) {
             if ($e->idempotencyConflict) {
