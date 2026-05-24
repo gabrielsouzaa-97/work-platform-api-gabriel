@@ -226,6 +226,48 @@ it('logo > 256 KB → inboxInit + sftpUpload chamados + --staging-id repassado a
     expect(Job::find($jobId))->not->toBeNull();
 });
 
+it('logo ≤ 256 KB → --payload-stdin nos args + logo_data_url no stdin; sem SFTP', function () {
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator('operador');
+    $jobId = Str::uuid()->toString();
+
+    $tmpFile = tempnam(sys_get_temp_dir(), 'logo_inline_');
+    file_put_contents($tmpFile, str_repeat('X', 128 * 1024)); // 128 KB — abaixo do threshold
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldNotReceive('inboxInit');
+    $sshMock->shouldNotReceive('sftpUpload');
+    $sshMock->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $bin, $args, $stdin) {
+            $hasFlag = collect($args)->contains('--payload-stdin');
+            $hasLogo = str_contains((string) $stdin, 'logo_data_url');
+
+            return $hasFlag && $hasLogo;
+        })
+        ->andReturn(sshProvisionSuccess($jobId));
+
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $payload = new ProvisionPayload(
+        slug: 'acme-inline',
+        domain: 'acme-inline.example.com',
+        clusterServerId: $cluster->id,
+        apps: [],
+        fullApps: false,
+        logoPath: $tmpFile,
+        backgroundPath: null,
+    );
+
+    $action = app(ProvisionCustomerAction::class);
+    $result = $action->execute($payload, $operator);
+
+    @unlink($tmpFile);
+
+    expect($result['customer']->slug)->toBe('acme-inline');
+    expect(Job::find($jobId))->not->toBeNull();
+});
+
 it('sem autenticação → 401', function () {
     $response = $this->postJson('/api/customers', [
         'slug' => 'acme-noauth',
