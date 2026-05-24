@@ -285,6 +285,7 @@ Testes dinâmicos contra `deployer.mework360.com.br/api` em 2026-05-21 (matriz P
 3. Renomear erros 501 hardcoded de `upstream_dispatch_limitation` para `occ_subcmd_not_supported` (quota/all) e `occ_bulk_not_supported` (files-rescan sem username), com mensagens factualmente corretas.
 4. Adicionar teste de regressão de texto em `OccControllerTest` que falha se `OccController.php` voltar a conter `strips OCC --flags` ou `upstream_dispatch_limitation`.
 5. Não tocar em `OccPanel` (Livewire) nem em `openapi.yaml` neste fix mínimo — acompanhar em sprint dedicada se P-17 for endereçada.
+6. **Follow-up (2026-05-23)**: `OccController::toggleMaintenance` alinhado com `OccPanel` — argv canônico `--on`/`--off` (não positional `on`/`off`; o workaround positional era herança do diagnóstico falso de P-09).
 
 ### Rationale
 

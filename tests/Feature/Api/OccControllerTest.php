@@ -120,7 +120,7 @@ it('GET quota/audit → SSH chama user:list (fallback: files:scan indisponível 
 
 // ── 7.1 Maintenance ───────────────────────────────────────────────────────────
 
-it('POST maintenance on=true → SSH chama positional "on" (argv canônico OCC) → 200', function () {
+it('POST maintenance on=true → SSH chama --on (argv canônico OCC) → 200', function () {
     $cluster = makeOccCluster();
     $customer = makeOccCustomer($cluster);
     $operator = makeOccOperator();
@@ -128,7 +128,7 @@ it('POST maintenance on=true → SSH chama positional "on" (argv canônico OCC) 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => in_array('on', $args, true) && ! in_array('--on', $args, true))
+        ->withArgs(fn ($c, $cmd, $args) => in_array('--on', $args, true) && ! in_array('on', $args, true))
         ->andReturn(sshOccSuccess());
     $this->app->instance(SshClientInterface::class, $ssh);
 

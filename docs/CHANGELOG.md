@@ -247,3 +247,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-23 19:12** `e3359dd` — chore: register CI failure on main
 - **2026-05-23 20:02** `e3359dd` — chore: register CI failure on main
 - **2026-05-23 22:39** `e3359dd` — chore: register CI failure on main
+- **2026-05-23 22:43** `32a9c52` — fix(occ): correct OCC allowlist diagnosis and map exit 16 to 403 (ISSUE-011)
+- **2026-05-23 22:56** `bb8c043` — fix(occ): update maintenance mode flags to use canonical format
+- **2026-05-23 23:19** `8cc3bcd` — chore: register CI security findings for PR #60
+- **2026-05-23 23:21** `8cc3bcd` — chore: register CI security findings for PR #60

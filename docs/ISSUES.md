@@ -94,9 +94,10 @@ Quatro comentários no `OccController` (linhas 42, 56–57/59–60, 67, 95, 105/
    - Erros 501 renomeados: `upstream_dispatch_limitation` → `occ_subcmd_not_supported` (quota/all) / `occ_bulk_not_supported` (files-rescan sem username).
    - Decision `#ARCH-6` em `docs/DECISION-BRIEF.md`.
    - 21 testes passam em `OccControllerTest` (4 novos, 1 atualizado, 1 de regressão de texto).
-2. **Pendente**: abrir issue no `nextcloud-saas-manager` anexando a matriz P-15 para confirmar a allowlist oficial e plano de expansão (alternativa D em `#ARCH-6`).
+   - `OccController::toggleMaintenance` alinhado com `OccPanel`: argv canônico `--on`/`--off` (antes positional `on`/`off` por workaround falso de P-09).
+2. ✅ **Issue upstream aberta** (2026-05-23): [`SoftwareBeesy/mework360-deployer-scripts#22`](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/22) — anexada matriz P-15, pede confirmação da allowlist oficial, documentação de `exit_code 16` em `SSH API Reference §8` e decisão entre expandir allowlist vs. expor verbos de domínio dedicados (alternativa D em `#ARCH-6`).
 3. **Pendente**: atualizar `OpenAPI` com response 403 `occ_subcmd_not_allowed` para os endpoints OCC mutativos (follow-up).
-4. **Pendente**: revisar `OccPanel` (Livewire) — passa `--on`/`--off` em `maintenance:mode` em vez de positional `on`/`off`. Inconsistência menor; tratar com P-10/P-17.
+4. ✅ **API alinhada com OccPanel** (2026-05-23): `toggleMaintenance` passa `--on`/`--off` via SSH (argv canônico OCC; ver REQUIREMENTS §6.6).
 
 ### Notas
 

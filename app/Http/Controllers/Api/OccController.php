@@ -104,11 +104,11 @@ final class OccController extends Controller
     public function toggleMaintenance(Customer $customer, ToggleMaintenanceRequest $request): JsonResponse
     {
         // ISSUE-011: `maintenance:mode` está fora da allowlist do `occ-exec` upstream (exit 16).
-        // Argv positional puro `maintenance:mode on` (sem flags) também falha — refuta
-        // hipótese antiga de "flag stripping". Mantemos o argv canônico `on`/`off` (forma
-        // aceita pelo OCC nativo) para que, se a allowlist expandir, a chamada funcione
-        // sem mudança de código. runOcc mapeia exit 16 → HTTP 403 occ_subcmd_not_allowed.
-        $mode = $request->boolean('on') ? 'on' : 'off';
+        // Argv canônico OCC é `--on`/`--off` (alinhado com OccPanel e REQUIREMENTS §6.6).
+        // Testes P-15 mostram que positional `on` também falha com exit 16 — refuta hipótese
+        // antiga de "flag stripping" (a falha é allowlist, não forma do argv).
+        // runOcc mapeia exit 16 → HTTP 403 occ_subcmd_not_allowed.
+        $mode = $request->boolean('on') ? '--on' : '--off';
 
         return $this->runOcc($customer, 'maintenance:mode', [$mode], 'occ_maintenance_toggle', $request);
     }
