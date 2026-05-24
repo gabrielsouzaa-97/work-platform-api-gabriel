@@ -39,8 +39,10 @@ final class OccController extends Controller
     /** PUT /customers/{customer}/occ/quota/default */
     public function setQuotaDefault(Customer $customer, SetQuotaRequest $request): JsonResponse
     {
-        // config:app:set requires --value flag which upstream dispatch strips (POSITIONAL filter bug).
-        // Workaround: pass value as 3rd positional; OCC 25+ accepts both forms.
+        // ISSUE-011: `config:app:set` está fora da allowlist de `nextcloud-manage <slug> occ-exec`
+        // no upstream (exit 16). O argv abaixo é o correto (positional `<app> <key> <value>`,
+        // forma aceita por OCC 25+); a falha não é por flags ausentes — é o subcmd não estar
+        // permitido. runOcc mapeia exit 16 → HTTP 403 occ_subcmd_not_allowed.
         return $this->runOcc(
             $customer,
             'config:app:set',
@@ -53,19 +55,24 @@ final class OccController extends Controller
     /** PUT /customers/{customer}/occ/quota/all */
     public function setQuotaAll(Customer $customer, SetQuotaRequest $request): JsonResponse
     {
-        // user:setting --all requires --all flag which upstream dispatch strips.
-        // Pending upstream fix in nextcloud-manage dispatch.sh: pass OCC flags through POSITIONAL.
+        // ISSUE-011: `user:setting` está fora da allowlist do `occ-exec` upstream (exit 16),
+        // independentemente de flags. Não há workaround positional: o subcmd nunca chega ao OCC.
+        // Retornamos 501 explícito (em vez de tentar SSH e receber 403) porque a operação
+        // bulk `--all` exige flag não-global que o argv positional sequer expressa — é gap
+        // de capability, não erro de allowlist por chamada. Reabrir quando upstream
+        // expandir allowlist OU expor caminho equivalente em verbos de domínio.
         return response()->json([
-            'error' => 'upstream_dispatch_limitation',
-            'detail' => 'user:setting --all requires --all flag; upstream dispatch strips OCC --flags. Fix dispatch_namespace_cmd in dispatch.sh to pass non-global --flags to occ-exec.',
+            'error' => 'occ_subcmd_not_supported',
+            'detail' => 'user:setting --all não é suportado pelo upstream nextcloud-saas-manager. Subcmd está fora da allowlist de occ-exec; aplique a quota usuário-a-usuário via PUT /customers/{slug}/occ/quota/{username}. Ver docs/ISSUES.md ISSUE-011.',
         ], 501);
     }
 
     /** GET /customers/{customer}/occ/quota/audit */
     public function quotaAudit(Customer $customer, Request $request): JsonResponse
     {
-        // files:scan --all --show-quota cannot be used: upstream dispatch strips OCC --flags.
-        // Fallback: user:list returns all users (bridge auto-appends --output=json).
+        // ISSUE-011: o ideal seria `files:scan --all --show-quota`, porém esse modo não é
+        // exposto pelo wrapper `occ-exec` (não está na allowlist). Fallback: `user:list`
+        // está na allowlist e devolve a quota por usuário (bridge anexa --output=json).
         return $this->runOcc($customer, 'user:list', [], 'occ_quota_audit', $request);
     }
 
@@ -78,6 +85,10 @@ final class OccController extends Controller
     /** PUT /customers/{customer}/occ/branding */
     public function setBranding(Customer $customer, SetBrandingRequest $request): JsonResponse
     {
+        // ISSUE-011: `theming:config` está fora da allowlist do `occ-exec` upstream (exit 16).
+        // Bug adicional latente em P-10 (multi-key não funciona em uma única chamada do OCC):
+        // não pode ser validado nem corrigido enquanto a allowlist não permitir o subcmd.
+        // runOcc mapeia exit 16 → HTTP 403 occ_subcmd_not_allowed.
         $args = [];
         foreach (['name', 'color', 'url', 'slogan', 'imprintUrl', 'privacyUrl'] as $field) {
             if ($request->filled($field)) {
@@ -92,9 +103,12 @@ final class OccController extends Controller
     /** POST /customers/{customer}/occ/maintenance */
     public function toggleMaintenance(Customer $customer, ToggleMaintenanceRequest $request): JsonResponse
     {
-        // maintenance:mode --on/--off flags are stripped by upstream dispatch.
-        // Workaround: pass "on"/"off" as positional — OCC accepts this form via Symfony Console bool option.
-        $mode = $request->boolean('on') ? 'on' : 'off';
+        // ISSUE-011: `maintenance:mode` está fora da allowlist do `occ-exec` upstream (exit 16).
+        // Argv canônico OCC é `--on`/`--off` (alinhado com OccPanel e REQUIREMENTS §6.6).
+        // Testes P-15 mostram que positional `on` também falha com exit 16 — refuta hipótese
+        // antiga de "flag stripping" (a falha é allowlist, não forma do argv).
+        // runOcc mapeia exit 16 → HTTP 403 occ_subcmd_not_allowed.
+        $mode = $request->boolean('on') ? '--on' : '--off';
 
         return $this->runOcc($customer, 'maintenance:mode', [$mode], 'occ_maintenance_toggle', $request);
     }
@@ -102,11 +116,13 @@ final class OccController extends Controller
     /** POST /customers/{customer}/occ/files-rescan */
     public function filesRescan(Customer $customer, FilesRescanRequest $request): JsonResponse
     {
-        // files:scan --all strips --all via upstream dispatch; require explicit username.
+        // ISSUE-011: `files:scan` está na allowlist do `occ-exec`, mas a forma `--all` (sem
+        // username) depende de flag não-global que o wrapper não expõe. Exigimos `?username=`
+        // para usar o argv positional `files:scan <user>`, que funciona em produção.
         if (! $request->filled('username')) {
             return response()->json([
-                'error' => 'upstream_dispatch_limitation',
-                'detail' => 'files:scan --all requires --all flag; upstream dispatch strips OCC --flags. Provide ?username=<user> to scan a specific user, or fix dispatch.sh.',
+                'error' => 'occ_bulk_not_supported',
+                'detail' => 'files:scan --all não é suportado pelo upstream. Forneça ?username=<user> para escanear um usuário específico. Ver docs/ISSUES.md ISSUE-011.',
             ], 501);
         }
 
@@ -146,6 +162,21 @@ final class OccController extends Controller
         } catch (SshRemoteException $e) {
             if ($e->remoteExitCode === 1) {
                 return response()->json(['error' => 'not_found'], 404);
+            }
+
+            // ISSUE-011: exit 16 do `nextcloud-manage <slug> occ-exec` indica que o subcmd
+            // OCC requisitado está fora da allowlist do wrapper upstream (refutado o
+            // diagnóstico antigo de "flag stripping" — argv positional puro também falha).
+            // Devolvemos 403 com erro explícito para não confundir com falha transitória
+            // de upstream (502). Subcmds atualmente bloqueados: user:setting, config:app:set,
+            // theming:config, maintenance:mode. Ver docs/ISSUES.md ISSUE-011 e P-15.
+            if ($e->remoteExitCode === 16) {
+                return response()->json([
+                    'error' => 'occ_subcmd_not_allowed',
+                    'detail' => 'Subcmd "'.$subcmd.'" não está na allowlist do nextcloud-saas-manager occ-exec (exit 16). Ver docs/ISSUES.md ISSUE-011.',
+                    'subcmd' => $subcmd,
+                    'exit_code' => 16,
+                ], 403);
             }
 
             return response()->json([

@@ -955,6 +955,9 @@ paths:
     post:
       tags: [OCC]
       summary: Alternar modo de manutenção (OCC)
+      description: |
+        Body JSON usa campo `on` (boolean). Upstream recebe `occ-exec maintenance:mode`
+        com argv canônico `--on` ou `--off` (não positional `on`/`off`).
       parameters:
         - $ref: "#/components/parameters/customer"
       requestBody:
@@ -963,14 +966,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [enable]
+              required: [on]
               properties:
-                enable:
-                  description: "`true`/`1` para ativar, `false`/`0` para desativar."
-                  oneOf:
-                    - type: boolean
-                    - type: integer
-                      enum: [0, 1]
+                on:
+                  description: "`true` para ativar (`--on`), `false` para desativar (`--off`)."
+                  type: boolean
                   example: true
       responses:
         "200":

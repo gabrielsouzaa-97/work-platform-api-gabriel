@@ -16,6 +16,93 @@
 | ISSUE-008 | change_request | Fluxo de "Esqueci a senha" para operadores (broker nativo Laravel) | Auth | MEDIUM | open |
 | ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | open |
 | ISSUE-010 | postmortem | Callback `provision success` prematuro — tenant não ready para `users:*` (~10 min pós-callback) | Jobs, Customers, Webhook | CRITICAL | closed (F8) |
+| ISSUE-011 | postmortem | Diagnóstico errado em comentários do `OccController`: causa real é allowlist de subcmd no `occ-exec` upstream, não "flag stripping" | Occ, Core/Ssh | CRITICAL | implemented — **validação APROVADA (R1)** |
+
+---
+
+## ISSUE-011 — Diagnóstico errado embutido no código sobre falhas OCC (allowlist vs. "flag stripping")
+
+- **Tipo**: postmortem (BUG — knowledge debt em comentários + diagnóstico de causa raiz upstream)
+- **Prioridade**: CRITICAL (entendimento errado da causa raiz; bloqueia P-10/P-17 indiretamente; induz manutenção a investigar o lugar errado)
+- **Status**: implemented — **validação APROVADA (R1)** (2026-05-23, opção A — Decision #ARCH-6, branch `fix/issue-011-occ-allowlist-comments`)
+- **Decision**: `docs/DECISION-BRIEF.md` `#ARCH-6`
+- **Sprint**: fix mínimo autocontido (sem sprint formal — escopo limitado à correção de diagnóstico). P-10/P-17 e coordenação upstream permanecem em aberto.
+- **Origem**: testes dinâmicos API dev (`deployer.mework360.com.br/api`) em 2026-05-21
+- **Módulos afetados**: `app/Http/Controllers/Api/OccController.php`, `docs/SETUP-DECISIONS.md`, `docs/openapi.yaml`, referência SSH
+- **Upstream afetado**: `nextcloud-saas-manager` (`occ-exec` subcmd allowlist)
+- **Relacionados**: P-09 (SUPERSEDED), P-10 (bloqueado por este), P-16 (exit 16 não documentado), P-17 (5 endpoints quebrados em prod)
+
+### Descrição
+
+Quatro comentários no `OccController` (linhas 42, 56–57/59–60, 67, 95, 105/108–109) afirmam que o upstream `nextcloud-manage dispatch.sh` filtra/remove `--flags` de subcmds OCC, e propõem workarounds positional. **Esse diagnóstico é falso** e foi refutado empiricamente: `maintenance:mode on` (argv positional puro, **sem nenhuma flag**) também falha com `exit_code: 16`. A causa real é uma **allowlist de subcmds em `nextcloud-manage <client> occ-exec`** no upstream — não tem relação com flags.
+
+### Evidência empírica (matriz P-15)
+
+| Subcmd OCC | Tem `--flag`? | Resultado | Conclusão |
+|---|---|---|---|
+| `user:list` | não | ✅ HTTP 200, exit 0 | dentro da allowlist |
+| `app:enable calendar` | não | ✅ HTTP 200, exit 0 | dentro da allowlist |
+| `files:scan admin` | não | ✅ HTTP 200, exit 0 | dentro da allowlist |
+| `maintenance:mode on` (positional) | **não** | ❌ HTTP 502, exit 16 | **fora da allowlist — refuta "stripping"** |
+| `user:setting admin files quota 5 GB` | não | ❌ HTTP 502, exit 16 | fora da allowlist |
+| `config:app:set files default_quota 3 GB` | não | ❌ HTTP 502, exit 16 | fora da allowlist |
+| `theming:config name "X"` | não | ❌ HTTP 502, exit 16 | fora da allowlist |
+
+**Allowlist deduzida (parcial)**:
+- ✅ Permitidos: `user:list`, `user:add`, `user:resetpassword`, `app:enable`, `files:scan` (e provavelmente `app:disable`, `app:list`).
+- ❌ Bloqueados (exit 16): `user:setting`, `config:app:set`, `theming:config`, `maintenance:mode`.
+
+### Consequências
+
+1. **Knowledge debt no código**: futuros mantenedores (humanos ou IAs) seguem a pista falsa "implementar flag passthrough no dispatch.sh" e perdem ciclo investigando o lugar errado.
+2. **Roadmap upstream desalinhado**: o comentário "Pending upstream fix in `nextcloud-manage dispatch.sh`: pass non-global `--flags` to occ-exec" está mirando alvo errado.
+3. **Mensagens ao cliente enganosas**: respostas 502 com `error: upstream_dispatch_limitation` falam de stripping em vez de allowlist.
+4. **P-10 oculto**: bug do argv multi-key em `setBranding` não pode ser validado enquanto allowlist não expandir.
+5. **P-17 oculto**: 5 endpoints publicados em `routes/api.php` permanentemente 502 com diagnóstico errado.
+
+### Arquivos suspeitos (escopo de descoberta — **não plano de implementação**)
+
+| Arquivo | Sintoma |
+|---|---|
+| `app/Http/Controllers/Api/OccController.php` (linhas 42, 56–60, 67, 95, 105–109) | 4 comentários afirmando "flag stripping" + 2 respostas com `error: upstream_dispatch_limitation` |
+| `app/Http/Controllers/Api/OccController.php::runOcc` (≈146–154) | Exit 16 cai em `default → 502 upstream_error`, perdendo semântica de allowlist (P-16) |
+| `docs/SETUP-DECISIONS.md` | Falta decisão registrada sobre `occ-exec` ter allowlist e estratégia adotada |
+| `docs/openapi.yaml` | Responses 502 nos endpoints OCC mutativos sem distinguir `subcmd_not_allowed` |
+| Referência SSH (§4.11 / §8) | Allowlist oficial e exit code 16 não documentados |
+
+### Caminhos de fix (a decidir em `/qa debug` + Architect — **não planejar agora**)
+
+| Opção | Escopo | Trade-off |
+|---|---|---|
+| **A — Correção de comentários + mapeamento de exit code** (mínimo) | Reescrever os 4 comentários do `OccController`; adicionar mapeamento `exit_code 16 → HTTP 403 occ_subcmd_not_allowed`; atualizar `docs/SETUP-DECISIONS.md` com a allowlist deduzida | Barato, melhora observabilidade e knowledge base; **não resolve P-17** (endpoints continuam quebrados, mas com erro honesto) |
+| **B — Coordenar com upstream** (paralelo) | Pedir ao mantenedor do `nextcloud-saas-manager` a allowlist oficial + decisão sobre expandir para incluir `user:setting`, `config:app:set`, `theming:config`, `maintenance:mode` | Resolve P-10 e P-17 se aceito; depende de upstream |
+| **C — Refatorar gateway** | Fazer o `nextcloud-saas-manager` expor um caminho alternativo (ex.: `occ-direct` com lista própria controlada pela API) ou rotas de domínio (`branding set`, `quota default`, `maintenance toggle`) que cubram os casos quebrados sem expor `occ-exec` cru | Maior; demanda design upstream |
+| **D — Despublicar endpoints quebrados** | Remover ou marcar como `503 deprecated` os 5 endpoints OCC mutativos enquanto B/C não chegam | UX honesta; perde feature publicada |
+
+### Critério de aceite (mínimo, opção A)
+
+- Nenhum comentário no `OccController` afirma "flag stripping"; cada subcmd com risco de allowlist tem comentário factual citando exit 16 + referência a esta issue.
+- Exit 16 mapeado para 403 `occ_subcmd_not_allowed` (ou outro contrato discutido) com mensagem que cita a allowlist.
+- `docs/SETUP-DECISIONS.md` registra a allowlist deduzida e a estratégia (manter endpoints com 403 vs. despublicar).
+- Allowlist oficial obtida do upstream **ou** issue upstream aberta com a matriz P-15 anexada.
+
+### Próximo passo
+
+1. ✅ **Opção A implementada** (2026-05-23, branch `fix/issue-011-occ-allowlist-comments`):
+   - 4 comentários falsos do `OccController` reescritos com referência a ISSUE-011 + allowlist.
+   - `runOcc()` mapeia `exit_code 16` → HTTP 403 `occ_subcmd_not_allowed` com `subcmd` no payload.
+   - Erros 501 renomeados: `upstream_dispatch_limitation` → `occ_subcmd_not_supported` (quota/all) / `occ_bulk_not_supported` (files-rescan sem username).
+   - Decision `#ARCH-6` em `docs/DECISION-BRIEF.md`.
+   - 21 testes passam em `OccControllerTest` (4 novos, 1 atualizado, 1 de regressão de texto).
+   - `OccController::toggleMaintenance` alinhado com `OccPanel`: argv canônico `--on`/`--off` (antes positional `on`/`off` por workaround falso de P-09).
+2. ✅ **Issue upstream aberta** (2026-05-23): [`SoftwareBeesy/mework360-deployer-scripts#22`](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/22) — anexada matriz P-15, pede confirmação da allowlist oficial, documentação de `exit_code 16` em `SSH API Reference §8` e decisão entre expandir allowlist vs. expor verbos de domínio dedicados (alternativa D em `#ARCH-6`).
+3. **Pendente**: atualizar `OpenAPI` com response 403 `occ_subcmd_not_allowed` para os endpoints OCC mutativos (follow-up).
+4. ✅ **API alinhada com OccPanel** (2026-05-23): `toggleMaintenance` passa `--on`/`--off` via SSH (argv canônico OCC; ver REQUIREMENTS §6.6).
+
+### Notas
+
+- Esta issue **substitui** a teoria de P-09 (deprecated). Comentários do código que apontam para "P-09" ou "dispatch.sh strip" devem ser removidos junto com a correção, não preservados como histórico.
+- P-10 fica **bloqueado por esta issue** até a allowlist permitir `theming:config` ou existir caminho alternativo.
 
 ---
 

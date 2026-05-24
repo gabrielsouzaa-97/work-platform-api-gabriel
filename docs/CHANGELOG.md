@@ -2,6 +2,7 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-23** `fix/issue-011-occ-allowlist-comments` — fix(occ): ISSUE-011 (CRITICAL postmortem) — corrige diagnóstico errado embutido em 4 comentários do `OccController` que afirmavam "upstream `dispatch.sh` strips OCC `--flags`"; refutado empiricamente pela matriz P-15 (`maintenance:mode on` positional puro também falha com exit 16). Causa real: allowlist de subcmd no `nextcloud-saas-manager occ-exec`. `runOcc()` mapeia `exit_code 16` → HTTP 403 `occ_subcmd_not_allowed` (antes 502 `upstream_error`); erros 501 renomeados para `occ_subcmd_not_supported` (quota/all) e `occ_bulk_not_supported` (files-rescan sem username); Decision `#ARCH-6` em `docs/DECISION-BRIEF.md`; teste de regressão de texto + 3 novos testes para o caminho 403; 21 testes em OccControllerTest, full suite 368 passed (2 falhas pré-existentes em JobsPollStuckTest/SyncWebhookSecretTest por permissão de log). **Mudança de contrato observável**: clientes que tratavam 502 nesses endpoints devem passar a tratar 403.
 - **2026-05-23** `sprint/F8-readiness-gate-iss010` — fix(sprint-F8 R1): F8.7–F8.10 — `max_wait_seconds` 1200 + deadline no probe job; testes probe failure/timeout/gates/sync; OccPanel `TenantNotReadyException` UX + import fix; JobLogFetcherTest isolado de side-effect probe; 46 testes F8, 364 suite.
 - **2026-05-23** `sprint/F8-readiness-gate-iss010` — fix(sprint-F8): ISSUE-010 readiness gate — webhook provision success → `provisioning_finishing` + `ProbeCustomerReadinessJob` (`occ-exec user:list`); gate `users:create|users:delete` → 503 `tenant_not_ready`; `CustomerSyncService` preserva finishing; OpenAPI v2.2 + Decision #ARCH-5 em `docs/DECISION-BRIEF.md`; badges UI `provisioning_finishing`.
 - **2026-05-21 18:34** `fix/sidebar-permissions-and-missing-links` — feat(sprint-F6): forgot-password broker nativo (ISSUE-008) — migration password_reset_tokens, ForgotPassword/ResetPassword Livewire, OperatorPasswordResetMail, rate-limit 3req/15min, anti-enumeration, audit password_reset_requested/blocked/completed; logs de job (ISSUE-009) — JobLogFetcher SSH pull com fallback exit_code=99, sanitização secrets ([REDACTED]), WebhookPayload log_tail hint, WebhookHandler injeta fetcher em applyFinishedEvent (non-fatal try/catch); 20 novos testes (343 total +20, 892 assertions); ROADMAP v0.13.
@@ -239,3 +240,14 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-23 17:49** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
 - **2026-05-23 18:17** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
 - **2026-05-23 19:00** `b8a6b63` — fix(jobs): enable auto-refresh by default on queue index
+- **2026-05-23 19:02** `0d9208b` — fix(sprint-F8): readiness gate pós-provision (ISSUE-010)
+- **2026-05-23 19:04** `0d9208b` — fix(sprint-F8): readiness gate pós-provision (ISSUE-010)
+- **2026-05-23 19:06** `e3359dd` — chore: register CI failure on main
+- **2026-05-23 19:07** `e3359dd` — chore: register CI failure on main
+- **2026-05-23 19:12** `e3359dd` — chore: register CI failure on main
+- **2026-05-23 20:02** `e3359dd` — chore: register CI failure on main
+- **2026-05-23 22:39** `e3359dd` — chore: register CI failure on main
+- **2026-05-23 22:43** `32a9c52` — fix(occ): correct OCC allowlist diagnosis and map exit 16 to 403 (ISSUE-011)
+- **2026-05-23 22:56** `bb8c043` — fix(occ): update maintenance mode flags to use canonical format
+- **2026-05-23 23:19** `8cc3bcd` — chore: register CI security findings for PR #60
+- **2026-05-23 23:21** `8cc3bcd` — chore: register CI security findings for PR #60

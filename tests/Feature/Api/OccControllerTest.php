@@ -120,7 +120,7 @@ it('GET quota/audit → SSH chama user:list (fallback: files:scan indisponível 
 
 // ── 7.1 Maintenance ───────────────────────────────────────────────────────────
 
-it('POST maintenance on=true → SSH chama positional "on" (upstream strip workaround) → 200', function () {
+it('POST maintenance on=true → SSH chama --on (argv canônico OCC) → 200', function () {
     $cluster = makeOccCluster();
     $customer = makeOccCustomer($cluster);
     $operator = makeOccOperator();
@@ -128,7 +128,7 @@ it('POST maintenance on=true → SSH chama positional "on" (upstream strip worka
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => in_array('on', $args, true) && ! in_array('--on', $args, true))
+        ->withArgs(fn ($c, $cmd, $args) => in_array('--on', $args, true) && ! in_array('on', $args, true))
         ->andReturn(sshOccSuccess());
     $this->app->instance(SshClientInterface::class, $ssh);
 
@@ -300,7 +300,7 @@ it('PUT branding sem campos → SSH chama theming:config com args vazios → 200
 
 // ── D7-F006: setQuotaAll ───────────────────────────────────────────────────────
 
-it('PUT quota/all → retorna 501 upstream_dispatch_limitation (--all stripped upstream) sem SSH', function () {
+it('PUT quota/all → retorna 501 occ_subcmd_not_supported (allowlist upstream — ISSUE-011) sem SSH', function () {
     $cluster = makeOccCluster();
     $customer = makeOccCustomer($cluster);
     $operator = makeOccOperator('admin');
@@ -312,7 +312,7 @@ it('PUT quota/all → retorna 501 upstream_dispatch_limitation (--all stripped u
     $this->actingAs($operator)
         ->putJson("/api/customers/{$customer->slug}/occ/quota/all", ['quota' => '10 GB'])
         ->assertStatus(501)
-        ->assertJsonPath('error', 'upstream_dispatch_limitation');
+        ->assertJsonPath('error', 'occ_subcmd_not_supported');
 });
 
 it('PUT quota/all com formato inválido → 422 sem SSH', function () {
@@ -327,4 +327,65 @@ it('PUT quota/all com formato inválido → 422 sem SSH', function () {
     $this->actingAs($operator)
         ->putJson("/api/customers/{$customer->slug}/occ/quota/all", ['quota' => 'muito'])
         ->assertStatus(422);
+});
+
+// ── ISSUE-011: allowlist do upstream occ-exec (exit_code 16 → 403) ─────────────
+
+it('SSH exit 16 (subcmd fora da allowlist upstream) → 403 occ_subcmd_not_allowed', function () {
+    $cluster = makeOccCluster();
+    $customer = makeOccCustomer($cluster);
+    $operator = makeOccOperator('admin');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andThrow(new SshRemoteException('subcmd not allowed', 16));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/occ/maintenance", ['on' => true])
+        ->assertStatus(403)
+        ->assertJsonPath('error', 'occ_subcmd_not_allowed')
+        ->assertJsonPath('subcmd', 'maintenance:mode')
+        ->assertJsonPath('exit_code', 16);
+});
+
+it('SSH exit 16 em config:app:set (quota/default) → 403 occ_subcmd_not_allowed', function () {
+    $cluster = makeOccCluster();
+    $customer = makeOccCustomer($cluster);
+    $operator = makeOccOperator('admin');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andThrow(new SshRemoteException('subcmd not allowed', 16));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->putJson("/api/customers/{$customer->slug}/occ/quota/default", ['quota' => '5 GB'])
+        ->assertStatus(403)
+        ->assertJsonPath('error', 'occ_subcmd_not_allowed')
+        ->assertJsonPath('subcmd', 'config:app:set');
+});
+
+it('POST files-rescan sem username → 501 occ_bulk_not_supported sem SSH', function () {
+    $cluster = makeOccCluster();
+    $customer = makeOccCustomer($cluster);
+    $operator = makeOccOperator('admin');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('run');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/occ/files-rescan")
+        ->assertStatus(501)
+        ->assertJsonPath('error', 'occ_bulk_not_supported');
+});
+
+it('regressão ISSUE-011: OccController não menciona "flag stripping" como diagnóstico', function () {
+    $source = file_get_contents(app_path('Http/Controllers/Api/OccController.php'));
+    expect($source)->not->toContain('strips OCC --flags');
+    expect($source)->not->toContain('upstream_dispatch_limitation');
+    expect($source)->toContain('ISSUE-011');
 });
