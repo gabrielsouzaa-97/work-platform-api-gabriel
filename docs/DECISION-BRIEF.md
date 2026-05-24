@@ -233,3 +233,71 @@ Issue upstream (alternativa A) recomendada em paralelo, não bloqueante.
 - Saga de onboarding (P-22) deve consumir este gate internamente — cliente da saga não vê a janela.
 
 ---
+
+## Decision #ARCH-6 — OCC `exit_code 16` é allowlist do `occ-exec`, não "flag stripping"
+
+- **Status**: accepted
+- **Date**: 2026-05-23
+- **Related skills**: arquiteto, ssh-orchestrator
+- **Related issues**: ISSUE-011 (P-15), P-09 (superseded), P-10 (bloqueado), P-16, P-17
+- **Supersedes**: comentários antigos em `OccController` que afirmavam "upstream `dispatch.sh` strips OCC `--flags`" e o erro `upstream_dispatch_limitation`.
+
+### Context
+
+A teoria embutida no código desde a Sprint D7 era que o upstream `nextcloud-manage dispatch.sh` filtrava flags `--xxx` ao chamar o `occ` no container. Quatro comentários no `OccController` (linhas 42, 56–60, 67, 95, 105–109) propagavam esse diagnóstico e justificavam workarounds positional + respostas 501/502 com `error: upstream_dispatch_limitation`.
+
+Testes dinâmicos contra `deployer.mework360.com.br/api` em 2026-05-21 (matriz P-15) **refutaram empiricamente** a hipótese: `maintenance:mode on` em forma positional pura — sem nenhuma flag — também falha com `exit_code 16`. A causa real é uma **allowlist de subcmds em `nextcloud-manage <slug> occ-exec`** no upstream.
+
+### Evidência
+
+| Subcmd OCC | Tem flag? | Resultado | Tipo |
+|---|---|---|---|
+| `user:list`, `app:enable`, `files:scan <user>`, `user:add`, `user:resetpassword` | não | ✅ exit 0 | dentro da allowlist |
+| `maintenance:mode on` (positional) | **não** | ❌ exit 16 | fora da allowlist — refuta "stripping" |
+| `user:setting <args>` | não | ❌ exit 16 | fora da allowlist |
+| `config:app:set files default_quota 3 GB` | não | ❌ exit 16 | fora da allowlist |
+| `theming:config name "X"` | não | ❌ exit 16 | fora da allowlist |
+
+### Alternatives considered
+
+#### A. Manter diagnóstico errado e perseguir "fix" no `dispatch.sh` (status quo)
+- **Pros**: Zero código.
+- **Cons**: Knowledge debt CRITICAL; futuros mantenedores investigam o lugar errado; respostas 502 com mensagens enganosas.
+
+#### B. Corrigir comentários + mapear `exit 16 → 403 occ_subcmd_not_allowed` (escolhida)
+- **Pros**: Diagnóstico correto no código; cliente recebe 403 explícito (não 502 genérico) com `subcmd` no payload; reabilita visibilidade para Suporte; não muda contrato dos endpoints que já funcionam (`user:list`, `app:enable`, `files:scan <user>`); não exige decisão sobre P-17 nem upstream; baixo risco.
+- **Cons**: Endpoints `quota/default`, `quota/{username}`, `branding`, `maintenance` continuam retornando erro (agora 403 honesto em vez de 502), até allowlist upstream expandir ou alternativa C/D.
+
+#### C. Curto-circuitar endpoints bloqueados em 403 antes do SSH (pre-empt allowlist)
+- **Pros**: Economiza round-trip SSH para subcmds reconhecidamente bloqueados.
+- **Cons**: Exige manter allowlist literal no código; quebra automaticamente quando upstream expande allowlist (chamada que passaria a funcionar continua bloqueada localmente). Premature optimization sem fonte autoritativa.
+
+#### D. Refatorar gateway para `occ` direto (bypass `occ-exec`) ou expor verbos de domínio (`branding set`, `quota default`, `maintenance toggle`)
+- **Pros**: Resolve P-10/P-17 para sempre.
+- **Cons**: Mudança grande no upstream; requer Architect + sprint dedicada; fora do escopo deste fix.
+
+### Decision
+
+**Alternativa B**:
+
+1. Reescrever os 4 comentários falsos no `OccController` para citar `ISSUE-011` e a allowlist como causa.
+2. Mapear `SshRemoteException::remoteExitCode === 16` em `OccController::runOcc` para `HTTP 403` com payload `{error: occ_subcmd_not_allowed, subcmd, exit_code: 16, detail}`.
+3. Renomear erros 501 hardcoded de `upstream_dispatch_limitation` para `occ_subcmd_not_supported` (quota/all) e `occ_bulk_not_supported` (files-rescan sem username), com mensagens factualmente corretas.
+4. Adicionar teste de regressão de texto em `OccControllerTest` que falha se `OccController.php` voltar a conter `strips OCC --flags` ou `upstream_dispatch_limitation`.
+5. Não tocar em `OccPanel` (Livewire) nem em `openapi.yaml` neste fix mínimo — acompanhar em sprint dedicada se P-17 for endereçada.
+
+### Rationale
+
+1. **Knowledge debt é CRITICAL no contexto AI-assisted**: comentários falsos induzem agentes (humanos e IAs) a planejar fixes errados; corrigir o diagnóstico tem impacto desproporcional ao tamanho do diff.
+2. **Mapeamento honesto de erro**: 403 com `subcmd` permite Suporte/cliente identificar imediatamente o subcmd bloqueado sem ler logs upstream.
+3. **Não pre-empt em código**: deixamos a chamada SSH ocorrer porque a allowlist é controle do upstream — quando expandir, a API continua funcionando sem deploy.
+4. **Escopo mínimo**: P-10, P-17 e a coordenação com upstream são tratadas em sprints separadas; este fix não as bloqueia nem antecipa.
+
+### Consequences
+
+- Endpoints OCC mutativos bloqueados retornam HTTP 403 `occ_subcmd_not_allowed` (antes: 502 `upstream_error`).
+- Cliente HTTP que tratava 502 deve passar a tratar 403 explicitamente para esses endpoints (mudança de contrato observável — documentar em `CHANGELOG`).
+- `OpenAPI` permanece desatualizado para esses 403 — registrar como follow-up.
+- Issue upstream (alternativa D) recomendada em paralelo, anexando matriz P-15 — não bloqueia este fix.
+
+---
