@@ -242,9 +242,10 @@ class SshClient implements SshClientInterface
         }
 
         // Remote ForceCommand runs SSH_ORIGINAL_COMMAND via shell word-splitting.
-        // Args with spaces (e.g. quota "5 GB") must be double-quoted so bash keeps
-        // them as a single token. Do NOT escapeshellarg() the binary name — breaks
-        // ForceCommand prefix match (see ping()).
+        // Spaced argv tokens must be single-quoted so bash keeps them as one token.
+        // Double quotes may be stripped before word-split on some ForceCommand hops
+        // (ISSUE-017). Do NOT escapeshellarg() the binary name — breaks ForceCommand
+        // prefix match (see ping()).
         $parts = [$cmd];
         foreach ($args as $arg) {
             $parts[] = $this->formatRemoteArg((string) $arg);
@@ -262,7 +263,7 @@ class SshClient implements SshClientInterface
             return $arg;
         }
 
-        return '"'.str_replace(['\\', '"'], ['\\\\', '\\"'], $arg).'"';
+        return "'".str_replace("'", "'\\''", $arg)."'";
     }
 
     private function buildRemoteException(

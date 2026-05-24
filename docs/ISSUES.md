@@ -22,6 +22,7 @@
 | ISSUE-014 | bug | `JobLogFetcher` SSH fallback falha 100% com exit 101 (`cmd_not_allowed`) — argv incorreto inclui `<client>` em comando de introspection `job`; descoberto durante investigação de ISSUE-013 | Jobs, Core/Ssh | MEDIUM | fixed (fix/issue-014-job-log-fetcher-argv) |
 | ISSUE-015 | enhancement | `WebhookHandler` salva apenas subset reconstruído em `audit_logs.payload` (5 chaves) em vez do payload raw — descoberto durante investigação de ISSUE-013, mascarou hipótese inicial | Jobs, Webhook | MEDIUM | open (observabilidade — fast-track) |
 | ISSUE-016 | change_request | 5 endpoints OCC mutativos indisponíveis — allowlist upstream bloqueia subcmds (quota/branding/maintenance) | Occ, Core/Ssh, Livewire | HIGH | mitigated (fast-track F?-OCC-1..3 — contrato OpenAPI + OccPanel UX; D-02 / #ARCH-7 pendente) |
+| ISSUE-017 | bug | OCC argv com espaços falha no hop SSH `ncsaas-api` ForceCommand — quota `"5 GB"` e branding `"Acme Corp"` retornam exit 16 via API apesar de funcionarem no node | Occ, Core/Ssh | HIGH | open (fix quota compact + single-quote; branding validar pós-deploy) |
 
 ---
 
@@ -129,6 +130,58 @@ SSH read-only via `sudo nextcloud-manage` no node SaaS:
 1. **PMO/Product**: escolher caminho A/B/C → registrar como **Decision `#ARCH-7`** (D-02).
 2. **Paralelo**: executar mitigações F?-OCC-1..4 via `/fix` ou sprint fast-track.
 3. **Upstream**: acompanhar resposta em #22 antes de sprint de implementação do caminho escolhido.
+
+### Matriz P-15 reexecutada (2026-05-24 pós PR #68, tenant `teste5`)
+
+| Resultado | Detalhe |
+|---|---|
+| **P-10 corrigido** | `PUT branding` com `name` + `color` → **200** (2× `theming:config`) |
+| **Maintenance** | `--on` / `--off` → **200** |
+| **Quota compacta** | `3GB` / `5GB` → **200** |
+| **Quota/branding com espaço** | `"3 GB"`, `"5 GB"`, `"Acme Corp"` → **403** exit 16 via API |
+| **Upstream direto** | Mesmos payloads com `sudo nextcloud-manage` no node → **exit 0** |
+| **Diagnóstico** | Gap no hop SSH `deployer → ncsaas-api` ForceCommand, não allowlist — ver **ISSUE-017** |
+
+---
+
+## ISSUE-017 — OCC argv com espaços falha no hop SSH ForceCommand (ncsaas-api)
+
+- **Tipo**: bug (transporte SSH — argv com whitespace)
+- **Prioridade**: HIGH (UI/API expõe `"5 GB"` em `quota/options`; operadores usam labels com espaço)
+- **Status**: open — fix em andamento (`OccQuotaValue` compact + `SshClient` single-quote para demais args)
+- **Origem**: matriz P-15 reexecutada 2026-05-24 pós PR #68 (`rr/fix/occ-ssh-quoting-and-branding`)
+- **Módulos afetados**:
+  - `app/Modules/Core/Ssh/SshClient.php` (`formatRemoteArg`)
+  - `app/Http/Controllers/Api/OccController.php` (quota argv)
+  - `app/Http/Livewire/Customers/OccPanel.php` (quota argv)
+  - `app/Modules/Customers/Support/OccQuotaValue.php` (novo — compactação quota)
+- **Relacionados**: ISSUE-016, P-15, P-10 (corrigido), PR #68, `UserCreateStdinPayload::normalizeQuota` (mesma regra já usada em `users:create`)
+
+### Descrição
+
+PR #68 adicionou aspas duplas em `SshClient::formatRemoteArg()` para sobreviver ao word-split do ForceCommand. A matriz P-15 pós-deploy mostrou que **não resolve** o hop `deployer → ncsaas-api@dev`:
+
+| Payload API | Via API (SSH hop) | Direto no node (`sudo nextcloud-manage`) |
+|---|---|---|
+| `quota: "5 GB"` | **403** exit 16 | **exit 0** |
+| `quota: "5GB"` | **200** | exit 0 |
+| `branding: {"name":"Acme Corp"}` | **403** exit 16 | exit 0 |
+| `branding: {"name":"TestBrand","color":"#112233"}` | **200** (P-10 OK) | exit 0 |
+
+Exit 16 continua mapeado como `occ_subcmd_not_allowed` (ISSUE-011) mas aqui é **`occ_command_failed`** por argv corrompido no transporte — não allowlist (exit 100).
+
+### Fix proposto (API)
+
+1. **Quota**: compactar labels antes do SSH (`"5 GB"` → `"5GB"`) via `OccQuotaValue::forSshArgv()` — reutiliza `UserCreateStdinPayload::normalizeQuota`. OCC aceita ambos os formatos (confirmado F?-OCC-4).
+2. **Branding/outros args com espaço**: trocar aspas duplas por **single-quote** bash em `formatRemoteArg()` (`'Acme Corp'`).
+3. **Upstream (médio prazo)**: issue em `mework360-deployer-scripts` para ForceCommand preservar quoting em `SSH_ORIGINAL_COMMAND`.
+
+### Critério de aceite
+
+- Matriz P-15: `PUT quota/default {"quota":"3 GB"}` e `PUT quota/admin {"quota":"5 GB"}` → **200**
+- `PUT branding {"name":"Acme Corp"}` → **200** (pós single-quote)
+- Testes: `OccQuotaValueTest`, `OccControllerTest`, `SshClientTest`, `OccPanelTest`
+- API continua aceitando labels com espaço na request (sem breaking change)
 
 ---
 

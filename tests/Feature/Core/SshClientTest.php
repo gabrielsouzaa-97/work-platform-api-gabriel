@@ -256,7 +256,7 @@ it('payloadStdin null does not add printf pipe to exec command', function (): vo
         ->not->toContain("'manage.sh'");
 });
 
-it('double-quotes argv tokens with spaces for remote shell word-split', function (): void {
+it('single-quotes argv tokens with spaces for remote shell word-split', function (): void {
     $capturedCmd = null;
 
     $ssh = Mockery::mock(SSH2::class);
@@ -277,6 +277,6 @@ it('double-quotes argv tokens with spaces for remote shell word-split', function
     ]);
 
     expect($capturedCmd)
-        ->toContain('quota "5 GB"')
+        ->toContain("quota '5 GB'")
         ->not->toContain('quota 5 GB --json');
 });

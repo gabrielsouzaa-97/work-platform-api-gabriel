@@ -53,7 +53,8 @@ it('PUT quota/{username} com quota válida → 200 + audit log', function () {
         ->once()
         ->withArgs(fn ($c, $cmd, $args) => $cmd === 'nextcloud-manage'
             && in_array('user:setting', $args, true)
-            && in_array('5 GB', $args, true))
+            && in_array('5GB', $args, true)
+            && ! in_array('5 GB', $args, true))
         ->andReturn(sshOccSuccess());
     $this->app->instance(SshClientInterface::class, $ssh);
 
