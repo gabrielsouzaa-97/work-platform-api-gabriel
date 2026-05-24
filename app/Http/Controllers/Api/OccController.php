@@ -39,14 +39,13 @@ final class OccController extends Controller
     /** PUT /customers/{customer}/occ/quota/default */
     public function setQuotaDefault(Customer $customer, SetQuotaRequest $request): JsonResponse
     {
-        // ISSUE-011: `config:app:set` está fora da allowlist de `nextcloud-manage <slug> occ-exec`
-        // no upstream (exit 16). O argv abaixo é o correto (positional `<app> <key> <value>`,
-        // forma aceita por OCC 25+); a falha não é por flags ausentes — é o subcmd não estar
-        // permitido. runOcc mapeia exit 16 → HTTP 403 occ_subcmd_not_allowed.
+        // F?-OCC-4 (ISSUE-016): `config:app:set` está na allowlist upstream v12.3.0+.
+        // OCC exige `--value` para o valor (positional extra causa exit 16 = occ_command_failed,
+        // não allowlist — allowlist rejection usa wrapper exit 100). Ver occ_bridge.sh.
         return $this->runOcc(
             $customer,
             'config:app:set',
-            ['files', 'default_quota', $request->string('quota')->toString()],
+            ['files', 'default_quota', '--value', $request->string('quota')->toString()],
             'occ_set_quota_default',
             $request,
         );

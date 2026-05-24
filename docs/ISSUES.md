@@ -21,6 +21,114 @@
 | ISSUE-013 | bug | Callbacks de webhook chegam com `exit_code=null` e `summary=null` em 100% dos jobs (59/59 staging, 8 job_types) — causa raiz upstream confirmada; SSH fallback quebrado (exit 101) | Jobs, Webhook, Core/Ssh | HIGH | open (causa raiz upstream — fix na API só para mitigações secundárias) |
 | ISSUE-014 | bug | `JobLogFetcher` SSH fallback falha 100% com exit 101 (`cmd_not_allowed`) — argv incorreto inclui `<client>` em comando de introspection `job`; descoberto durante investigação de ISSUE-013 | Jobs, Core/Ssh | MEDIUM | fixed (fix/issue-014-job-log-fetcher-argv) |
 | ISSUE-015 | enhancement | `WebhookHandler` salva apenas subset reconstruído em `audit_logs.payload` (5 chaves) em vez do payload raw — descoberto durante investigação de ISSUE-013, mascarou hipótese inicial | Jobs, Webhook | MEDIUM | open (observabilidade — fast-track) |
+| ISSUE-016 | change_request | 5 endpoints OCC mutativos indisponíveis — allowlist upstream bloqueia subcmds (quota/branding/maintenance) | Occ, Core/Ssh, Livewire | HIGH | mitigated (fast-track F?-OCC-1..3 — contrato OpenAPI + OccPanel UX; D-02 / #ARCH-7 pendente) |
+
+---
+
+## ISSUE-016 — Endpoints OCC quota/branding/maintenance indisponíveis (allowlist upstream)
+
+- **Tipo**: change_request (capability gap upstream + contrato enganoso)
+- **Prioridade**: HIGH (REQUIREMENTS §6.4–6.6 promete MVP; Sofia não consegue quota/branding/maintenance via API/UI)
+- **Status**: mitigated (fast-track 2026-05-24) — **F?-OCC-1..3 implementados** (OpenAPI 403/501, OccPanel exit 16, argv default quota). Gap funcional upstream permanece — **aguarda decisão estratégica D-02** + resposta de [`SoftwareBeesy/mework360-deployer-scripts#22`](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/22) (OPEN)
+- **Sprint**: a alocar após D-02 — mitigações de contrato (OpenAPI + OccPanel UX) podem ir como fast-track independente
+- **Origem**: P-17 em `docs/PROBLEMAS-ENCONTRADOS.md` (testes dinâmicos 2026-05-21)
+- **Módulos afetados**:
+  - `routes/api.php` (5 rotas publicadas)
+  - `app/Http/Controllers/Api/OccController.php` (`setQuotaDefault`, `setQuota`, `setQuotaAll`, `setBranding`, `toggleMaintenance`)
+  - `app/Http/Livewire/Customers/OccPanel.php` (espelha os mesmos subcmds — UI também quebrada)
+  - `docs/openapi.yaml` (declara endpoints como funcionais; sem responses 403/501)
+  - `docs/REQUIREMENTS.md` §6.4–6.6 (MVP prometido)
+- **Upstream afetado**: `nextcloud-saas-manager` — allowlist de `occ-exec` (exit 16)
+- **Relacionados**: ISSUE-011 / P-15 (causa raiz confirmada), P-10 (argv multi-key latente em `setBranding`), P-07 (drift OpenAPI), Decision `#ARCH-6`
+
+### Descrição
+
+Cinco endpoints OCC mutativos estão publicados em `routes/api.php` mas **nunca funcionam** contra o upstream atual porque os subcmds OCC subjacentes estão **fora da allowlist** de `nextcloud-manage <slug> occ-exec` (exit 16).
+
+| Endpoint | Subcmd OCC | Comportamento atual (pós ISSUE-011) |
+|---|---|---|
+| `PUT .../occ/quota/default` | `config:app:set` | **403** `occ_subcmd_not_allowed` |
+| `PUT .../occ/quota/{username}` | `user:setting` | **403** `occ_subcmd_not_allowed` |
+| `PUT .../occ/quota/all` | `user:setting --all` | **501** `occ_subcmd_not_supported` (short-circuit local) |
+| `PUT .../occ/branding` | `theming:config` | **403** `occ_subcmd_not_allowed` |
+| `POST .../occ/maintenance` | `maintenance:mode` | **403** `occ_subcmd_not_allowed` |
+
+ISSUE-011 corrigiu o diagnóstico (allowlist, não "flag stripping") e mapeou exit 16 → 403 honesto (antes: 502 genérico). **O gap funcional permanece**: operadores precisam de SSH manual para quota, branding e maintenance.
+
+`OccPanel` (Livewire) chama os mesmos subcmds — abas Quota/Branding/Maintenance falham com mensagem genérica `"Erro upstream (exit 16)"` (sem mapeamento explícito como no controller).
+
+### Endpoints OCC que funcionam (contraste)
+
+| Endpoint | Subcmd | Status |
+|---|---|---|
+| `GET .../occ/quota/options` | estático | ✅ |
+| `GET .../occ/quota/audit` | `user:list` | ✅ |
+| `POST .../occ/files-rescan?username=` | `files:scan <user>` | ✅ |
+| `POST .../occ/apps/{appId}/enable` | `app:enable` | ✅ |
+
+### Decisão estratégica pendente (D-02 → `#ARCH-7`)
+
+| Caminho | Descrição | Prós | Contras | Quando escolher |
+|---|---|---|---|---|
+| **A** | Pedir ampliação da allowlist upstream (`user:setting`, `config:app:set`, `theming:config`, `maintenance:mode`) | Zero redesign na API; endpoints passam a funcionar como projetados | Expande superfície OCC exposta; depende de maintainer upstream | Upstream aceita e documenta allowlist expandida (#22 opção a) |
+| **B** | Despublicar endpoints quebrados (`routes/api.php`, OpenAPI, abas OccPanel) | Contrato honesto imediato; sem falsa promessa | Remove capacidades MVP (REQUIREMENTS §6.4–6.6); breaking change | Upstream recusa expandir allowlist e não oferece verbos alternativos |
+| **C** | Usar verbos de domínio upstream (ex.: `maintenance enable`, `quota set`, `branding apply`) em vez de `occ-exec` cru | Melhor boundary de segurança; alinhado com alternativa D de `#ARCH-6` | Requer design upstream + refactor API; investigação prévia via `--help` | Upstream prefere expor verbos dedicados (#22 opção d) |
+
+**Recomendação de triagem (2026-05-24)**:
+
+1. **Não despublicar (B) agora** — REQUIREMENTS trata quota/branding/maintenance como MVP; remover sem alternativa piora operação de Sofia.
+2. **Priorizar A + investigação C em paralelo** — issue #22 já aberta; rodar `nextcloud-manage --help` / `occ-exec --help` no node para mapear verbos de domínio existentes antes de commitar em C.
+3. **Fast-track API (independente de D-02)**: documentar 403/501 no OpenAPI; mapear exit 16 no `OccPanel::formatError`; alinhar argv de `OccPanel::submitQuota` default com controller (`--value` obrigatório em `config:app:set` — ver F?-OCC-4).
+
+### Investigação F?-OCC-4 (2026-05-24, `dev.mework360.com.br` upstream v12.3.0)
+
+SSH read-only via `sudo nextcloud-manage` no node SaaS:
+
+| Descoberta | Detalhe |
+|---|---|
+| **Verbos de domínio (caminho C)** | ❌ Inexistentes. Namespaces hierárquicos: `user`, `group`, `apps`, `occ-exec` apenas. Sem `maintenance enable`, `quota set`, `branding apply`. |
+| **OCC_ALLOWLIST expandida** | ✅ `occ_bridge.sh` inclui `user:setting`, `config:app:set`, `theming:config`, `maintenance:mode` (entre 35 subcmds). |
+| **Exit code 16 ≠ allowlist** | ⚠️ **Correção semântica**: exit **16** = `occ_command_failed` (OCC retornou ≠0); exit **100** = `occ_command_not_allowed` (fora da allowlist/blocklist). ISSUE-011 mapeia 16→403 — revisar em follow-up. |
+| **Subcmds funcionais (argv correto)** | `theming:config`, `maintenance:mode --on\|--off`, `user:setting <u> files quota "<valor>"`, `files:scan <u>`, `app:enable <id>` → exit 0 em `teste5`. |
+| **`config:app:set` argv** | Requer `--value`: `config:app:set files default_quota --value "3 GB"`. Positional extra → exit 16 (too many arguments). **OccController corrigido** neste fast-track. |
+| **`maintenance:mode` argv** | Positional `on`/`off` falha; `--on`/`--off` funciona (confirma argv canônico da API). |
+
+**Implicação para D-02**: caminho **A** (allowlist) já parece entregue no upstream v12.3.0; bloqueios remanescentes em produção podem ser **argv incorreto** (exit 16) ou **versão upstream desatualizada** no cluster de staging — não necessariamente allowlist. Recomenda-se reexecutar matriz P-15 pós-deploy e corrigir mapeamento 16 vs 100.
+
+### Critério de aceite (por caminho)
+
+**Se A (allowlist expandida)**:
+
+- Matriz P-15 reexecutada: os 5 subcmds retornam exit 0 em dev.
+- `OccControllerTest` + `OccPanelTest` happy-path verdes contra upstream real (`RUN_UPSTREAM_CONTRACT=1`).
+- OpenAPI atualizado com responses 200 documentadas.
+
+**Se B (despublicar)**:
+
+- Rotas removidas de `routes/api.php`; OpenAPI e REQUIREMENTS §6.4–6.6 ajustados.
+- OccPanel: abas removidas ou desabilitadas com mensagem "indisponível".
+- CHANGELOG registra breaking change.
+
+**Se C (verbos de domínio)**:
+
+- Decision `#ARCH-7` documenta mapeamento endpoint → verbo upstream.
+- `OccPassthroughService` ou gateway dedicado encapsula tradução.
+- P-10 validado após allowlist/verbo permitir `theming:config`.
+
+### Mitigações imediatas (fast-track, sem bloqueio upstream)
+
+| Task | Escopo | Estimativa |
+|---|---|---|
+| F?-OCC-1 | OpenAPI: responses 403 `occ_subcmd_not_allowed` + 501 nos 5 endpoints | ~2h |
+| F?-OCC-2 | `OccPanel::formatError`: exit 16 → mensagem explícita (paridade com API) | ~30min |
+| F?-OCC-3 | `OccPanel::submitQuota` default: argv com `--value` (OCC exige flag; F?-OCC-4 refutou positional) | ~30min |
+| F?-OCC-4 | Investigar verbos upstream (`ssh … nextcloud-manage --help`) — input para D-02 | ~1h read-only | ✅ 2026-05-24 |
+
+### Próximo passo
+
+1. **PMO/Product**: escolher caminho A/B/C → registrar como **Decision `#ARCH-7`** (D-02).
+2. **Paralelo**: executar mitigações F?-OCC-1..4 via `/fix` ou sprint fast-track.
+3. **Upstream**: acompanhar resposta em #22 antes de sprint de implementação do caminho escolhido.
 
 ---
 
