@@ -26,6 +26,24 @@
             font-family: monospace; width: 100%;
         }
         .section-label { font-size: .8125rem; font-weight: 600; color: #63b3ed; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: .05em; }
+        .section-label-sftp { color: #68d391; }
+        .section-divider { border-top: 1px solid #2d3748; margin: 1.5rem 0 1.25rem; }
+        .badge-optional {
+            font-size: .7rem; font-weight: 400; color: #718096;
+            border: 1px solid #2d3748; border-radius: 4px; padding: .1rem .4rem;
+            margin-left: .5rem; text-transform: none; letter-spacing: 0;
+        }
+        .pubkey-box {
+            background: #0f1117; border: 1px solid #2d3748; border-radius: 6px;
+            color: #68d391; padding: .5rem .75rem; font-size: .75rem;
+            font-family: monospace; width: 100%; white-space: pre-wrap; word-break: break-all;
+        }
+        .btn-copy {
+            margin-top: .5rem; background: transparent; border: 1px solid #2d3748;
+            border-radius: 6px; color: #68d391; font-size: .8125rem;
+            padding: .375rem .75rem; cursor: pointer;
+        }
+        .btn-copy:hover { background: #1a2535; }
     </style>
 
     <h1 class="page-title">Editar Cluster Server</h1>
@@ -82,6 +100,67 @@
                     </button>
                 @endif
             </div>
+
+            {{-- ── Canal B — SFTP Branding ────────────────────────────── --}}
+            <div class="section-divider"></div>
+            <p class="section-label section-label-sftp">
+                Canal B — SFTP Branding
+                <span class="badge-optional">opcional</span>
+            </p>
+
+            <div class="form-group">
+                <label for="sftp_user">Usuário SFTP</label>
+                <input id="sftp_user" type="text" class="form-control" wire:model="sftp_user">
+                @error('sftp_user') <p class="error-msg">{{ $message }}</p> @enderror
+                <p class="form-hint">Canal B chrooteado para upload de branding (ncsaas-sftp).</p>
+            </div>
+
+            <div class="form-group">
+                <p class="section-label" style="font-size:.75rem;margin-bottom:.5rem;color:#68d391;">Chave Privada SFTP</p>
+
+                @if($replacingSftpKey)
+                    <textarea
+                        id="sftp_private_key"
+                        class="form-control"
+                        wire:model="sftp_private_key"
+                        rows="8"
+                        placeholder="Cole aqui a chave privada Ed25519 do Canal B em formato PEM"
+                        style="font-family:monospace;font-size:.8125rem;resize:vertical;"
+                    ></textarea>
+                    @error('sftp_private_key') <p class="error-msg">{{ $message }}</p> @enderror
+                    <p class="form-hint">
+                        Gere com <code>ssh-keygen -t ed25519 -f ncsaas-sftp-key</code>.
+                        Ao salvar, a chave pública derivada será exibida abaixo para instalação no servidor.
+                    </p>
+                    <button type="button" class="btn-cancel" wire:click="toggleReplaceSftpKey" style="margin-left:0;margin-top:.5rem;display:inline-block;">
+                        Cancelar substituição
+                    </button>
+                @else
+                    @if($clusterServer->sftp_private_key_encrypted)
+                        <div class="readonly-field">••••••••••••••••  (não exibida)</div>
+                    @else
+                        <div class="readonly-field" style="color:#718096;">Não configurada</div>
+                    @endif
+                    <button type="button" style="margin-top:.5rem;background:transparent;border:1px solid #2d3748;border-radius:6px;color:#68d391;font-size:.8125rem;padding:.375rem .75rem;cursor:pointer;" wire:click="toggleReplaceSftpKey">
+                        {{ $clusterServer->sftp_private_key_encrypted ? 'Substituir chave SFTP' : 'Configurar chave SFTP' }}
+                    </button>
+                @endif
+            </div>
+
+            @if($sftp_public_key)
+            <div class="form-group">
+                <label>Chave Pública SFTP — instale no servidor</label>
+                <div class="pubkey-box" id="sftp-pubkey-box">{{ $sftp_public_key }}</div>
+                <button
+                    type="button"
+                    class="btn-copy"
+                    onclick="navigator.clipboard.writeText(document.getElementById('sftp-pubkey-box').innerText).then(()=>{ this.textContent='Copiado!'; setTimeout(()=>this.textContent='Copiar chave pública',2000) })"
+                >Copiar chave pública</button>
+                <p class="form-hint" style="margin-top:.5rem;">
+                    Adicione no servidor: <code>echo "&lt;chave&gt;" >> /etc/ssh/ncsaas-sftp-authorized_keys</code>
+                </p>
+            </div>
+            @endif
 
             <div>
                 <button type="submit" class="btn-submit" wire:loading.attr="disabled">
