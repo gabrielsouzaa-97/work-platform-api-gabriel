@@ -47,7 +47,7 @@ info:
 
     **Content-Type:** `application/json`
     **CORS:** `Access-Control-Allow-Origin: *` (inclui `OPTIONS`).
-  version: "2.2"
+  version: "2.3"
   contact:
     name: newwork360
 
@@ -714,6 +714,70 @@ paths:
   # ----------------------------------------------------------
 
   /customers/{customer}/occ/branding:
+    put:
+      tags: [OCC]
+      summary: Atualizar theming / identidade visual (OCC passthrough)
+      description: |
+        Delega `occ-exec theming:config <key> <value>` via SSH síncrono.
+        Campos opcionais; apenas chaves presentes e não vazias são enviadas.
+
+        **Upstream atual (ISSUE-016):** `theming:config` está fora da allowlist
+        `occ-exec` — resposta esperada **403** `occ_subcmd_not_allowed` (exit 16)
+        até expansão da allowlist upstream (#22) ou verbo de domínio alternativo.
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                color:
+                  type: string
+                  pattern: "^#[0-9a-fA-F]{6}$"
+                url:
+                  type: string
+                  format: uri
+                slogan:
+                  type: string
+                  maxLength: 255
+                imprintUrl:
+                  type: string
+                  format: uri
+                privacyUrl:
+                  type: string
+                  format: uri
+      responses:
+        "200":
+          description: Branding atualizado (quando upstream permitir o subcmd)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OccSubcmdNotAllowed"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+        "504":
+          description: Timeout SSH (occ_timeout)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: occ_timeout
     post:
       tags: [OCC]
       summary: Atualizar theming / identidade visual (OCC)
@@ -958,6 +1022,9 @@ paths:
       description: |
         Body JSON usa campo `on` (boolean). Upstream recebe `occ-exec maintenance:mode`
         com argv canônico `--on` ou `--off` (não positional `on`/`off`).
+
+        **Upstream atual (ISSUE-016):** `maintenance:mode` está fora da allowlist —
+        resposta esperada **403** `occ_subcmd_not_allowed` (exit 16).
       parameters:
         - $ref: "#/components/parameters/customer"
       requestBody:
@@ -974,25 +1041,43 @@ paths:
                   example: true
       responses:
         "200":
-          description: Modo de manutenção alterado
+          description: Modo de manutenção alterado (quando upstream permitir o subcmd)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OccSubcmdNotAllowed"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+        "504":
+          description: Timeout SSH (occ_timeout)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: occ_timeout
 
-  # ---------- OCC Quotas ----------
+  # ---------- OCC Quotas (mutativos — allowlist upstream ISSUE-016) ----------
 
   /customers/{customer}/occ/quota/all:
-    post:
+    put:
       tags: [OCC]
-      summary: Definir quota para todos os usuários (OCC)
-      description: Aplica a quota a todos os usuários da instância. A resposta inclui `data.updated` por usuário.
+      summary: Definir quota para todos os usuários (OCC — não suportado)
+      description: |
+        Short-circuit local: `user:setting --all` não está na allowlist do
+        `occ-exec` upstream. Sempre retorna **501** `occ_subcmd_not_supported`.
+        Use `PUT .../occ/quota/{username}` usuário-a-usuário enquanto D-02/#ARCH-7
+        não definir caminho alternativo.
       parameters:
         - $ref: "#/components/parameters/customer"
       requestBody:
@@ -1002,18 +1087,60 @@ paths:
             schema:
               $ref: "#/components/schemas/QuotaRequest"
       responses:
-        "200":
-          description: Quota aplicada
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
+        "501":
+          $ref: "#/components/responses/OccSubcmdNotSupported"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+
+  /customers/{customer}/occ/quota/{username}:
+    put:
+      tags: [OCC]
+      summary: Definir quota de um usuário (OCC passthrough)
+      description: |
+        Delega `occ-exec user:setting <username> files quota <valor>`.
+
+        **Upstream atual (ISSUE-016):** `user:setting` está fora da allowlist —
+        resposta esperada **403** `occ_subcmd_not_allowed` (exit 16).
+      parameters:
+        - $ref: "#/components/parameters/customer"
+        - $ref: "#/components/parameters/username"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaRequest"
+      responses:
+        "200":
+          description: Quota atualizada (quando upstream permitir o subcmd)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OccSubcmdNotAllowed"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+        "504":
+          description: Timeout SSH (occ_timeout)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: occ_timeout
 
   /customers/{customer}/occ/quota/default:
     get:
@@ -1044,7 +1171,8 @@ paths:
 
     post:
       tags: [OCC]
-      summary: Definir quota padrão (OCC)
+      summary: Definir quota padrão (OCC — legado POST; implementação usa PUT)
+      deprecated: true
       parameters:
         - $ref: "#/components/parameters/customer"
       requestBody:
@@ -1066,6 +1194,50 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
+
+    put:
+      tags: [OCC]
+      summary: Definir quota padrão da instância (OCC passthrough)
+      description: |
+        Delega `occ-exec config:app:set files default_quota --value <valor>`.
+
+        **Upstream atual (ISSUE-016):** `config:app:set` está fora da allowlist —
+        resposta esperada **403** `occ_subcmd_not_allowed` (exit 16).
+      parameters:
+        - $ref: "#/components/parameters/customer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaRequest"
+      responses:
+        "200":
+          description: Quota padrão definida (quando upstream permitir o subcmd)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OccSubcmdNotAllowed"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+        "504":
+          description: Timeout SSH (occ_timeout)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: occ_timeout
 
   /customers/{customer}/occ/quota/options:
     get:
@@ -1302,6 +1474,51 @@ components:
                 type: string
                 description: Canonical cmd that hit the BlockedOnUpstreamException branch.
                 example: groups:add
+
+    OccSubcmdNotAllowed:
+      description: |
+        Subcomando OCC requisitado está fora da allowlist do wrapper
+        `nextcloud-manage <slug> occ-exec` no upstream (SSH exit 16).
+        Endpoints mutativos afetados: quota default/user, branding, maintenance.
+        Ver ISSUE-011 / ISSUE-016.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, detail, subcmd, exit_code]
+            properties:
+              error:
+                type: string
+                enum: [occ_subcmd_not_allowed]
+                example: occ_subcmd_not_allowed
+              detail:
+                type: string
+                example: 'Subcmd "user:setting" não está na allowlist do nextcloud-saas-manager occ-exec (exit 16). Ver docs/ISSUES.md ISSUE-011.'
+              subcmd:
+                type: string
+                example: user:setting
+              exit_code:
+                type: integer
+                example: 16
+
+    OccSubcmdNotSupported:
+      description: |
+        Operação OCC documentada porém não suportada pelo upstream atual —
+        short-circuit local antes de SSH (HTTP 501). Ex.: quota bulk `--all`.
+        Ver ISSUE-011 / ISSUE-016.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, detail]
+            properties:
+              error:
+                type: string
+                enum: [occ_subcmd_not_supported]
+                example: occ_subcmd_not_supported
+              detail:
+                type: string
+                example: 'user:setting --all não é suportado pelo upstream nextcloud-saas-manager. Subcmd está fora da allowlist de occ-exec; aplique a quota usuário-a-usuário via PUT /customers/{slug}/occ/quota/{username}. Ver docs/ISSUES.md ISSUE-011.'
 
     ClusterUnreachable:
       description: Cluster offline ou SSH inacessível (503)

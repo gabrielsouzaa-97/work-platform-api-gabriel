@@ -385,6 +385,7 @@ class OccPanel extends Component
             $e instanceof SshRemoteException && $e->remoteExitCode === 1 => 'Recurso não encontrado no Nextcloud.',
             $e instanceof SshRemoteException && $e->remoteExitCode === 4 => 'Recurso já existe.',
             $e instanceof SshRemoteException && $e->remoteExitCode === 22 => 'Senha não atende aos requisitos mínimos.',
+            $e instanceof SshRemoteException && $e->remoteExitCode === 16 => 'Operação OCC não permitida pelo upstream — subcomando bloqueado na allowlist occ-exec (exit 16).',
             $e instanceof SshRemoteException => "Erro upstream (exit {$e->remoteExitCode}).",
             default => 'Erro inesperado: '.$e->getMessage(),
         };

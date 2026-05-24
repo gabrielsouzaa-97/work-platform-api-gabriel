@@ -157,6 +157,54 @@ it('submitQuota com valor inválido → erro de validação', function () {
         ->assertHasErrors(['quotaValue']);
 });
 
+it('submitQuota default usa argv com --value para config:app:set (F?-OCC-4)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(function ($clusterArg, $cmd, $args) {
+            return $cmd === 'nextcloud-manage'
+                && in_array('config:app:set', $args, true)
+                && in_array('files', $args, true)
+                && in_array('default_quota', $args, true)
+                && in_array('--value', $args, true)
+                && in_array('10 GB', $args, true);
+        })
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['ok' => true]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['ok' => true],
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('quotaScope', 'default')
+        ->set('quotaValue', '10 GB')
+        ->call('submitQuota')
+        ->assertSet('successMessage', 'Quota atualizada com sucesso.');
+});
+
+it('submitBranding com exit 16 → mensagem allowlist explícita (ISSUE-016)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->once()->andThrow(new SshRemoteException('subcmd blocked', 16));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('brandingName', 'Acme')
+        ->call('submitBranding')
+        ->assertSet('errorMessage', 'Operação OCC não permitida pelo upstream — subcomando bloqueado na allowlist occ-exec (exit 16).');
+});
+
 // ── Rescan (sync OCC) ───────────────────────────────────────────────────────
 
 it('submitRescan sem username executa --all e gera successMessage', function () {
