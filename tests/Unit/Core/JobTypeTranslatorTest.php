@@ -73,18 +73,9 @@ it('covers all 15 cmd verbs in forward direction', function (string $cmd, string
 
 // ── cmd → CLI argv (Sprint F5 / ISSUE-006) ────────────────────────────────────
 
-it('cmdToCliArgv maps all canonical verbs to upstream argv tokens', function (string $cmd, array $expectedArgv): void {
+it('cmdToCliArgv maps all lifecycle verbs to upstream argv tokens', function (string $cmd, array $expectedArgv): void {
     expect($this->translator->cmdToCliArgv($cmd))->toBe($expectedArgv);
 })->with([
-    // Customer-level verbs (positional after slug)
-    ['create', ['create']],
-    ['remove', ['remove']],
-    ['backup', ['backup']],
-    ['restore', ['restore']],
-    ['update', ['update']],
-    ['stop', ['stop']],
-    ['start', ['start']],
-
     // Hierarchical namespace verbs — note `remove` (NOT `delete`) for delete operations
     ['users:create', ['user', 'create']],
     ['users:delete', ['user', 'remove']],
@@ -93,6 +84,11 @@ it('cmdToCliArgv maps all canonical verbs to upstream argv tokens', function (st
     ['apps:enable', ['apps', 'enable']],
     ['apps:disable', ['apps', 'disable']],
 ]);
+
+it('cmdToCliArgv throws UnknownVerbException for customer-level verbs (built manually by Actions)', function (string $cmd): void {
+    expect(fn () => $this->translator->cmdToCliArgv($cmd))
+        ->toThrow(UnknownVerbException::class);
+})->with(['create', 'remove', 'backup', 'restore', 'update', 'stop', 'start']);
 
 it('cmdToCliArgv throws BlockedOnUpstreamException for groups:add (group membership pending)', function (): void {
     expect(fn () => $this->translator->cmdToCliArgv('groups:add'))

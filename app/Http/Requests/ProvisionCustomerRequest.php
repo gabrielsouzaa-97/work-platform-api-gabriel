@@ -6,6 +6,7 @@ namespace App\Http\Requests;
 
 use App\Rules\Slug;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class ProvisionCustomerRequest extends FormRequest
@@ -18,7 +19,7 @@ class ProvisionCustomerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'slug' => ['required', 'string', new Slug, 'unique:customers,slug'],
+            'slug' => ['required', 'string', new Slug, Rule::unique('customers', 'slug')->whereNull('deleted_at')],
             'cluster_server_id' => ['required', 'uuid', 'exists:cluster_servers,id'],
             'domain' => ['required', 'string', 'max:253'],
             'apps' => ['nullable', 'array'],

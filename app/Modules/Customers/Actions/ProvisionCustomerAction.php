@@ -156,13 +156,33 @@ final class ProvisionCustomerAction
             ?? throw new \RuntimeException('SSH did not return job_id in response');
 
         return DB::transaction(function () use ($payload, $cluster, $jobId, $idempotencyKey, $actor): array {
-            $customer = Customer::create([
-                'slug' => $payload->slug,
-                'cluster_server_id' => $cluster->id,
-                'domain' => $payload->domain,
-                'status' => 'provisioning',
-                'last_sync_at' => now(),
-            ]);
+            // If a ghost (soft-deleted) Customer exists from a previous failed provisioning,
+            // restore it and update its fields instead of forceDelete + re-create.
+            // forceDelete would violate jobs.customer_slug FK RESTRICT (jobs from the
+            // previous attempt are preserved as audit trail).
+            $ghost = Customer::withTrashed()
+                ->where('slug', $payload->slug)
+                ->whereNotNull('deleted_at')
+                ->first();
+
+            if ($ghost) {
+                $ghost->restore();
+                $ghost->update([
+                    'cluster_server_id' => $cluster->id,
+                    'domain' => $payload->domain,
+                    'status' => 'provisioning',
+                    'last_sync_at' => now(),
+                ]);
+                $customer = $ghost;
+            } else {
+                $customer = Customer::create([
+                    'slug' => $payload->slug,
+                    'cluster_server_id' => $cluster->id,
+                    'domain' => $payload->domain,
+                    'status' => 'provisioning',
+                    'last_sync_at' => now(),
+                ]);
+            }
 
             $job = Job::create([
                 'job_id' => $jobId,

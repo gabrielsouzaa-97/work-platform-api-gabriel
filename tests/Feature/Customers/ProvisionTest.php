@@ -277,3 +277,75 @@ it('sem autenticação → 401', function () {
 
     $response->assertStatus(401);
 });
+
+// ── F11.1 / ISSUE-018: re-provisioning após provision.failed ──────────────────
+
+it('re-provisionar slug após provision.failed → ghost restaurado, 201 + novo job (CQ-F11-001/QA-F11-001)', function () {
+    // Arrange: ghost Customer soft-deleted (simula estado após WebhookHandler processar provision.failed)
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator();
+    $ghostJobId = Str::uuid()->toString();
+
+    Customer::create([
+        'slug' => 'failed-tenant',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'failed-tenant.example.com',
+        'status' => 'failed',
+    ])->delete(); // soft-delete simulating WebhookHandler
+
+    // FK constraint check: create a Job referencing the ghost (as would exist after provision.failed)
+    Job::create([
+        'job_id' => $ghostJobId,
+        'customer_slug' => 'failed-tenant',
+        'cluster_server_id' => $cluster->id,
+        'cmd_canonical' => 'create',
+        'job_type' => 'provision',
+        'state' => 'failed',
+        'idempotency_key' => Str::uuid()->toString(),
+        'queued_at' => now()->subMinutes(10),
+    ]);
+
+    $newJobId = Str::uuid()->toString();
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('runAsync')->once()->andReturn(sshProvisionSuccess($newJobId));
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    // Act: re-provisionar o mesmo slug
+    $response = $this->actingAs($operator)->postJson('/api/customers', [
+        'slug' => 'failed-tenant',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'failed-tenant.example.com',
+    ]);
+
+    // Assert: 2xx, ghost restaurado como active customer, novo Job criado
+    $response->assertSuccessful(); // 200 (restore) ou 201 (create) — ambos válidos
+    expect(Customer::find('failed-tenant'))->not->toBeNull()
+        ->and(Customer::find('failed-tenant')->status)->toBe('provisioning')
+        ->and(Customer::find('failed-tenant')->deleted_at)->toBeNull();
+    expect(Job::find($newJobId))->not->toBeNull();
+
+    // Velhos jobs do ghost NÃO foram deletados (audit trail preservado)
+    expect(Job::find($ghostJobId))->not->toBeNull();
+});
+
+it('slug de customer ativo (não soft-deleted) → 422 (unique constraint mantém rejeição)', function () {
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator();
+
+    Customer::create([
+        'slug' => 'active-tenant',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'active-tenant.example.com',
+        'status' => 'active',
+    ]);
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $this->actingAs($operator)->postJson('/api/customers', [
+        'slug' => 'active-tenant',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'active-tenant.example.com',
+    ])->assertStatus(422);
+});

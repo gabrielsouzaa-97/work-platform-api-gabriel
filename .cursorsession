@@ -33,16 +33,16 @@
     }
   ],
   "fase_atual": "12",
-  "fase_nome": "Sprint F10 ativa — ISSUE-014 JobLogFetcher argv fix (push + deploy pendente)",
-  "sprint_atual": null,
-  "previous_sprint": "F10",
+  "fase_nome": "Sprint F12 concluída — ISSUE-020 resolvido",
+  "sprint_atual": "F12",
+  "previous_sprint": "F11",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-24T10:10:13Z",
-  "next_sprint_planned": "F7",
+  "ultimo_update": "2026-05-28T03:00:36Z",
+  "next_sprint_planned": null,
   "modulos": [
     "Core",
     "ClusterServers",
@@ -109,7 +109,8 @@
     "F5.8: Rollback de IdempotencyKey assertado em 3 testes SSH-failure + novo teste SshConnectionException em cluster ativo (QA-F5-017 HIGH + QA-F5-018 MED)",
     "F5.9: Helper noUpstreamFlagDuplication() global aplicado em 7 testes LifecycleTest + email/groups no stdin do UpstreamContractTest (QA-F5-005 MED ampliado + QA-F5-015 MED)",
     "F5.10: docs/openapi.yaml v2.0→v2.1 (apps/* novo shape + 501 groups/{g}/users) + OccPanelTest novo (19 testes) + Gate import fix em OccPanel.php (CQ-F5-001 HIGH + QA-F5-016 MED)",
-    "F5.11: same-path fix p/ OccPanel::createUser (QA-F5-019 HIGH convergente) — blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch + zera no finally; 4 testes atualizados + 2 novos (production scenario + cleanup); ISSUE-007 (E2E Dusk/Playwright) backlog"
+    "F5.11: same-path fix p/ OccPanel::createUser (QA-F5-019 HIGH convergente) — blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch + zera no finally; 4 testes atualizados + 2 novos (production scenario + cleanup); ISSUE-007 (E2E Dusk/Playwright) backlog",
+    "F12.1: SshClient normaliza ConnectionClosedException do phpseclib durante exec()/stdin como SshConnectionException, remove conexão stale do pool e preserva retry; SshClientTest cobre retry e sucesso na segunda tentativa"
   ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
@@ -171,14 +172,14 @@
   ],
   "anchor": {
     "persona": "implementer (Composer 2.5)",
-    "phase": "Sprint F10 — ISSUE-014 fix merged local; F10.1+F10.2 done; aguardando F10.3 push+deploy",
-    "intent": "Corrigir argv JobLogFetcher para introspection job (sem client slug) — resolve logs vazios em /queue/{jobId}",
-    "changes_made": "197ff46: JobLogFetcher argv fix + SshRemoteException fallback; 12 JobLogFetcherTest passed; ISSUES ISSUE-014 fixed",
-    "decisions": "Fast-track F10 (<1 dia); alinha com JobsPollStuckCommand e SSH API Reference §3.4",
-    "next_steps": "1) git push origin main 2) deploy deployer.mework360.com.br 3) rodar job teste e validar summary + UI logs",
-    "updated_at": "2026-05-24T05:05:00Z"
+    "phase": "Sprint F11 R1 — APROVADA — todos os findings corrigidos in-sprint",
+    "intent": "ISSUE-018 slug reuse + 5 MEDIUM F5 + R1 correções (FK RESTRICT + cobertura)",
+    "changes_made": "F11 base (6 tasks) + R1: restore()+update() em vez de forceDelete; 2 testes e2e re-provisioning; AuditLog assert em provision.failed; 3 testes mapLifecycleException apps; SshRemoteException apps test",
+    "decisions": "restore+update ghost (preserva FK jobs/idempotency_keys sem migration); Policy A CSV apps (order-sensitive)",
+    "next_steps": "commit fix(sprint-F11): all 6 tasks + R1 follow-up | sprint F7 (CQ-N1-001/002, QA-N1-001 HIGH)",
+    "updated_at": "2026-05-24T11:09:00Z"
   },
-  "contexto_rapido": "Sprint F5 R2 follow-up CONCLUÍDO (2026-05-20T20:35Z) — task F5.11 implementada via same-path strategy: blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch; 4 testes atualizados + 2 novos; ISSUE-007 (E2E Dusk/Playwright) backlogada. Suite 323 passed (+2 vs R2), 839 assertions, 6 skipped (Contract opt-in). Commit monolítico fd674cb. Próximo: /qa validar R3 com diversidade de modelo (senior=gpt-5.3-codex sugerido; qa=gemini-3.1-pro).",
+  "contexto_rapido": "Sprint F11 + R1 APROVADA (2026-05-24T11:09Z) — 6 tasks implementadas + R1 follow-up: CQ-F11-001 CRITICAL corrigido (forceDelete→restore+update, sem FK violation); CQ-F11-002/QA-F11-001 HIGH cobertos (2 testes e2e re-provisioning); QA-F11-002 (AuditLog assert); QA-F11-003/004 (3+1 testes mapLifecycleException apps). Suite: 388 passed, 1014 assertions, 7 skipped, 7 failed pré-existentes. ISSUE-018 resolvido. Pronto para commit.",
   "autopilot": {
     "active": false
   },
@@ -190,21 +191,55 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "F10",
-    "phase": "merged",
+    "sprint": "F12",
+    "phase": "completed",
     "branch": "main",
-    "head_sha": "197ff46",
-    "last_completed_task": "F10.2 — testes JobLogFetcher argv + SshRemoteException fallback",
-    "current_task": "F10.3 — push main + deploy + validar logs em produção",
-    "tests_passing": 12,
+    "head_sha": "pending-commit",
+    "last_completed_task": "F12.1 — normalizar ConnectionClosedException em SshClient::executeCommand()",
+    "current_task": null,
+    "tests_passing": 13,
     "tests_skipped": 0,
-    "assertions": 39,
-    "audit_findings_resolved": 0,
+    "assertions": 36,
+    "audit_findings_resolved": 1,
     "audit_findings_pending": 0,
     "audit_status": "FAST_TRACK",
-    "timestamp": "2026-05-24T05:05:00Z"
+    "timestamp": "2026-05-28T02:44:45Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-05-24T10:20:00Z",
+      "action": "/fix (interativo)",
+      "sprints_generated": [
+        "F11"
+      ],
+      "findings_in_scope": [
+        "CQ-F5-002",
+        "CQ-F5-003",
+        "QA-F5-006",
+        "QA-F5-008",
+        "QA-F5-010"
+      ],
+      "issues_in_scope": [
+        "ISSUE-018"
+      ],
+      "findings_breakdown": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 5,
+        "LOW": 0
+      },
+      "issues_breakdown": {
+        "HIGH": 1
+      },
+      "split_strategy": "ISSUE-018 HIGH (novo) + 5 MEDIUM F5 (próximo /fix). N1 HIGH (CQ-N1-001/002, QA-N1-001) mantidos em F7 já planejada.",
+      "tasks_count": {
+        "P": 4,
+        "M": 2,
+        "total": 6
+      },
+      "review_level": "senior+qa (HIGH em ISSUE-018)",
+      "source_skill_invocation": "/qa debug (mesma conversa) → Fix Brief aprovado → /fix"
+    },
     {
       "timestamp": "2026-05-20T06:42:00Z",
       "action": "/fix (interativo)",

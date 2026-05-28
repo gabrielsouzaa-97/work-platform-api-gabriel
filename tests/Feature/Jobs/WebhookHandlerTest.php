@@ -255,3 +255,62 @@ it('AuditLog.payload registra event + duration_ms para forense', function (): vo
         ->and($audit->payload['duration_ms'])->toBe(12345)
         ->and($audit->payload['exit_code'])->toBe(0);
 });
+
+// ── F11.1 / ISSUE-018: provision failure → ghost soft-deleted ─────────────────
+
+it('job.finished provision failed → customer soft-deletado (slug pode ser reutilizado)', function (): void {
+    $cluster = handlerCluster();
+    $job = handlerJob($cluster->id, state: 'running', jobType: 'provision');
+    Customer::where('slug', 'acme-handler')->update(['status' => 'provisioning']);
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'failed',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 1,
+    ]);
+
+    // Customer must be soft-deleted, not hard-deleted
+    expect(Customer::where('slug', 'acme-handler')->exists())->toBeFalse()
+        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->exists())->toBeTrue()
+        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->whereNotNull('deleted_at')->exists())->toBeTrue();
+
+    // AuditLog must still be created (soft-delete must not interfere with audit trail)
+    expect(AuditLog::where('job_id', $job->job_id)->where('action', 'webhook_received')->exists())->toBeTrue();
+});
+
+it('job.finished provision cancelled → customer soft-deletado', function (): void {
+    $cluster = handlerCluster();
+    $job = handlerJob($cluster->id, state: 'running', jobType: 'provision');
+    Customer::where('slug', 'acme-handler')->update(['status' => 'provisioning']);
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'cancelled',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 130,
+    ]);
+
+    expect(Customer::where('slug', 'acme-handler')->exists())->toBeFalse()
+        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->whereNotNull('deleted_at')->exists())->toBeTrue();
+});
+
+it('job.finished deprovision success → customer NÃO é soft-deletado por esta branch', function (): void {
+    $cluster = handlerCluster();
+    $job = handlerJob($cluster->id, state: 'running', jobType: 'deprovision');
+    Customer::where('slug', 'acme-handler')->update(['status' => 'active']);
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ]);
+
+    // deprovision success sets status=removed but should not soft-delete (no ghost scenario)
+    expect(Customer::where('slug', 'acme-handler')->value('status'))->toBe('removed')
+        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->whereNull('deleted_at')->exists())->toBeTrue();
+});

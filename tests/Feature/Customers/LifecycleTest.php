@@ -96,6 +96,12 @@ it('POST users → 202 + job_id + audit log criado + email/groups via stdin (nã
             if (! in_array('johndoe', $args, true) || in_array('john@acme.com', $args, true)) {
                 return false;
             }
+            // QA-F5-006: idempotency-key and callback flags must be present in argv
+            $hasIdempotencyKey = (bool) array_filter($args, fn ($a) => is_string($a) && str_starts_with($a, '--idempotency-key='));
+            $hasCallback = (bool) array_filter($args, fn ($a) => is_string($a) && str_contains($a, '/api/jobs/hook?cluster='));
+            if (! $hasIdempotencyKey || ! $hasCallback) {
+                return false;
+            }
             $decoded = json_decode($stdin ?? '', true);
 
             return is_array($decoded)
@@ -303,10 +309,17 @@ it('POST groups → 202 + job_id + argv ["group","create"]', function () {
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => argsContainConsecutive($args, ['group', 'create'])
-            && noUpstreamFlagDuplication($args, 'groups:create')
-            && in_array('editors', $args, true)
-        )
+        ->withArgs(function ($c, $cmd, $args) {
+            // QA-F5-006: idempotency-key and callback must be in argv
+            $hasIdempotencyKey = (bool) array_filter($args, fn ($a) => is_string($a) && str_starts_with($a, '--idempotency-key='));
+            $hasCallback = (bool) array_filter($args, fn ($a) => is_string($a) && str_contains($a, '/api/jobs/hook?cluster='));
+
+            return argsContainConsecutive($args, ['group', 'create'])
+                && noUpstreamFlagDuplication($args, 'groups:create')
+                && in_array('editors', $args, true)
+                && $hasIdempotencyKey
+                && $hasCallback;
+        })
         ->andReturn(sshLifecycleSuccess($jobId));
     $this->app->instance(SshClientInterface::class, $ssh);
 
@@ -368,10 +381,17 @@ it('POST apps/enable consolida lista em 1 job único com CSV positional', functi
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once() // single call — not one-per-app
-        ->withArgs(fn ($c, $cmd, $args) => argsContainConsecutive($args, ['apps', 'enable'])
-            && noUpstreamFlagDuplication($args, 'apps:enable')
-            && in_array('calendar,contacts,mail', $args, true)
-        )
+        ->withArgs(function ($c, $cmd, $args) {
+            // QA-F5-006: idempotency-key and callback must be in argv
+            $hasIdempotencyKey = (bool) array_filter($args, fn ($a) => is_string($a) && str_starts_with($a, '--idempotency-key='));
+            $hasCallback = (bool) array_filter($args, fn ($a) => is_string($a) && str_contains($a, '/api/jobs/hook?cluster='));
+
+            return argsContainConsecutive($args, ['apps', 'enable'])
+                && noUpstreamFlagDuplication($args, 'apps:enable')
+                && in_array('calendar,contacts,mail', $args, true)
+                && $hasIdempotencyKey
+                && $hasCallback;
+        })
         ->andReturn(sshLifecycleSuccess($jobId));
     $this->app->instance(SshClientInterface::class, $ssh);
 
@@ -698,4 +718,98 @@ it('SSH timeout em lifecycle → 504 lifecycle_timeout + nada persistido', funct
     expect(IdempotencyKey::where('cmd', 'groups:create')->count())->toBe(0)
         ->and(Job::where('cmd_canonical', 'groups:create')->count())->toBe(0)
         ->and(AuditLog::where('action', 'groups_create_initiated')->count())->toBe(0);
+});
+
+// ── QA-F11-003/004: mapLifecycleException coverage for dispatchAppsCsv ─────────
+
+it('apps/enable: cluster offline → 503 cluster_unreachable (mapLifecycleException via dispatchAppsCsv)', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'unreachable']);
+    $customer = Customer::create([
+        'slug' => 'lc-apps-off-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'lc-apps-offline.example.com',
+        'status' => 'active',
+    ]);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", ['apps' => ['calendar']])
+        ->assertStatus(503)
+        ->assertJsonPath('error', 'cluster_unreachable');
+});
+
+it('apps/enable: SSH timeout → 504 lifecycle_timeout (mapLifecycleException via dispatchAppsCsv)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')->once()->andThrow(new SshTimeoutException('Timeout'));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", ['apps' => ['calendar']])
+        ->assertStatus(504)
+        ->assertJsonPath('error', 'lifecycle_timeout');
+});
+
+it('apps/disable: SSH error → 502 com apps_csv no payload (SshRemoteException via dispatchAppsCsv, QA-F11-004)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')->once()->andThrow(new SshRemoteException('Remote error', 99));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/disable", ['apps' => ['calendar', 'mail']])
+        ->assertStatus(502)
+        ->assertJsonPath('error', 'upstream_error')
+        ->assertJsonPath('apps_csv', 'calendar,mail');
+});
+
+// ── QA-F5-008: CSV apps order policy ──────────────────────────────────────────
+
+it('apps/enable: ordem dos apps é preservada (policy A — order-sensitive CSV, QA-F5-008)', function () {
+    // Policy A: implode preserves input order. Two requests with the same apps
+    // in different order produce DIFFERENT CSV strings (= different idempotency hashes).
+    // This is intentional — callers are responsible for canonicalizing if they need dedup.
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+    $jobId1 = Str::uuid()->toString();
+    $jobId2 = Str::uuid()->toString();
+
+    $capturedArgs = [];
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->twice()
+        ->withArgs(function ($c, $cmd, $args) use (&$capturedArgs) {
+            $capturedArgs[] = $args;
+
+            return true;
+        })
+        ->andReturn(sshLifecycleSuccess($jobId1), sshLifecycleSuccess($jobId2));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", ['apps' => ['calendar', 'mail']])
+        ->assertStatus(202);
+
+    // Second request with same apps in reversed order — must NOT be treated as duplicate
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", ['apps' => ['mail', 'calendar']])
+        ->assertStatus(202);
+
+    // The two argv sets must carry DIFFERENT CSV strings
+    $csvFromFirst = collect($capturedArgs[0])->first(fn ($a) => str_contains($a, 'calendar') && str_contains($a, 'mail'));
+    $csvFromSecond = collect($capturedArgs[1])->first(fn ($a) => str_contains($a, 'calendar') && str_contains($a, 'mail'));
+    expect($csvFromFirst)->toBe('calendar,mail')
+        ->and($csvFromSecond)->toBe('mail,calendar')
+        ->and($csvFromFirst)->not->toBe($csvFromSecond);
 });

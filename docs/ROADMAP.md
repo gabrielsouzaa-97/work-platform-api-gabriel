@@ -79,6 +79,7 @@
 | F8     | F         | Provision success não marca tenant `active` antes de probe; `users:*` retorna 503 até readiness confirmada | **concluída** | 10    | Jobs, Customers, Webhook | ISSUE-010 — validada APROVADA R1 | 3865+    |
 | F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — `/fix` HIGH-only 2026-05-24 | 4003+    |
 | F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **ativa** | 3     | Jobs, Core/Ssh | ISSUE-014 fast-track — corrige gate F6/ISSUE-009 | 4055+    |
+| F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — readiness probe vaza `ConnectionClosedException` | 4227+ |
 
 ---
 
@@ -3042,8 +3043,6 @@ Frontmatter YAML obrigatória:
 **Risco**: LOW — feature aditiva guarded por env; payload não contém segredos (HMAC signature em header, não body); `APP_ENV=local` somente em dev
 **Budget**: P (1 arquivo de produção + 2 testes pareados local/testing)
 
----
-
 ## Sprint F5 — Tradutor cmd → CLI argv: fix lifecycle async upstream contract
 
 > Categoria: F
@@ -4079,8 +4078,187 @@ Fix implementado em `197ff46` (merged local em `main`). Sprint F10 formaliza gat
 
 ---
 
+## Sprint F11 — Slug reuse pós-falha + limpeza MEDIUM F5
+
+> Categoria: F
+> Gate: (1) re-provisionar o mesmo slug após job `provision.failed` retorna 202 sem erro; (2) `unique:customers,slug` ignora soft-deleted; (3) `Customer::create` não colide em PK com registro fantasma; (4) CMD_TO_CLI_ARGV dead-code removido; (5) `mapLifecycleException` extraído; (6) phpunit.xml força `RUN_UPSTREAM_CONTRACT=0`; (7) suite permanece verde.
+> Gerado por `/fix` em 2026-05-24. Fonte: ISSUE-018 (HIGH) + CQ-F5-002/003, QA-F5-006, QA-F5-008, QA-F5-010 (MEDIUM — próximo /fix).
+> review: senior+qa (HIGH em ISSUE-018; delta isolado)
+> **Nota**: `CQ-N1-001`, `CQ-N1-002`, `QA-N1-001` (HIGH) já estão em Sprint F7 (não executada). Recomenda-se executar F11 e F7 em sequência ou combinados via `/pmo sprint F11` + `/pmo sprint F7`.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F11.1 — [ISSUE-018] Corrigir lifecycle de Customer após falha de provisioning (soft-delete + unique fix + forceDelete fantasma) | `laravel-migration` + `webhook-receiver` | — |
+| [x] | P | F11.2 — [CQ-F5-002] Remover 7 entradas YAGNI customer-level de `CMD_TO_CLI_ARGV` em `JobTypeTranslator` | `vocabulary-translator` | — |
+| [x] | P | F11.3 — [CQ-F5-003] Extrair `mapLifecycleException()` privado em `CustomerLifecycleController` | `laravel-api` | — |
+| [x] | P | F11.4 — [QA-F5-010] Adicionar `<env name="RUN_UPSTREAM_CONTRACT" value="0" force="true"/>` ao `phpunit.xml` | `60-testing.mdc` | — |
+| [x] | M | F11.5 — [QA-F5-006] Adicionar assertions `--idempotency-key=` e `--callback=` em `LifecycleTest` (1 teste representativo por path) | `laravel-testing` | — |
+| [x] | M | F11.6 — [QA-F5-008] Decidir + documentar política de hash para CSV apps; adicionar teste assertindo a política | `vocabulary-translator` + `laravel-testing` | — |
+
+### Task F11.1 — [ISSUE-018] Lifecycle de Customer após falha de provisioning
+
+**Estado atual**: Quando `WebhookHandler` recebe `job.finished` com `state=failed` para um job de `provision`, apenas atualiza `customer.status = 'failed'`. O registro `Customer` persiste na tabela. Como `slug` é PK, re-provisioning com mesmo slug falha em dois pontos:
+- `ProvisionCustomerRequest` → 422 "Slug já em uso" (regra `unique:customers,slug` não exclui soft-deleted)
+- `ProvisionCustomerAction` → PK duplicate error (mesmo com soft-delete, constraint do banco persiste)
+
+**Estado desejado**: Falha de provisioning resulta em registro fantasma removido → re-provisioning funciona transparentemente.
+
+**Fix em 3 arquivos cirúrgicos**:
+
+1. `app/Modules/Jobs/Services/WebhookHandler.php` (~linha 169) — após `Customer::where(...)->update(['status' => $customerStatus])`:
+   ```php
+   // Soft-delete: provisioning failure = customer was never created upstream
+   if (in_array($canonical, ['failed', 'cancelled'], true) && $job->job_type === 'provision') {
+       Customer::where('slug', $job->customer_slug)->delete();
+   }
+   ```
+
+2. `app/Http/Requests/ProvisionCustomerRequest.php` (linha 21) — trocar a regra `unique`:
+   ```php
+   // ANTES: 'unique:customers,slug'
+   // DEPOIS:
+   use Illuminate\Validation\Rule;
+   Rule::unique('customers', 'slug')->whereNull('deleted_at'),
+   ```
+
+3. `app/Modules/Customers/Actions/ProvisionCustomerAction.php` — dentro do `DB::transaction`, antes de `Customer::create(...)`:
+   ```php
+   // Cleanup any soft-deleted ghost from a previous failed provisioning attempt
+   Customer::withTrashed()->where('slug', $payload->slug)->whereNotNull('deleted_at')->forceDelete();
+   ```
+
+**Fonte(s)**: ISSUE-018 (HIGH)
+**Módulo(s) afetado(s)**: `WebhookHandler`, `ProvisionCustomerRequest`, `ProvisionCustomerAction`
+**Risco**: MEDIUM — clientes `failed` deixam de aparecer em listagens (se houver alguma que filtre por status). Confirmar que nenhuma UI/API lista `status=failed` antes de executar.
+**Budget**: P
+
+**Tests** (TDD):
+- webhook `provision.failed` → customer soft-deletado (não persiste com `status=failed`)
+- re-provisioning do mesmo slug após webhook `failed` → 202 + novo `job_id`
+- `unique` validation passa para slug com registro soft-deleted
+- `unique` validation falha para slug com customer ativo (`status=provisioning/active/...`)
+
+---
+
+### Task F11.2 — [CQ-F5-002] Remover dead-code `CMD_TO_CLI_ARGV` customer-level
+
+**Estado atual**: `JobTypeTranslator::CMD_TO_CLI_ARGV` tem 7 entradas customer-level (`create`, `remove`, `backup`, `restore`, `update`, `stop`, `start`) que nenhum caller de `cmdToCliArgv()` consome. `ProvisionCustomerAction` e `RemoveCustomerAction` constroem argv à mão.
+
+**Estado desejado**: Entrads YAGNI removidas. Comentário TODO de forward-compat removido ou substituído por comentário claro de escopo.
+
+**Fonte(s)**: CQ-F5-002 (MEDIUM)
+**Módulo(s) afetado(s)**: `app/Modules/Core/Translators/JobTypeTranslator.php`
+**Risco**: LOW (remoção de dead-code não usado por nenhum caller produtivo)
+**Budget**: P
+
+**Test**: `JobTypeTranslatorTest` asserta que `cmdToCliArgv('create')` lança `UnknownCmdException` (ou equivalente) após remoção. OU: verificar que nenhum teste quebra com a remoção.
+
+---
+
+### Task F11.3 — [CQ-F5-003] Extrair `mapLifecycleException()` em `CustomerLifecycleController`
+
+**Estado atual**: `dispatch()` (linhas ~144-185) e `dispatchAppsCsv()` (linhas ~199-230) em `CustomerLifecycleController` capturam as mesmas 4-5 exceções com corpos quase idênticos (~30 LoC duplicados).
+
+**Estado desejado**: Método privado `mapLifecycleException(\Throwable $e, array $extraPayload = []): JsonResponse` extraído. Ambos delegam para ele.
+
+**Fonte(s)**: CQ-F5-003 (MEDIUM)
+**Módulo(s) afetado(s)**: `app/Http/Controllers/Api/CustomerLifecycleController.php`
+**Risco**: LOW (pure refactor, comportamento idêntico)
+**Budget**: P
+
+**Test**: testes existentes de `dispatch()` e `dispatchAppsCsv()` devem continuar verdes sem alteração.
+
+---
+
+### Task F11.4 — [QA-F5-010] `phpunit.xml` força `RUN_UPSTREAM_CONTRACT=0`
+
+**Estado atual**: a testsuite `Contract` está isolada em diretório separado (não roda por default), mas não há proteção explícita no `phpunit.xml` via `force="true"`.
+
+**Estado desejado**: Adicionar no bloco `<php>` do `phpunit.xml`:
+```xml
+<env name="RUN_UPSTREAM_CONTRACT" value="0" force="true"/>
+```
+
+**Fonte(s)**: QA-F5-010 (MEDIUM)
+**Módulo(s) afetado(s)**: `phpunit.xml`
+**Risco**: BAIXO (defense-in-depth; não altera comportamento atual da CI)
+**Budget**: P
+
+**Test**: confirmar que `UpstreamContractTest` é pulado quando `force="true"` (inspeção manual do output).
+
+---
+
+### Task F11.5 — [QA-F5-006] Assertions `--idempotency-key` e `--callback` em `LifecycleTest`
+
+**Estado atual**: `LifecycleAsyncAction::execute()` anexa `--idempotency-key={UUID}` e `--callback={url}` ao argv SSH. Nenhum teste asserta presença dessas flags. Regressão silenciosa → jobs zombie.
+
+**Estado desejado**: Adicionar a 1 teste representativo por categoria (users, groups, apps):
+```php
+expect($args)->toContain(fn ($a) => str_starts_with($a, '--idempotency-key='))
+expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
+```
+
+**Fonte(s)**: QA-F5-006 (MEDIUM)
+**Módulo(s) afetado(s)**: `tests/Feature/Customers/LifecycleTest.php`
+**Risco**: LOW (adição de testes apenas)
+**Budget**: M (requer análise de quais testes são representativos por path)
+
+**Test**: os novos asserts devem falhar se a flag for removida de `execute()`.
+
+---
+
+### Task F11.6 — [QA-F5-008] Política de hash CSV apps: decidir + documentar + testar
+
+**Estado atual**: `implode(',', $apps)` em `LifecycleAsyncAction` e `CustomerLifecycleController` preserva ordem de input. `'calendar,mail'` ≠ `'mail,calendar'` em deduplicação. Política não documentada nem testada.
+
+**Estado desejado**: 
+- Decisão explícita: (A) preservar ordem (atual — sem change de comportamento) OU (B) canonicalizar via `sort($apps)` antes do `implode`.
+- Adicionar comentário no código documentando a política.
+- Adicionar 1 teste assertindo o comportamento escolhido.
+
+**Fonte(s)**: QA-F5-008 (MEDIUM)
+**Módulo(s) afetado(s)**: `app/Http/Controllers/Api/CustomerLifecycleController.php`, `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
+**Risco**: LOW para A (preservar ordem); MEDIUM para B (canonicalizar muda comportamento de deduplicação — breaking change para callers que já se apoiavam na ordem)
+**Budget**: M
+
+**Test**: 1 teste asserta que `['calendar', 'mail']` e `['mail', 'calendar']` geram hashes **iguais** (se B) ou **diferentes** (se A).
+
+---
+
+## Sprint F12 — SSH readiness transport exception normalization
+
+> Categoria: F
+> Gate: `SshClient` converte exceções de transporte do phpseclib durante `exec()` em `SshConnectionException`, remove conexão stale do pool e preserva retry; readiness probe não gera `local.ERROR` não tratado para queda transitória de canal.
+> Gerado por `/fix` em 2026-05-27. Fonte: ISSUE-020 (MEDIUM).
+> review: senior+qa (Core/Ssh; integração externa)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F12.1 — [ISSUE-020] Normalizar `ConnectionClosedException` em `SshClient::executeCommand()` | `ssh-orchestrator` + `laravel-testing` | — |
+
+### Task F12.1 — [ISSUE-020] Normalizar `ConnectionClosedException` em `SshClient::executeCommand()`
+
+**Estado atual**: `SshClient::executeCommand()` trata `exec() === false`, mas não captura exceções lançadas por `phpseclib` durante `SSH2::exec()`. Quando uma conexão reaproveitada pelo `SshConnectionPool` fecha antes da abertura de canal, `ConnectionClosedException` escapa crua, o retry de `SshClient::run()` não acontece naquela tentativa e `ProbeCustomerReadinessJob` registra `local.ERROR`.
+
+**Estado desejado**: exceções de transporte durante `exec()` e `execWithStdin()` devem virar `SshConnectionException`, com a conexão removida do pool e `previous` preservado. O retry existente em `SshClient::run()` deve reaproveitar esse contrato sem alterar callers.
+
+**Fonte(s)**: ISSUE-020 (MEDIUM)
+**Módulo(s) afetado(s)**: `app/Modules/Core/Ssh/SshClient.php`, `tests/Feature/Core/SshClientTest.php`
+**Risco**: LOW — alteração restrita ao adapter SSH, alinhada ao contrato já esperado pelos callers (`SshConnectionException`).
+**Budget**: P
+
+**Tests** (TDD):
+- `SshClientTest` simula `SSH2::exec()` lançando `phpseclib3\Exception\ConnectionClosedException` na primeira tentativa e sucesso na segunda.
+- Assertar que `SshConnectionPool::remove($clusterId)` é chamado ao normalizar a exceção.
+- Rodar `php artisan test --filter SshClientTest`.
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-05-27 | 0.21   | Sprint F12 CONCLUÍDA — `SshClient` normaliza `ConnectionClosedException` do phpseclib durante `exec()`/stdin; `SshClientTest` 13 passed. | /pmo sprint F12 |
+| 2026-05-27 | 0.20   | Sprint F12 adicionada — ISSUE-020 (`SshClient` normaliza `ConnectionClosedException` do phpseclib durante readiness probe). | /fix (interativo) |
+| 2026-05-24 | 0.19   | Sprint F11 adicionada — ISSUE-018 HIGH (slug reuse) + 5 MEDIUM F5 (CQ-F5-002/003, QA-F5-006/008/010). N1 HIGH já em F7. | /fix (interativo) |
 | 2026-05-24 | 0.18   | Sprint F10 adicionada — ISSUE-014 (JobLogFetcher argv introspection; corrige logs vazios ISSUE-009) | /pmo sprint |
 | 2026-05-24 | 0.17   | Sprint F9 adicionada — ISSUE-012 (404 `/api/*` retorna JSON sem depender de Accept header); filtro HIGH-only | /fix (interativo)                              |
 | 2026-05-15 | 0.5    | Sprint F3 adicionada — 8 findings LOW pos-D8 (D4-F009, D4-F005, DBA-F010/F011/F012, SEC-F013/F014/F015) | /fix (interativo)                               |

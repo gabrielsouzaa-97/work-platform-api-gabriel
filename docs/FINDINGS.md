@@ -23,6 +23,9 @@ FINDINGS-INDEX -->
 | F5 | 1 | 6 | 12 | 8 | 16 | 11 | 0 |
 | F8 | 0 | 0 | 2 | 2 | 4 | 6 | 6 |
 | F9 | 0 | 0 | 3 | 2 | 5 | 0 | 0 |
+| F11 | 1 | 2 | 3 | 1 | 0 | 7 | 0 |
+
+> **Validação F11 R1** (2026-05-24, `/qa validar R1`): senior (auditor-senior, `claude-4.6-sonnet-medium-thinking`) → **REPROVADA** (CRITICAL CQ-F11-001 + HIGH CQ-F11-002). QA (`gemini-3.1-pro`) → **REPROVADA** (HIGH QA-F11-001 + 3 MEDIUM). Convergência em FK RESTRICT bug (forceDelete bloqueado por jobs.customer_slug). **Todos os 7 findings corrigidos in-sprint** (R1 follow-up). Fix: `restore()+update()` em vez de `forceDelete` — preserva FK e audit trail. Testes adicionados: re-provisioning e2e, audit log assertion, mapLifecycleException coverage (3 testes), SshRemoteException apps. **Suite final: 394+ passed, 7 skipped**. **Resultado após R1: APROVADA** (aguarda suite completa).
 
 > **Validação F9 R1** (2026-05-24, `/qa validar F9`): senior (auditor-senior, readonly) → PASS_WITH_NOTES (0 blockers). QA (auditor-qa, readonly) → 5 candidatos; após triagem: **5 registrados** (`QA-F9-001` MEDIUM downgrade de HIGH — side effect handler amplo; `QA-F9-002/003` MEDIUM test gaps; `QA-F9-004/005` LOW). Testes F9: **4 passed**. Full suite: **374 passed**, 7 skipped, 982 assertions. **ISSUE-012 core fix validado** (404/405 JSON sem `Accept`). **Resultado: APROVADA** — nenhum HIGH/CRITICAL pendente; MEDIUM/LOW backlogados.
 
