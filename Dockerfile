@@ -59,10 +59,17 @@ FROM base AS development
 
 ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=1 \
     XDEBUG_MODE=off \
-    XDEBUG_CLIENT_HOST=host.docker.internal
+    XDEBUG_CLIENT_HOST=host.docker.internal \
+    XDEBUG_CLIENT_PORT=9003 \
+    XDEBUG_START_WITH_REQUEST=trigger
 
-# Xdebug is installed separately when PECL network is available.
-# To install: docker compose exec app sh -c "apk add --virtual .xdebug-deps $PHPIZE_DEPS linux-headers && pecl install xdebug && docker-php-ext-enable xdebug && apk del .xdebug-deps"
+RUN apk add --no-cache --virtual .xdebug-build-deps \
+        $PHPIZE_DEPS \
+        linux-headers \
+    && pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && apk del .xdebug-build-deps \
+    && rm -rf /tmp/pear
 
 COPY docker/php/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
