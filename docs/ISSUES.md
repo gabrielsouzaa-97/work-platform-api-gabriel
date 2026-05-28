@@ -23,6 +23,145 @@
 | ISSUE-015 | enhancement | `WebhookHandler` salva apenas subset reconstruído em `audit_logs.payload` (5 chaves) em vez do payload raw — descoberto durante investigação de ISSUE-013, mascarou hipótese inicial | Jobs, Webhook | MEDIUM | open (observabilidade — fast-track) |
 | ISSUE-016 | change_request | 5 endpoints OCC mutativos indisponíveis — allowlist upstream bloqueia subcmds (quota/branding/maintenance) | Occ, Core/Ssh, Livewire | HIGH | mitigated (fast-track F?-OCC-1..3 — contrato OpenAPI + OccPanel UX; D-02 / #ARCH-7 pendente) |
 | ISSUE-017 | bug | OCC argv com espaços falha no hop SSH `ncsaas-api` ForceCommand — quota `"5 GB"` e branding `"Acme Corp"` retornam exit 16 via API apesar de funcionarem no node | Occ, Core/Ssh | HIGH | open (fix quota compact + single-quote; branding validar pós-deploy) |
+| ISSUE-018 | bug | Slug bloqueado após falha de provisioning — `Customer` com status `failed` não é soft-deletado, impede re-provisioning com mesmo slug | Customers, Jobs/Webhook | HIGH | open (Fix Brief aprovado — Sprint F11) |
+| ISSUE-019 | bug | Logo não incluído no payload do job `create` quando cliente tem logo cadastrado — `ProvisionPayload` resolve logo apenas do request corrente; `branding_meta` nunca persiste o logo path | Customers | MEDIUM | open (Fix Brief aprovado) |
+| ISSUE-020 | bug | Readiness probe vaza `phpseclib` `ConnectionClosedException` quando conexão SSH pooled fecha antes de `exec()` | Core/Ssh, Customers | MEDIUM | fixed (Sprint F12) |
+
+---
+
+## ISSUE-020 — Readiness probe vaza `ConnectionClosedException` do phpseclib
+
+- **Tipo**: bug (resiliência de transporte SSH)
+- **Prioridade**: MEDIUM
+- **Status**: fixed — `SshClient` normaliza exceções de transporte do phpseclib e reaplica retry (Sprint F12, 2026-05-27)
+- **Registrado em**: 2026-05-27
+- **Solicitante**: `/qa debug`
+- **Módulos afetados**: `Core/Ssh`, `Customers`
+
+### Sintoma
+
+Após `job.finished state=success`, o `ProbeCustomerReadinessJob` executa `nextcloud-manage <slug> occ-exec user:list --json`.
+Quando a conexão SSH reaproveitada pelo pool fecha antes de abrir o canal de `exec()`, o job registra `local.ERROR: Connection closed prematurely` com exceção crua de `phpseclib3\Exception\ConnectionClosedException`.
+
+### Causa raiz
+
+`SshClient::executeCommand()` normaliza apenas `exec() === false`. Se `SSH2::exec()` lança uma exceção de transporte, ela escapa sem virar `SshConnectionException`.
+Com isso, o retry interno de `SshClient::run()` não é acionado e callers como `CustomerReadinessProbe` não conseguem tratar a falha como "not ready".
+
+### Fix Brief aprovado
+
+| # | Arquivo | Mudança |
+|---|---------|---------|
+| 1 | `app/Modules/Core/Ssh/SshClient.php` | Envolver `exec()`/`execWithStdin()` em `try/catch \Throwable`, remover a conexão do pool e lançar `SshConnectionException` com `previous` preservado. |
+| 2 | `tests/Feature/Core/SshClientTest.php` | Adicionar regressão simulando `SSH2::exec()` lançando `ConnectionClosedException`, validando retry e sucesso na tentativa seguinte. |
+
+### Critério de aceite
+
+- Exceções de transporte lançadas pelo phpseclib durante `exec()` são normalizadas como `SshConnectionException`.
+- `SshClient::run()` remove a conexão stale do pool e tenta novamente conforme `RETRY_DELAYS_SECONDS`.
+- `CustomerReadinessProbe` volta a tratar a falha transitória como `false`, sem `local.ERROR` não tratado.
+- Teste filtrado: `php artisan test --filter SshClientTest`.
+
+---
+
+## ISSUE-019 — Logo não incluído no payload do job `create` quando cliente tem logo cadastrado
+
+- **Tipo**: bug
+- **Prioridade**: MEDIUM
+- **Status**: open (Fix Brief aprovado)
+- **Registrado em**: 2026-05-24
+- **Solicitante**: `/qa debug`
+- **Módulos afetados**: `Customers/Dto/ProvisionPayload`, `Customers/Actions/ProvisionCustomerAction`, `Http/Controllers/Api/CustomerController`, `Models/Customer`
+
+### Descrição
+
+Ao enfileirar um job `create` (provisioning), o campo `branding.logo_data_url` (e `background_data_url`) **não é incluído no payload SSH** quando o cliente já possui logo cadastrado no sistema, mas nenhum arquivo foi enviado na requisição corrente.
+
+**Root cause**: `ProvisionPayload::fromRequest()` resolve `logoPath` e `backgroundPath` exclusivamente de arquivos do request HTTP corrente (`$request->hasFile('logo')`). Não existe mecanismo de persistência de logo — `branding_meta` nunca recebe a referência do disco. O temp file do upload é consumido no SSH dispatch e descartado após o request.
+
+Consequência:
+1. **First provision com logo** → logo incluído corretamente (temp file presente). ✅
+2. **Re-provisioning (ghost restore) sem re-upload** → `logoPath=null` → bloco de branding não executa → SSH `create` omite `branding`. ❌
+3. **Qualquer provision sem upload** mesmo que o cliente tenha logo registrado de outra forma → sem branding no job. ❌
+
+### Contrato esperado upstream
+
+```json
+{
+  "branding": {
+    "logo_data_url": "data:image/png;base64,<base64>",
+    "background_data_url": "data:image/png;base64,<base64>"
+  }
+}
+```
+
+Passado via `--payload-stdin` (≤ 256 KB) ou pré-uploadado via SFTP com `--staging-id` (> 256 KB).
+
+### Fix Brief
+
+**Plano em 4 passos**:
+
+1. **`ProvisionCustomerAction`** — após a transação DB (customer criado/restaurado), persistir o temp file em `Storage::disk('local')` → `branding/{slug}/logo.png` (e `background.*`) e atualizar `customer->branding_meta` com `logo_path` e `background_path`.
+
+2. **`ProvisionPayload`** — adicionar `fromRequestWithCustomer(Request $request, ?Customer $ghost): self` que, quando nenhum arquivo estiver no request, resolve `logoPath` de `$ghost->branding_meta['logo_path']` (via `Storage::disk('local')->path(...)`).
+
+3. **`CustomerController::store()`** — consultar ghost antes de construir o payload (usar `Customer::withTrashed()->where('slug', ...)->whereNotNull('deleted_at')->first()`), repassar ao novo factory method.
+
+4. **Testes** — novo caso Pest: re-provision de ghost com `branding_meta.logo_path` populado → `runAsync` chamado com `logo_data_url` no stdin (sem upload no request corrente).
+
+**Arquivos**:
+- `app/Modules/Customers/Dto/ProvisionPayload.php`
+- `app/Modules/Customers/Actions/ProvisionCustomerAction.php`
+- `app/Http/Controllers/Api/CustomerController.php`
+- `tests/Feature/Customers/ProvisionTest.php`
+
+**Riscos**:
+- Storage `local` deve ser consistente (sem S3 por padrão) — baixo risco.
+- Dupla consulta de ghost (controller + action) — aceitável; simplificar extraindo helper.
+- Corrida em re-provision concorrente já protegida pela idempotency key.
+
+### Próximo passo
+
+Aguardar `/fix` para gerar Sprint F com TDD (Pest Feature tests cobrindo re-provision com logo + sem logo + SFTP threshold).
+
+---
+
+## ISSUE-018 — Slug bloqueado após falha de provisioning (re-provisioning impossível)
+
+- **Tipo**: bug (lifecycle gap — missing cleanup path)
+- **Prioridade**: HIGH (bloqueia completamente re-provisioning após qualquer falha de job de provisão; sem workaround via UI/API)
+- **Status**: open (Fix Brief aprovado — 2026-05-24, aguarda Sprint F11)
+- **Registrado em**: 2026-05-24
+- **Reportado por**: `/qa debug` (sessão de diagnóstico ao vivo)
+- **Módulos afetados**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Http/Requests/ProvisionCustomerRequest.php`, `app/Modules/Customers/Actions/ProvisionCustomerAction.php`
+- **Relacionados**: `app/Models/Customer.php` (SoftDeletes), `database/migrations/2026_05_08_000004_create_customers_table.php`
+
+### Sintoma
+
+Após um job de provisioning falhar (webhook chega com `state=failed`), tentar re-provisionar o mesmo `slug` retorna **422 "Slug já em uso."** — permanentemente, sem possibilidade de recuperação via UI/API.
+
+### Causa raiz (três lacunas encadeadas)
+
+**Lacuna 1 — `WebhookHandler` (linha 169):** Quando `job_type === 'provision'` e `canonical === 'failed'/'cancelled'`, o handler apenas atualiza `customer.status = 'failed'`. O registro `Customer` **permanece vivo** na tabela (nunca é soft-deletado). Como `slug` é a PK, o registro "fantasma" bloqueia qualquer inserção futura.
+
+**Lacuna 2 — `ProvisionCustomerRequest` (linha 21):** A regra `unique:customers,slug` não exclui soft-deleted records (usa count plain sem `whereNull('deleted_at')`). Mesmo após corrigir a Lacuna 1, esta regra bloquearia re-tentativas com 422 enquanto o registro soft-deleted existir.
+
+**Lacuna 3 — `ProvisionCustomerAction` (linha 144):** Se um registro soft-deleted com mesmo slug existir, `Customer::create()` colide na PK do banco (constraint única ignora `deleted_at`). Necessário `forceDelete` do fantasma antes do `create`.
+
+### Fix Brief aprovado
+
+| # | Arquivo | Mudança |
+|---|---------|---------|
+| 1 | `app/Modules/Jobs/Services/WebhookHandler.php` | Soft-delete do Customer quando provision falha/cancela |
+| 2 | `app/Http/Requests/ProvisionCustomerRequest.php` | `Rule::unique('customers', 'slug')->whereNull('deleted_at')` |
+| 3 | `app/Modules/Customers/Actions/ProvisionCustomerAction.php` | `Customer::withTrashed()->where('slug', ...)->whereNotNull('deleted_at')->forceDelete()` antes do `create` |
+
+### Critério de aceite
+
+- Provisionar slug `foo` → falhar (job.finished state=failed via webhook) → provisionar `foo` novamente → **202 accepted** com novo `job_id`
+- Validação HTTP retorna 422 apenas se existe customer com mesmo slug **ativo** (não soft-deleted)
+- `Customer::create()` não falha com PK duplicate quando existe registro soft-deleted anterior
+- Testes: webhook `provision.failed` + re-provisioning happy path
 
 ---
 

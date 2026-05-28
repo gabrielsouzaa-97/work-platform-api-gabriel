@@ -65,6 +65,11 @@ final class JobTypeTranslator
     /**
      * Canonical cmd → upstream CLI argv tokens.
      *
+     * Covers only the lifecycle verbs dispatched via LifecycleAsyncAction (users/groups/apps).
+     * Customer-level verbs (create, remove, backup, restore, update, stop, start) are
+     * intentionally absent — ProvisionCustomerAction and RemoveCustomerAction build their
+     * own argv directly and do NOT route through cmdToCliArgv().
+     *
      * Mapping confirmed via SSH probing against cluster `homolog` (upstream v12.3.0)
      * — `nextcloud-manage` uses the hierarchical namespace `user create|remove`,
      * `group create|remove`, `apps enable|disable`. The flat `user-create`/`user-delete`
@@ -73,13 +78,6 @@ final class JobTypeTranslator
      * @var array<string, list<string>>
      */
     private const CMD_TO_CLI_ARGV = [
-        'create' => ['create'],
-        'remove' => ['remove'],
-        'backup' => ['backup'],
-        'restore' => ['restore'],
-        'update' => ['update'],
-        'stop' => ['stop'],
-        'start' => ['start'],
         'users:create' => ['user', 'create'],
         'users:delete' => ['user', 'remove'],   // upstream verb is `remove`, NOT `delete`
         'groups:create' => ['group', 'create'],

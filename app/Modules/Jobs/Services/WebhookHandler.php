@@ -175,6 +175,12 @@ final class WebhookHandler
                     Customer::where('slug', $job->customer_slug)
                         ->update(['status' => $customerStatus]);
 
+                    // Provisioning failure means the instance was never created upstream.
+                    // Soft-delete the ghost so the same slug can be re-provisioned transparently.
+                    if (in_array($canonical, ['failed', 'cancelled'], true) && $job->job_type === 'provision') {
+                        Customer::where('slug', $job->customer_slug)->delete();
+                    }
+
                     if ($customerStatus === CustomerLifecycleStatus::PROVISIONING_FINISHING) {
                         $probeCustomerSlug = $job->customer_slug;
                     }

@@ -216,9 +216,7 @@ class SshClient implements SshClientInterface
         $ssh = $this->pool->get($cluster);
         $ssh->setTimeout($timeoutSec);
 
-        $stdout = $payloadStdin !== null
-            ? $this->execWithStdin($ssh, $command, $payloadStdin)
-            : $ssh->exec($command);
+        $stdout = $this->executeTransportCommand($cluster, $ssh, $command, $payloadStdin);
 
         if ($stdout === false) {
             $errorMsg = $ssh->getLastError() ?? 'SSH exec returned false';
@@ -256,6 +254,26 @@ class SshClient implements SshClientInterface
         }
 
         return $response;
+    }
+
+    private function executeTransportCommand(
+        ClusterServer $cluster,
+        SSH2 $ssh,
+        string $command,
+        ?string $payloadStdin,
+    ): string|false {
+        try {
+            return $payloadStdin !== null
+                ? $this->execWithStdin($ssh, $command, $payloadStdin)
+                : $ssh->exec($command);
+        } catch (\Throwable $e) {
+            $this->pool->remove((string) $cluster->id);
+
+            throw new SshConnectionException(
+                "SSH transport error on cluster [{$cluster->id}]: {$e->getMessage()}",
+                previous: $e
+            );
+        }
     }
 
     /**

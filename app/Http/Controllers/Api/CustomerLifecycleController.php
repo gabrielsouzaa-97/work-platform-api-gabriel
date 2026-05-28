@@ -157,16 +157,6 @@ final class CustomerLifecycleController extends Controller
                 'reason' => 'upstream group membership pending mework360-deployer-scripts D3/D4',
                 'cmd' => $e->cmd,
             ], 501);
-        } catch (ClusterUnreachableException) {
-            return response()->json(['error' => 'cluster_unreachable'], 503)
-                ->header('Retry-After', '60');
-        } catch (SshTimeoutException) {
-            return response()->json(['error' => 'lifecycle_timeout'], 504);
-        } catch (IdempotencyConflictException $e) {
-            return response()->json([
-                'error' => 'idempotency_conflict',
-                'existing_job_id' => $e->getExistingJobId(),
-            ], 409);
         } catch (SshRemoteException $e) {
             if ($e->remoteExitCode === 4) {
                 return response()->json(['error' => 'already_exists'], 409);
@@ -176,6 +166,11 @@ final class CustomerLifecycleController extends Controller
             }
 
             return response()->json(['error' => 'upstream_error', 'exit_code' => $e->remoteExitCode], 502);
+        } catch (\Throwable $e) {
+            if ($r = $this->mapLifecycleException($e)) {
+                return $r;
+            }
+            throw $e;
         }
 
         return response()->json(['job_id' => $job->job_id], 202);
@@ -189,6 +184,10 @@ final class CustomerLifecycleController extends Controller
      * probing — ISSUE-006 §DP2). The previous N-jobs-per-app loop was a workaround
      * that wasted N SSH round-trips and broke atomicity.
      *
+     * Apps order is intentionally preserved (input order = upstream order).
+     * Two requests with the same apps in different order produce different idempotency
+     * hashes — this is by design (policy A, QA-F5-008).
+     *
      * @param  array<int, string>  $apps
      */
     private function dispatchAppsCsv(Customer $customer, string $cmd, array $apps, Request $request): JsonResponse
@@ -200,27 +199,40 @@ final class CustomerLifecycleController extends Controller
 
         try {
             $job = $this->action->execute($customer, $cmd, [$appsCsv], null, $actor);
-        } catch (ClusterUnreachableException) {
-            return response()->json(['error' => 'cluster_unreachable'], 503)
-                ->header('Retry-After', '60');
-        } catch (SshTimeoutException) {
-            return response()->json(['error' => 'lifecycle_timeout'], 504);
-        } catch (IdempotencyConflictException $e) {
-            return response()->json([
-                'error' => 'idempotency_conflict',
-                'existing_job_id' => $e->getExistingJobId(),
-            ], 409);
         } catch (SshRemoteException $e) {
             return response()->json([
                 'error' => 'upstream_error',
                 'exit_code' => $e->remoteExitCode,
                 'apps_csv' => $appsCsv,
             ], 502);
+        } catch (\Throwable $e) {
+            if ($r = $this->mapLifecycleException($e)) {
+                return $r;
+            }
+            throw $e;
         }
 
         return response()->json([
             'job_id' => $job->job_id,
             'apps_csv' => $appsCsv,
         ], 202);
+    }
+
+    /**
+     * Maps common lifecycle exceptions to JSON responses. Returns null for exceptions
+     * that require caller-specific handling (e.g. SshRemoteException with exit-code routing).
+     */
+    private function mapLifecycleException(\Throwable $e): ?JsonResponse
+    {
+        return match (true) {
+            $e instanceof ClusterUnreachableException => response()->json(['error' => 'cluster_unreachable'], 503)
+                ->header('Retry-After', '60'),
+            $e instanceof SshTimeoutException => response()->json(['error' => 'lifecycle_timeout'], 504),
+            $e instanceof IdempotencyConflictException => response()->json([
+                'error' => 'idempotency_conflict',
+                'existing_job_id' => $e->getExistingJobId(),
+            ], 409),
+            default => null,
+        };
     }
 }

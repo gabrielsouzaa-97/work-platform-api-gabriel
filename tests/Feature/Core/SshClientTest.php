@@ -11,6 +11,7 @@ use App\Modules\Core\Ssh\SshClient;
 use App\Modules\Core\Ssh\SshConnectionPool;
 use Illuminate\Support\Facades\Log;
 use Mockery\MockInterface;
+use phpseclib3\Exception\ConnectionClosedException;
 use phpseclib3\Net\SSH2;
 
 function makeActiveCluster(array $attrs = []): ClusterServer
@@ -128,6 +129,33 @@ it('retries on connection failure and succeeds on second attempt', function (): 
 
     expect($response->exitCode)->toBe(0)
         ->and($callCount)->toBe(2);
+});
+
+it('normalizes phpseclib connection closure during exec and retries', function (): void {
+    $cluster = makeActiveCluster();
+    $firstAttempt = Mockery::mock(SSH2::class);
+    $firstAttempt->allows('setTimeout');
+    $firstAttempt->allows('exec')->andThrow(
+        new ConnectionClosedException('Connection closed prematurely')
+    );
+
+    $secondAttempt = makeSshMock("ok\n", '', 0);
+
+    $pool = Mockery::mock(SshConnectionPool::class);
+    $pool->allows('get')->andReturn($firstAttempt, $secondAttempt);
+    $pool->shouldReceive('remove')
+        ->with((string) $cluster->id)
+        ->atLeast()
+        ->once();
+
+    $client = new SshClient($pool);
+
+    $response = $client->run($cluster, 'nextcloud-manage', [
+        'tenant-a', 'occ-exec', 'user:list', '--json',
+    ]);
+
+    expect($response->stdout)->toBe("ok\n")
+        ->and($response->exitCode)->toBe(0);
 });
 
 it('does not log payloadStdin content', function (): void {

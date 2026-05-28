@@ -2,6 +2,7 @@
 
 Apêndice automático mantido pelo hook `pmo-update.sh`.
 
+- **2026-05-24** `main` — fix(sprint-F11): ISSUE-018 slug reuse + limpeza MEDIUM F5 — F11.1: `WebhookHandler` soft-deleta Customer em provision failed/cancelled; `ProvisionCustomerRequest` `unique` ignora soft-deleted (`whereNull deleted_at`); `ProvisionCustomerAction` forceDelete ghost antes de `Customer::create`; F11.2: 7 entradas YAGNI customer-level removidas de `CMD_TO_CLI_ARGV` (ProvisionCustomerAction e RemoveCustomerAction constroem argv diretamente); F11.3: `mapLifecycleException()` privado extraído em `CustomerLifecycleController` (elimina 3×2 catch duplicados); F11.4: `RUN_UPSTREAM_CONTRACT=0 force=true` em `phpunit.xml` (defense-in-depth); F11.5: assertions `--idempotency-key=` e `--callback=` em 3 testes representativos de LifecycleTest (users/groups/apps); F11.6: política de hash CSV apps documentada + testada (Policy A — preserva ordem de input). **Resultado**: 383 passed (+60 vs F5.11), 7 skipped (Contract opt-in), 7 failed (pré-existentes `ssh_private_key` locked Livewire — não tocados em F11), 994 assertions.
 - **2026-05-24** `fix/issue-014-job-log-fetcher-argv` — fix(jobs): ISSUE-014 — corrige argv do `JobLogFetcher` para introspection `nextcloud-manage job <id> logs|status` (sem client slug); trata `SshRemoteException(notImplemented)` no fallback exit 99; mitiga ISSUE-009 (logs vazios em `/queue/{jobId}`); +1 teste regressão argv + SshRemoteException; 12 testes JobLogFetcherTest.
 - **2026-05-23** `fix/issue-011-occ-allowlist-comments` — fix(occ): ISSUE-011 (CRITICAL postmortem) — corrige diagnóstico errado embutido em 4 comentários do `OccController` que afirmavam "upstream `dispatch.sh` strips OCC `--flags`"; refutado empiricamente pela matriz P-15 (`maintenance:mode on` positional puro também falha com exit 16). Causa real: allowlist de subcmd no `nextcloud-saas-manager occ-exec`. `runOcc()` mapeia `exit_code 16` → HTTP 403 `occ_subcmd_not_allowed` (antes 502 `upstream_error`); erros 501 renomeados para `occ_subcmd_not_supported` (quota/all) e `occ_bulk_not_supported` (files-rescan sem username); Decision `#ARCH-6` em `docs/DECISION-BRIEF.md`; teste de regressão de texto + 3 novos testes para o caminho 403; 21 testes em OccControllerTest, full suite 368 passed (2 falhas pré-existentes em JobsPollStuckTest/SyncWebhookSecretTest por permissão de log). **Mudança de contrato observável**: clientes que tratavam 502 nesses endpoints devem passar a tratar 403.
 - **2026-05-23** `sprint/F8-readiness-gate-iss010` — fix(sprint-F8 R1): F8.7–F8.10 — `max_wait_seconds` 1200 + deadline no probe job; testes probe failure/timeout/gates/sync; OccPanel `TenantNotReadyException` UX + import fix; JobLogFetcherTest isolado de side-effect probe; 46 testes F8, 364 suite.
@@ -282,3 +283,19 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-24 07:04** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
 - **2026-05-24 07:05** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
 - **2026-05-24 07:10** `f35d966` — Merge pull request #76 from SoftwareBeesy/rr/fix/provision-payload-stdin
+- **2026-05-24 07:16** `d56ca95` — chore(session): update context and snapshot
+- **2026-05-24 07:18** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-24 07:23** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-24 07:31** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-24 07:44** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-24 08:10** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-24 08:28** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 21:47** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 21:48** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 23:21** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 23:36** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 23:41** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 23:46** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 23:54** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-27 23:57** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-28 00:00** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
