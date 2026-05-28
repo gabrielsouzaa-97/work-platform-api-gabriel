@@ -34,14 +34,14 @@
   ],
   "fase_atual": "12",
   "fase_nome": "Sprint F12 concluída — ISSUE-020 resolvido",
-  "sprint_atual": "F12",
-  "previous_sprint": "F11",
+  "sprint_atual": null,
+  "previous_sprint": "F12",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-28T03:00:36Z",
+  "ultimo_update": "2026-05-28T03:19:54Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -192,7 +192,7 @@
   "compact_count": 1,
   "checkpoint": {
     "sprint": "F12",
-    "phase": "completed",
+    "phase": "merged",
     "branch": "main",
     "head_sha": "pending-commit",
     "last_completed_task": "F12.1 — normalizar ConnectionClosedException em SshClient::executeCommand()",
@@ -203,7 +203,7 @@
     "audit_findings_resolved": 1,
     "audit_findings_pending": 0,
     "audit_status": "FAST_TRACK",
-    "timestamp": "2026-05-28T02:44:45Z"
+    "timestamp": "2026-05-28T03:19:54Z"
   },
   "planning_history": [
     {
