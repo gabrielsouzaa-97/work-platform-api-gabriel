@@ -20,10 +20,13 @@ use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 final class ProvisionCustomerAction
 {
+    private const MAX_PAYLOAD_STDIN_BYTES = 262144;
+
     public function __construct(
         private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
@@ -64,46 +67,47 @@ final class ProvisionCustomerAction
             $args[] = '--apps='.implode(',', $payload->apps);
         }
 
-        // Annexes: > 256 KB per file → SFTP staging (Canal B); ≤ 256 KB → inline base64 via payload-stdin
+        // Annexes: payloads that exceed SSH stdin cap go through SFTP staging (Canal B).
         $stdin = [];
         $stagingId = null;
-        $useSftp = ($payload->logoPath && filesize($payload->logoPath) > 256 * 1024)
-            || ($payload->backgroundPath && filesize($payload->backgroundPath) > 256 * 1024);
 
-        if ($payload->logoPath || $payload->backgroundPath) {
-            if ($useSftp) {
-                $stagingId = (string) Str::uuid();
+        try {
+            if ($payload->logoPath || $payload->backgroundPath) {
+                $inlineStdin = ['branding' => $this->brandingPayloadFor($payload)];
 
-                // Step 1 — init staging dir via Canal A
-                $this->ssh->inboxInit($cluster, $stagingId);
+                if ($this->requiresSftp($payload, $inlineStdin)) {
+                    $stagingId = (string) Str::uuid();
 
-                // Step 2 — upload files via Canal B (chroot-relative paths)
-                if ($payload->logoPath) {
-                    $this->ssh->sftpUpload(
-                        $cluster,
-                        $payload->logoPath,
-                        $stagingId,
-                        'logo.png'
-                    );
+                    // Step 1 — init staging dir via Canal A
+                    $this->ssh->inboxInit($cluster, $stagingId);
+
+                    // Step 2 — upload files via Canal B (chroot-relative paths)
+                    if ($payload->logoPath) {
+                        $ext = $this->imageMimeFor($payload->logoPath) === 'image/jpeg' ? 'jpg' : 'png';
+                        $this->ssh->sftpUpload(
+                            $cluster,
+                            $payload->logoPath,
+                            $stagingId,
+                            "logo.{$ext}"
+                        );
+                    }
+                    if ($payload->backgroundPath) {
+                        $ext = $this->imageMimeFor($payload->backgroundPath) === 'image/jpeg' ? 'jpg' : 'png';
+                        $this->ssh->sftpUpload(
+                            $cluster,
+                            $payload->backgroundPath,
+                            $stagingId,
+                            "background.{$ext}"
+                        );
+                    }
+                    $args[] = "--staging-id={$stagingId}";
+                } else {
+                    $stdin = $inlineStdin;
+                    $args[] = '--payload-stdin';
                 }
-                if ($payload->backgroundPath) {
-                    $this->ssh->sftpUpload(
-                        $cluster,
-                        $payload->backgroundPath,
-                        $stagingId,
-                        'background.jpg'
-                    );
-                }
-                $args[] = "--staging-id={$stagingId}";
-            } else {
-                if ($payload->logoPath) {
-                    $stdin['logo_data_url'] = 'data:image/png;base64,'.base64_encode((string) file_get_contents($payload->logoPath));
-                }
-                if ($payload->backgroundPath) {
-                    $stdin['background_data_url'] = 'data:image/png;base64,'.base64_encode((string) file_get_contents($payload->backgroundPath));
-                }
-                $args[] = '--payload-stdin';
             }
+        } catch (SshConnectionException) {
+            throw new ClusterUnreachableException;
         }
 
         // Persist idempotency key BEFORE SSH call to prevent duplicate submissions.
@@ -121,8 +125,8 @@ final class ProvisionCustomerAction
 
         Log::debug('provision.ssh_dispatch', [
             'slug' => $payload->slug,
-            'has_logo' => isset($stdin['logo_data_url']),
-            'has_background' => isset($stdin['background_data_url']),
+            'has_logo' => isset($stdin['branding']['logo_data_url']),
+            'has_background' => isset($stdin['branding']['background_data_url']),
             'stdin_bytes' => $stdinJson !== null ? strlen($stdinJson) : 0,
             'has_payload_stdin_flag' => in_array('--payload-stdin', $args, true),
             'has_staging_id' => $stagingId !== null,
@@ -184,6 +188,8 @@ final class ProvisionCustomerAction
                 ]);
             }
 
+            $this->persistBrandingFiles($customer, $payload);
+
             $job = Job::create([
                 'job_id' => $jobId,
                 'customer_slug' => $payload->slug,
@@ -220,5 +226,75 @@ final class ProvisionCustomerAction
 
             return ['customer' => $customer, 'job' => $job];
         });
+    }
+
+    private function dataUrlFor(string $path): string
+    {
+        return 'data:'.$this->imageMimeFor($path).';base64,'.base64_encode((string) file_get_contents($path));
+    }
+
+    private function brandingPayloadFor(ProvisionPayload $payload): array
+    {
+        $branding = [];
+
+        if ($payload->logoPath) {
+            $branding['logo_data_url'] = $this->dataUrlFor($payload->logoPath);
+        }
+
+        if ($payload->backgroundPath) {
+            $branding['background_data_url'] = $this->dataUrlFor($payload->backgroundPath);
+        }
+
+        return $branding;
+    }
+
+    private function requiresSftp(ProvisionPayload $payload, array $stdin): bool
+    {
+        $hasLargeFile = ($payload->logoPath && filesize($payload->logoPath) > 256 * 1024)
+            || ($payload->backgroundPath && filesize($payload->backgroundPath) > 256 * 1024);
+
+        return $hasLargeFile || strlen((string) json_encode($stdin)) > self::MAX_PAYLOAD_STDIN_BYTES;
+    }
+
+    private function imageMimeFor(string $path): string
+    {
+        $mime = @mime_content_type($path);
+
+        return in_array($mime, ['image/png', 'image/jpeg'], true)
+            ? $mime
+            : 'image/png';
+    }
+
+    private function persistBrandingFiles(Customer $customer, ProvisionPayload $payload): void
+    {
+        $brandingMeta = $customer->branding_meta ?? [];
+
+        if ($payload->logoPath) {
+            $brandingMeta['logo_path'] = $this->storeBrandingFile($payload->slug, $payload->logoPath, 'logo');
+        }
+
+        if ($payload->backgroundPath) {
+            $brandingMeta['background_path'] = $this->storeBrandingFile(
+                $payload->slug,
+                $payload->backgroundPath,
+                'background'
+            );
+        }
+
+        if ($brandingMeta !== ($customer->branding_meta ?? [])) {
+            $customer->update(['branding_meta' => $brandingMeta]);
+        }
+    }
+
+    private function storeBrandingFile(string $slug, string $sourcePath, string $name): string
+    {
+        $extension = $this->imageMimeFor($sourcePath) === 'image/jpeg' ? 'jpg' : 'png';
+        $relativePath = "branding/{$slug}/{$name}.{$extension}";
+
+        if (! Storage::disk('local')->put($relativePath, (string) file_get_contents($sourcePath))) {
+            throw new \RuntimeException("Unable to persist branding file [{$relativePath}]");
+        }
+
+        return $relativePath;
     }
 }

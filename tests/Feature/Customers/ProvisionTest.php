@@ -12,6 +12,8 @@ use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Dto\ProvisionPayload;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 function makeProvisionCluster(): ClusterServer
@@ -188,6 +190,8 @@ it('suporte não pode provisionar → 422 (authorization)', function () {
 });
 
 it('logo > 256 KB → inboxInit + sftpUpload chamados + --staging-id repassado ao SSH', function () {
+    Storage::fake('local');
+
     $cluster = makeProvisionCluster();
     $operator = makeOperator('operador');
     $jobId = Str::uuid()->toString();
@@ -200,8 +204,10 @@ it('logo > 256 KB → inboxInit + sftpUpload chamados + --staging-id repassado a
     $sshMock->shouldReceive('sftpUpload')->once();
     $sshMock->shouldReceive('runAsync')
         ->once()
-        ->withArgs(function ($c, $bin, $args) {
-            return collect($args)->contains(fn ($a) => str_starts_with((string) $a, '--staging-id='));
+        ->withArgs(function ($c, $bin, $args, $stdin) {
+            return $stdin === null
+                && collect($args)->contains(fn ($a) => str_starts_with((string) $a, '--staging-id='))
+                && ! collect($args)->contains('--payload-stdin');
         })
         ->andReturn(sshProvisionSuccess($jobId));
 
@@ -226,32 +232,33 @@ it('logo > 256 KB → inboxInit + sftpUpload chamados + --staging-id repassado a
     expect(Job::find($jobId))->not->toBeNull();
 });
 
-it('logo ≤ 256 KB → --payload-stdin nos args + logo_data_url no stdin; sem SFTP', function () {
+it('logo ≤ 256 KB mas payload base64 > 256 KB → usa SFTP para respeitar limite do stdin', function () {
+    Storage::fake('local');
+
     $cluster = makeProvisionCluster();
     $operator = makeOperator('operador');
     $jobId = Str::uuid()->toString();
 
-    $tmpFile = tempnam(sys_get_temp_dir(), 'logo_inline_');
-    file_put_contents($tmpFile, str_repeat('X', 128 * 1024)); // 128 KB — abaixo do threshold
+    $tmpFile = tempnam(sys_get_temp_dir(), 'logo_payload_limit_');
+    file_put_contents($tmpFile, str_repeat('X', 200 * 1024));
 
     $sshMock = Mockery::mock(SshClientInterface::class);
-    $sshMock->shouldNotReceive('inboxInit');
-    $sshMock->shouldNotReceive('sftpUpload');
+    $sshMock->shouldReceive('inboxInit')->once();
+    $sshMock->shouldReceive('sftpUpload')->once();
     $sshMock->shouldReceive('runAsync')
         ->once()
         ->withArgs(function ($c, $bin, $args, $stdin) {
-            $hasFlag = collect($args)->contains('--payload-stdin');
-            $hasLogo = str_contains((string) $stdin, 'logo_data_url');
-
-            return $hasFlag && $hasLogo;
+            return $stdin === null
+                && collect($args)->contains(fn ($a) => str_starts_with((string) $a, '--staging-id='))
+                && ! collect($args)->contains('--payload-stdin');
         })
         ->andReturn(sshProvisionSuccess($jobId));
 
     $this->app->instance(SshClientInterface::class, $sshMock);
 
     $payload = new ProvisionPayload(
-        slug: 'acme-inline',
-        domain: 'acme-inline.example.com',
+        slug: 'acme-payload-limit',
+        domain: 'acme-payload-limit.example.com',
         clusterServerId: $cluster->id,
         apps: [],
         fullApps: false,
@@ -264,8 +271,111 @@ it('logo ≤ 256 KB → --payload-stdin nos args + logo_data_url no stdin; sem S
 
     @unlink($tmpFile);
 
+    expect($result['customer']->slug)->toBe('acme-payload-limit');
+    expect(Job::find($jobId))->not->toBeNull();
+});
+
+it('logo e background ≤ 256 KB → --payload-stdin com branding.*_data_url; sem SFTP', function () {
+    Storage::fake('local');
+
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator('operador');
+    $jobId = Str::uuid()->toString();
+
+    $logoFile = tempnam(sys_get_temp_dir(), 'logo_inline_');
+    $backgroundFile = tempnam(sys_get_temp_dir(), 'background_inline_');
+    file_put_contents($logoFile, str_repeat('L', 64 * 1024));
+    file_put_contents($backgroundFile, str_repeat('B', 64 * 1024));
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldNotReceive('inboxInit');
+    $sshMock->shouldNotReceive('sftpUpload');
+    $sshMock->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $bin, $args, $stdin) {
+            $hasFlag = collect($args)->contains('--payload-stdin');
+            $decoded = json_decode((string) $stdin, true);
+
+            return $hasFlag
+                && isset($decoded['branding']['logo_data_url'])
+                && isset($decoded['branding']['background_data_url'])
+                && str_starts_with($decoded['branding']['logo_data_url'], 'data:image/png;base64,')
+                && str_starts_with($decoded['branding']['background_data_url'], 'data:image/png;base64,')
+                && ! array_key_exists('logo_data_url', $decoded);
+        })
+        ->andReturn(sshProvisionSuccess($jobId));
+
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $payload = new ProvisionPayload(
+        slug: 'acme-inline',
+        domain: 'acme-inline.example.com',
+        clusterServerId: $cluster->id,
+        apps: [],
+        fullApps: false,
+        logoPath: $logoFile,
+        backgroundPath: $backgroundFile,
+    );
+
+    $action = app(ProvisionCustomerAction::class);
+    $result = $action->execute($payload, $operator);
+
+    @unlink($logoFile);
+    @unlink($backgroundFile);
+
     expect($result['customer']->slug)->toBe('acme-inline');
     expect(Job::find($jobId))->not->toBeNull();
+    Storage::disk('local')->assertExists('branding/acme-inline/logo.png');
+    Storage::disk('local')->assertExists('branding/acme-inline/background.png');
+});
+
+it('POST /api/customers com logo e background pequenos → stdin branding e branding_meta persistido', function () {
+    Storage::fake('local');
+
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator();
+    $jobId = Str::uuid()->toString();
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=');
+    $logoFile = tempnam(sys_get_temp_dir(), 'http_logo_');
+    $backgroundFile = tempnam(sys_get_temp_dir(), 'http_background_');
+    file_put_contents($logoFile, $pngBytes);
+    file_put_contents($backgroundFile, $pngBytes);
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldNotReceive('inboxInit');
+    $sshMock->shouldNotReceive('sftpUpload');
+    $sshMock->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $bin, $args, $stdin) {
+            $decoded = json_decode((string) $stdin, true);
+
+            return collect($args)->contains('--payload-stdin')
+                && isset($decoded['branding']['logo_data_url'])
+                && isset($decoded['branding']['background_data_url']);
+        })
+        ->andReturn(sshProvisionSuccess($jobId));
+
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $response = $this->actingAs($operator)->post('/api/customers', [
+        'slug' => 'acme-http-branding',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'acme-http-branding.example.com',
+        'logo' => new UploadedFile($logoFile, 'logo.png', 'image/png', null, true),
+        'background' => new UploadedFile($backgroundFile, 'background.png', 'image/png', null, true),
+    ], ['Accept' => 'application/json']);
+
+    @unlink($logoFile);
+    @unlink($backgroundFile);
+
+    $response->assertStatus(201);
+
+    $customer = Customer::find('acme-http-branding');
+    expect($customer->branding_meta['logo_path'])->toBe('branding/acme-http-branding/logo.png')
+        ->and($customer->branding_meta['background_path'])->toBe('branding/acme-http-branding/background.png');
+
+    Storage::disk('local')->assertExists($customer->branding_meta['logo_path']);
+    Storage::disk('local')->assertExists($customer->branding_meta['background_path']);
 });
 
 it('sem autenticação → 401', function () {
@@ -348,4 +458,50 @@ it('slug de customer ativo (não soft-deleted) → 422 (unique constraint manté
         'cluster_server_id' => $cluster->id,
         'domain' => 'active-tenant.example.com',
     ])->assertStatus(422);
+});
+
+it('re-provisionar ghost com logo em branding_meta → create envia branding.logo_data_url sem novo upload', function () {
+    Storage::fake('local');
+
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator();
+    $jobId = Str::uuid()->toString();
+    $logoPath = 'branding/failed-with-logo/logo.png';
+
+    Storage::disk('local')->put($logoPath, 'stored-logo-content');
+
+    Customer::create([
+        'slug' => 'failed-with-logo',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'failed-with-logo.example.com',
+        'status' => 'failed',
+        'branding_meta' => ['logo_path' => $logoPath],
+    ])->delete();
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldNotReceive('inboxInit');
+    $sshMock->shouldNotReceive('sftpUpload');
+    $sshMock->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $bin, $args, $stdin) {
+            $decoded = json_decode((string) $stdin, true);
+
+            return collect($args)->contains('--payload-stdin')
+                && isset($decoded['branding']['logo_data_url'])
+                && ! isset($decoded['branding']['background_data_url']);
+        })
+        ->andReturn(sshProvisionSuccess($jobId));
+
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $response = $this->actingAs($operator)->postJson('/api/customers', [
+        'slug' => 'failed-with-logo',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'failed-with-logo.example.com',
+    ]);
+
+    $response->assertSuccessful();
+
+    expect(Customer::find('failed-with-logo')->branding_meta['logo_path'])->toBe($logoPath);
+    expect(Job::find($jobId))->not->toBeNull();
 });
