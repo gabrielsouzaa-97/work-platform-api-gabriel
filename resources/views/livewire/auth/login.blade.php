@@ -36,14 +36,6 @@
             padding: 0;
         }
         .toggle-pw:hover { color: #a0aec0; }
-        .check-row {
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-            margin-bottom: 1.5rem;
-        }
-        .check-row input[type=checkbox] { accent-color: #63b3ed; }
-        .check-row label { font-size: .8125rem; color: #a0aec0; }
         .btn-primary {
             width: 100%;
             background: #2b6cb0;
@@ -114,11 +106,6 @@
             @error('password')
                 <div class="error-msg">{{ $message }}</div>
             @enderror
-        </div>
-
-        <div class="check-row">
-            <input type="checkbox" id="remember" wire:model="remember">
-            <label for="remember">Manter conectado</label>
         </div>
 
         <a href="{{ route('password.request') }}" class="forgot-link">Esqueci minha senha</a>

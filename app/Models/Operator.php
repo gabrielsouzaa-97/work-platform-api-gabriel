@@ -56,6 +56,11 @@ class Operator extends Authenticatable
         return 'password_hash';
     }
 
+    public function getRememberTokenName(): ?string
+    {
+        return null;
+    }
+
     public function sendPasswordResetNotification($token): void
     {
         $resetUrl = URL::temporarySignedRoute(
