@@ -310,3 +310,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-28 22:08** `1437314` — chore(session): clear sprint F12 after merge
 - **2026-05-28 23:59** `1437314` — chore(session): clear sprint F12 after merge
 - **2026-05-29 00:01** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-29 14:41** `e2f5c16` — chore(config): update Dockerfile, session and context snapshot files
