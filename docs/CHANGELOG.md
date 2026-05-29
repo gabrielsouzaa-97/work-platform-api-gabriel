@@ -299,3 +299,14 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-27 23:54** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
 - **2026-05-27 23:57** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
 - **2026-05-28 00:00** `0155669` — Merge pull request #78 from SoftwareBeesy/rr/fix/provision-log-ssh-dispatch
+- **2026-05-28 00:20** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 00:21** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 00:34** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 00:38** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 19:33** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 19:39** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 19:41** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 21:57** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 22:08** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-28 23:59** `1437314` — chore(session): clear sprint F12 after merge
+- **2026-05-29 00:01** `1437314` — chore(session): clear sprint F12 after merge
