@@ -24,7 +24,7 @@
 | ISSUE-016 | change_request | 5 endpoints OCC mutativos indisponíveis — allowlist upstream bloqueia subcmds (quota/branding/maintenance) | Occ, Core/Ssh, Livewire | HIGH | mitigated (fast-track F?-OCC-1..3 — contrato OpenAPI + OccPanel UX; D-02 / #ARCH-7 pendente) |
 | ISSUE-017 | bug | OCC argv com espaços falha no hop SSH `ncsaas-api` ForceCommand — quota `"5 GB"` e branding `"Acme Corp"` retornam exit 16 via API apesar de funcionarem no node | Occ, Core/Ssh | HIGH | open (fix quota compact + single-quote; branding validar pós-deploy) |
 | ISSUE-018 | bug | Slug bloqueado após falha de provisioning — `Customer` com status `failed` não é soft-deletado, impede re-provisioning com mesmo slug | Customers, Jobs/Webhook | HIGH | open (Fix Brief aprovado — Sprint F11) |
-| ISSUE-019 | bug | Logo não incluído no payload do job `create` quando cliente tem logo cadastrado — `ProvisionPayload` resolve logo apenas do request corrente; `branding_meta` nunca persiste o logo path | Customers | MEDIUM | open (Fix Brief aprovado) |
+| ISSUE-019 | bug | Branding não garantido no payload do job `create` quando cliente tem logo cadastrado — logo/background devem ir como `branding.*_data_url` via stdin ou `--staging-id` | Customers | MEDIUM | fixed (Sprint F13 — validação APROVADA R1) |
 | ISSUE-020 | bug | Readiness probe vaza `phpseclib` `ConnectionClosedException` quando conexão SSH pooled fecha antes de `exec()` | Core/Ssh, Customers | MEDIUM | fixed (Sprint F12) |
 
 ---
@@ -64,23 +64,26 @@ Com isso, o retry interno de `SshClient::run()` não é acionado e callers como 
 
 ---
 
-## ISSUE-019 — Logo não incluído no payload do job `create` quando cliente tem logo cadastrado
+## ISSUE-019 — Branding não garantido no payload do job `create` quando cliente tem logo cadastrado
 
 - **Tipo**: bug
 - **Prioridade**: MEDIUM
-- **Status**: open (Fix Brief aprovado)
+- **Status**: fixed (Sprint F13 — validação APROVADA R1)
 - **Registrado em**: 2026-05-24
 - **Solicitante**: `/qa debug`
 - **Módulos afetados**: `Customers/Dto/ProvisionPayload`, `Customers/Actions/ProvisionCustomerAction`, `Http/Controllers/Api/CustomerController`, `Models/Customer`
 
 ### Descrição
 
-Ao enfileirar um job `create` (provisioning), o campo `branding.logo_data_url` (e `background_data_url`) **não é incluído no payload SSH** quando o cliente já possui logo cadastrado no sistema, mas nenhum arquivo foi enviado na requisição corrente.
+Ao enfileirar um job `create` (provisioning), o campo `branding.logo_data_url` (e `branding.background_data_url`) **não é garantido no payload SSH** quando o cliente já possui logo cadastrado no sistema, mas nenhum arquivo foi enviado na requisição corrente.
 
-**Root cause**: `ProvisionPayload::fromRequest()` resolve `logoPath` e `backgroundPath` exclusivamente de arquivos do request HTTP corrente (`$request->hasFile('logo')`). Não existe mecanismo de persistência de logo — `branding_meta` nunca recebe a referência do disco. O temp file do upload é consumido no SSH dispatch e descartado após o request.
+**Root causes**:
+
+1. `ProvisionPayload::fromRequest()` resolve `logoPath` e `backgroundPath` exclusivamente de arquivos do request HTTP corrente (`$request->hasFile('logo')`). Não existe mecanismo de persistência de logo — `branding_meta` nunca recebe a referência do disco. O temp file do upload é consumido no SSH dispatch e descartado após o request.
+2. O payload inline atual monta `logo_data_url` e `background_data_url` no topo do JSON enviado via `--payload-stdin`; o contrato upstream esperado exige essas chaves dentro de `branding`.
 
 Consequência:
-1. **First provision com logo** → logo incluído corretamente (temp file presente). ✅
+1. **First provision com logo** → logo incluído quando temp file está presente, mas no shape incorreto se inline (`logo_data_url` top-level). ❌
 2. **Re-provisioning (ghost restore) sem re-upload** → `logoPath=null` → bloco de branding não executa → SSH `create` omite `branding`. ❌
 3. **Qualquer provision sem upload** mesmo que o cliente tenha logo registrado de outra forma → sem branding no job. ❌
 
@@ -101,13 +104,15 @@ Passado via `--payload-stdin` (≤ 256 KB) ou pré-uploadado via SFTP com `--sta
 
 **Plano em 4 passos**:
 
-1. **`ProvisionCustomerAction`** — após a transação DB (customer criado/restaurado), persistir o temp file em `Storage::disk('local')` → `branding/{slug}/logo.png` (e `background.*`) e atualizar `customer->branding_meta` com `logo_path` e `background_path`.
+1. **`ProvisionCustomerAction`** — montar o payload stdin como `['branding' => ['logo_data_url' => ..., 'background_data_url' => ...]]`; manter `--payload-stdin` para inline ≤ 256 KB e `--staging-id` para SFTP > 256 KB.
 
-2. **`ProvisionPayload`** — adicionar `fromRequestWithCustomer(Request $request, ?Customer $ghost): self` que, quando nenhum arquivo estiver no request, resolve `logoPath` de `$ghost->branding_meta['logo_path']` (via `Storage::disk('local')->path(...)`).
+2. **`ProvisionCustomerAction`** — após a transação DB (customer criado/restaurado), persistir o temp file em `Storage::disk('local')` → `branding/{slug}/logo.png` (e `background.*`) e atualizar `customer->branding_meta` com `logo_path` e `background_path`.
 
-3. **`CustomerController::store()`** — consultar ghost antes de construir o payload (usar `Customer::withTrashed()->where('slug', ...)->whereNotNull('deleted_at')->first()`), repassar ao novo factory method.
+3. **`ProvisionPayload`** — adicionar `fromRequestWithCustomer(Request $request, ?Customer $ghost): self` que, quando nenhum arquivo estiver no request, resolve `logoPath` de `$ghost->branding_meta['logo_path']` (via `Storage::disk('local')->path(...)`).
 
-4. **Testes** — novo caso Pest: re-provision de ghost com `branding_meta.logo_path` populado → `runAsync` chamado com `logo_data_url` no stdin (sem upload no request corrente).
+4. **`CustomerController::store()`** — consultar ghost antes de construir o payload (usar `Customer::withTrashed()->where('slug', ...)->whereNotNull('deleted_at')->first()`), repassar ao novo factory method.
+
+5. **Testes** — cobrir inline com JSON aninhado em `branding`, re-provision de ghost com `branding_meta.logo_path` populado → `runAsync` chamado com `branding.logo_data_url` no stdin (sem upload no request corrente), e branch SFTP mantendo `--staging-id` sem payload inline.
 
 **Arquivos**:
 - `app/Modules/Customers/Dto/ProvisionPayload.php`
@@ -120,9 +125,14 @@ Passado via `--payload-stdin` (≤ 256 KB) ou pré-uploadado via SFTP com `--sta
 - Dupla consulta de ghost (controller + action) — aceitável; simplificar extraindo helper.
 - Corrida em re-provision concorrente já protegida pela idempotency key.
 
-### Próximo passo
+### Resultado Sprint F13
 
-Aguardar `/fix` para gerar Sprint F com TDD (Pest Feature tests cobrindo re-provision com logo + sem logo + SFTP threshold).
+- Payload inline agora usa `branding.logo_data_url` e `branding.background_data_url`.
+- Se o JSON base64 final excede 256 KB, o fluxo usa SFTP staging com `--staging-id` sem stdin.
+- Uploads iniciais são persistidos em `Storage::disk('local')` e `branding_meta` para re-provisionamento.
+- Re-provision de ghost reaproveita logo/background salvos quando não há novo upload no request.
+- Testes: `php artisan test tests/Feature/Customers/ProvisionTest.php` → 16 passed, 63 assertions.
+- Validação senior+qa R1: APROVADA, sem findings remanescentes.
 
 ---
 

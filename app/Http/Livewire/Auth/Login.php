@@ -19,8 +19,6 @@ class Login extends Component
 
     public string $password = '';
 
-    public bool $remember = false;
-
     protected array $rules = [
         'email' => ['required', 'email', 'max:255'],
         'password' => ['required', 'string'],
@@ -43,7 +41,6 @@ class Login extends Component
 
         if (! $operator || $operator->status !== 'active' || ! Auth::attempt(
             ['email' => $this->email, 'password' => $this->password],
-            $this->remember,
         )) {
             RateLimiter::hit($key, 900);
             throw ValidationException::withMessages([

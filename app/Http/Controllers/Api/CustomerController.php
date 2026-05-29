@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProvisionCustomerRequest;
 use App\Http\Requests\RemoveCustomerRequest;
 use App\Http\Resources\CustomerResource;
+use App\Models\Customer;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Actions\RemoveCustomerAction;
@@ -23,7 +24,12 @@ final class CustomerController extends Controller
 {
     public function store(ProvisionCustomerRequest $request, ProvisionCustomerAction $action): CustomerResource|JsonResponse
     {
-        $payload = ProvisionPayload::fromRequest($request);
+        $ghost = Customer::withTrashed()
+            ->where('slug', $request->string('slug')->toString())
+            ->whereNotNull('deleted_at')
+            ->first();
+
+        $payload = ProvisionPayload::fromRequestWithCustomer($request, $ghost);
 
         try {
             $result = $action->execute($payload, $request->user());

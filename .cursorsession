@@ -33,15 +33,15 @@
     }
   ],
   "fase_atual": "12",
-  "fase_nome": "Sprint F12 concluída — ISSUE-020 resolvido",
+  "fase_nome": "Sprint F13 concluída — ISSUE-019 resolvido",
   "sprint_atual": null,
-  "previous_sprint": "F12",
+  "previous_sprint": "F13",
   "beesy_version": "4.16.27-beta",
   "decisions_applied_until": 187,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-28T03:19:54Z",
+  "ultimo_update": "2026-05-29T17:41:17Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -110,7 +110,8 @@
     "F5.9: Helper noUpstreamFlagDuplication() global aplicado em 7 testes LifecycleTest + email/groups no stdin do UpstreamContractTest (QA-F5-005 MED ampliado + QA-F5-015 MED)",
     "F5.10: docs/openapi.yaml v2.0→v2.1 (apps/* novo shape + 501 groups/{g}/users) + OccPanelTest novo (19 testes) + Gate import fix em OccPanel.php (CQ-F5-001 HIGH + QA-F5-016 MED)",
     "F5.11: same-path fix p/ OccPanel::createUser (QA-F5-019 HIGH convergente) — blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch + zera no finally; 4 testes atualizados + 2 novos (production scenario + cleanup); ISSUE-007 (E2E Dusk/Playwright) backlog",
-    "F12.1: SshClient normaliza ConnectionClosedException do phpseclib durante exec()/stdin como SshConnectionException, remove conexão stale do pool e preserva retry; SshClientTest cobre retry e sucesso na segunda tentativa"
+    "F12.1: SshClient normaliza ConnectionClosedException do phpseclib durante exec()/stdin como SshConnectionException, remove conexão stale do pool e preserva retry; SshClientTest cobre retry e sucesso na segunda tentativa",
+    "F13.1-F13.4: create envia branding.logo_data_url/background_data_url via --payload-stdin quando cabe no limite real do stdin; usa SFTP staging quando base64 JSON >256KB; persiste branding_meta; re-provision de ghost reaproveita logo cadastrado; ProvisionTest 16 passed; validação senior+qa APROVADA R1"
   ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
@@ -191,21 +192,57 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "F12",
-    "phase": "merged",
+    "sprint": "F13",
+    "phase": "implemented",
     "branch": "main",
     "head_sha": "pending-commit",
-    "last_completed_task": "F12.1 — normalizar ConnectionClosedException em SshClient::executeCommand()",
+    "last_completed_task": "F13.4 — regressão final e status do ISSUE-019",
     "current_task": null,
-    "tests_passing": 13,
+    "tests_passing": 16,
     "tests_skipped": 0,
-    "assertions": 36,
-    "audit_findings_resolved": 1,
+    "assertions": 63,
+    "audit_findings_resolved": 4,
     "audit_findings_pending": 0,
-    "audit_status": "FAST_TRACK",
-    "timestamp": "2026-05-28T03:19:54Z"
+    "audit_status": "APROVADA_R1",
+    "timestamp": "2026-05-28T03:30:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-05-28T03:22:00Z",
+      "action": "/fix (interativo)",
+      "sprints_generated": [
+        "F13"
+      ],
+      "findings_in_scope": [],
+      "issues_in_scope": [
+        "ISSUE-019"
+      ],
+      "findings_breakdown": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+      },
+      "issues_breakdown": {
+        "MEDIUM": 1
+      },
+      "split_strategy": "cirúrgica — só ISSUE-019; corrige contrato de branding no create sem misturar com F6/F7 pendentes.",
+      "tasks_count": {
+        "P": 2,
+        "M": 2,
+        "total": 4
+      },
+      "review_level": "senior+qa (Customers + contrato SSH payload/staging)",
+      "source_skill_invocation": "/triagem → ISSUE-019 atualizado com shape branding.*_data_url → /fix",
+      "tests_final": "16 passed, 63 assertions",
+      "audit_status": "APROVADA_R1",
+      "audit_findings_resolved": [
+        "CQ-F13-001",
+        "CQ-F13-002",
+        "CQ-F13-003",
+        "QA-F13-001"
+      ]
+    },
     {
       "timestamp": "2026-05-24T10:20:00Z",
       "action": "/fix (interativo)",

@@ -80,6 +80,7 @@
 | F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — `/fix` HIGH-only 2026-05-24 | 4003+    |
 | F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **ativa** | 3     | Jobs, Core/Ssh | ISSUE-014 fast-track — corrige gate F6/ISSUE-009 | 4055+    |
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — readiness probe vaza `ConnectionClosedException` | 4227+ |
+| F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 
 ---
 
@@ -4254,8 +4255,87 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 
 ---
 
+## Sprint F13 — Branding payload no job create (ISSUE-019)
+
+> Categoria: F
+> Gate: (1) create inline envia `--payload-stdin` com JSON `branding.logo_data_url`/`branding.background_data_url`; (2) upload inicial persiste logo/background em `branding_meta`; (3) re-provision de ghost reutiliza logo cadastrado sem novo upload; (4) arquivo >256 KB usa `inboxInit` + `sftpUpload` + `--staging-id`, sem payload inline; (5) `ProvisionTest` filtrado verde.
+> Gerado por `/fix` em 2026-05-28. Fonte: ISSUE-019 (MEDIUM) + triagem 2026-05-28 sobre contrato `branding.*_data_url`.
+> review: senior+qa (Customers + contrato SSH payload/staging)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F13.1 — [ISSUE-019] TDD: cobrir payload inline aninhado em `branding` e branch SFTP sem stdin | `laravel-testing` + `ssh-orchestrator` | — |
+| [x] | M | F13.2 — [ISSUE-019] `ProvisionPayload` + `CustomerController`: resolver logo/background salvos em `branding_meta` quando request não trouxer arquivo | `laravel-api` | F13.1 |
+| [x] | M | F13.3 — [ISSUE-019] `ProvisionCustomerAction`: montar `branding.*_data_url`, persistir uploads em storage local e atualizar `branding_meta` após create/restore | `ssh-orchestrator` + `laravel-api` | F13.2 |
+| [x] | P | F13.4 — [ISSUE-019] Regressão final: testes de provisionamento + atualizar status do issue após validação | `laravel-testing` | F13.3 |
+
+### Task F13.1 — [ISSUE-019] TDD do contrato de branding
+
+**Estado atual**: `ProvisionCustomerAction` monta `logo_data_url` e `background_data_url` no topo do JSON enviado por `--payload-stdin`. O contrato upstream espera essas chaves dentro de `branding`. A branch SFTP já existe, mas precisa de regressão explícita garantindo que não mistura `--payload-stdin` com `--staging-id`.
+
+**Estado desejado**: testes falham antes do fix e comprovam:
+- inline ≤ 256 KB envia `--payload-stdin` e stdin JSON com `branding.logo_data_url`
+- inline com background envia `branding.background_data_url`
+- SFTP > 256 KB chama `inboxInit`/`sftpUpload`, envia `--staging-id` e não envia stdin inline
+
+**Fonte(s)**: ISSUE-019 (MEDIUM)
+**Módulo(s) afetado(s)**: `tests/Feature/Customers/ProvisionTest.php`
+**Risco**: LOW — testes sobre comportamento já centralizado em `ProvisionCustomerAction`.
+**Budget**: P
+
+---
+
+### Task F13.2 — [ISSUE-019] Resolver branding salvo no payload de provisionamento
+
+**Estado atual**: `ProvisionPayload::fromRequest()` só olha arquivos do request atual. Em re-provisioning de ghost, o cliente pode ter `branding_meta.logo_path`, mas `logoPath` fica null e o job `create` sai sem branding.
+
+**Estado desejado**: `CustomerController::store()` consulta ghost soft-deleted antes de construir o payload e `ProvisionPayload` resolve `logoPath`/`backgroundPath` a partir de `branding_meta` quando nenhum arquivo novo vier no request.
+
+**Fonte(s)**: ISSUE-019 (MEDIUM)
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Dto/ProvisionPayload.php`, `app/Http/Controllers/Api/CustomerController.php`
+**Risco**: MEDIUM — altera contrato de montagem de payload em re-provisioning; manter fallback apenas para ghost e arquivos existentes.
+**Budget**: M
+
+---
+
+### Task F13.3 — [ISSUE-019] Persistir uploads e montar `branding.*_data_url`
+
+**Estado atual**: uploads temporários são usados para dispatch SSH e descartados ao fim do request. Além disso, o stdin inline não segue o envelope `branding`.
+
+**Estado desejado**: `ProvisionCustomerAction` monta o stdin como `['branding' => [...]]`, preserva o limiar 256 KB por arquivo e, após criar/restaurar o `Customer`, persiste uploads em `Storage::disk('local')` e atualiza `branding_meta` com caminhos reaproveitáveis.
+
+**Fonte(s)**: ISSUE-019 (MEDIUM)
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Actions/ProvisionCustomerAction.php`, `app/Models/Customer.php`
+**Risco**: MEDIUM — envolve storage local e contrato SSH; não logar payload base64 e não alterar `payload_sanitized` com dados sensíveis.
+**Budget**: M
+
+---
+
+### Task F13.4 — [ISSUE-019] Validação final e status
+
+**Estado desejado**: `ProvisionTest` cobre os cenários críticos e o `ISSUE-019` pode ser marcado como corrigido após suíte filtrada verde.
+
+**Tests**:
+- `php artisan test tests/Feature/Customers/ProvisionTest.php`
+
+**Budget**: P
+
+---
+
+### Validação F13 R1
+
+> Resultado: APROVADA — auditor-senior e auditor-qa sem findings após follow-up.
+
+- Testes: `php artisan test tests/Feature/Customers/ProvisionTest.php` → 16 passed, 63 assertions.
+- Senior R1: 2 HIGH + 1 MEDIUM detectados inicialmente; corrigidos antes do fechamento (limite base64/JSON, tratamento de staging, `Storage::put`).
+- QA R1: gap de teste HTTP multipart coberto; follow-up sem findings.
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-05-28 | 0.23   | Sprint F13 CONCLUÍDA — branding no `create` corrigido; ProvisionTest 16 passed; validação senior+qa APROVADA R1. | /fix F13 |
+| 2026-05-28 | 0.22   | Sprint F13 adicionada — ISSUE-019 (`create` deve enviar branding logo/background via `branding.*_data_url` ou `--staging-id`). | /fix (interativo) |
 | 2026-05-27 | 0.21   | Sprint F12 CONCLUÍDA — `SshClient` normaliza `ConnectionClosedException` do phpseclib durante `exec()`/stdin; `SshClientTest` 13 passed. | /pmo sprint F12 |
 | 2026-05-27 | 0.20   | Sprint F12 adicionada — ISSUE-020 (`SshClient` normaliza `ConnectionClosedException` do phpseclib durante readiness probe). | /fix (interativo) |
 | 2026-05-24 | 0.19   | Sprint F11 adicionada — ISSUE-018 HIGH (slug reuse) + 5 MEDIUM F5 (CQ-F5-002/003, QA-F5-006/008/010). N1 HIGH já em F7. | /fix (interativo) |
