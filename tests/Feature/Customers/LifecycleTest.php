@@ -46,30 +46,23 @@ function sshLifecycleSuccess(string $jobId): SshResponse
 }
 
 /**
- * Returns true when $sequence appears as consecutive elements in $args.
- *
- * Used to assert upstream argv tokens like ['user', 'create'] without coupling to
- * the exact position (slug always precedes the verb pair, idempotency/callback
- * flags follow).
+ * Returns true when $args starts with $sequence (slug + upstream verb tokens first).
  *
  * @param  array<int, string>  $args
  * @param  array<int, string>  $sequence
  */
-function argsContainConsecutive(array $args, array $sequence): bool
+function argsStartWithSequence(array $args, array $sequence): bool
 {
     $args = array_values($args);
     $n = count($sequence);
     if ($n === 0) {
         return true;
     }
-    $max = count($args) - $n;
-    for ($i = 0; $i <= $max; $i++) {
-        if (array_slice($args, $i, $n) === $sequence) {
-            return true;
-        }
+    if (count($args) < $n) {
+        return false;
     }
 
-    return false;
+    return array_slice($args, 0, $n) === array_values($sequence);
 }
 
 // ── 7.2 Create User ───────────────────────────────────────────────────────────
@@ -83,9 +76,9 @@ it('POST users → 202 + job_id + audit log criado + email/groups via stdin (nã
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(function ($c, $cmd, $args, $stdin) {
-            // Upstream argv tokens (NOT 'users:create')
-            if (! argsContainConsecutive($args, ['user', 'create'])) {
+        ->withArgs(function ($c, $cmd, $args, $stdin) use ($customer) {
+            // Upstream argv: slug + verb tokens (NOT 'users:create')
+            if (! argsStartWithSequence($args, [$customer->slug, 'user', 'create'])) {
                 return false;
             }
             // Bug-A + Bug-B regression guards (helper centralised in tests/Pest.php — QA-F5-005)
@@ -133,8 +126,8 @@ it('POST users com groups → stdin payload contém groups[]', function () {
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(function ($c, $cmd, $args, $stdin) {
-            if (! argsContainConsecutive($args, ['user', 'create'])) {
+        ->withArgs(function ($c, $cmd, $args, $stdin) use ($customer) {
+            if (! argsStartWithSequence($args, [$customer->slug, 'user', 'create'])) {
                 return false;
             }
             if (! noUpstreamFlagDuplication($args, 'users:create')) {
@@ -172,8 +165,8 @@ it('POST users com display_name, quota e subadmin_groups → stdin payload upstr
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(function ($c, $cmd, $args, $stdin) {
-            if (! argsContainConsecutive($args, ['user', 'create'])) {
+        ->withArgs(function ($c, $cmd, $args, $stdin) use ($customer) {
+            if (! argsStartWithSequence($args, [$customer->slug, 'user', 'create'])) {
                 return false;
             }
             $decoded = json_decode($stdin ?? '', true);
@@ -309,12 +302,12 @@ it('POST groups → 202 + job_id + argv ["group","create"]', function () {
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(function ($c, $cmd, $args) {
+        ->withArgs(function ($c, $cmd, $args) use ($customer) {
             // QA-F5-006: idempotency-key and callback must be in argv
             $hasIdempotencyKey = (bool) array_filter($args, fn ($a) => is_string($a) && str_starts_with($a, '--idempotency-key='));
             $hasCallback = (bool) array_filter($args, fn ($a) => is_string($a) && str_contains($a, '/api/jobs/hook?cluster='));
 
-            return argsContainConsecutive($args, ['group', 'create'])
+            return argsStartWithSequence($args, [$customer->slug, 'group', 'create'])
                 && noUpstreamFlagDuplication($args, 'groups:create')
                 && in_array('editors', $args, true)
                 && $hasIdempotencyKey
@@ -341,9 +334,9 @@ it('DELETE users/{username} → 202 + job_id + argv ["user","remove"]', function
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => argsContainConsecutive($args, ['user', 'remove'])
+        ->withArgs(fn ($c, $cmd, $args) => argsStartWithSequence($args, [$customer->slug, 'user', 'remove'])
             && noUpstreamFlagDuplication($args, 'users:delete')
-            && ! argsContainConsecutive($args, ['user', 'delete'])
+            && ! argsStartWithSequence($args, [$customer->slug, 'user', 'delete'])
             && in_array('johndoe', $args, true)
         )
         ->andReturn(sshLifecycleSuccess($jobId));
@@ -381,12 +374,12 @@ it('POST apps/enable consolida lista em 1 job único com CSV positional', functi
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once() // single call — not one-per-app
-        ->withArgs(function ($c, $cmd, $args) {
+        ->withArgs(function ($c, $cmd, $args) use ($customer) {
             // QA-F5-006: idempotency-key and callback must be in argv
             $hasIdempotencyKey = (bool) array_filter($args, fn ($a) => is_string($a) && str_starts_with($a, '--idempotency-key='));
             $hasCallback = (bool) array_filter($args, fn ($a) => is_string($a) && str_contains($a, '/api/jobs/hook?cluster='));
 
-            return argsContainConsecutive($args, ['apps', 'enable'])
+            return argsStartWithSequence($args, [$customer->slug, 'apps', 'enable'])
                 && noUpstreamFlagDuplication($args, 'apps:enable')
                 && in_array('calendar,contacts,mail', $args, true)
                 && $hasIdempotencyKey
@@ -414,7 +407,7 @@ it('POST apps/disable consolida lista em 1 job único com CSV positional', funct
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => argsContainConsecutive($args, ['apps', 'disable'])
+        ->withArgs(fn ($c, $cmd, $args) => argsStartWithSequence($args, [$customer->slug, 'apps', 'disable'])
             // Bug-A + Bug-B regression guards via centralised helper (QA-F5-005)
             && noUpstreamFlagDuplication($args, 'apps:disable')
             // Multi-app CSV is asserted in the dedicated test below; here we verify single-app CSV
@@ -440,7 +433,7 @@ it('POST apps/disable com 3 apps consolida no CSV "a,b,c" em 1 job único (QA-F5
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once() // single SSH call — NOT one-per-app
-        ->withArgs(fn ($c, $cmd, $args) => argsContainConsecutive($args, ['apps', 'disable'])
+        ->withArgs(fn ($c, $cmd, $args) => argsStartWithSequence($args, [$customer->slug, 'apps', 'disable'])
             && noUpstreamFlagDuplication($args, 'apps:disable')
             && in_array('calendar,contacts,mail', $args, true)
         )
@@ -595,9 +588,9 @@ it('DELETE groups/{group} → 202 + job_id + argv ["group","remove"]', function 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(fn ($c, $cmd, $args) => argsContainConsecutive($args, ['group', 'remove'])
+        ->withArgs(fn ($c, $cmd, $args) => argsStartWithSequence($args, [$customer->slug, 'group', 'remove'])
             && noUpstreamFlagDuplication($args, 'groups:delete')
-            && ! argsContainConsecutive($args, ['group', 'delete'])
+            && ! argsStartWithSequence($args, [$customer->slug, 'group', 'delete'])
             && in_array('editors', $args, true))
         ->andReturn(sshLifecycleSuccess($jobId));
     $this->app->instance(SshClientInterface::class, $ssh);
@@ -812,4 +805,148 @@ it('apps/enable: ordem dos apps é preservada (policy A — order-sensitive CSV,
     expect($csvFromFirst)->toBe('calendar,mail')
         ->and($csvFromSecond)->toBe('mail,calendar')
         ->and($csvFromFirst)->not->toBe($csvFromSecond);
+});
+
+// ── QA-F5-009: boundary value tests ───────────────────────────────────────────
+
+it('POST users aceita username com exatamente 64 caracteres (boundary válido)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+    $jobId = Str::uuid()->toString();
+    $username = str_repeat('a', 64);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')->once()->andReturn(sshLifecycleSuccess($jobId));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => $username,
+            'password' => 'Secret123!',
+        ])
+        ->assertStatus(202)
+        ->assertJsonPath('job_id', $jobId);
+});
+
+it('POST users rejeita username com 65 caracteres (off-by-one)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => str_repeat('a', 65),
+            'password' => 'Secret123!',
+        ])
+        ->assertStatus(422);
+});
+
+it('POST groups aceita name com exatamente 256 caracteres (boundary válido)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+    $jobId = Str::uuid()->toString();
+    $groupName = str_repeat('a', 256);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')->once()->andReturn(sshLifecycleSuccess($jobId));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/groups", ['name' => $groupName])
+        ->assertStatus(202)
+        ->assertJsonPath('job_id', $jobId);
+});
+
+it('POST groups rejeita name com 257 caracteres (off-by-one)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/groups", ['name' => str_repeat('a', 257)])
+        ->assertStatus(422);
+});
+
+it('POST apps/enable com apps vazio → 422 sem SSH', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", ['apps' => []])
+        ->assertStatus(422);
+});
+
+it('POST users aceita email com plus addressing (boundary válido)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $cmd, $args, $stdin) {
+            $decoded = json_decode($stdin ?? '', true);
+
+            return is_array($decoded)
+                && ($decoded['email'] ?? null) === 'user+tag@example.com';
+        })
+        ->andReturn(sshLifecycleSuccess($jobId));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'johndoe',
+            'password' => 'Secret123!',
+            'email' => 'user+tag@example.com',
+        ])
+        ->assertStatus(202);
+});
+
+it('POST users aceita password com exatamente 8 caracteres (boundary válido)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')->once()->andReturn(sshLifecycleSuccess($jobId));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'johndoe',
+            'password' => 'Abcd1234',
+        ])
+        ->assertStatus(202)
+        ->assertJsonPath('job_id', $jobId);
+});
+
+it('POST apps/enable rejeita App ID apenas uppercase → 422 sem SSH', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", ['apps' => ['CALENDAR']])
+        ->assertStatus(422);
 });

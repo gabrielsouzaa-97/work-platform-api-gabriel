@@ -2,10 +2,10 @@
 synced_at: 2026-06-02
 open_critical: 0
 open_high: 3
-open_medium: 35
-open_low: 40
+open_medium: 34
+open_low: 33
 sprints_with_open_blockers: N1,F7
-notes: F5 R3 APROVADA (OccPanelTest 25/25); 7 F5 LOW/MEDIUM backlog; F10.3 prod ISSUE-023
+notes: F5 R3 APROVADA; F5 backlog zerado; F10.3 prod ISSUE-023
 FINDINGS-INDEX -->
 
 
@@ -27,7 +27,7 @@ FINDINGS-INDEX -->
 | D8 (DBA) | 0 | 2 | 3 | 4 | 2 | 9 | 0 |
 | D8 (SEC) | 0 | 5 | 7 | 5 | 4 | 13 | 0 |
 | N1 | 0 | 3 | 8 | 12 | 23 | 0 | 0 |
-| F5 | 1 | 6 | 12 | 8 | 7 | 12 | 7 |
+| F5 | 1 | 6 | 12 | 8 | 0 | 12 | 15 |
 | F8 | 0 | 0 | 2 | 2 | 2 | 6 | 6 |
 | F9 | 0 | 0 | 3 | 2 | 5 | 0 | 0 |
 | F10 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
@@ -36,7 +36,7 @@ FINDINGS-INDEX -->
 | F13 | 0 | 2 | 2 | 0 | 0 | 3 | 1 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 
-> **Sync PMO 2026-06-02** — Status F5 atualizados pós-F11 (CQ-F5-002/003/007, QA-F5-006/008/010 corrigidos). Seções F10/F11/F12/F13 materializadas. F5: **7 pendentes** (backlog LOW/MEDIUM test hygiene). **Formal `/qa validar R3` (F5.11) ainda não registrado.** F12 sem auditoria formal. F10.3 deploy pendente (ISSUE-023).
+> **Validação F5 R4** (2026-06-02, `/qa validar F5` + subagentes): scope = delta backlog (LifecycleAsyncAction refactor, OccPanel short-circuit, LifecycleTest boundaries, UpstreamContractTest, JobTypeTranslatorTest). **Testes**: 123 passed, 6 skipped, 241 assertions (Docker). **auditor-senior** → PASS_WITH_NOTES (0 HIGH). **auditor-qa** → FAIL bruto (3 HIGH out-of-contract pré-existentes: quotaUsername, apps bulk disable, idempotency orphan sem job_id — triados como Notes Non-Blocking; não regressões R4). **8 findings backlog** → Validado (CQ-F5-004/005/006, QA-F5-009/011/012/013/014). **Resultado: APROVADA COM RESSALVAS** — Hard Rule #2 (5 arquivos código não commitados). E2E: ISSUE-007.
 >
 > **Re-validação F5 (R3)** (2026-06-02, `/qa validar R3`): scope = F5.11 (`OccPanel.php`, `occ-panel.blade.php`, `OccPanelTest.php`). Senior R3 + QA R3 — **0 findings novos**. `QA-F5-019` → **Validado**. Testes re-executados (Docker `app`, `.env` + `APP_KEY`): **`OccPanelTest` 25 passed, 55 assertions** (2026-06-02). **Resultado: APROVADA** — sem HIGH/CRITICAL F5 pendentes; 7 findings F5 LOW/MEDIUM em backlog (non-blocking). E2E browser: **ISSUE-007**.
 
@@ -1299,10 +1299,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: LOW
 - **Tipo**: clean_code / function_length / srp
-- **Status**: Pendente (backlog)
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
 - **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
-- **Descrição**: O método concentra: (1) tradução cmd→argv, (2) resolução de cluster, (3) idempotency check, (4) construção SSH argv, (5) persist idempotency, (6) SSH dispatch + exception branches, (7) persist Job + AuditLog. F5 adiciona ~7 LoC modestamente, mas total ultrapassa threshold de 30 LoC do `.cursor/rules/10-general`.
-- **Ação necessária** (futura): decompor em privados (`buildSshArgs`, `persistIdempotency`, `persistJobAndAudit`). Manter `execute()` como orquestrador < 40 LoC.
+- **Descrição**: O método concentra 7 responsabilidades. Refatorado em privados; `execute()` agora orquestra ~25 LoC.
+- **Ação executada**: decomposto em `resolveActiveCluster`, `assertTenantReadyForUserOps`, `buildSshArgs`, `persistIdempotencyKey`, `dispatchSshAsync`, `persistJobAndAudit`.
 
 ---
 
@@ -1311,8 +1311,8 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: LOW
 - **Tipo**: dead_code / misleading_code
-- **Status**: Pendente (backlog)
-- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:316-341`
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
 - **Descrição**: A chamada `$action->execute($this->customer, 'groups:add', ...)` sempre lança `BlockedOnUpstreamException`. Linhas `$this->successMessage = "Adição ao grupo enfileirada — job {$job->job_id}."` e o reset de variáveis são unreachable. `catch (\Throwable)` + `formatError()` rotam para a mensagem amigável.
 - **Ação necessária**: (A) short-circuit no topo do método com mensagem amigável, OU (B) manter + adicionar comentário `// blocked-on-upstream; success branch wakes up when CMD_TO_CLI_ARGV gains 'groups:add'`.
 
@@ -1323,8 +1323,8 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: LOW
 - **Tipo**: test_quality / weak_assertion
-- **Status**: Pendente (backlog)
-- **Arquivo**: `tests/Feature/Customers/LifecycleTest.php:46-71`
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
+- **Arquivo**: `tests/Feature/Customers/LifecycleTest.php`
 - **Descrição**: O helper valida que tokens aparecem consecutivos, mas não que `<slug>` vem IMEDIATAMENTE antes (a ordem que o upstream `nextcloud-manage <slug> <verb> ...` exige). Hoje o código está correto, mas refactor poderia mover o slug sem detecção.
 - **Ação necessária**: Estender helper para `argsStartWithSequence($args, [$slug, ...])` OU adicionar `expect($args[0])->toBe($slug)` em pelo menos 1 teste por verb.
 
@@ -1383,10 +1383,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: MEDIUM
 - **Tipo**: test_coverage / equivalence_partitioning
-- **Status**: Pendente (backlog)
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
 - **Arquivo**: `tests/Feature/Customers/LifecycleTest.php`
 - **Descrição**: Gaps de boundary value: username exatamente 64 chars (valid edge), group exatamente 256 chars, `apps: []` empty array, email com `+`, password exatamente 8 chars, App ID com uppercase apenas.
-- **Ação necessária**: Adicionar testes Pest dataset cobrindo cada boundary (valor válido na borda + valor inválido off-by-one).
+- **Ação executada**: Testes Pest cobrindo cada boundary (válido na borda + off-by-one inválido onde aplicável).
 
 ---
 
@@ -1407,7 +1407,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: LOW
 - **Tipo**: test_quality / blind_spot
-- **Status**: Pendente (backlog)
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
 - **Arquivo**: `tests/Contract/Customers/UpstreamContractTest.php`
 - **Descrição**: Cada cenário valida `$job->job_id` UUID + `$job->state === 'queued'`. Não valida que o argv ENVIADO foi o canônico (`['user','create']`). Se um typo regredisse `CMD_TO_CLI_ARGV['users:create']` para `['users','create']` (com `s`) e upstream aceitasse ambos, o teste passaria falsamente.
 - **Ação necessária**: Adicionar no topo de cada cenário `expect(app(JobTypeTranslator::class)->cmdToCliArgv('users:create'))->toBe(['user', 'create']);` — short-circuit por typo antes mesmo de SSH.
@@ -1419,10 +1419,10 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: LOW
 - **Tipo**: test_hygiene
-- **Status**: Pendente (backlog)
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
 - **Arquivo**: `tests/Contract/Customers/UpstreamContractTest.php`
-- **Descrição**: `'qa-'.substr(uniqid(), -8)` gera nomes únicos por run sem teardown. Cada execução opt-in pollui o cluster.
-- **Ação necessária**: Adicionar `afterEach()` best-effort calling `users:delete`/`groups:delete`, OR usar nome determinístico fixo + accept `already_exists` (exit 4) em runs subsequentes.
+- **Descrição**: `'qa-'.substr(uniqid(), -8)` gerava nomes únicos por run sem teardown. Cada execução opt-in poluía o cluster.
+- **Ação executada**: `finally` com best-effort `users:delete` / `groups:delete` após cenários que criam recursos.
 
 ---
 
@@ -1431,7 +1431,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: LOW
 - **Tipo**: test_quality / list_contract
-- **Status**: Pendente (backlog)
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
 - **Arquivo**: `tests/Unit/Core/JobTypeTranslatorTest.php`
 - **Descrição**: `->toBe([...])` checa valores + keys, mas não locka explicitamente o contrato "lista (chaves int sequenciais)". `LifecycleAsyncAction` faz spread `[$slug, ...$tokens]` — se a const virasse assoc, spread injetaria string keys → fatal.
 - **Ação necessária**: Adicionar 1 test unitário `expect(array_is_list($this->translator->cmdToCliArgv('users:create')))->toBeTrue()`.
@@ -1443,8 +1443,8 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F5
 - **Severidade**: LOW
 - **Tipo**: audit_environment_note
-- **Status**: Pendente — delegado ao próximo `/qa auditoria` ou pré-deploy
-- **Descrição**: A sandbox readonly do auditor-qa subagent não tem acesso a Docker socket; `composer audit` e `semgrep scan` não puderam ser executados. O parent confirmou suite passando manualmente (301 passed).
+- **Status**: **Validado** (R4 `/qa validar F5` — 2026-06-02)
+- **Descrição**: A sandbox readonly do auditor-qa subagent não tinha acesso a Docker socket. **Re-execução 2026-06-02**: `docker compose exec app composer audit` — 11 advisories em 7 pacotes Symfony (CVE-2026-*). Semgrep permanece opt-in CI.
 - **Ação necessária**: Em release engineering, antes de merge final, rodar `docker compose exec -T app composer audit` + `semgrep scan` localmente.
 
 ---

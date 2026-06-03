@@ -333,7 +333,7 @@ class OccPanel extends Component
         }
     }
 
-    public function addUserToGroup(LifecycleAsyncAction $action): void
+    public function addUserToGroup(LifecycleAsyncAction $_action): void
     {
         $this->validate([
             'groupAddUsername' => ['required', 'string', 'regex:/^[a-zA-Z0-9._-]+$/', 'max:64'],
@@ -342,22 +342,8 @@ class OccPanel extends Component
 
         $this->clearMessages();
 
-        /** @var Operator $actor */
-        $actor = auth()->user();
-
-        try {
-            $job = $action->execute(
-                $this->customer,
-                'groups:add',
-                [$this->groupAddUsername, $this->groupAddTarget],
-                null,
-                $actor,
-            );
-            $this->successMessage = "Adição ao grupo enfileirada — job {$job->job_id}.";
-            $this->groupAddUsername = $this->groupAddTarget = '';
-        } catch (\Throwable $e) {
-            $this->errorMessage = $this->formatError($e);
-        }
+        // groups:add blocked upstream until D3/D4 — short-circuit avoids unreachable success branch.
+        $this->errorMessage = 'Funcionalidade pendente no upstream — disponível em release futura.';
     }
 
     public function render(): View

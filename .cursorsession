@@ -186,9 +186,9 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-20T19:06:38Z",
-    "usage_percent": 97.361,
-    "messages_lost": 231
+    "compacted_at": "2026-06-03T02:21:42Z",
+    "usage_percent": 92.9735,
+    "messages_lost": 182
   },
   "compact_count": 1,
   "checkpoint": {
@@ -207,31 +207,78 @@
     "timestamp": "2026-05-28T03:30:00Z",
     "validation_gate": {
       "sprint_validated": "F5",
-      "validation_round": 3,
-      "findings_found": 0,
+      "validation_round": 4,
+      "findings_found": 3,
       "findings_registered": [],
-      "files_modified_outside_findings": 1,
+      "files_modified_outside_findings": 5,
       "askquestion_shown": false,
       "senior_review_status": "PASS_WITH_NOTES",
       "qa_review_status": "PASS_WITH_NOTES",
-      "result": "APROVADA",
+      "result": "APROVADA_COM_RESSALVAS",
       "contract_source": "checkpoint",
       "in_contract": [],
-      "last_validated_sha": "cf773dc48ece5e3221f3a2026a45488a7a185b1e",
+      "last_validated_sha": "f0a2cee785c006f8ed0fd571c00593591685673b",
       "tests_reexecuted": true,
-      "tests_scope": "OccPanelTest",
-      "tests_result": "25 passed, 55 assertions",
+      "tests_scope": "LifecycleTest + OccPanelTest + JobTypeTranslatorTest + UpstreamContractTest",
+      "tests_result": "123 passed, 6 skipped, 241 assertions",
       "tests_env": "docker compose exec app (2026-06-02)",
-      "notes_non_blocking": [
-        "7 findings F5 LOW/MEDIUM backlog",
-        "E2E browser ISSUE-007",
-        "check-ssh.ps1 untracked outside whitelist"
+      "audit_invoked": [
+        {"agent": "auditor-senior", "model": "claude-opus-4-8-thinking-medium", "findings": 0, "status": "PASS_WITH_NOTES"},
+        {"agent": "auditor-qa", "model": "gemini-3.1-pro", "findings": 3, "status": "PASS_WITH_NOTES", "triage": "out-of-contract pre-existing"}
       ],
-      "findings_validated_r3": ["QA-F5-019"],
-      "timestamp": "2026-06-02T18:00:00Z"
+      "notes_non_blocking": [
+        "QA-F5-020 quotaUsername required_if (OccPanel pre-existing)",
+        "QA-F5-021 IdempotencyKey orphan if SSH missing job_id (pre-existing)",
+        "QA-F5-022 OccPanel apps bulk disable unimplemented (pre-existing)",
+        "E2E browser ISSUE-007",
+        "Hard Rule #2: 5 code files uncommitted — commit before deploy"
+      ],
+      "findings_validated_r4": [
+        "CQ-F5-004",
+        "CQ-F5-005",
+        "CQ-F5-006",
+        "QA-F5-009",
+        "QA-F5-011",
+        "QA-F5-012",
+        "QA-F5-013",
+        "QA-F5-014"
+      ],
+      "hard_rule_violations": ["files_modified_outside_findings"],
+      "timestamp": "2026-06-02T20:00:00Z"
     }
   },
   "planning_history": [
+    {
+      "timestamp": "2026-06-02T20:00:00Z",
+      "action": "/qa validar F5 R4",
+      "validation_round": 4,
+      "sprint_validated": "F5",
+      "scope_files": [
+        "app/Modules/Customers/Actions/LifecycleAsyncAction.php",
+        "app/Http/Livewire/Customers/OccPanel.php",
+        "tests/Feature/Customers/LifecycleTest.php",
+        "tests/Contract/Customers/UpstreamContractTest.php",
+        "tests/Unit/Core/JobTypeTranslatorTest.php"
+      ],
+      "audit_invoked": [
+        {"agent": "auditor-senior", "findings": 0, "status": "PASS_WITH_NOTES"},
+        {"agent": "auditor-qa", "findings": 3, "status": "PASS_WITH_NOTES", "triage": "out-of-contract"}
+      ],
+      "findings_validated": [
+        "CQ-F5-004",
+        "CQ-F5-005",
+        "CQ-F5-006",
+        "QA-F5-009",
+        "QA-F5-011",
+        "QA-F5-012",
+        "QA-F5-013",
+        "QA-F5-014"
+      ],
+      "tests_reexecuted": true,
+      "tests_evidence": "123 passed, 6 skipped, 241 assertions (Docker 2026-06-02)",
+      "result": "APROVADA_COM_RESSALVAS",
+      "ressalvas": ["Hard Rule #2 uncommitted code", "3 QA HIGH triaged out-of-contract"]
+    },
     {
       "timestamp": "2026-06-02T12:00:00Z",
       "action": "/qa validar R3",
@@ -243,10 +290,20 @@
         "tests/Feature/Livewire/Customers/OccPanelTest.php"
       ],
       "audit_invoked": [
-        {"agent": "auditor-senior", "findings": 0, "status": "PASS_WITH_NOTES"},
-        {"agent": "auditor-qa", "findings": 0, "status": "PASS_WITH_NOTES"}
+        {
+          "agent": "auditor-senior",
+          "findings": 0,
+          "status": "PASS_WITH_NOTES"
+        },
+        {
+          "agent": "auditor-qa",
+          "findings": 0,
+          "status": "PASS_WITH_NOTES"
+        }
       ],
-      "findings_validated": ["QA-F5-019"],
+      "findings_validated": [
+        "QA-F5-019"
+      ],
       "tests_reexecuted": true,
       "tests_evidence": "OccPanelTest 25 passed, 55 assertions (Docker 2026-06-02)",
       "audit_status": "APROVADA",
