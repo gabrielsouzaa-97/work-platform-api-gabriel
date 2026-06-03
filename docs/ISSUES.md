@@ -14,18 +14,21 @@
 | ISSUE-006 | postmortem | Lifecycle async envia vocabulário canônico-API ao upstream (`users:create` em vez de `user-create`) + duplica `--async --json` | Customers, Core/Ssh | HIGH | open (Fix Brief aprovado) |
 | ISSUE-007 | change_request | E2E browser coverage via Dusk/Playwright para Livewire (cobre wire:submit/click real, MeRC ribbon do bug QA-F5-019) | DevOps, Livewire | MEDIUM | open (backlog — sprint N-UI dedicada) |
 | ISSUE-008 | change_request | Fluxo de "Esqueci a senha" para operadores (broker nativo Laravel) | Auth | MEDIUM | open |
-| ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | mitigated (ISSUE-014 — SSH pull argv corrigido; validar pós-deploy) |
+| ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | mitigated (ISSUE-014 código OK; **ISSUE-023** validação prod) |
 | ISSUE-010 | postmortem | Callback `provision success` prematuro — tenant não ready para `users:*` (~10 min pós-callback) | Jobs, Customers, Webhook | CRITICAL | closed (F8) |
 | ISSUE-011 | postmortem | Diagnóstico errado em comentários do `OccController`: causa real é allowlist de subcmd no `occ-exec` upstream, não "flag stripping" | Occ, Core/Ssh | CRITICAL | implemented — **validação APROVADA (R1)** |
 | ISSUE-012 | bug | 404 em rotas inexistentes sob `/api/*` retorna HTML completo do Laravel (~30 KB) quando o cliente não envia `Accept: application/json` — info leak + DX ruim | Core (HTTP layer) | HIGH | closed (F9 — validação APROVADA R1) |
-| ISSUE-013 | bug | Callbacks de webhook chegam com `exit_code=null` e `summary=null` em 100% dos jobs (59/59 staging, 8 job_types) — causa raiz upstream confirmada; SSH fallback quebrado (exit 101) | Jobs, Webhook, Core/Ssh | HIGH | open (causa raiz upstream — fix na API só para mitigações secundárias) |
+| ISSUE-013 | bug | Callbacks de webhook chegam com `exit_code=null` e `summary=null` — causa raiz upstream (#23); mitigação API ISSUE-014 | Jobs, Webhook, Core/Ssh | HIGH | open upstream; **prod 2026-06-02: 1/5 jobs 7d** (não 100%) — ver ISSUE-013 §Validação |
 | ISSUE-014 | bug | `JobLogFetcher` SSH fallback falha 100% com exit 101 (`cmd_not_allowed`) — argv incorreto inclui `<client>` em comando de introspection `job`; descoberto durante investigação de ISSUE-013 | Jobs, Core/Ssh | MEDIUM | fixed (fix/issue-014-job-log-fetcher-argv) |
 | ISSUE-015 | enhancement | `WebhookHandler` salva apenas subset reconstruído em `audit_logs.payload` (5 chaves) em vez do payload raw — descoberto durante investigação de ISSUE-013, mascarou hipótese inicial | Jobs, Webhook | MEDIUM | open (observabilidade — fast-track) |
 | ISSUE-016 | change_request | 5 endpoints OCC mutativos indisponíveis — allowlist upstream bloqueia subcmds (quota/branding/maintenance) | Occ, Core/Ssh, Livewire | HIGH | mitigated (fast-track F?-OCC-1..3 — contrato OpenAPI + OccPanel UX; D-02 / #ARCH-7 pendente) |
 | ISSUE-017 | bug | OCC argv com espaços falha no hop SSH `ncsaas-api` ForceCommand — quota `"5 GB"` e branding `"Acme Corp"` retornam exit 16 via API apesar de funcionarem no node | Occ, Core/Ssh | HIGH | open (fix quota compact + single-quote; branding validar pós-deploy) |
 | ISSUE-018 | bug | Slug bloqueado após falha de provisioning — `Customer` com status `failed` não é soft-deletado, impede re-provisioning com mesmo slug | Customers, Jobs/Webhook | HIGH | open (Fix Brief aprovado — Sprint F11) |
-| ISSUE-019 | bug | Branding não garantido no payload do job `create` quando cliente tem logo cadastrado — logo/background devem ir como `branding.*_data_url` via stdin ou `--staging-id` | Customers | MEDIUM | fixed (Sprint F13 — validação APROVADA R1) |
+| ISSUE-019 | bug | Branding não garantido no payload do job `create` quando cliente tem logo cadastrado — logo/background devem ir como `branding.*_data_url` via stdin ou `--staging-id` | Customers | MEDIUM | fixed API (F13); **e2e pendente upstream** (ISSUE-022) |
 | ISSUE-020 | bug | Readiness probe vaza `phpseclib` `ConnectionClosedException` quando conexão SSH pooled fecha antes de `exec()` | Core/Ssh, Customers | MEDIUM | fixed (Sprint F12) |
+| ISSUE-021 | change_request | OpenAPI global desalinhado do formato real (`{ error }` + JsonResource vs envelope `{ success, message, data }`) | Core, docs | MEDIUM | open |
+| ISSUE-022 | change_request | Cross-repo: fechar contrato API ↔ `mework360-deploy-scripts` (webhook payload, branding stdin, OCC allowlist) | Core, Jobs, Customers, Occ | HIGH | open (coordenação) |
+| ISSUE-023 | change_request | Validação produção pós-F10: deploy + smoke `/queue/{id}` + schema ops (`failed_jobs`) | Jobs, DevOps | MEDIUM | open |
 
 ---
 
@@ -68,7 +71,7 @@ Com isso, o retry interno de `SshClient::run()` não é acionado e callers como 
 
 - **Tipo**: bug
 - **Prioridade**: MEDIUM
-- **Status**: fixed (Sprint F13 — validação APROVADA R1)
+- **Status**: fixed na API (Sprint F13 — validação APROVADA R1); **e2e pendente** se upstream só aplicar logo via `--staging-id` — ver **ISSUE-022**, `docs/HANDOFF-BRANDING-BUG.md`
 - **Registrado em**: 2026-05-24
 - **Solicitante**: `/qa debug`
 - **Módulos afetados**: `Customers/Dto/ProvisionPayload`, `Customers/Actions/ProvisionCustomerAction`, `Http/Controllers/Api/CustomerController`, `Models/Customer`
@@ -338,7 +341,7 @@ Exit 16 continua mapeado como `occ_subcmd_not_allowed` (ISSUE-011) mas aqui é *
 
 - **Tipo**: bug (observabilidade — diagnóstico remoto inviabilizado)
 - **Prioridade**: HIGH (não derruba produção, mas mascara P-21/P-15/P-01 e impede triagem de qualquer falha de job)
-- **Status**: investigated — **causa raiz upstream confirmada e issue aberta** (Fase 1 read-only concluída 2026-05-24); fix primário fora desta API. Fast-tracks na API: ISSUE-014 (SSH fallback quebrado) + ISSUE-015 (audit raw payload).
+- **Status**: investigated — **causa raiz upstream confirmada e issue aberta** (Fase 1 read-only concluída 2026-05-24); fix primário fora desta API. Fast-tracks na API: ISSUE-014 (SSH fallback quebrado — **fixed no código**) + ISSUE-015 (audit raw payload). Rastreado em **ISSUE-022** (coordenação cross-repo).
 - **Sprint**: a alocar — **fix primário rastreado em [`SoftwareBeesy/mework360-deployer-scripts#23`](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/23)**; mitigações ISSUE-014/ISSUE-015 nesta API podem ir como fast-track
 - **Origem**: testes dinâmicos API dev (`deployer.mework360.com.br/api`) — P-05 em `docs/PROBLEMAS-ENCONTRADOS.md` (28 jobs verificados / 5 verbos: provision, deprovision, users:create, users:delete, occ-exec)
 - **Módulos afetados (suspeitos — a confirmar pela investigação)**:
@@ -359,6 +362,20 @@ Exit 16 continua mapeado como `occ_subcmd_not_allowed` (ISSUE-011) mas aqui é *
 Em **28 de 28 jobs verificados** (5 verbos distintos) na API dev, o callback `job.finished` chega ao webhook receiver com **ambos** `exit_code=null` **e** `summary=null` na tabela `jobs` após o ciclo completo. O comportamento é 100% reprodutível, independente do verbo (provision, deprovision, users:create, users:delete, occ-exec) e do `state` final (`success` vs. `failed`).
 
 Consequência prática: quando um job falha, a API persiste apenas `state='failed'` + `finished_at` — sem **nenhum** sinal de **por que** falhou. Operadores e logs de produção veem "job failed" sem `exit_code`, sem `summary`, sem últimas linhas de log. Toda triagem remota vira "abrir SSH manualmente no node e procurar". P-21/P-15/P-01 herdam essa cegueira.
+
+### Validação SSH produção (2026-06-02)
+
+> Origem: `/pmo` + inspeção read-only em `deployer.mework360.com.br` (git `cf773dc`, `/up` 200, stack Docker healthy).
+
+| Métrica | Valor |
+|---------|-------|
+| Jobs últimos 7 dias | 5 |
+| `state=success` | 4 |
+| `state=queued` | 1 |
+| `exit_code` null (jobs no período) | 1 |
+| `summary` null (jobs no período) | 1 |
+
+**Interpretação:** em staging/dev a amostra era **100% null** (28/28); em produção recente o problema **persiste parcialmente** (1/5), não desapareceu. Fechar ISSUE-013 exige fix upstream (#23) **e** validar pós-deploy que novos callbacks tragam `exit_code`/`log_tail`; mitigação `JobLogFetcher` (ISSUE-014 / sprint F10) deve ser validada via **ISSUE-023**.
 
 ### Hipóteses (a refutar/confirmar pela investigação read-only)
 
@@ -1331,7 +1348,7 @@ Aguardar `/fix` para gerar Sprint F com TDD (Pest Feature tests cobrindo happy p
 
 - **Tipo**: change_request
 - **Prioridade**: HIGH
-- **Status**: open
+- **Status**: mitigated (código — ISSUE-014 / F10.1–F10.2); **validação produção pendente** (ISSUE-023 / ROADMAP F10.3)
 - **Registrado em**: 2026-05-21
 - **Solicitante**: `/qa debug` (operador)
 - **Módulos afetados**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Core/Ssh/SshClient.php`, `app/Modules/Jobs/Services/` (novo), `app/Http/Livewire/Jobs/Show.php`
@@ -1370,6 +1387,125 @@ Resultado: 100% dos jobs exibem "Nenhum log disponível." em produção/staging.
 - **Contrato upstream pendente**: se o subcomando `job <id> logs --json` não existir ainda no `nextcloud-manage`, abrir PR upstream em paralelo (acoplar a ISSUE-001/006).
 - **Vazamento de secrets**: logs do upstream podem conter linhas com tokens/senhas. Aplicar sanitização similar a `payload_sanitized` antes de persistir (regex sobre `password=`, `token=`, `--password-stdin`).
 
+### Validação SSH produção (2026-06-02)
+
+- `JobLogFetcher` com argv corrigido está em `main` (`cf773dc` em `deployer.mework360.com.br`).
+- Amostra 7d: ainda há job com `summary` null (1/5) — pode ser job antigo, webhook magro (ISSUE-013), ou fetch não executado.
+- **Critério de fechamento:** após deploy explícito (F10.3), disparar job novo e confirmar `jobs.summary` populado + UI `/queue/{jobId}` com linhas de log.
+
 ### Próximo passo
 
-Aguardar `/fix` para gerar Sprint F (TDD obrigatório, auditor diferente do implementador conforme Decision #119).
+Executar **ISSUE-023** (smoke prod) antes de considerar ISSUE-009 fechada. Sprint **F6** pode consolidar pull pós-webhook se ainda houver gap.
+
+---
+
+## ISSUE-021 — OpenAPI global desalinhado do formato real de resposta
+
+- **Tipo**: change_request (contrato / documentação)
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-02
+- **Solicitante**: `/pmo` (síntese arquitetura + skill `api-rest-patterns`)
+- **Módulos afetados**: `docs/openapi.yaml`, consumidores REST externos, geradores de cliente
+- **Finding relacionado**: `DOC-001` em `docs/FINDINGS.md`
+
+### Descrição
+
+O código da API REST (controllers + `JsonResource`) é a fonte de verdade operacional:
+
+- **Erros:** `{ "error": "<snake_code>", ... }` (ex.: `idempotency_conflict`, `cluster_unreachable`, `tenant_not_ready`).
+- **Sucesso:** `CustomerResource` / `JobResource` (objeto na raiz) ou JSON manual (`{ "job_id": "uuid" }` com HTTP 202).
+- **Validação Laravel:** 422 no formato padrão `message` + `errors` (não o envelope `error`).
+
+`docs/openapi.yaml` ainda documenta em `info.description` e em vários `components/schemas` o envelope legado:
+
+```json
+{ "success": true, "message": "...", "data": {} }
+```
+
+`CQ-F5-001` corrigiu drift **pontual** (apps/enable, 501 groups) na v2.1; **não** alinhou o envelope global nem todos os endpoints.
+
+### Critério de aceite
+
+- Remover ou marcar deprecated o envelope `{ success, message, data }` no OpenAPI.
+- Documentar `components/schemas` para: `ErrorResponse` (`error` + campos opcionais), resources de sucesso alinhados aos `Http/Resources/*`.
+- Documentar exceção 422 (Laravel validation) vs erros de domínio.
+- `redocly lint` sem erros; smoke: comparar 3 endpoints (provision 202, conflict 409, 404 JSON) com exemplos no spec.
+- Referência interna: `.cursor/skills/api-rest-patterns/references/response-format.md`.
+
+### Próximo passo
+
+Sprint doc-only ou task em sprint N: `/dev doc` ou issue dedicada; não bloqueia runtime se integradores usam código como referência.
+
+---
+
+## ISSUE-022 — Cross-repo: contrato API ↔ mework360-deploy-scripts
+
+- **Tipo**: change_request (coordenação entre repositórios)
+- **Prioridade**: HIGH
+- **Status**: open
+- **Registrado em**: 2026-06-02
+- **Solicitante**: `/pmo` + validação SSH produção
+- **Repos**: `mework360-deployer-api` (este) + `mework360-deploy-scripts` (upstream / `nextcloud-saas-manager`)
+
+### Escopo (três frentes)
+
+| Frente | Issue / doc existente | Gap |
+|--------|----------------------|-----|
+| **Webhook payload** | ISSUE-013, upstream [#23](https://github.com/SoftwareBeesy/mework360-deployer-scripts/issues/23) | `exit_code`, `summary`/`log_tail` ausentes ou null no callback `job.finished` |
+| **Branding no create** | ISSUE-019 (API F13 fixed), `docs/HANDOFF-BRANDING-BUG.md` | Upstream `cmd_create_post_extended` pode aplicar logo só via `--staging-id`; stdin `branding.*_data_url` documentado em CONTRACTS mas não implementado no Bash |
+| **OCC allowlist / argv** | ISSUE-016, ISSUE-017, ISSUE-011 | `occ-exec` exit 16; quota com espaços no hop SSH `ncsaas-api` |
+
+### Critério de aceite (definição de “fechado”)
+
+1. **Webhook:** worker emite payload conforme `mework360-deploy-scripts/docs/CONTRACTS.md` § callback; smoke em staging com 1 job por verbo; API persiste `exit_code` non-null em jobs novos.
+2. **Branding:** provision com logo ≤256KB e >256KB (SFTP) → logo visível no Nextcloud do tenant; ordem de deploy: upstream primeiro, API depois.
+3. **OCC:** decisão registrada (Decision `#ARCH-7` ou ISSUE-016): expandir allowlist upstream **ou** despublicar endpoints até suportar.
+
+### Priorização sugerida (PMO 2026-06-02)
+
+1. Webhook (#23) + validação ISSUE-023 (logs na UI).
+2. Branding upstream (handoff §7.1) + re-test ISSUE-019 e2e.
+3. OCC (ISSUE-017 quota quoting; ISSUE-016 estratégica).
+
+### Próximo passo
+
+Abrir/atualizar issues espelho no repo `mework360-deploy-scripts`; reunião técnica curta com checklist CONTRACTS.md ↔ `ProvisionCustomerAction` ↔ `feature_o_ext.sh`.
+
+---
+
+## ISSUE-023 — Validação produção pós-F10 + débitos ops schema
+
+- **Tipo**: change_request (validação / DevOps)
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-02
+- **Solicitante**: `/pmo` (SSH read-only `deployer.mework360.com.br`)
+- **Módulos afetados**: deploy produção, `Jobs`, fila Laravel, migrations
+- **Sprint ROADMAP**: **F10.3** (pendente), relacionado **F6**, **F7**
+- **Findings relacionados**: `OPS-001` (`failed_jobs`), F7 (`CQ-N1-001/002`, `QA-N1-001`)
+
+### Contexto
+
+Código em `main` (`cf773dc`) já inclui F13 (branding payload), F12 (SSH retry), F10.1–F10.2 (`JobLogFetcher` argv). Produção (`deployer.mework360.com.br`) reportou:
+
+| Check | Resultado 2026-06-02 |
+|-------|----------------------|
+| `GET https://deployer.mework360.com.br/up` | 200 OK |
+| Migrations pendentes | Nenhuma (todas Ran) |
+| Tabela `failed_jobs` | **Ausente** (`OPS-001`) |
+| Jobs 7d / summary null | 1 de 5 |
+
+### Checklist de validação (humano + operador)
+
+- [ ] **F10.3:** Deploy imagem/commit atual em produção (se ainda não refletido além do SHA).
+- [ ] Disparar 1 job async (ex.: `users:create` ou provision teste) → aguardar `job.finished`.
+- [ ] Confirmar `jobs.summary` JSON populado no MariaDB.
+- [ ] Abrir `/queue/{job_id}` no painel → logs visíveis (não “Nenhum log disponível”).
+- [ ] Se webhook ainda vier sem `exit_code`, confirmar que `JobLogFetcher` preencheu `summary` (mitigação ISSUE-014).
+- [ ] **OPS-001:** Avaliar migration `failed_jobs` (Laravel queue) ou documentar que falhas de queue local não usam essa tabela.
+- [ ] **F7 (opcional na mesma janela):** smoke criar cluster de homolog + rotate secret → audit com `actor_id` + transação Create.
+
+### Próximo passo
+
+Executar checklist; atualizar ISSUE-009/013/014 com resultado; fechar F10.3 no ROADMAP quando UI OK.

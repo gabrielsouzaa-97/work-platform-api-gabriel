@@ -74,12 +74,14 @@
 | F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
 | N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | pendente | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
 | N2     | N         | APP_ENV=local emite Log::debug('webhook.payload_received'); APP_ENV=testing não emite; 46/46 testes da suite de webhook passando | concluida | 1 | Jobs | Observabilidade: log de payload do webhook em ambiente local | 3013+    |
+| F5     | F         | Lifecycle async: cmd canônico → argv upstream; apps CSV; OccPanel same-path createUser | **concluída** | 11    | Customers, Core/Ssh, Livewire | ISSUE-006 — F5.11 done; cleanup F5 via F11; **R3 APROVADA** (2026-06-02) | 3047+    |
 | F6     | F         | Forgot-password broker nativo Laravel (operadores) + logs de Job populados via SSH `nextcloud-manage job <id> status --json` pós-`job.finished` (corrige queue/{jobId} vazio) | pendente  | 6     | Auth, Jobs, Core/Ssh | `/qa debug` 2026-05-21: ISSUE-008 (forgot-password) + ISSUE-009 (job logs via SSH pull) | 3578+    |
 | F7     | F         | Create cluster atômico; actor_id no AuditLog de rotate; teste erro "sem secret atual" | pendente  | 3     | ClusterServers | 3 findings HIGH pendentes N1 | 3805+    |
 | F8     | F         | Provision success não marca tenant `active` antes de probe; `users:*` retorna 503 até readiness confirmada | **concluída** | 10    | Jobs, Customers, Webhook | ISSUE-010 — validada APROVADA R1 | 3865+    |
-| F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — `/fix` HIGH-only 2026-05-24 | 4003+    |
-| F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **ativa** | 3     | Jobs, Core/Ssh | ISSUE-014 fast-track — corrige gate F6/ISSUE-009 | 4055+    |
-| F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — readiness probe vaza `ConnectionClosedException` | 4227+ |
+| F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — validação APROVADA R1 (2026-05-24) | 4003+    |
+| F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **ativa** | 3     | Jobs, Core/Ssh | ISSUE-014 — F10.1–F10.2 done; **F10.3 deploy/ISSUE-023 pendente** | 4055+    |
+| F11    | F         | Slug reuse pós `provision.failed` + cleanup MEDIUM F5 | **concluída** | 6     | Customers, Core | ISSUE-018 — validação APROVADA R1 (2026-05-24) | 4082+    |
+| F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 
 ---
@@ -3049,6 +3051,7 @@ Frontmatter YAML obrigatória:
 > Categoria: F
 > Gate: criar usuário pelo `OccPanel` ou `POST /api/customers/{c}/users` enfileira job upstream com `exit 0 + job_id` (não `cmd_not_allowed`); mesmo para deletar usuário (`['user', 'remove']`), criar/deletar grupo (`['group', 'create|remove']`) e enable/disable apps (`['apps', 'enable|disable']` com CSV consolidado em 1 job); `groups:add`/`groups:remove` retornam HTTP 501 explícito (`not_implemented_yet`) até upstream entregar; `JobTypeTranslator::cmdToCliArgv()` cobre 100% dos pares; argv NUNCA contém `--async --json` duplicado; `cmd_canonical` no DB continua `users:create` (vocabulário interno preservado); 235+ testes passando; CI verde
 > Gerado por `/fix` em 2026-05-20. Fonte: ISSUE-006 (postmortem HIGH; SSH probing real contra `mecloud360@MECloud360-NextCloud-SaaS-01` v12.3.0).
+> **Status**: **concluída** (11/11 tasks — sync 2026-06-02). Validação formal **`/qa validar R3` — APROVADA** (2026-06-02; `OccPanelTest` 25/25).
 > review: senior+qa (severidade HIGH + cross-module Customers/Core/Ssh — obrigatório por `debugging-sistematico` Fase 4a)
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
@@ -3063,10 +3066,12 @@ Frontmatter YAML obrigatória:
 | [x] | P | F5.8 — [FIX-R1] Assert rollback de `IdempotencyKey` nos 3 testes SSH-failure + novo teste `SshConnectionException` em cluster ativo (QA-F5-017 HIGH + QA-F5-018 MEDIUM) | `laravel-testing` | F5.5 |
 | [x] | P | F5.9 — [FIX-R1] Helper `assertNoUpstreamFlagDuplication` aplicado nos 4 endpoints + adicionar `email`/`groups` no stdin do `UpstreamContractTest` (QA-F5-005 ampliado + QA-F5-015 MEDIUM) | `laravel-testing` | F5.5 |
 | [x] | M | F5.10 — [FIX-R1] `docs/openapi.yaml`: novo shape `apps/enable\|disable` + response 501 `groups/{g}/users` + criar `tests/Feature/Livewire/Customers/OccPanelTest.php` (CQ-F5-001 HIGH + QA-F5-016 MEDIUM) | `laravel-livewire` + docs | F5.3, F5.4 |
-| [ ] | M | F5.11 — [FIX-R2] Eliminar test/production divergence em `OccPanel::createUser`: refatorar blade para `<form wire:submit.prevent>` + `wire:model="userPasswordPlain"` em propriedade pública (sem `#[Locked]`), remover escape-hatch `?string $password` e fallback `request()->input()`; atualizar 4 testes Livewire para o same-path real; registrar ISSUE backlog para E2E Dusk/Playwright (QA-F5-019 HIGH) | `laravel-livewire` | F5.4, F5.10 |
+| [x] | M | F5.11 — [FIX-R2] Eliminar test/production divergence em `OccPanel::createUser`: refatorar blade para `<form wire:submit.prevent>` + `wire:model="userPasswordPlain"` em propriedade pública (sem `#[Locked]`), remover escape-hatch `?string $password` e fallback `request()->input()`; atualizar 4 testes Livewire para o same-path real; registrar ISSUE backlog para E2E Dusk/Playwright (QA-F5-019 HIGH) | `laravel-livewire` | F5.4, F5.10 |
 
 > **R1 follow-up (2026-05-20T17:30Z)**: `/qa validar R1` resultou REPROVADA — 2 HIGH pendentes em sprint aberta (`CQ-F5-001` + `QA-F5-017`). Per PROC-012 + Hard Rule 5, F5.8–F5.10 corrigidos in-sprint (mesma branch `uds/fix/lifecycle-async-cmd-argv`).
-> **R2 follow-up (2026-05-20T19:30Z)**: `/qa validar R2` resultou REPROVADA — 1 HIGH convergente (`QA-F5-019` OccPanel::createUser quebrado em produção; test/production divergence via escape-hatch). Decisão usuário: continuar in-sprint via task F5.11 (estratégia same-path, opção A do finding). Re-validação R3 após F5.11.
+> **R2 follow-up (2026-05-20T19:30Z)**: `/qa validar R2` resultou REPROVADA — 1 HIGH convergente (`QA-F5-019` OccPanel::createUser quebrado em produção; test/production divergence via escape-hatch). Decisão usuário: continuar in-sprint via task F5.11 (estratégia same-path, opção A do finding).
+> **F5.11 implementado (2026-05-20T20:30Z)**: QA-F5-019 corrigido in-code; 323+ testes. Cleanup MEDIUM F5 (CQ-F5-002/003, QA-F5-006/008/010, CQ-F5-007) entregue na **Sprint F11** (2026-05-24).
+> **Sync 2026-06-02**: Sprint **concluída** (11/11 tasks). **`/qa validar R3` formal concluída** — **APROVADA** (`QA-F5-019` validado; `OccPanelTest` 25/25). Backlog F5: 7 findings LOW/MEDIUM (test hygiene). E2E browser: **ISSUE-007**.
 
 ### Quality Brief (Sprint F5)
 
@@ -4083,18 +4088,21 @@ Fix implementado em `197ff46` (merged local em `main`). Sprint F10 formaliza gat
 
 > Categoria: F
 > Gate: (1) re-provisionar o mesmo slug após job `provision.failed` retorna 202 sem erro; (2) `unique:customers,slug` ignora soft-deleted; (3) `Customer::create` não colide em PK com registro fantasma; (4) CMD_TO_CLI_ARGV dead-code removido; (5) `mapLifecycleException` extraído; (6) phpunit.xml força `RUN_UPSTREAM_CONTRACT=0`; (7) suite permanece verde.
-> Gerado por `/fix` em 2026-05-24. Fonte: ISSUE-018 (HIGH) + CQ-F5-002/003, QA-F5-006, QA-F5-008, QA-F5-010 (MEDIUM — próximo /fix).
+> Gerado por `/fix` em 2026-05-24. Fonte: ISSUE-018 (HIGH) + CQ-F5-002/003, QA-F5-006, QA-F5-008, QA-F5-010 (MEDIUM — entregues F11).
+> **Status**: **concluída** — validação APROVADA R1 (2026-05-24).
 > review: senior+qa (HIGH em ISSUE-018; delta isolado)
 > **Nota**: `CQ-N1-001`, `CQ-N1-002`, `QA-N1-001` (HIGH) já estão em Sprint F7 (não executada). Recomenda-se executar F11 e F7 em sequência ou combinados via `/pmo sprint F11` + `/pmo sprint F7`.
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [x] | P | F11.1 — [ISSUE-018] Corrigir lifecycle de Customer após falha de provisioning (soft-delete + unique fix + forceDelete fantasma) | `laravel-migration` + `webhook-receiver` | — |
+| [x] | P | F11.1 — [ISSUE-018] Corrigir lifecycle de Customer após falha de provisioning (soft-delete webhook + unique fix + restore/update ghost) | `laravel-migration` + `webhook-receiver` | — |
 | [x] | P | F11.2 — [CQ-F5-002] Remover 7 entradas YAGNI customer-level de `CMD_TO_CLI_ARGV` em `JobTypeTranslator` | `vocabulary-translator` | — |
 | [x] | P | F11.3 — [CQ-F5-003] Extrair `mapLifecycleException()` privado em `CustomerLifecycleController` | `laravel-api` | — |
 | [x] | P | F11.4 — [QA-F5-010] Adicionar `<env name="RUN_UPSTREAM_CONTRACT" value="0" force="true"/>` ao `phpunit.xml` | `60-testing.mdc` | — |
 | [x] | M | F11.5 — [QA-F5-006] Adicionar assertions `--idempotency-key=` e `--callback=` em `LifecycleTest` (1 teste representativo por path) | `laravel-testing` | — |
 | [x] | M | F11.6 — [QA-F5-008] Decidir + documentar política de hash para CSV apps; adicionar teste assertindo a política | `vocabulary-translator` + `laravel-testing` | — |
+
+> **Validação F11 R1** (2026-05-24, `/qa validar R1`): senior → **REPROVADA** (CRITICAL CQ-F11-001 + HIGH CQ-F11-002). QA → **REPROVADA** (HIGH QA-F11-001 + 3 MEDIUM). **Todos os 7 findings corrigidos in-sprint** (R1 follow-up: `restore()+update()` em vez de `forceDelete`). **Resultado: APROVADA**. Suite 394+ passed, 7 skipped. Ver `docs/FINDINGS.md` seção Sprint F11.
 
 ### Task F11.1 — [ISSUE-018] Lifecycle de Customer após falha de provisioning
 
@@ -4334,6 +4342,7 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-02 | 0.24   | Sync FINDINGS + ROADMAP: F5.11 `[x]`, F5/F11 no índice; F9 APROVADA R1; F10/F12 notas; F5 `/qa validar R3` pendente. | /pmo sync |
 | 2026-05-28 | 0.23   | Sprint F13 CONCLUÍDA — branding no `create` corrigido; ProvisionTest 16 passed; validação senior+qa APROVADA R1. | /fix F13 |
 | 2026-05-28 | 0.22   | Sprint F13 adicionada — ISSUE-019 (`create` deve enviar branding logo/background via `branding.*_data_url` ou `--staging-id`). | /fix (interativo) |
 | 2026-05-27 | 0.21   | Sprint F12 CONCLUÍDA — `SshClient` normaliza `ConnectionClosedException` do phpseclib durante `exec()`/stdin; `SshClientTest` 13 passed. | /pmo sprint F12 |
