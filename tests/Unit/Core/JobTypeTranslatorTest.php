@@ -118,3 +118,14 @@ it('cmdToCliArgv throws UnknownVerbException for unmapped cmd', function (): voi
     expect(fn () => $this->translator->cmdToCliArgv('inexistente:x'))
         ->toThrow(UnknownVerbException::class, 'inexistente:x');
 });
+
+it('cmdToCliArgv returns re-indexed lists for all lifecycle verbs', function (string $cmd): void {
+    expect(array_is_list($this->translator->cmdToCliArgv($cmd)))->toBeTrue();
+})->with([
+    'users:create',
+    'users:delete',
+    'groups:create',
+    'groups:delete',
+    'apps:enable',
+    'apps:disable',
+]);

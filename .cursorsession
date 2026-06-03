@@ -36,12 +36,12 @@
   "fase_nome": "Sprint F13 concluída — ISSUE-019 resolvido",
   "sprint_atual": null,
   "previous_sprint": "F13",
-  "beesy_version": "4.16.27-beta",
-  "decisions_applied_until": 187,
+  "beesy_version": "4.30.4",
+  "decisions_applied_until": 217,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-05-29T17:41:17Z",
+  "ultimo_update": "2026-06-02T12:00:00Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -53,7 +53,7 @@
   ],
   "proximos_passos": [
     "Implementar F5.11 (em curso): (1) refatorar OccPanel.php — substituir #[Locked] $userPassword + escape-hatch por $userPasswordPlain (wire:model), zerar no finally; (2) refatorar occ-panel.blade.php (seção Criar Usuário) — <form wire:submit.prevent='createUser'> + wire:model='userPasswordPlain' + button type=submit; (3) atualizar 4 testes createUser em OccPanelTest para usar ->set('userPasswordPlain', ...) + 2 testes novos (production scenario sem senha + cleanup pós-sucesso); (4) registrar ISSUE backlog para E2E Dusk/Playwright; (5) atualizar FINDINGS QA-F5-019 → Corrigido; (6) rodar suite (esperado 321→323+ passed); (7) commit fix(sprint-F5): task 5.11.",
-    "Pós F5.11: /qa validar R3 — diversidade de modelos (sugestão: senior=gpt-5.3-codex ou claude-opus-4-7-thinking-xhigh; qa=gemini-3.1-pro). Scope mínimo: OccPanel.php + occ-panel.blade.php + OccPanelTest.php + FINDINGS QA-F5-019 + ISSUES.md (novo).",
+    "F5 R3 validada (2026-06-02): APROVADA — QA-F5-019 Validado; OccPanelTest 25/25 no Docker.",
     "Notes (Non-Blocking) registrados pelo R2 — out-of-scope F5.11, backlogados: (a) theming:config multi-key/value envia args inválidos ao OCC; (b) disableApps controller ignora param `remove` documentado no OpenAPI; (c) UpstreamContractTest valida `queued` state pode ser falso-positivo para schema-rejection assíncrona; (d-f) inconsistências menores em OccPanelTest (assertSeeText vs assertSet, deleteGroup sem successMessage assert) — não bloqueiam.",
     "Notes (Non-Blocking) registrados pelo R2 — out-of-scope da sprint, backlogados: (a) theming:config multi-key/value envia args inválidos ao OCC; (b) disableApps controller ignora param `remove` documentado no OpenAPI; (c) UpstreamContractTest valida `queued` state pode ser falso-positivo para schema-rejection assíncrona; (d-f) inconsistências menores em OccPanelTest (assertSeeText vs assertSet, deleteGroup sem successMessage assert) — não bloqueiam.",
     "Sprint F5-cleanup (opt): 2 findings MEDIUM remanescentes pós-F5.10 — CQ-F5-002 (CMD_TO_CLI_ARGV dead-code customer-level), CQ-F5-003 (extrair mapLifecycleException helper). ~1h.",
@@ -180,22 +180,22 @@
     "next_steps": "commit fix(sprint-F11): all 6 tasks + R1 follow-up | sprint F7 (CQ-N1-001/002, QA-N1-001 HIGH)",
     "updated_at": "2026-05-24T11:09:00Z"
   },
-  "contexto_rapido": "Sprint F11 + R1 APROVADA (2026-05-24T11:09Z) — 6 tasks implementadas + R1 follow-up: CQ-F11-001 CRITICAL corrigido (forceDelete→restore+update, sem FK violation); CQ-F11-002/QA-F11-001 HIGH cobertos (2 testes e2e re-provisioning); QA-F11-002 (AuditLog assert); QA-F11-003/004 (3+1 testes mapLifecycleException apps). Suite: 388 passed, 1014 assertions, 7 skipped, 7 failed pré-existentes. ISSUE-018 resolvido. Pronto para commit.",
+  "contexto_rapido": "Beesy upgrade 2026-06-02: 4.16.27-beta→4.30.4, decisions_applied_until 217. Sprint F13 concluída (ISSUE-019). Próximo trabalho: F3/F6/F7 pendentes no ROADMAP. Rodar install.sh no beesy-cursor-setup para alinhar hooks globais ~/.cursor/.",
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-05-20T19:06:38Z",
-    "usage_percent": 97.361,
-    "messages_lost": 231
+    "compacted_at": "2026-06-03T02:21:42Z",
+    "usage_percent": 92.9735,
+    "messages_lost": 182
   },
   "compact_count": 1,
   "checkpoint": {
     "sprint": "F13",
     "phase": "implemented",
     "branch": "main",
-    "head_sha": "pending-commit",
+    "head_sha": "cf773dc48ece5e3221f3a2026a45488a7a185b1e",
     "last_completed_task": "F13.4 — regressão final e status do ISSUE-019",
     "current_task": null,
     "tests_passing": 16,
@@ -204,9 +204,111 @@
     "audit_findings_resolved": 4,
     "audit_findings_pending": 0,
     "audit_status": "APROVADA_R1",
-    "timestamp": "2026-05-28T03:30:00Z"
+    "timestamp": "2026-05-28T03:30:00Z",
+    "validation_gate": {
+      "sprint_validated": "F5",
+      "validation_round": 4,
+      "findings_found": 3,
+      "findings_registered": [],
+      "files_modified_outside_findings": 5,
+      "askquestion_shown": false,
+      "senior_review_status": "PASS_WITH_NOTES",
+      "qa_review_status": "PASS_WITH_NOTES",
+      "result": "APROVADA_COM_RESSALVAS",
+      "contract_source": "checkpoint",
+      "in_contract": [],
+      "last_validated_sha": "f0a2cee785c006f8ed0fd571c00593591685673b",
+      "tests_reexecuted": true,
+      "tests_scope": "LifecycleTest + OccPanelTest + JobTypeTranslatorTest + UpstreamContractTest",
+      "tests_result": "123 passed, 6 skipped, 241 assertions",
+      "tests_env": "docker compose exec app (2026-06-02)",
+      "audit_invoked": [
+        {"agent": "auditor-senior", "model": "claude-opus-4-8-thinking-medium", "findings": 0, "status": "PASS_WITH_NOTES"},
+        {"agent": "auditor-qa", "model": "gemini-3.1-pro", "findings": 3, "status": "PASS_WITH_NOTES", "triage": "out-of-contract pre-existing"}
+      ],
+      "notes_non_blocking": [
+        "QA-F5-020 quotaUsername required_if (OccPanel pre-existing)",
+        "QA-F5-021 IdempotencyKey orphan if SSH missing job_id (pre-existing)",
+        "QA-F5-022 OccPanel apps bulk disable unimplemented (pre-existing)",
+        "E2E browser ISSUE-007",
+        "Hard Rule #2: 5 code files uncommitted — commit before deploy"
+      ],
+      "findings_validated_r4": [
+        "CQ-F5-004",
+        "CQ-F5-005",
+        "CQ-F5-006",
+        "QA-F5-009",
+        "QA-F5-011",
+        "QA-F5-012",
+        "QA-F5-013",
+        "QA-F5-014"
+      ],
+      "hard_rule_violations": ["files_modified_outside_findings"],
+      "timestamp": "2026-06-02T20:00:00Z"
+    }
   },
   "planning_history": [
+    {
+      "timestamp": "2026-06-02T20:00:00Z",
+      "action": "/qa validar F5 R4",
+      "validation_round": 4,
+      "sprint_validated": "F5",
+      "scope_files": [
+        "app/Modules/Customers/Actions/LifecycleAsyncAction.php",
+        "app/Http/Livewire/Customers/OccPanel.php",
+        "tests/Feature/Customers/LifecycleTest.php",
+        "tests/Contract/Customers/UpstreamContractTest.php",
+        "tests/Unit/Core/JobTypeTranslatorTest.php"
+      ],
+      "audit_invoked": [
+        {"agent": "auditor-senior", "findings": 0, "status": "PASS_WITH_NOTES"},
+        {"agent": "auditor-qa", "findings": 3, "status": "PASS_WITH_NOTES", "triage": "out-of-contract"}
+      ],
+      "findings_validated": [
+        "CQ-F5-004",
+        "CQ-F5-005",
+        "CQ-F5-006",
+        "QA-F5-009",
+        "QA-F5-011",
+        "QA-F5-012",
+        "QA-F5-013",
+        "QA-F5-014"
+      ],
+      "tests_reexecuted": true,
+      "tests_evidence": "123 passed, 6 skipped, 241 assertions (Docker 2026-06-02)",
+      "result": "APROVADA_COM_RESSALVAS",
+      "ressalvas": ["Hard Rule #2 uncommitted code", "3 QA HIGH triaged out-of-contract"]
+    },
+    {
+      "timestamp": "2026-06-02T12:00:00Z",
+      "action": "/qa validar R3",
+      "validation_round": 3,
+      "sprint_validated": "F5",
+      "scope_files": [
+        "app/Http/Livewire/Customers/OccPanel.php",
+        "resources/views/livewire/customers/occ-panel.blade.php",
+        "tests/Feature/Livewire/Customers/OccPanelTest.php"
+      ],
+      "audit_invoked": [
+        {
+          "agent": "auditor-senior",
+          "findings": 0,
+          "status": "PASS_WITH_NOTES"
+        },
+        {
+          "agent": "auditor-qa",
+          "findings": 0,
+          "status": "PASS_WITH_NOTES"
+        }
+      ],
+      "findings_validated": [
+        "QA-F5-019"
+      ],
+      "tests_reexecuted": true,
+      "tests_evidence": "OccPanelTest 25 passed, 55 assertions (Docker 2026-06-02)",
+      "audit_status": "APROVADA",
+      "result": "APROVADA"
+    },
     {
       "timestamp": "2026-05-28T03:22:00Z",
       "action": "/fix (interativo)",

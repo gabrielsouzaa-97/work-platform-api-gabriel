@@ -36,6 +36,7 @@ declare(strict_types=1);
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Operator;
+use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 
 function upstreamContractSkipUnlessEnabled(): void
@@ -75,6 +76,29 @@ function upstreamContractOperator(): Operator
     return Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 }
 
+/**
+ * @param  list<string>  $expectedArgv
+ */
+function assertUpstreamArgvMapping(string $cmd, array $expectedArgv): void
+{
+    $translator = app(JobTypeTranslator::class);
+    expect($translator->cmdToCliArgv($cmd))->toBe($expectedArgv);
+}
+
+function upstreamContractBestEffortCleanup(
+    LifecycleAsyncAction $action,
+    Customer $customer,
+    Operator $operator,
+    string $cmd,
+    array $args,
+): void {
+    try {
+        $action->execute($customer, $cmd, $args, null, $operator);
+    } catch (Throwable) {
+        // best-effort — upstream may already have removed the resource
+    }
+}
+
 // ── Contract scenarios ────────────────────────────────────────────────────────
 
 it('user create dispatches a real job upstream with extended stdin (password + email + groups)', function (): void {
@@ -83,6 +107,7 @@ it('user create dispatches a real job upstream with extended stdin (password + e
     // `{password}`. Without this, a future upstream tightening to strict-keys would silently
     // break the API. The opt-in nature keeps CI free of side-effects.
     upstreamContractSkipUnlessEnabled();
+    assertUpstreamArgvMapping('users:create', ['user', 'create']);
     upstreamContractCluster();
     $customer = upstreamContractCustomer();
     $operator = upstreamContractOperator();
@@ -91,24 +116,29 @@ it('user create dispatches a real job upstream with extended stdin (password + e
     $action = app(LifecycleAsyncAction::class);
 
     $username = 'qa-'.substr(uniqid(), -8);
-    $job = $action->execute(
-        $customer,
-        'users:create',
-        [$username],
-        [
-            'password' => 'Tr0ng-P4ss!'.uniqid(),
-            'email' => 'qa-contract@example.com',
-            'groups' => ['editors'],
-        ],
-        $operator,
-    );
+    try {
+        $job = $action->execute(
+            $customer,
+            'users:create',
+            [$username],
+            [
+                'password' => 'Tr0ng-P4ss!'.uniqid(),
+                'email' => 'qa-contract@example.com',
+                'groups' => ['editors'],
+            ],
+            $operator,
+        );
 
-    expect($job->job_id)->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i')
-        ->and($job->state)->toBe('queued'); // queued (not failed) ⇒ upstream parsed the extended payload
+        expect($job->job_id)->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i')
+            ->and($job->state)->toBe('queued');
+    } finally {
+        upstreamContractBestEffortCleanup($action, $customer, $operator, 'users:delete', [$username]);
+    }
 });
 
 it('user remove dispatches a real job upstream (verb is "user remove", not "user delete")', function (): void {
     upstreamContractSkipUnlessEnabled();
+    assertUpstreamArgvMapping('users:delete', ['user', 'remove']);
     upstreamContractCluster();
     $customer = upstreamContractCustomer();
     $operator = upstreamContractOperator();
@@ -122,18 +152,24 @@ it('user remove dispatches a real job upstream (verb is "user remove", not "user
 
 it('group create dispatches a real job upstream', function (): void {
     upstreamContractSkipUnlessEnabled();
+    assertUpstreamArgvMapping('groups:create', ['group', 'create']);
     upstreamContractCluster();
     $customer = upstreamContractCustomer();
     $operator = upstreamContractOperator();
 
     $action = app(LifecycleAsyncAction::class);
-    $job = $action->execute($customer, 'groups:create', ['qa-grp-'.substr(uniqid(), -6)], null, $operator);
-
-    expect($job->job_id)->not->toBeNull();
+    $groupName = 'qa-grp-'.substr(uniqid(), -6);
+    try {
+        $job = $action->execute($customer, 'groups:create', [$groupName], null, $operator);
+        expect($job->job_id)->not->toBeNull();
+    } finally {
+        upstreamContractBestEffortCleanup($action, $customer, $operator, 'groups:delete', [$groupName]);
+    }
 });
 
 it('group remove dispatches a real job upstream (verb is "group remove", not "group delete")', function (): void {
     upstreamContractSkipUnlessEnabled();
+    assertUpstreamArgvMapping('groups:delete', ['group', 'remove']);
     upstreamContractCluster();
     $customer = upstreamContractCustomer();
     $operator = upstreamContractOperator();
@@ -146,6 +182,7 @@ it('group remove dispatches a real job upstream (verb is "group remove", not "gr
 
 it('apps enable accepts a CSV positional and dispatches 1 job', function (): void {
     upstreamContractSkipUnlessEnabled();
+    assertUpstreamArgvMapping('apps:enable', ['apps', 'enable']);
     upstreamContractCluster();
     $customer = upstreamContractCustomer();
     $operator = upstreamContractOperator();
@@ -158,6 +195,7 @@ it('apps enable accepts a CSV positional and dispatches 1 job', function (): voi
 
 it('apps disable accepts a CSV positional and dispatches 1 job', function (): void {
     upstreamContractSkipUnlessEnabled();
+    assertUpstreamArgvMapping('apps:disable', ['apps', 'disable']);
     upstreamContractCluster();
     $customer = upstreamContractCustomer();
     $operator = upstreamContractOperator();

@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace App\Modules\Customers\Actions;
 
 use App\Models\AuditLog;
+use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
-use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
@@ -40,11 +41,10 @@ final class LifecycleAsyncAction
      * @param  array<int, string>  $args  Positional args (no credentials — those go via stdin).
      * @param  array<string, mixed>|null  $stdinPayload  Sensitive payload (e.g. password).
      *
-     * @throws BlockedOnUpstreamException When the upstream verb is not yet implemented
-     *                                    (currently: groups:add / groups:remove).
      * @throws ClusterUnreachableException
      * @throws IdempotencyConflictException
      * @throws SshRemoteException
+     * @throws TenantNotReadyException
      */
     public function execute(
         Customer $customer,
@@ -53,26 +53,65 @@ final class LifecycleAsyncAction
         ?array $stdinPayload,
         Operator $actor,
     ): Job {
-        // Translate canonical cmd (e.g. `users:create`) into upstream argv tokens
-        // (e.g. `user`, `create`). Done FIRST so blocked-on-upstream cmds short-circuit
-        // before touching DB/SSH — keeps idempotency table clean.
         $upstreamVerbTokens = $this->translator->cmdToCliArgv($cmd);
+        $cluster = $this->resolveActiveCluster($customer);
+        $this->assertTenantReadyForUserOps($customer, $cmd);
 
+        $argsHash = $this->buildArgsHash($customer, $cmd, $args);
+        $this->assertNoIdempotencyConflict($argsHash);
+
+        $idempotencyKey = (string) Str::uuid();
+        $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
+        $sshArgs = $this->buildSshArgs(
+            $customer,
+            $upstreamVerbTokens,
+            $args,
+            $idempotencyKey,
+            $callbackUrl,
+            $stdinPayload,
+        );
+
+        $this->persistIdempotencyKey($idempotencyKey, $argsHash, $cmd, $customer);
+
+        $resp = $this->dispatchSshAsync($cluster, $sshArgs, $stdinPayload, $idempotencyKey);
+
+        $jobId = $resp->parsedJson['job_id']
+            ?? throw new \RuntimeException('SSH did not return job_id in async response');
+
+        return $this->persistJobAndAudit($customer, $cluster, $jobId, $idempotencyKey, $cmd, $args, $actor);
+    }
+
+    private function resolveActiveCluster(Customer $customer): ClusterServer
+    {
         $cluster = $customer->clusterServer ?? $customer->load('clusterServer')->clusterServer;
 
         if ($cluster === null || $cluster->status !== 'active') {
             throw new ClusterUnreachableException;
         }
 
+        return $cluster;
+    }
+
+    private function assertTenantReadyForUserOps(Customer $customer, string $cmd): void
+    {
         if (
             in_array($cmd, self::USER_READINESS_GATED_CMDS, true)
             && in_array($customer->status, CustomerLifecycleStatus::USER_OPS_BLOCKED, true)
         ) {
             throw new TenantNotReadyException($customer->status);
         }
+    }
 
-        $argsHash = hash('sha256', $customer->slug.'|'.$cmd.'|'.json_encode($args));
+    /**
+     * @param  array<int, string>  $args
+     */
+    private function buildArgsHash(Customer $customer, string $cmd, array $args): string
+    {
+        return hash('sha256', $customer->slug.'|'.$cmd.'|'.json_encode($args));
+    }
 
+    private function assertNoIdempotencyConflict(string $argsHash): void
+    {
         $existing = IdempotencyKey::where('args_hash', $argsHash)
             ->where('expires_at', '>', now())
             ->first();
@@ -80,12 +119,21 @@ final class LifecycleAsyncAction
         if ($existing !== null) {
             throw new IdempotencyConflictException($existing->job_id);
         }
+    }
 
-        $idempotencyKey = (string) Str::uuid();
-        $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
-
-        // `--async --json` are intentionally NOT appended here — SshClient::runAsync()
-        // appends them. Duplicating the flags was Bug B of ISSUE-006.
+    /**
+     * @param  list<string>  $upstreamVerbTokens
+     * @param  array<int, string>  $args
+     * @return list<string>
+     */
+    private function buildSshArgs(
+        Customer $customer,
+        array $upstreamVerbTokens,
+        array $args,
+        string $idempotencyKey,
+        string $callbackUrl,
+        ?array $stdinPayload,
+    ): array {
         $sshArgs = array_merge(
             [$customer->slug, ...$upstreamVerbTokens],
             $args,
@@ -99,7 +147,15 @@ final class LifecycleAsyncAction
             $sshArgs[] = '--payload-stdin';
         }
 
-        // Persist key BEFORE SSH to prevent duplicate submissions on retry.
+        return $sshArgs;
+    }
+
+    private function persistIdempotencyKey(
+        string $idempotencyKey,
+        string $argsHash,
+        string $cmd,
+        Customer $customer,
+    ): void {
         DB::transaction(function () use ($idempotencyKey, $argsHash, $cmd, $customer): void {
             IdempotencyKey::create([
                 'key' => $idempotencyKey,
@@ -109,9 +165,19 @@ final class LifecycleAsyncAction
                 'expires_at' => now()->addHours(24),
             ]);
         });
+    }
 
+    /**
+     * @param  list<string>  $sshArgs
+     */
+    private function dispatchSshAsync(
+        ClusterServer $cluster,
+        array $sshArgs,
+        ?array $stdinPayload,
+        string $idempotencyKey,
+    ): SshResponse {
         try {
-            $resp = $this->ssh->runAsync(
+            return $this->ssh->runAsync(
                 $cluster,
                 'nextcloud-manage',
                 $sshArgs,
@@ -127,10 +193,20 @@ final class LifecycleAsyncAction
             IdempotencyKey::where('key', $idempotencyKey)->delete();
             throw $e;
         }
+    }
 
-        $jobId = $resp->parsedJson['job_id']
-            ?? throw new \RuntimeException('SSH did not return job_id in async response');
-
+    /**
+     * @param  array<int, string>  $args
+     */
+    private function persistJobAndAudit(
+        Customer $customer,
+        ClusterServer $cluster,
+        string $jobId,
+        string $idempotencyKey,
+        string $cmd,
+        array $args,
+        Operator $actor,
+    ): Job {
         return DB::transaction(function () use ($customer, $cluster, $jobId, $idempotencyKey, $cmd, $args, $actor): Job {
             $job = Job::create([
                 'job_id' => $jobId,
@@ -140,7 +216,7 @@ final class LifecycleAsyncAction
                 'job_type' => $this->translator->cmdToJobType($cmd),
                 'state' => 'queued',
                 'idempotency_key' => $idempotencyKey,
-                'payload_sanitized' => ['cmd' => $cmd, 'args' => $args], // no stdin (may contain passwords)
+                'payload_sanitized' => ['cmd' => $cmd, 'args' => $args],
                 'queued_at' => now(),
             ]);
 
