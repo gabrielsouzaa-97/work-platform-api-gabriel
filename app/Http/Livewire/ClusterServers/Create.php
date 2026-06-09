@@ -9,6 +9,7 @@ use App\Models\ClusterServer;
 use App\Models\WebhookSecretHistory;
 use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -72,29 +73,33 @@ class Create extends Component
         // but holding the plain var is explicit and avoids any future cast-related surprises).
         $plainSecret = $secretGen->generate();
 
-        $cluster = ClusterServer::create([
-            'name' => $this->name,
-            'ssh_host' => $this->ssh_host,
-            'ssh_port' => $this->ssh_port,
-            'ssh_user' => $this->ssh_user,
-            'ssh_private_key_encrypted' => $pem,
-            'sftp_user' => $this->sftp_user ?: 'ncsaas-sftp',
-            'sftp_private_key_encrypted' => $sftpPem !== '' ? $sftpPem : null,
-            'webhook_secret_encrypted' => $plainSecret,
-            'webhook_secret_version' => 1,
-            'schema_version' => 1,
-            'status' => 'active',
-        ]);
+        $cluster = DB::transaction(function () use ($pem, $sftpPem, $plainSecret) {
+            $created = ClusterServer::create([
+                'name' => $this->name,
+                'ssh_host' => $this->ssh_host,
+                'ssh_port' => $this->ssh_port,
+                'ssh_user' => $this->ssh_user,
+                'ssh_private_key_encrypted' => $pem,
+                'sftp_user' => $this->sftp_user ?: 'ncsaas-sftp',
+                'sftp_private_key_encrypted' => $sftpPem !== '' ? $sftpPem : null,
+                'webhook_secret_encrypted' => $plainSecret,
+                'webhook_secret_version' => 1,
+                'schema_version' => 1,
+                'status' => 'active',
+            ]);
+
+            WebhookSecretHistory::create([
+                'cluster_server_id' => $created->id,
+                'secret_encrypted' => $created->webhook_secret_encrypted,
+                'version' => 1,
+                'valid_from' => now(),
+                'valid_until' => null,
+            ]);
+
+            return $created;
+        });
 
         unset($pem);
-
-        WebhookSecretHistory::create([
-            'cluster_server_id' => $cluster->id,
-            'secret_encrypted' => $cluster->webhook_secret_encrypted,
-            'version' => 1,
-            'valid_from' => now(),
-            'valid_until' => null,
-        ]);
 
         try {
             $syncAction->execute($cluster, $plainSecret);

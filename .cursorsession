@@ -33,9 +33,9 @@
     }
   ],
   "fase_atual": "12",
-  "fase_nome": "Sprint F13 concluída — ISSUE-019 resolvido",
+  "fase_nome": "Sprint F7 concluída — HIGH N1 zerados; F6 validada",
   "sprint_atual": null,
-  "previous_sprint": "F13",
+  "previous_sprint": "F7",
   "beesy_version": "4.47.1",
   "decisions_applied_until": 225,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
@@ -180,7 +180,7 @@
     "next_steps": "commit fix(sprint-F11): all 6 tasks + R1 follow-up | sprint F7 (CQ-N1-001/002, QA-N1-001 HIGH)",
     "updated_at": "2026-05-24T11:09:00Z"
   },
-  "contexto_rapido": "Beesy upgrade 2026-06-09: 4.30.4→4.47.1, decisions_applied_until 225 (#218–#225). Sprint F13 concluída (ISSUE-019). Próximo trabalho: F3/F6/F7/F10 pendentes no ROADMAP. Rodar install.sh no beesy-cursor-setup para alinhar hooks globais ~/.cursor/ (MCP venv).",
+  "contexto_rapido": "Rock 2026-06-09: upgrade 4.47.1 commitado; F7 (CQ-N1-001/002, QA-N1-001) done; F6 validada (29 testes). Próximo: F3 tech debt, F10.3 deploy/ISSUE-023. install.sh beesy-cursor-setup pendente.",
   "autopilot": {
     "active": false
   },

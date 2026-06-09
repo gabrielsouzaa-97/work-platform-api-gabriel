@@ -57,7 +57,14 @@ class Index extends Component
     {
         Gate::authorize('manage-cluster-servers');
         $cluster = ClusterServer::findOrFail($clusterId);
-        $new = $action->execute($cluster);
+
+        try {
+            $new = $action->execute($cluster, auth()->id());
+        } catch (\RuntimeException $e) {
+            $this->dispatch('toast', type: 'error', msg: 'Não foi possível rotacionar: histórico de secret ausente para este cluster.');
+
+            return;
+        }
 
         Mail::to(auth()->user()->email)->queue(new WebhookSecretRotatedMail($cluster, $new));
 

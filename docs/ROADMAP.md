@@ -75,8 +75,8 @@
 | N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | concluida | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
 | N2     | N         | APP_ENV=local emite Log::debug('webhook.payload_received'); APP_ENV=testing não emite; 46/46 testes da suite de webhook passando | concluida | 1 | Jobs | Observabilidade: log de payload do webhook em ambiente local | 3013+    |
 | F5     | F         | Lifecycle async: cmd canônico → argv upstream; apps CSV; OccPanel same-path createUser | **concluída** | 11    | Customers, Core/Ssh, Livewire | ISSUE-006 — F5.11 done; cleanup F5 via F11; **R3 APROVADA** (2026-06-02) | 3047+    |
-| F6     | F         | Forgot-password broker nativo Laravel (operadores) + logs de Job populados via SSH `nextcloud-manage job <id> status --json` pós-`job.finished` (corrige queue/{jobId} vazio) | pendente  | 6     | Auth, Jobs, Core/Ssh | `/qa debug` 2026-05-21: ISSUE-008 (forgot-password) + ISSUE-009 (job logs via SSH pull) | 3578+    |
-| F7     | F         | Create cluster atômico; actor_id no AuditLog de rotate; teste erro "sem secret atual" | pendente  | 3     | ClusterServers | 3 findings HIGH pendentes N1 | 3805+    |
+| F6     | F         | Forgot-password broker nativo Laravel (operadores) + logs de Job populados via SSH `nextcloud-manage job <id> status --json` pós-`job.finished` (corrige queue/{jobId} vazio) | concluida | 6     | Auth, Jobs, Core/Ssh | ISSUE-008 + ISSUE-009 — validado Rock 2026-06-09 (29 testes ForgotPassword+JobLogFetcher) | 3578+    |
+| F7     | F         | Create cluster atômico; actor_id no AuditLog de rotate; teste erro "sem secret atual" | concluida | 3     | ClusterServers | CQ-N1-001/002 + QA-N1-001 — Rock 2026-06-09 | 3805+    |
 | F8     | F         | Provision success não marca tenant `active` antes de probe; `users:*` retorna 503 até readiness confirmada | **concluída** | 10    | Jobs, Customers, Webhook | ISSUE-010 — validada APROVADA R1 | 3865+    |
 | F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — validação APROVADA R1 (2026-05-24) | 4003+    |
 | F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **ativa** | 3     | Jobs, Core/Ssh | ISSUE-014 — F10.1–F10.2 done; **F10.3 deploy/ISSUE-023 pendente** | 4055+    |
@@ -3820,9 +3820,9 @@ Provisiona um job de teste (ou usa job_id conhecido do `homolog`), executa SSH r
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | F7.1 — [CQ-N1-001] Tornar atômico o fluxo de criação de cluster + history (`DB::transaction`) | `laravel-livewire` + `50-database.mdc` | — |
-| [ ] | P | F7.2 — [CQ-N1-002] Propagar `actor_id` no `RotateWebhookSecretAction` (AuditLog de falha) | `laravel-livewire` | — |
-| [ ] | P | F7.3 — [QA-N1-001] Cobrir path "sem secret atual no histórico" com teste unitário + integração Livewire | `laravel-testing` | F7.1 |
+| [x] | M | F7.1 — [CQ-N1-001] Tornar atômico o fluxo de criação de cluster + history (`DB::transaction`) | `laravel-livewire` + `50-database.mdc` | — |
+| [x] | P | F7.2 — [CQ-N1-002] Propagar `actor_id` no `RotateWebhookSecretAction` (AuditLog de falha) | `laravel-livewire` | — |
+| [x] | P | F7.3 — [QA-N1-001] Cobrir path "sem secret atual no histórico" com teste unitário + integração Livewire | `laravel-testing` | F7.1 |
 
 ### Task F7.1 — [CQ-N1-001] Transaction em `Create::save()`
 

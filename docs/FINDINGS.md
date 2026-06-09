@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-06-02
+synced_at: 2026-06-09
 open_critical: 0
-open_high: 3
+open_high: 0
 open_medium: 34
 open_low: 33
-sprints_with_open_blockers: N1,F7
-notes: F5 R3 APROVADA; F5 backlog zerado; F10.3 prod ISSUE-023
+sprints_with_open_blockers: F10
+notes: F7 HIGH N1 zerados (Rock 2026-06-09); F6 validada; F10.3 prod ISSUE-023
 FINDINGS-INDEX -->
 
 
@@ -873,8 +873,8 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N1
 - **Severidade**: HIGH
 - **Tipo**: atomicity / data_consistency
-- **Status**: Pendente (Backlog)
-- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php:59-79`
+- **Status**: Corrigido (Sprint F7 — 2026-06-09)
+- **Arquivo**: `app/Http/Livewire/ClusterServers/Create.php`
 - **Descrição**: `ClusterServer::create()` (linha 59) e `WebhookSecretHistory::create()` (linha 73) são duas operações sequenciais SEM `DB::transaction()`. Se a inserção em `webhook_secret_history` falhar (timeout, constraint, etc.), o `ClusterServer` permanece persistido com `webhook_secret_encrypted` setado mas SEM linha correspondente em `webhook_secret_history`. `RotateWebhookSecretAction::execute()` (linhas 24-54) corretamente envolve as duas mesmas escritas em `DB::transaction()` — a assimetria é evidente.
 - **Impacto**: `WebhookSecretValidator::valid()` consulta APENAS `webhook_secret_history`. Cluster órfão (sem history row) rejeita 100% dos webhooks até intervenção manual. Recuperação manual exige `RotateWebhookSecretAction`, que falha em `! $current` (linha 30) porque também exige history row ativa. Estado de "cluster zumbi" que precisa de DB surgery.
 - **Ação necessária**: Envolver as duas inserções em `DB::transaction(function () use (...) { ... })` no `Create::save()`, espelhando o padrão de `RotateWebhookSecretAction`. SSH sync deve permanecer FORA da transação (já está).
@@ -886,8 +886,8 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N1
 - **Severidade**: HIGH
 - **Tipo**: audit_traceability / forensics
-- **Status**: Pendente (Backlog)
-- **Arquivo**: `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php:64`
+- **Status**: Corrigido (Sprint F7 — 2026-06-09)
+- **Arquivo**: `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php`
 - **Descrição**: AuditLog de falha de sync durante rotação grava `'actor_id' => null`. Porém o único caller produtivo é `Index::rotateSecret()` precedido por `Gate::authorize('manage-cluster-servers')` — `auth()->id()` está GARANTIDO disponível. Em `Create.php:87` o mesmo evento `cluster_server.secret_sync_failed` é registrado com `'actor_id' => auth()->id()`. Inconsistência clara.
 - **Impacto**: Em incidente de produção (admin rotacionou e SSH falhou), segurança não consegue identificar QUAL admin disparou a operação a partir do AuditLog. Quebra a cadeia de causalidade forense e contradiz a semântica do mesmo evento em outro caminho.
 - **Ação necessária**: Aceitar `?string $actorId = null` como parâmetro de `execute()` (default null para chamadas de sistema/cron) e propagá-lo no AuditLog. `Index::rotateSecret` passa `auth()->id()`. Alternativa: invocar `auth()->id()` diretamente na Action (acoplamento mais forte mas mais simples).
@@ -1086,8 +1086,8 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N1
 - **Severidade**: HIGH
 - **Tipo**: missing_test / equivalence_class_uncovered
-- **Status**: Pendente (Backlog)
-- **Arquivo**: `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php:30-32` (produção); nenhum teste em `tests/Feature/ClusterServers/` cobre o path
+- **Status**: Corrigido (Sprint F7 — 2026-06-09)
+- **Arquivo**: `tests/Feature/ClusterServers/RotateSecretTest.php` (+ `RotateWebhookSecretAction.php`)
 - **Descrição**: Linha 30 lança `\RuntimeException("ClusterServer {$cluster->id} sem secret atual no histórico")` quando `WebhookSecretHistory::where(...)->whereNull('valid_until')->lockForUpdate()->first()` retorna null. Busca por `RuntimeException` e a string literal `sem secret atual` em `tests/` → zero matches. `ClusterServerFactory` NÃO cria entrada em `webhook_secret_history`, então a partição "cluster sem current secret" é alcançável.
 - **Impacto**: Equivalence partition crítica não exercitada. Se alguém remover o `if (! $current) { throw ... }` (mutation), nenhum teste falha. Bug em produção quando admin tenta rotacionar cluster órfão (ex: importação parcial, ou estado pós-CQ-N1-001 onde history insert falhou).
 - **Ação necessária**: Adicionar em `RotateSecretTest.php`:

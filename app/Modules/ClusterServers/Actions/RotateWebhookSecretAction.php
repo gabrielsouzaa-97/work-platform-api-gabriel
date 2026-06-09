@@ -19,7 +19,7 @@ final class RotateWebhookSecretAction
         private readonly SyncWebhookSecretAction $syncAction,
     ) {}
 
-    public function execute(ClusterServer $cluster): WebhookSecretHistory
+    public function execute(ClusterServer $cluster, ?string $actorId = null): WebhookSecretHistory
     {
         $new = DB::transaction(function () use ($cluster) {
             $current = WebhookSecretHistory::where('cluster_server_id', $cluster->id)
@@ -61,7 +61,7 @@ final class RotateWebhookSecretAction
         } catch (\Throwable $e) {
             AuditLog::create([
                 'id' => Str::uuid()->toString(),
-                'actor_id' => null,
+                'actor_id' => $actorId,
                 'action' => 'cluster_server.secret_sync_failed',
                 'resource_type' => 'cluster_server',
                 'resource_id' => $cluster->id,
