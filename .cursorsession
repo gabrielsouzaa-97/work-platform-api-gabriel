@@ -33,15 +33,15 @@
     }
   ],
   "fase_atual": "12",
-  "fase_nome": "Sprint F13 concluída — ISSUE-019 resolvido",
+  "fase_nome": "Sprint F7 concluída — HIGH N1 zerados; F6 validada",
   "sprint_atual": null,
-  "previous_sprint": "F13",
-  "beesy_version": "4.30.4",
-  "decisions_applied_until": 217,
+  "previous_sprint": "F7",
+  "beesy_version": "4.47.1",
+  "decisions_applied_until": 225,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-02T12:00:00Z",
+  "ultimo_update": "2026-06-09T12:00:00Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -172,7 +172,7 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "implementer (Composer 2.5)",
+    "persona": "implementer (Composer 2.5 — Decision #225 default)",
     "phase": "Sprint F11 R1 — APROVADA — todos os findings corrigidos in-sprint",
     "intent": "ISSUE-018 slug reuse + 5 MEDIUM F5 + R1 correções (FK RESTRICT + cobertura)",
     "changes_made": "F11 base (6 tasks) + R1: restore()+update() em vez de forceDelete; 2 testes e2e re-provisioning; AuditLog assert em provision.failed; 3 testes mapLifecycleException apps; SshRemoteException apps test",
@@ -180,15 +180,15 @@
     "next_steps": "commit fix(sprint-F11): all 6 tasks + R1 follow-up | sprint F7 (CQ-N1-001/002, QA-N1-001 HIGH)",
     "updated_at": "2026-05-24T11:09:00Z"
   },
-  "contexto_rapido": "Beesy upgrade 2026-06-02: 4.16.27-beta→4.30.4, decisions_applied_until 217. Sprint F13 concluída (ISSUE-019). Próximo trabalho: F3/F6/F7 pendentes no ROADMAP. Rodar install.sh no beesy-cursor-setup para alinhar hooks globais ~/.cursor/.",
+  "contexto_rapido": "Rock 2026-06-09: upgrade 4.47.1 commitado; F7 (CQ-N1-001/002, QA-N1-001) done; F6 validada (29 testes). Próximo: F3 tech debt, F10.3 deploy/ISSUE-023. install.sh beesy-cursor-setup pendente.",
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-03T02:21:42Z",
-    "usage_percent": 92.9735,
-    "messages_lost": 182
+    "compacted_at": "2026-06-09T01:43:30Z",
+    "usage_percent": 93.608,
+    "messages_lost": 204
   },
   "compact_count": 1,
   "checkpoint": {
@@ -223,8 +223,19 @@
       "tests_result": "123 passed, 6 skipped, 241 assertions",
       "tests_env": "docker compose exec app (2026-06-02)",
       "audit_invoked": [
-        {"agent": "auditor-senior", "model": "claude-opus-4-8-thinking-medium", "findings": 0, "status": "PASS_WITH_NOTES"},
-        {"agent": "auditor-qa", "model": "gemini-3.1-pro", "findings": 3, "status": "PASS_WITH_NOTES", "triage": "out-of-contract pre-existing"}
+        {
+          "agent": "auditor-senior",
+          "model": "claude-opus-4-8-thinking-medium",
+          "findings": 0,
+          "status": "PASS_WITH_NOTES"
+        },
+        {
+          "agent": "auditor-qa",
+          "model": "gemini-3.1-pro",
+          "findings": 3,
+          "status": "PASS_WITH_NOTES",
+          "triage": "out-of-contract pre-existing"
+        }
       ],
       "notes_non_blocking": [
         "QA-F5-020 quotaUsername required_if (OccPanel pre-existing)",
@@ -243,7 +254,9 @@
         "QA-F5-013",
         "QA-F5-014"
       ],
-      "hard_rule_violations": ["files_modified_outside_findings"],
+      "hard_rule_violations": [
+        "files_modified_outside_findings"
+      ],
       "timestamp": "2026-06-02T20:00:00Z"
     }
   },
@@ -261,8 +274,17 @@
         "tests/Unit/Core/JobTypeTranslatorTest.php"
       ],
       "audit_invoked": [
-        {"agent": "auditor-senior", "findings": 0, "status": "PASS_WITH_NOTES"},
-        {"agent": "auditor-qa", "findings": 3, "status": "PASS_WITH_NOTES", "triage": "out-of-contract"}
+        {
+          "agent": "auditor-senior",
+          "findings": 0,
+          "status": "PASS_WITH_NOTES"
+        },
+        {
+          "agent": "auditor-qa",
+          "findings": 3,
+          "status": "PASS_WITH_NOTES",
+          "triage": "out-of-contract"
+        }
       ],
       "findings_validated": [
         "CQ-F5-004",
@@ -277,7 +299,10 @@
       "tests_reexecuted": true,
       "tests_evidence": "123 passed, 6 skipped, 241 assertions (Docker 2026-06-02)",
       "result": "APROVADA_COM_RESSALVAS",
-      "ressalvas": ["Hard Rule #2 uncommitted code", "3 QA HIGH triaged out-of-contract"]
+      "ressalvas": [
+        "Hard Rule #2 uncommitted code",
+        "3 QA HIGH triaged out-of-contract"
+      ]
     },
     {
       "timestamp": "2026-06-02T12:00:00Z",

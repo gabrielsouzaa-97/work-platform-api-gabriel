@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use App\Http\Livewire\ClusterServers\Index;
 use App\Mail\WebhookSecretRotatedMail;
+use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Operator;
 use App\Models\WebhookSecretHistory;
+use App\Modules\ClusterServers\Actions\RotateWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretValidator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
@@ -147,6 +149,53 @@ it('cron clean remove registros expirados há mais de 30 dias mas mantém os em 
     expect(WebhookSecretHistory::find($oldExpired->id))->toBeNull();
     expect(WebhookSecretHistory::find($graceRecord->id))->not->toBeNull();
     expect(WebhookSecretHistory::find($current->id))->not->toBeNull();
+});
+
+it('rotate action lança RuntimeException quando cluster não tem secret ativo no histórico', function () {
+    $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
+
+    expect(fn () => app(RotateWebhookSecretAction::class)->execute($cluster))
+        ->toThrow(\RuntimeException::class, 'sem secret atual no histórico');
+});
+
+it('rotateSecret exibe erro amigável quando histórico de secret está ausente', function () {
+    $admin = Operator::factory()->admin()->create();
+    $cluster = ClusterServer::factory()->create();
+
+    Livewire::actingAs($admin)
+        ->test(Index::class)
+        ->call('rotateSecret', $cluster->id)
+        ->assertDispatched('toast', type: 'error');
+});
+
+it('falha de sync SSH na rotação registra actor_id do operador no AuditLog', function () {
+    $mock = Mockery::mock(SshClientInterface::class);
+    $mock->shouldReceive('run')->andThrow(new \RuntimeException('SSH down'));
+    app()->instance(SshClientInterface::class, $mock);
+
+    $admin = Operator::factory()->admin()->create();
+    $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
+
+    WebhookSecretHistory::create([
+        'cluster_server_id' => $cluster->id,
+        'secret_encrypted' => 'original-secret',
+        'version' => 1,
+        'valid_from' => now()->subHour(),
+        'valid_until' => null,
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test(Index::class)
+        ->call('rotateSecret', $cluster->id)
+        ->assertDispatched('toast', type: 'success');
+
+    $audit = AuditLog::where('action', 'cluster_server.secret_sync_failed')
+        ->where('resource_id', $cluster->id)
+        ->latest('created_at')
+        ->first();
+
+    expect($audit)->not->toBeNull()
+        ->and($audit->actor_id)->toBe($admin->id);
 });
 
 it('operador comum não pode chamar rotateSecret', function () {

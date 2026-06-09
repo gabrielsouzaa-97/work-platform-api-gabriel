@@ -1,0 +1,47 @@
+# skill_contract — me360-deployer (warn-first, Decision #219)
+
+checks:
+  - id: compose-present
+    phase: pre
+    assert: test -f docker-compose.yml
+    level: warn
+    hint: me360-deployer requires docker-compose.yml at project root
+
+  - id: env-example
+    phase: pre
+    assert: test -f .env.example
+    level: warn
+    hint: .env.example must exist for local/production env guidance
+
+  - id: runbook-doc
+    phase: pre
+    assert: test -f docs/RUNBOOK.md
+    level: warn
+    hint: Operational runbook should exist at docs/RUNBOOK.md
+
+  - id: skill-guardrails
+    phase: pre
+    assert: test -f .cursor/skills/me360-deployer/references/guardrails.md
+    level: warn
+    hint: me360-deployer must ship references/guardrails.md
+
+  - id: nginx-health-route
+    phase: post
+    when: test -f docker/nginx/default.conf
+    assert: rg -F -q "/up" docker/nginx/default.conf
+    level: warn
+    hint: Nginx should expose /up for R5 smoke checks
+
+  - id: mariadb-service
+    phase: post
+    when: test -f docker-compose.yml
+    assert: rg -F -q mariadb docker-compose.yml
+    level: warn
+    hint: Stack uses MariaDB 11 per project migration from Postgres
+
+  - id: worker-service
+    phase: post
+    when: test -f docker-compose.yml
+    assert: rg -F -q queue:work docker-compose.yml
+    level: warn
+    hint: Local worker required for ProbeCustomerReadinessJob and mail queue

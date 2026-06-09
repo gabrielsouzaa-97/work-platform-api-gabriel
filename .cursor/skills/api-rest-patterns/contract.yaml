@@ -1,0 +1,26 @@
+# skill_contract — api-rest-patterns (warn-first)
+
+checks:
+  - id: openapi-present
+    phase: pre
+    assert: test -f docs/openapi.yaml
+    level: warn
+    hint: REST patterns reference docs/openapi.yaml as formal contract
+
+  - id: api-routes
+    phase: pre
+    assert: test -f routes/api.php
+    level: warn
+    hint: API routes live in routes/api.php
+
+  - id: skill-guardrails
+    phase: pre
+    assert: test -f .cursor/skills/api-rest-patterns/references/guardrails.md
+    level: warn
+    hint: api-rest-patterns must ship references/guardrails.md
+
+  - id: error-codes-ref
+    phase: pre
+    assert: test -f .cursor/skills/api-rest-patterns/references/error-codes.md
+    level: warn
+    hint: Canonical exception->HTTP table required

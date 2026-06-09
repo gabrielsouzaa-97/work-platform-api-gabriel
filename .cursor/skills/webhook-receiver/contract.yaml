@@ -1,0 +1,20 @@
+# skill_contract — webhook-receiver (warn-first)
+
+checks:
+  - id: webhook-middleware
+    phase: pre
+    assert: test -f app/Http/Middleware/VerifyWebhookHmac.php
+    level: warn
+    hint: HMAC validation middleware must exist
+
+  - id: webhook-handler
+    phase: pre
+    assert: test -f app/Modules/Jobs/Services/WebhookHandler.php
+    level: warn
+    hint: WebhookHandler processes upstream callbacks
+
+  - id: skill-guardrails
+    phase: pre
+    assert: test -f .cursor/skills/webhook-receiver/references/guardrails.md
+    level: warn
+    hint: webhook-receiver must ship references/guardrails.md

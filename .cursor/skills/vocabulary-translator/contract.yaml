@@ -1,0 +1,26 @@
+# skill_contract — vocabulary-translator (warn-first)
+
+checks:
+  - id: job-type-translator
+    phase: pre
+    assert: test -f app/Modules/Core/Translators/JobTypeTranslator.php
+    level: warn
+    hint: JobTypeTranslator is source of truth for vocab mapping
+
+  - id: state-translator
+    phase: pre
+    assert: test -f app/Modules/Core/Translators/StateTranslator.php
+    level: warn
+    hint: StateTranslator maps upstream job states
+
+  - id: translator-tests
+    phase: pre
+    assert: test -f tests/Unit/Core/JobTypeTranslatorTest.php
+    level: warn
+    hint: Unit tests must cover translation pairs
+
+  - id: skill-guardrails
+    phase: pre
+    assert: test -f .cursor/skills/vocabulary-translator/references/guardrails.md
+    level: warn
+    hint: vocabulary-translator must ship references/guardrails.md
