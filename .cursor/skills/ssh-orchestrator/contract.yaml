@@ -1,0 +1,20 @@
+# skill_contract — ssh-orchestrator (warn-first)
+
+checks:
+  - id: ssh-client-interface
+    phase: pre
+    assert: test -f app/Modules/Core/Ssh/SshClientInterface.php
+    level: warn
+    hint: SSH must be abstracted behind SshClientInterface
+
+  - id: job-type-translator
+    phase: pre
+    assert: test -f app/Modules/Core/Translators/JobTypeTranslator.php
+    level: warn
+    hint: argv mapping goes through JobTypeTranslator
+
+  - id: skill-guardrails
+    phase: pre
+    assert: test -f .cursor/skills/ssh-orchestrator/references/guardrails.md
+    level: warn
+    hint: ssh-orchestrator must ship references/guardrails.md
