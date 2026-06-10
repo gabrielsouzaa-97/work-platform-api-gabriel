@@ -29,6 +29,345 @@
 | ISSUE-021 | change_request | OpenAPI global desalinhado do formato real (`{ error }` + JsonResource vs envelope `{ success, message, data }`) | Core, docs | MEDIUM | open |
 | ISSUE-022 | change_request | Cross-repo: fechar contrato API ↔ `mework360-deploy-scripts` (webhook payload, branding stdin, OCC allowlist) | Core, Jobs, Customers, Occ | HIGH | open (coordenação) |
 | ISSUE-023 | change_request | Validação produção pós-F10: deploy + smoke `/queue/{id}` + schema ops (`failed_jobs`) | Jobs, DevOps | MEDIUM | open |
+| ISSUE-024 | change_request | Automatizar config meMail no `create` (externalLocation, forceSSO, emailAddressChoice, disable `mail`) — eliminar runbook manual pós-create | Cross-repo (deploy-scripts), Customers, Webhook | HIGH | open |
+| ISSUE-025 | change_request | Evoluir `mework360-roundcube` para distribuição: Dockerfile pinado + camada B migrada + deploy por tag (dev = baseline; replica prod) | Cross-repo (mework360-roundcube, memail, deploy-scripts) | HIGH | open |
+| ISSUE-026 | bug | RC prod desalinhado do dev: cookie `domain=.mework360.com.br` (SEC-002 vivo) + `frame-ancestors *` (clickjacking) + imagem `:latest` sem pin nos 2 hosts | Cross-repo (infra SaaS-01/SaaS-02) | HIGH | open |
+| ISSUE-027 | change_request | Teto de escala Redis upstream: `--databases 17` limita ~15 tenants com dbindex dedicado (prod já tem 11) | Cross-repo (deploy-scripts) | HIGH | open |
+| ISSUE-028 | change_request | Remover `\|\| true` de passos críticos do `cmd_create`/`cmd_update` upstream + reportar falha parcial no webhook (readiness honesto R6–R8) | Cross-repo (deploy-scripts), Jobs, Webhook | MEDIUM | open |
+| ISSUE-029 | change_request | Limites de CPU/memória no template docker-compose do tenant (isolamento de recursos no host compartilhado) | Cross-repo (deploy-scripts) | MEDIUM | open |
+| ISSUE-030 | change_request | Corrigir SSRF no meMail (SEC-001/SEC-006): teste de conexão e autodetect IMAP sem bloqueio de redes privadas | Cross-repo (mework360_memail) | MEDIUM | open |
+| ISSUE-031 | change_request | Smoke E2E versionado do fluxo SSO meMail↔Roundcube (login, cookies, troca de perfil) rodando pós-create | Cross-repo (memail), QA, Customers | MEDIUM | open |
+| ISSUE-032 | ops | Remover tenants de teste do host prod SaaS-02 (teste, teste2, gabrielteste08062026; mercadodoconstrutor mantido por decisão do usuário) + limpar registros no painel | Ops (SaaS-02), Customers | HIGH | **closed (2026-06-10)** — 3 removidos com backup, painel atualizado |
+| ISSUE-033 | security | Conta seed `admin@mework360.local` é o ÚNICO admin ativo no deployer prod — criar admin nominal antes de desativar a seed (risco lockout) | Auth, Ops | HIGH | open — decisão usuário 2026-06-10: manter seed por ora |
+| ISSUE-034 | change_request | 6 tenants prod sem registro no painel (76fibra, alloha, meltech, mework360, nextcloud-02, totum) — backfill via `customers:sync`; mework360=conta real colaboradores, demais=demo | Customers, Ops | MEDIUM | open |
+| ISSUE-035 | investigacao | Tabela `personal_access_tokens` ausente no banco do deployer prod — API Bearer (Sanctum) não pode funcionar; verificar migrations pendentes em prod | Core, DevOps | HIGH | open |
+| ISSUE-036 | bug | Containers `*-push` (notify_push) em `Restarting (127)` em 4 tenants do SaaS-02 | Cross-repo (deploy-scripts) | MEDIUM | open |
+
+---
+
+## ISSUE-032 — Remover tenants de teste do host prod SaaS-02
+
+- **Tipo**: ops (limpeza)
+- **Prioridade**: HIGH
+- **Status**: approved (usuário 2026-06-10) — em execução
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (auditoria SaaS-02 2026-06-10; decisão do usuário no chat)
+- **Módulos afetados**: Ops (host SaaS-02), Customers (painel)
+
+### Descrição
+
+Auditoria read-only no SaaS-02 (`cloud.mework360.com.br`) encontrou 4 tenants de teste/demonstração sem uso real (criados via API do deployer com domínio `.dev.mework360.com.br` ou slug `teste*`; usuários finais nunca logaram; storage = skeleton ~62MB):
+`teste` (painel preso em `provisioning` há 8+ dias), `teste2`, `gabrielteste08062026`, `mercadodoconstrutor`.
+
+### Execução (2026-06-10) — CLOSED
+
+Decisão do usuário: remover `teste`, `teste2`, `gabrielteste08062026`; **manter `mercadodoconstrutor`** (demo prospect). Com backup prévio.
+
+| Slug | Job upstream (`backup-then-remove`) | Exit | Backup |
+|------|--------------------------------------|------|--------|
+| teste | `f0afcaa1-5db3-40b7-be4d-bf8627ce9a11` | 0 | `teste_20260610_074122.tar.gz` (324M) |
+| teste2 | `863904b8-1320-47ee-ac6c-9ef8935a6b86` | 0 | `teste2_20260610_074230.tar.gz` (320M) |
+| gabrielteste08062026 | `578ef656-1f79-4ffb-8684-19644a20768c` | 0 | `gabrielteste08062026_20260610_074338.tar.gz` (317M) |
+
+Evidência pós-remove: `nextcloud-manage list --json` → 8 tenants (sem os 3). Painel: `customers.status='removed'` para os 3 (incluindo `teste` que estava preso em `provisioning`) + entradas `customer.removed_ops_cleanup` no audit_logs referenciando ISSUE-032. Backups em `/opt/nextcloud-customers/backups/`.
+
+---
+
+## ISSUE-033 — Conta seed `admin@mework360.local` é o único admin ativo no deployer prod
+
+- **Tipo**: security
+- **Prioridade**: HIGH
+- **Status**: approved (usuário 2026-06-10) — aguardando definição do admin substituto
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (auditoria deployer prod 2026-06-10)
+- **Módulos afetados**: Auth (operators), Ops
+
+### Descrição
+
+`operators` no deployer prod (2026-06-10): `admin@mework360.local` (admin, **active** — conta do seeder, senha potencialmente default), `hiparco.pocetti@me360.com.br` (operador, pending), `quality_contato@hotmail.com` (operador, pending). A seed é o **único admin ativo** — remover sem substituto = lockout do painel. Foi ela que executou os provisions de teste (ip/user_agent vazios no audit log).
+
+### Ação aprovada
+
+1. Criar admin nominal (`operators:create-admin`) **antes** de qualquer remoção
+2. Desativar/remover `admin@mework360.local`
+3. Ativar/ajustar role dos operadores pendentes conforme política
+
+---
+
+## ISSUE-034 — Backfill de 6 tenants prod sem registro no painel
+
+- **Tipo**: change_request (inventário)
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (verificação painel × host 2026-06-10)
+- **Módulos afetados**: Customers, Ops
+
+### Descrição
+
+6 tenants rodando no SaaS-02 sem registro em `customers`: `76fibra`, `alloha`, `meltech`, `mework360`, `nextcloud-02`, `totum` (provisionados antes do deployer). Classificação do usuário (2026-06-10): **mework360 = conta real (colaboradores)**; demais = **contas de demonstração**. Backfill via `customers:sync` + revisar status.
+
+---
+
+## ISSUE-035 — Tabela `personal_access_tokens` ausente no deployer prod
+
+- **Tipo**: investigacao
+- **Prioridade**: HIGH
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (consulta DB prod 2026-06-10)
+- **Módulos afetados**: Core (auth API), DevOps
+
+### Descrição
+
+`SELECT` em `personal_access_tokens` no banco prod retorna `Base table or view not found`. Sem essa tabela o auth Bearer Sanctum (`/api-keys`, `POST /api/customers` via token) **não pode funcionar em prod**. Verificar `migrate:status` em prod (paralelo ao `failed_jobs` ausente — OPS-001/ISSUE-023) e rodar migrations pendentes.
+
+---
+
+## ISSUE-036 — Containers `*-push` em Restarting(127) no SaaS-02
+
+- **Tipo**: bug
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (verificação subagente 2026-06-10)
+- **Módulos afetados**: Cross-repo (`mework360-deploy-scripts` — template compose tenant)
+
+### Descrição
+
+Os containers `notify_push` (`<slug>-push`) dos 4 tenants verificados estão em `Restarting (127)` (binário/entrypoint ausente?). Não impede o `*-app`, mas degrada push notifications. Diagnosticar no upstream; possivelmente afeta todos os tenants do host.
+
+---
+
+## ISSUE-031 — Smoke E2E versionado do fluxo SSO meMail↔Roundcube
+
+- **Tipo**: change_request (qualidade/QA)
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (análise Nextcloud+Roundcube 2026-06-10)
+- **Módulos afetados**: Cross-repo — `mework360_memail` (dono do teste); deployer-api (gancho pós-create)
+
+### Descrição
+
+O fluxo SSO meMail→RC (login server-to-server via cURL, propagação de cookies `roundcube_sessid`/`sessauth`, iframe, troca de perfil) não tem smoke E2E versionado (QA-004 no repo memail). Regressões recorrentes (BUG-001/002/004 memail) só são detectadas manualmente.
+
+### Proposta
+
+Smoke automatizado (Playwright ou script HTTP) cobrindo: login NC → abrir meMail → inbox carrega sem tela de login RC → troca de perfil. Executável standalone e como gate pós-create (depende de ISSUE-024).
+
+### Artefatos impactados
+
+- `mework360_memail`: novo smoke E2E + CI
+- deployer-api: `ProbeCustomerReadinessJob`/runbook R8 referenciando o smoke; `.cursor/skills/me360-deployer/references/readiness-gates.md`, `post-create-runbook.md` §7
+
+### Documentação afetada
+
+- `post-create-runbook.md` §7 (smoke manual → automatizado), `readiness-gates.md` R8
+
+---
+
+## ISSUE-030 — SSRF no meMail: teste de conexão e autodetect IMAP (SEC-001/SEC-006)
+
+- **Tipo**: change_request (segurança — fix em repo externo)
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (análise Nextcloud+Roundcube 2026-06-10)
+- **Módulos afetados**: Cross-repo — `mework360_memail` (SEC-001, SEC-006 no FINDINGS.md daquele repo)
+
+### Descrição
+
+`/api/profile/test` e a autodetecção IMAP fazem handshake a partir do container NC contra host arbitrário informado pelo usuário — superfície SSRF contra a rede interna do host compartilhado (shared-db, shared-redis, socket-proxy). Também há `CURLOPT_SSL_VERIFYPEER=0` herdado no `RequestService` (SEC-005).
+
+### Proposta
+
+Bloquear ranges privados/loopback na validação de host, usar o HTTP client do NC com verificação TLS, e allowlist opcional de servidores IMAP por ambiente.
+
+### Artefatos impactados
+
+- `mework360_memail`: `lib/Service/` (teste de conexão, autodetect, RequestService) + testes
+- deployer-api: nenhum código; skill `me360-deployer` (guardrails) referencia o risco
+
+---
+
+## ISSUE-029 — Limites de CPU/memória no template de compose do tenant
+
+- **Tipo**: change_request (infra upstream)
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (análise Nextcloud+Roundcube 2026-06-10)
+- **Módulos afetados**: Cross-repo — `mework360-deploy-scripts` (`manage.sh` template compose, ~L155–256)
+
+### Descrição
+
+O docker-compose gerado por tenant (app, nginx, cron, harp, push) não define `mem_limit`/`cpus`. Um tenant com carga anômala pode degradar todos os tenants do host (SaaS-02 tem 11). Único precedente de limites é o overlay meOffice do Collabora.
+
+### Proposta
+
+Adicionar limites parametrizáveis por perfil de plano no template (`.env` shared com defaults), aplicáveis em `create` e retrofit via `update`.
+
+### Artefatos impactados
+
+- `mework360-deploy-scripts`: template compose em `cmd_create`, `.env.example`, `docs/ADMINISTRATION.md`
+- deployer-api: skill `ecosystem-map.md` (seção topologia)
+
+---
+
+## ISSUE-028 — Falhas mascaradas (`|| true`) no create/update upstream + falha parcial no webhook
+
+- **Tipo**: change_request (confiabilidade — relacionado a ISSUE-022)
+- **Prioridade**: MEDIUM
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (análise Nextcloud+Roundcube 2026-06-10)
+- **Módulos afetados**: Cross-repo — `mework360-deploy-scripts`; deployer-api: `Jobs/WebhookHandler`, readiness
+
+### Descrição
+
+`cmd_create`/`cmd_update` engolem falhas com `2>/dev/null || true` em passos críticos: `app:enable` (L406), HaRP register (L442–446), `occ upgrade` (L653), sync de custom apps (best-effort). Resultado: webhook `job.finished success` com tenant sem meMail/tema ou upgrade incompleto — a API marca `active` sem estar.
+
+### Proposta
+
+1. Upstream: distinguir passos fatais (abortar + exit≠0) de toleráveis (acumular warnings) e emitir `summary.warnings[]` no callback.
+2. API: `WebhookHandler` persiste warnings; `ProbeCustomerReadinessJob` valida apps obrigatórios (`mework360_memail`, `me360_theme`) antes de `active` — complementa ISSUE-024.
+
+### Artefatos impactados
+
+- `mework360-deploy-scripts`: `manage.sh`, `worker.sh` (payload callback), `docs/CONTRACTS.md`
+- deployer-api: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Jobs/ProbeCustomerReadinessJob.php`, `app/Modules/Customers/Services/CustomerReadinessProbe.php`, `docs/openapi.yaml` (shape webhook), testes Feature
+
+### Documentação afetada
+
+- `docs/CONTRACTS.md` (upstream), `docs/openapi.yaml`, skill `readiness-gates.md`
+
+---
+
+## ISSUE-027 — Teto de escala Redis upstream (`--databases 17`)
+
+- **Tipo**: change_request (escala — bloqueio de venda previsível)
+- **Prioridade**: HIGH
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (análise Nextcloud+Roundcube 2026-06-10)
+- **Módulos afetados**: Cross-repo — `mework360-deploy-scripts` (`shared-services/docker-compose.yml`, `legacy_helpers.sh::get_next_redis_db`)
+
+### Descrição
+
+`shared-redis` roda com `--databases 17`; cada tenant recebe um `dbindex` dedicado (worker usa DB 0). Teto prático: ~15 tenants com isolamento por dbindex. **Prod (SaaS-02) já tem 11.** Sem ação, o `create` do ~15º tenant falha ou colide.
+
+### Proposta
+
+Curto prazo: subir `--databases` (ex.: 64) — mudança de 1 linha + restart coordenado do shared-redis. Médio prazo: avaliar key-prefix por tenant (remove o teto) ou Redis por tenant no compose.
+
+### Artefatos impactados
+
+- `mework360-deploy-scripts`: `shared-services/docker-compose.yml`, `get_next_redis_db()` (validação de teto + erro explícito), `docs/ADMINISTRATION.md`
+- deployer-api: nenhum código; skill `ecosystem-map.md`
+
+---
+
+## ISSUE-026 — RC prod desalinhado do dev: cookie domain pai + `frame-ancestors *` + imagem `:latest`
+
+- **Tipo**: bug (segurança/configuração de infra — verificado em produção)
+- **Prioridade**: HIGH
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (verificação SSH/HTTP read-only 2026-06-10)
+- **Módulos afetados**: Cross-repo — infra `/opt/roundcube/` em SaaS-01 e SaaS-02
+
+### Evidência (2026-06-10)
+
+| Item | Dev (SaaS-01) | Prod (SaaS-02) |
+|------|---------------|----------------|
+| Cookie sessão | `path=/roundcube/` host-only ✔ | `domain=.mework360.com.br` ✘ (SEC-002 memail vivo) |
+| CSP | `frame-ancestors 'self' + dev` ✔ | `frame-ancestors *` ✘ (clickjacking) |
+| Imagem | `roundcube/roundcubemail:latest` ✘ | `roundcube/roundcubemail:latest` ✘ |
+| Apache/PHP | 2.4.67 / 8.4.21 | 2.4.66 / 8.4.20 (drift de `:latest`) |
+| Plugins | 83 dirs | 62 dirs (21 de drift) |
+
+### Descrição
+
+O fix de cookies host-only e CSP restritiva já existe no dev mas não foi replicado ao prod. Ambos os hosts usam `:latest` sem pin — um `docker compose pull` acidental salta a versão do RC contra ~39 patches version-coupled. Mitigação imediata independe de ISSUE-025: pin da tag atual + replicar config de cookie/CSP do dev no prod.
+
+### Proposta
+
+1. Pin imediato: fixar tag da imagem RC nos dois hosts (digest atual do prod documentado antes).
+2. Replicar `config.inc.php`/vhost do dev (cookie host-only, `frame-ancestors` restrito ao(s) domínio(s) NC) no prod.
+3. Resolução estrutural via ISSUE-025 (imagem própria taggeada).
+
+### Artefatos impactados
+
+- Hosts: `/opt/roundcube/docker-compose.yml` + `config/` (SaaS-01 e SaaS-02)
+- deployer-api: skills `ecosystem-map.md`, `post-create-runbook.md` §4
+
+---
+
+## ISSUE-025 — Evoluir `mework360-roundcube` para distribuição com imagem pinada e deploy por tag
+
+- **Tipo**: change_request (arquitetura — multi-repo)
+- **Prioridade**: HIGH
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (análise Nextcloud+Roundcube 2026-06-10)
+- **Módulos afetados**: Cross-repo — `mework360-roundcube` (dono), `mework360_memail` (cede camada B), `mework360-deploy-scripts` (consome imagem), hosts SaaS-01/02
+
+### Descrição
+
+Hoje o RC de cada host é `roundcube/roundcubemail:latest` patchado in-place via SSH (`scp → docker cp → docker exec`), com ~39 patches version-coupled vivendo no monorepo memail e a verdade efetiva nos containers (drift dev/prod confirmado: 21 plugins, Apache/PHP divergentes). Decisão acordada: **usar o repo `mework360-roundcube` existente** (não criar novo) e promovê-lo de "kit camada A" para distribuição.
+
+### Escopo proposto
+
+1. `Dockerfile` com `FROM roundcube/roundcubemail:<versão pinada>` aplicando camada A (in-tree) + camada B (patches migrados do memail) na build
+2. `config/` templates (`me360_nc_origin`, sessão, cookies host-only, CSP)
+3. Snippet compose para `shared-services/` consumir a imagem por tag
+4. Baseline capturada **do dev** (versão mais atual) via `capture-rc-from-dev.sh` ampliado; matriz de compatibilidade preenchida
+5. Fluxo: validar imagem no dev → mesma tag no prod (replicação dev→prod vira deploy de tag)
+
+Entra no provisionamento **de cluster** (shared-services), não no `create` por tenant — o tenant conecta via ISSUE-024.
+
+### Artefatos impactados
+
+- `mework360-roundcube`: Dockerfile, patches/, config/, CI build, README/WORKFLOW, CHANGELOG, tags
+- `mework360_memail`: remoção gradual de `scripts/rc-patch/` (migrados), `docs/DEPLOY.md`
+- `mework360-deploy-scripts`: `shared-services/docker-compose.yml` (serviço roundcube), `docs/ADMINISTRATION.md`
+- deployer-api: skills `ecosystem-map.md`, `environment-and-parity.md`, `post-create-runbook.md` §4
+
+### Documentação afetada
+
+- README/WORKFLOW do kit, CONTRACTS/ADMINISTRATION upstream, skills do deployer
+
+---
+
+## ISSUE-024 — Automatizar configuração meMail no `create` (eliminar runbook manual pós-create)
+
+- **Tipo**: change_request (provisionamento — relacionado a ISSUE-022)
+- **Prioridade**: HIGH
+- **Status**: open
+- **Registrado em**: 2026-06-10
+- **Solicitante**: `/triagem` (análise Nextcloud+Roundcube 2026-06-10)
+- **Módulos afetados**: Cross-repo — `mework360-deploy-scripts` (dono); deployer-api: Customers, Webhook, readiness
+
+### Descrição
+
+`cmd_create` instala `mework360_memail` mas não configura `externalLocation` (sem isso o iframe RC não carrega), `forceSSO` nem `emailAddressChoice`; também instala o app `mail` da store que a política prod desabilita depois. Resultado: tenant `active` na API com mail quebrado até execução manual do `post-create-runbook.md`. Objetivo (visão acordada 2026-06-10): **tenant novo nasce com a customização do dev automaticamente**.
+
+### Escopo proposto
+
+1. Upstream `cmd_create`: após enable do meMail, aplicar `occ config:app:set mework360_memail externalLocation --value=<RC do cluster>` (valor de `.env` shared por host), `forceSSO`, `emailAddressChoice`, e `occ app:disable mail` (flag de política)
+2. Falha nesses passos = warning estruturado no callback (não `|| true` silencioso — ver ISSUE-028)
+3. API: `ProbeCustomerReadinessJob` passa a validar `externalLocation` configurado antes de `active` (gate R8)
+
+### Artefatos impactados
+
+- `mework360-deploy-scripts`: `manage.sh` (`cmd_create`), `.env.example` shared (`MEMAIL_EXTERNAL_LOCATION` etc.), `docs/CONTRACTS.md`, `docs/ADMINISTRATION.md`
+- deployer-api: `app/Jobs/ProbeCustomerReadinessJob.php`, `app/Modules/Customers/Services/CustomerReadinessProbe.php`, testes Feature correspondentes
+- Skills: `post-create-runbook.md` (encolhe para validação), `readiness-gates.md` (R8), `ecosystem-map.md` (Layer 3)
+
+### Documentação afetada
+
+- `docs/CONTRACTS.md` upstream, skills me360-deployer (3 arquivos), `docs/RUNBOOK.md` se citar pós-create
 
 ---
 

@@ -69,12 +69,14 @@ Lista completa: `mework360_memail` → `Config::SETTINGS` / `docs/FINDINGS.md`.
 
 ## 4. Roundcube (host compartilhado — **não** por tenant)
 
-Roundcube **não** é criado no `create`. Verificar saúde do RC compartilhado:
+Roundcube **não** é criado no `create`. Cada host roda instância **própria** em `/opt/roundcube/` (verificado 2026-06-10 — dev NÃO é proxy):
 
-| Ambiente | SSH | Container |
-|----------|-----|-----------|
-| Dev | `mecloud360@dev.mework360.com.br` | `roundcube-app-1` (se existir no host) |
-| Prod | `mecloud360@cloud.mework360.com.br` | `roundcube-app-1` |
+| Ambiente | SSH | Container | Observação |
+|----------|-----|-----------|------------|
+| Dev | `mecloud360@dev.mework360.com.br` | `roundcube-app-1` | 83 plugins — **baseline** (versão mais atual) |
+| Prod | `mecloud360@cloud.mework360.com.br` | `roundcube-app-1` | 62 plugins; cookie/CSP desalinhados — **ISSUE-026** |
+
+Imagem `roundcube/roundcubemail:latest` **sem pin** nos dois hosts — NÃO rodar `docker compose pull` no `/opt/roundcube/` antes do pin (ISSUE-026); ~39 patches são version-coupled. Estado-alvo: distribuição via `mework360-roundcube` (ISSUE-025).
 
 Scripts memail (sessão/cookies):
 

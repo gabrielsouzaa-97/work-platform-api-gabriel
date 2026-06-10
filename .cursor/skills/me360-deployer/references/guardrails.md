@@ -14,7 +14,9 @@
 | "Só mudei o painel, upstream não importa" | Se release inclui argv/webhook indiretamente, ISSUE-022 ainda aplica |
 | "Homolog é igual produção" | `APP_URL`, secrets, versão do worker e firewall diferem — revalidar R6–R8 |
 | "Produção = clientes em uso" vs "host fábrica" | `create` no host fábrica sem tráfego é canário válido; `custom-apps update` ainda afeta todos os TNs do host |
-| "Dev tem ambiente só para criar TN" | **Não** — `dev.mework360.com.br` é fábrica + runtime; ver `environment-and-parity.md` |
+| "Dev tem ambiente só para criar TN" | **Não** — `dev.mework360.com.br` (SaaS-01) é fábrica + runtime; ver `environment-and-parity.md` |
+| "Dev e Prod são 100% isolados" | **Entre VPS sim** (SaaS-01 ≠ SaaS-02); **não** entre deployer (control plane único) nem RC prod (`cloud.mework360.com.br`); dentro do mesmo host `custom-apps update` afeta todos os TNs |
+| "Contratar em Dev cria em Prod" | **Não** — `cluster_server_id` define o host; fluxo igual, destino diferente |
 | "mework360-local = mesmo que create" | FULL_LOCAL não passa por `manage.sh`; tenant persistente pode ter drift |
 | "Provision falhou mas API está ok" | Provision é o critério do usuário — job stuck = NOT READY |
 | "Local sem túnel deve funcionar" | Webhook exige R7 — sem ngrok/HTTPS jobs ficam `queued` para sempre |
@@ -30,6 +32,7 @@
 - Deploy API antes do upstream com contrato novo → PARE. ISSUE-022 ordem invertida.
 - Sugerir `docker compose down -v` para "limpar" → PARE. Hook bloqueia; perda de dados.
 - Colar chave SSH ou webhook secret no chat/commit → PARE. Usar painel/`.env` local.
+- `docker compose pull` em `/opt/roundcube/` (qualquer host) → PARE. Imagem `:latest` sem pin; ~39 patches version-coupled quebram (ISSUE-026).
 
 ### Provision
 

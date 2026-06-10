@@ -32,17 +32,18 @@
       "descricao": "Design System consolidado. Tema High-Tech Professional, Dark mode default (Light opcional), status hibridos. Livewire + Tailwind puro."
     }
   ],
-  "fase_atual": "12",
-  "fase_nome": "Sprint F7 concluída — HIGH N1 zerados; F6 validada",
-  "sprint_atual": null,
+  "fase_atual": "13",
+  "fase_nome": "Sprint F3 em andamento — Tech Debt LOW (schema, security, observability)",
+  "sprint_atual": "F3",
+  "sprint_branch": "sprint/F3",
   "previous_sprint": "F7",
   "beesy_version": "4.47.1",
   "decisions_applied_until": 225,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-09T12:00:00Z",
-  "next_sprint_planned": null,
+  "ultimo_update": "2026-06-09T06:00:00Z",
+  "next_sprint_planned": "F10",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -52,19 +53,14 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Implementar F5.11 (em curso): (1) refatorar OccPanel.php — substituir #[Locked] $userPassword + escape-hatch por $userPasswordPlain (wire:model), zerar no finally; (2) refatorar occ-panel.blade.php (seção Criar Usuário) — <form wire:submit.prevent='createUser'> + wire:model='userPasswordPlain' + button type=submit; (3) atualizar 4 testes createUser em OccPanelTest para usar ->set('userPasswordPlain', ...) + 2 testes novos (production scenario sem senha + cleanup pós-sucesso); (4) registrar ISSUE backlog para E2E Dusk/Playwright; (5) atualizar FINDINGS QA-F5-019 → Corrigido; (6) rodar suite (esperado 321→323+ passed); (7) commit fix(sprint-F5): task 5.11.",
-    "F5 R3 validada (2026-06-02): APROVADA — QA-F5-019 Validado; OccPanelTest 25/25 no Docker.",
-    "Notes (Non-Blocking) registrados pelo R2 — out-of-scope F5.11, backlogados: (a) theming:config multi-key/value envia args inválidos ao OCC; (b) disableApps controller ignora param `remove` documentado no OpenAPI; (c) UpstreamContractTest valida `queued` state pode ser falso-positivo para schema-rejection assíncrona; (d-f) inconsistências menores em OccPanelTest (assertSeeText vs assertSet, deleteGroup sem successMessage assert) — não bloqueiam.",
-    "Notes (Non-Blocking) registrados pelo R2 — out-of-scope da sprint, backlogados: (a) theming:config multi-key/value envia args inválidos ao OCC; (b) disableApps controller ignora param `remove` documentado no OpenAPI; (c) UpstreamContractTest valida `queued` state pode ser falso-positivo para schema-rejection assíncrona; (d-f) inconsistências menores em OccPanelTest (assertSeeText vs assertSet, deleteGroup sem successMessage assert) — não bloqueiam.",
-    "Sprint F5-cleanup (opt): 2 findings MEDIUM remanescentes pós-F5.10 — CQ-F5-002 (CMD_TO_CLI_ARGV dead-code customer-level), CQ-F5-003 (extrair mapLifecycleException helper). ~1h.",
-    "Sprint F4: 3 findings HIGH de N1 (CQ-N1-001 DB::transaction no Create, CQ-N1-002 actor_id no AuditLog do Rotate, QA-N1-001 teste do error path 'sem current secret') — ~2-4h",
-    "Sprint F3.1: AuditLog semantico rotate_webhook_secret",
-    "Sprint F3.2: pt-BR locale",
-    "Sprint F3.3: FK sessions + UNIQUE invite_token_hash (migration)",
-    "Sprint F3.4: Eager load clusterServer em OccController",
-    "Sprint F3.5: Rate limit login por email",
-    "Sprint F3.6: Remover role/status/invite_token_hash do $fillable",
-    "Sprint F3.7: Mascarar args SSH sensiveis nos logs"
+    "F3.1 [P]: D4-F009 — AuditLog action cluster_server.rotate_webhook_secret em RotateWebhookSecretAction",
+    "F3.2 [P]: D4-F005 — pt-BR locale + laravel-lang/lang + config/app.php",
+    "F3.3 [P]: DBA-F010/F011 — migration FK sessions.user_id → operators + UNIQUE invite_token_hash",
+    "F3.4 [P]: DBA-F012 — eager load clusterServer em OccController/OccPassthroughService",
+    "F3.5 [P]: SEC-F013 — rate limit login por email (5/300s) em Login.php",
+    "F3.6 [P]: SEC-F015 — remover role/status/invite_token_hash do $fillable Operator",
+    "F3.7 [M]: SEC-F014 — mascarar --idempotency-key e --callback nos logs SSH",
+    "Gate: 0 findings LOW F3 pendentes; testes passando; review: skip no ROADMAP"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -173,14 +169,14 @@
   ],
   "anchor": {
     "persona": "implementer (Composer 2.5 — Decision #225 default)",
-    "phase": "Sprint F11 R1 — APROVADA — todos os findings corrigidos in-sprint",
-    "intent": "ISSUE-018 slug reuse + 5 MEDIUM F5 + R1 correções (FK RESTRICT + cobertura)",
-    "changes_made": "F11 base (6 tasks) + R1: restore()+update() em vez de forceDelete; 2 testes e2e re-provisioning; AuditLog assert em provision.failed; 3 testes mapLifecycleException apps; SshRemoteException apps test",
-    "decisions": "restore+update ghost (preserva FK jobs/idempotency_keys sem migration); Policy A CSV apps (order-sensitive)",
-    "next_steps": "commit fix(sprint-F11): all 6 tasks + R1 follow-up | sprint F7 (CQ-N1-001/002, QA-N1-001 HIGH)",
-    "updated_at": "2026-05-24T11:09:00Z"
+    "phase": "Sprint F3 — prerequisites",
+    "intent": "Tech debt LOW: AuditLog rotate semântico, pt-BR, FK sessions, eager load, rate limit email, $fillable restrito, mascarar args SSH",
+    "changes_made": null,
+    "decisions": "Ordem ROADMAP: F3.1→F3.7; migrations antes de backend; review: skip",
+    "next_steps": "F3.1 — RotateWebhookSecretAction AuditLog cluster_server.rotate_webhook_secret",
+    "updated_at": "2026-06-09T06:00:00Z"
   },
-  "contexto_rapido": "Rock 2026-06-09: upgrade 4.47.1 commitado; F7 (CQ-N1-001/002, QA-N1-001) done; F6 validada (29 testes). Próximo: F3 tech debt, F10.3 deploy/ISSUE-023. install.sh beesy-cursor-setup pendente.",
+  "contexto_rapido": "Sprint F3 iniciada 2026-06-09 na branch sprint/F3. Tech debt LOW: 7 tasks (8 findings D4/DBA/SEC). F7 mergeada na main (PR #85). F10.3 deploy pendente após F3. review: skip.",
   "autopilot": {
     "active": false
   },
@@ -192,73 +188,21 @@
   },
   "compact_count": 1,
   "checkpoint": {
-    "sprint": "F13",
-    "phase": "implemented",
-    "branch": "main",
-    "head_sha": "cf773dc48ece5e3221f3a2026a45488a7a185b1e",
-    "last_completed_task": "F13.4 — regressão final e status do ISSUE-019",
-    "current_task": null,
-    "tests_passing": 16,
-    "tests_skipped": 0,
-    "assertions": 63,
-    "audit_findings_resolved": 4,
-    "audit_findings_pending": 0,
-    "audit_status": "APROVADA_R1",
-    "timestamp": "2026-05-28T03:30:00Z",
-    "validation_gate": {
-      "sprint_validated": "F5",
-      "validation_round": 4,
-      "findings_found": 3,
-      "findings_registered": [],
-      "files_modified_outside_findings": 5,
-      "askquestion_shown": false,
-      "senior_review_status": "PASS_WITH_NOTES",
-      "qa_review_status": "PASS_WITH_NOTES",
-      "result": "APROVADA_COM_RESSALVAS",
-      "contract_source": "checkpoint",
-      "in_contract": [],
-      "last_validated_sha": "f0a2cee785c006f8ed0fd571c00593591685673b",
-      "tests_reexecuted": true,
-      "tests_scope": "LifecycleTest + OccPanelTest + JobTypeTranslatorTest + UpstreamContractTest",
-      "tests_result": "123 passed, 6 skipped, 241 assertions",
-      "tests_env": "docker compose exec app (2026-06-02)",
-      "audit_invoked": [
-        {
-          "agent": "auditor-senior",
-          "model": "claude-opus-4-8-thinking-medium",
-          "findings": 0,
-          "status": "PASS_WITH_NOTES"
-        },
-        {
-          "agent": "auditor-qa",
-          "model": "gemini-3.1-pro",
-          "findings": 3,
-          "status": "PASS_WITH_NOTES",
-          "triage": "out-of-contract pre-existing"
-        }
-      ],
-      "notes_non_blocking": [
-        "QA-F5-020 quotaUsername required_if (OccPanel pre-existing)",
-        "QA-F5-021 IdempotencyKey orphan if SSH missing job_id (pre-existing)",
-        "QA-F5-022 OccPanel apps bulk disable unimplemented (pre-existing)",
-        "E2E browser ISSUE-007",
-        "Hard Rule #2: 5 code files uncommitted — commit before deploy"
-      ],
-      "findings_validated_r4": [
-        "CQ-F5-004",
-        "CQ-F5-005",
-        "CQ-F5-006",
-        "QA-F5-009",
-        "QA-F5-011",
-        "QA-F5-012",
-        "QA-F5-013",
-        "QA-F5-014"
-      ],
-      "hard_rule_violations": [
-        "files_modified_outside_findings"
-      ],
-      "timestamp": "2026-06-02T20:00:00Z"
-    }
+    "sprint": "F3",
+    "phase": "prerequisites",
+    "branch": "sprint/F3",
+    "relevant_paths": [
+      "app/Modules/Core/",
+      "app/Modules/ClusterServers/",
+      "app/Models/Operator.php",
+      "app/Http/Livewire/Auth/",
+      "app/Http/Controllers/Api/OccController.php",
+      "database/migrations/"
+    ],
+    "head_sha": "29a6a51",
+    "last_completed_task": null,
+    "current_task": "F3.1",
+    "timestamp": "2026-06-09T06:00:00Z"
   },
   "planning_history": [
     {
