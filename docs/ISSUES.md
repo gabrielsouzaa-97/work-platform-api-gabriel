@@ -39,8 +39,8 @@
 | ISSUE-031 | change_request | Smoke E2E versionado do fluxo SSO meMail↔Roundcube (login, cookies, troca de perfil) rodando pós-create | Cross-repo (memail), QA, Customers | MEDIUM | open |
 | ISSUE-032 | ops | Remover tenants de teste do host prod SaaS-02 (teste, teste2, gabrielteste08062026; mercadodoconstrutor mantido por decisão do usuário) + limpar registros no painel | Ops (SaaS-02), Customers | HIGH | **closed (2026-06-10)** — 3 removidos com backup, painel atualizado |
 | ISSUE-033 | security | Conta seed `admin@mework360.local` é o ÚNICO admin ativo no deployer prod — criar admin nominal antes de desativar a seed (risco lockout) | Auth, Ops | HIGH | open — decisão usuário 2026-06-10: manter seed por ora |
-| ISSUE-034 | change_request | 6 tenants prod sem registro no painel (76fibra, alloha, meltech, mework360, nextcloud-02, totum) — backfill via `customers:sync`; mework360=conta real colaboradores, demais=demo | Customers, Ops | MEDIUM | open |
-| ISSUE-035 | investigacao | Tabela `personal_access_tokens` ausente no banco do deployer prod — API Bearer (Sanctum) não pode funcionar; verificar migrations pendentes em prod | Core, DevOps | HIGH | open |
+| ISSUE-034 | change_request | 6 tenants prod sem registro no painel (76fibra, alloha, meltech, mework360, nextcloud-02, totum) — backfill via `customers:sync`; mework360=conta real colaboradores, demais=demo | Customers, Ops | MEDIUM | **closed (2026-06-10)** — sync inserted=6, painel consistente com host |
+| ISSUE-035 | investigacao | Tabela `personal_access_tokens` ausente no banco do deployer prod — API Bearer (Sanctum) não pode funcionar; verificar migrations pendentes em prod | Core, DevOps | HIGH | **closed (2026-06-10)** — premissa incorreta: projeto não usa Sanctum; auth Bearer usa `api_keys` (existe em prod); `failed_jobs` segue em OPS-001/ISSUE-023 |
 | ISSUE-036 | bug | Containers `*-push` (notify_push) em `Restarting (127)` em 4 tenants do SaaS-02 | Cross-repo (deploy-scripts) | MEDIUM | open |
 
 ---
@@ -98,7 +98,7 @@ Evidência pós-remove: `nextcloud-manage list --json` → 8 tenants (sem os 3).
 
 - **Tipo**: change_request (inventário)
 - **Prioridade**: MEDIUM
-- **Status**: open
+- **Status**: **closed (2026-06-10)**
 - **Registrado em**: 2026-06-10
 - **Solicitante**: `/triagem` (verificação painel × host 2026-06-10)
 - **Módulos afetados**: Customers, Ops
@@ -107,13 +107,27 @@ Evidência pós-remove: `nextcloud-manage list --json` → 8 tenants (sem os 3).
 
 6 tenants rodando no SaaS-02 sem registro em `customers`: `76fibra`, `alloha`, `meltech`, `mework360`, `nextcloud-02`, `totum` (provisionados antes do deployer). Classificação do usuário (2026-06-10): **mework360 = conta real (colaboradores)**; demais = **contas de demonstração**. Backfill via `customers:sync` + revisar status.
 
+### Execução (2026-06-10) — CLOSED
+
+Executado por subagente (Composer 2.5) com guardrails — pré-check do código do comando (`CustomersSyncCommand` + `CustomerSyncService`: insert/update/soft-remove a partir de `nextcloud-manage list --json`) e do upstream antes de rodar.
+
+```text
+php artisan customers:sync --cluster=0e50e032-df0f-4387-aa00-43bae3672147
+[producao] inserted=6 updated=0 deleted=5
+```
+
+- Estado final: 8 `active` (76fibra, alloha, meltech, mercadodoconstrutor, mework360, nextcloud-02, suzukisol2, totum) + 5 `removed`
+- Os 6 tenants alvo registrados como `active`; `mercadodoconstrutor` intocado
+- Efeito esperado do sync: 5 registros de teste ausentes no upstream (já `removed`) receberam soft delete
+- Follow-up opcional: marcar metadado demo vs real (mework360 = real) — sem suporte no schema atual
+
 ---
 
 ## ISSUE-035 — Tabela `personal_access_tokens` ausente no deployer prod
 
 - **Tipo**: investigacao
 - **Prioridade**: HIGH
-- **Status**: open
+- **Status**: **closed (2026-06-10)** — premissa incorreta
 - **Registrado em**: 2026-06-10
 - **Solicitante**: `/triagem` (consulta DB prod 2026-06-10)
 - **Módulos afetados**: Core (auth API), DevOps
@@ -121,6 +135,18 @@ Evidência pós-remove: `nextcloud-manage list --json` → 8 tenants (sem os 3).
 ### Descrição
 
 `SELECT` em `personal_access_tokens` no banco prod retorna `Base table or view not found`. Sem essa tabela o auth Bearer Sanctum (`/api-keys`, `POST /api/customers` via token) **não pode funcionar em prod**. Verificar `migrate:status` em prod (paralelo ao `failed_jobs` ausente — OPS-001/ISSUE-023) e rodar migrations pendentes.
+
+### Investigação (2026-06-10) — CLOSED
+
+Executado por subagente (Composer 2.5):
+
+- `migrate:status` em prod: **18/18 migrations Ran, 0 pendentes** — nada para aplicar (nenhum `migrate --force` necessário)
+- Repo local: **não existe** migration de `personal_access_tokens` nem de `failed_jobs`; `composer.json` **não inclui** `laravel/sanctum`
+- O auth Bearer do projeto usa a tabela **`api_keys`** (guard `api-key`), que **existe** em prod — a API por token não depende de Sanctum
+
+**Conclusão**: premissa do registro estava incorreta — não há quebra de auth. A tabela `personal_access_tokens` não é usada pelo projeto. `failed_jobs` ausente permanece rastreado em **OPS-001 / ISSUE-023** (decisão pendente: criar migration ou documentar no RUNBOOK).
+
+**Follow-up sugerido**: smoke de validação `auth:api-key` em prod (criar token via painel `/api-keys` + `GET /api/customers` com Bearer) — encaixa no checklist do ISSUE-023.
 
 ---
 
