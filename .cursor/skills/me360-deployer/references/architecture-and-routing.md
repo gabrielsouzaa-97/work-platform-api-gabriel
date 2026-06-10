@@ -16,7 +16,9 @@
 | Subir ambiente local | `local-stack.md` |
 | Atualizar versão / deploy VM | `production-deploy.md` + `readiness-gates.md` |
 | Criar customer / TN / provision | `provision-lifecycle.md` + gates R6–R8 |
+| SaaS-01 vs SaaS-02 / Dev vs Prod independentes? | `environment-and-parity.md` § VPS upstream |
 | Onde se criam TNs no Dev? / fábrica vs clientes | `environment-and-parity.md` |
+| Fluxo de contratação em qual ambiente? | `provision-lifecycle.md` + `environment-and-parity.md` § VPS |
 | Paridade local = Dev / meMail não abre | `environment-and-parity.md` + `local-stack.md` § Tier 3b |
 | Testar perfil de create (canário) | `environment-and-parity.md` § canário + `post-create-runbook.md` |
 | "Está pronto?" | `readiness-gates.md` (R1–R8) |

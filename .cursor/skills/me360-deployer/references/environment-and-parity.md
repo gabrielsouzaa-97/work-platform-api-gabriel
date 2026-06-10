@@ -1,36 +1,94 @@
 # Environment taxonomy & Dev parity
 
-> Consolidado em 2026-06-09 a partir de sessões de diagnóstico local + alinhamento de vocabulário (TN factory vs clientes em uso).
+> Consolidado em 2026-06-09; VPS Dev/Prod e independência de fluxos em 2026-06-09.
 
 ## Vocabulário (evitar confusão)
 
 | Termo que o time usa | Significa na prática | Não confundir com |
 |----------------------|----------------------|-------------------|
-| **Ambiente Dev / homolog** | Host upstream `dev.mework360.com.br` | Painel `deployer.mework360.com.br` |
+| **NextCloud-SaaS-01** | VPS upstream **Dev/homolog** (`dev.mework360.com.br`) | Painel `deployer.mework360.com.br` |
+| **NextCloud-SaaS-02** | VPS upstream **Produção** (host NC + `manage.sh` + worker) | VM do deployer-api |
+| **Ambiente Dev / homolog** | Host upstream `dev.mework360.com.br` (= SaaS-01) | Painel `deployer.mework360.com.br` |
 | **Ambiente que cria TNs** | Mesmo host upstream (`manage.sh` + worker) | Segundo host “só fábrica” no Dev — **não existe** |
-| **Produção (fábrica)** | Host upstream futuro/atual onde `create` roda sem clientes reais ainda | TNs de clientes já em uso no mesmo host |
-| **Produção (clientes)** | TNs com usuários finais em operação | Teste de `create` com slug `qa-*` no host fábrica |
-| **deployer-api** | Control plane (API + painel + webhook) | Nextcloud tenant |
+| **Produção (fábrica)** | Host upstream (SaaS-02) onde `create` roda — com ou sem clientes reais | TNs de teste `qa-*` no mesmo host |
+| **Produção (clientes)** | TNs com usuários finais em operação no SaaS-02 | Slug de homolog no SaaS-01 |
+| **deployer-api** | Control plane (API + painel + webhook) — orquestra **N** clusters | Nextcloud tenant |
 
 **Regra:** um **cluster** no painel = um **host upstream** SSH. Esse host é **fábrica e runtime ao mesmo tempo**: cada `create` adiciona `/opt/nextcloud-customers/<slug>/` no mesmo servidor (ex.: `dev-app` + `qa-canary-01` coexistem).
 
-## Topologia Dev (audit 2026-06-09)
+## VPS upstream — Dev vs Prod (independência)
+
+Cada VPS upstream é um **stack completo e isolado** do outro. Contratar/criar TN em Dev **não** provisiona em Prod, e vice-versa.
+
+| VPS (nome interno) | Papel | DNS / SSH conhecido | Auditado na skill |
+|--------------------|-------|---------------------|-------------------|
+| **NextCloud-SaaS-01** | Dev / homolog | `dev.mework360.com.br` (`mecloud360@…`); hostname curto `dev` (FQDN interno: `MECloud360-NextCloud-SaaS-01` — ISSUE-006) | Sim (2026-06-09) |
+| **NextCloud-SaaS-02** | Produção | `cloud.mework360.com.br` (`mecloud360@…`); FQDN `MECloud360-NextCloud-SaaS-02.mecloud360.com.br` | Sim (2026-06-09 SSH read-only) |
+
+**O que é independente entre SaaS-01 e SaaS-02**
+
+| Recurso | Isolado entre VPS? |
+|---------|-------------------|
+| `nextcloud-manage` + `nextcloud-saas-worker` | Sim — um daemon/fila por host |
+| Redis de jobs upstream | Sim |
+| MariaDB / shared-services do host | Sim — cada VPS tem o seu |
+| Tenants `/opt/nextcloud-customers/<slug>/` | Sim |
+| Webhook secret por `cluster_server` | Sim |
+| Fluxo de contratação (`create` → webhook → probe → `active`) | Sim — mesmo pipeline, **cluster destino** define o host |
+
+**O que NÃO é independente (matizes)**
+
+| Recurso | Comportamento |
+|---------|---------------|
+| **deployer.mework360.com.br** | Control plane **compartilhado** — um painel pode orquestrar SaaS-01 e SaaS-02 via `cluster_server_id` |
+| **Roundcube produção** | Serviço **compartilhado** no **mesmo host** SaaS-02 (`cloud.mework360.com.br/roundcube`) — não nasce no `create`; meMail aponta via `externalLocation` |
+| **Dentro da mesma VPS** | `custom-apps update` e mudanças em shared-services afetam **todos** os TNs **daquele** host |
+| **Versões** | `manage.sh`, worker e apps N4 podem **divergir** entre 01 e 02 — pinar antes de comparar paridade |
+
+Fluxo de contratação (idêntico em qualquer cluster): `provision-lifecycle.md` — `POST /api/customers` → SSH `create --async` → worker → `POST /api/jobs/hook` → `ProbeCustomerReadinessJob` → `active`.
+
+## Topologia operacional (Dev + Prod)
 
 ```text
-deployer.mework360.com.br     → mework360-deployer-api (Docker VM)
-        │ SSH
-        ▼
-dev.mework360.com.br          → fábrica + TNs homolog (ÚNICO host Dev)
-  ├── nextcloud-manage v12.3.0 + nextcloud-saas-worker
-  ├── shared-services (MariaDB, Redis, Collabora, Talk stack…)
-  └── /opt/nextcloud-customers/<slug>/   (app, cron, harp; nginx/push conforme host)
-
-cloud.mework360.com.br        → Roundcube shared (NÃO é TN por cliente)
+                    deployer.mework360.com.br
+                    (mework360-deployer-api — control plane)
+                              │ SSH + webhook (por cluster_server)
+              ┌───────────────┴───────────────┐
+              ▼                               ▼
+   NextCloud-SaaS-01 (Dev)        NextCloud-SaaS-02 (Prod)
+   dev.mework360.com.br            cloud.mework360.com.br
+     ├── nextcloud-manage             ├── nextcloud-manage
+     ├── nextcloud-saas-worker       ├── nextcloud-saas-worker
+     ├── shared-services              ├── shared-services
+     └── /opt/nextcloud-customers/    └── /opt/nextcloud-customers/
+              │                               │
+              │ RC homolog (mesmo host)       │ externalLocation → RC prod
+              ▼                               ▼
+   dev.mework360.com.br/roundcube    cloud.mework360.com.br/roundcube
+                                     (shared — NÃO é TN por cliente)
 ```
 
+### Dev — SaaS-01 (audit 2026-06-09)
+
 - Cluster homolog cadastrado: `119d74df-9011-4c0f-a6bf-ad03f84af10d` @ `dev.mework360.com.br`
-- TN referência homolog: `dev-app` — meMail 1.5.0, `me360_theme` 1.6.13, `externalLocation=https://dev.mework360.com.br/roundcube`
+- `nextcloud-manage` v12.3.0 + worker **active**
+- TN referência: `dev-app` — meMail 1.5.0, `me360_theme` 1.6.13, `externalLocation=https://dev.mework360.com.br/roundcube`
 - Gap audit: `/opt/shared-services/custom_apps/` **ausente** no homolog — N4 pode sincar apps da árvore do tenant, não do path documentado
+
+### Prod — SaaS-02 (audit SSH read-only 2026-06-09)
+
+- FQDN: `MECloud360-NextCloud-SaaS-02.mecloud360.com.br` — SSH/curl: `cloud.mework360.com.br`
+- `nextcloud-manage` **v12.3.0** + worker **active** (`queue_depth:0`)
+- Shared services (8): db, redis, collabora, turn, nats, janus, signaling, recording — **all ●** (since 2026-06-01 / 2026-06-08)
+- Edge prod: `collabora-02.mecloud360.com.br`, `signaling-02.mecloud360.com.br`, `turn-02.mecloud360.com.br`
+- `/opt/shared-services/custom_apps/`: **presente** — `mework360_memail`, `me360_theme` (gap Dev não se repete aqui)
+- **11 tenants** em `/opt/nextcloud-customers/` (ex.: `mework360` → `cloud.mework360.com.br`, `76fibra`, `alloha`, `totum`, …)
+- TN referência `mework360`: meMail **1.4.30**, `me360_theme` **1.0.0**, `externalLocation=https://cloud.mework360.com.br/roundcube`
+- Roundcube shared no **mesmo host** — `post-create-runbook.md` §2
+- Cluster cadastrado no deployer prod (`deployer.mework360.com.br`, audit DB 2026-06-10):
+  - **UUID:** `0e50e032-df0f-4387-aa00-43bae3672147`
+  - **Nome painel:** `producao`
+  - **ssh_host:** `cloud.mework360.com.br` | **ssh_user:** `ncsaas-api` | **status:** `active`
 
 ## Ambientes na máquina do desenvolvedor
 
@@ -139,14 +197,16 @@ Compose em `mework360-local/tenants/mework360/docker-compose.yml` resolve paths 
 
 **Correção durável:** symlink ou ajustar compose para paths reais; copiar para paths esperados é hotfix, não perfil.
 
-## Versões de referência (2026-06-09)
+## Versões de referência (2026-06-09/10)
 
-| Componente | Homolog `dev-app` | Local FULL_LOCAL (após hotfix) |
-|------------|-------------------|--------------------------------|
-| Nextcloud | 33.0.4.1 | 33.0.4.1 |
-| mework360_memail | 1.5.0 | 1.4.24 (worktree baseline; alinhar antes de comparar) |
-| me360_theme | 1.6.13 | depende do mount |
-| manage.sh | v12.3.0 | N/A local |
+| Componente | Homolog `dev-app` (SaaS-01) | Prod `mework360` (SaaS-02) | Local FULL_LOCAL (após hotfix) |
+|------------|------------------------------|----------------------------|--------------------------------|
+| Nextcloud | 33.0.4.1 | **33.0.3.2** (occ status 2026-06-10) | 33.0.4.1 |
+| mework360_memail | 1.5.0 | **1.4.30** | 1.4.24 (worktree baseline; alinhar antes de comparar) |
+| me360_theme | 1.6.13 | **1.0.0** | depende do mount |
+| manage.sh | v12.3.0 | v12.3.0 | N/A local |
+
+**Drift Dev → Prod confirmado (2026-06-10):** meMail 1.5.0 vs 1.4.30; `me360_theme` 1.6.13 vs 1.0.0. Antes de prometer paridade de feature em prod, validar versão do app **no host SaaS-02** — homolog está à frente.
 
 Sempre pinar versões no checklist canário — drift entre DB `installed_version` e `info.xml` bloqueia o NC.
 
@@ -154,7 +214,9 @@ Sempre pinar versões no checklist canário — drift entre DB `installed_versio
 
 | Pergunta do usuário | Ler primeiro |
 |---------------------|--------------|
-| “Onde criam TNs no Dev?” | Este doc § Vocabulário + Topologia Dev |
+| “SaaS-01 vs SaaS-02?” / “Dev e Prod são independentes?” | Este doc § VPS upstream |
+| “O fluxo de contratação é o mesmo nos dois?” | Este doc § VPS + `provision-lifecycle.md` |
+| “Onde criam TNs no Dev?” | Este doc § Vocabulário + SaaS-01 |
 | “Como simular create local?” | `local-stack.md` § Tier 3b + este doc § Gaps |
 | “Posso testar create no host fábrica?” | Este doc § Estratégia canário |
 | “meMail não abre local” | Este doc § Armadilhas Windows |
