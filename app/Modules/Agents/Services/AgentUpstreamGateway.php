@@ -8,7 +8,7 @@ use App\Models\ClusterServer;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use Illuminate\Support\Facades\Cache;
 
-final class AgentUpstreamGateway
+class AgentUpstreamGateway
 {
     private const WAIT_SECONDS = 30;
 
