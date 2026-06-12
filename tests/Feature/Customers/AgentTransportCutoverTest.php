@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\ClusterServer;
+use App\Models\Customer;
 use App\Models\FarmAgent;
 use App\Models\Operator;
 use App\Modules\Agents\Services\AgentUpstreamGateway;
