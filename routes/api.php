@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\AgentGatewayController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerLifecycleController;
+use App\Http\Controllers\Api\FarmAgentController;
 use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\OccController;
 use App\Http\Controllers\Api\WebhookController;
@@ -22,7 +24,23 @@ Route::post('/jobs/hook', [WebhookController::class, 'receive'])
     ->middleware(VerifyWebhookHmac::class)
     ->name('jobs.hook');
 
+Route::prefix('agent/v1')
+    ->middleware(['verify.agent', 'throttle:120,1'])
+    ->group(function (): void {
+        Route::get('/commands', [AgentGatewayController::class, 'pollCommands'])
+            ->name('api.agent.commands.poll');
+        Route::post('/events', [AgentGatewayController::class, 'receiveEvents'])
+            ->name('api.agent.events.receive');
+    });
+
 Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->group(function (): void {
+    Route::get('/farm-agents', [FarmAgentController::class, 'index'])->name('api.farm-agents.index');
+    Route::post('/farm-agents', [FarmAgentController::class, 'store'])->name('api.farm-agents.store');
+    Route::get('/farm-agents/{id}', [FarmAgentController::class, 'show'])->name('api.farm-agents.show');
+    Route::patch('/farm-agents/{id}', [FarmAgentController::class, 'update'])->name('api.farm-agents.update');
+    Route::post('/farm-agents/{id}/ping', [FarmAgentController::class, 'enqueuePing'])
+        ->name('api.farm-agents.ping');
+
     Route::get('/queue', [JobController::class, 'index'])->name('api.queue.index');
     Route::get('/queue/stats', [JobController::class, 'stats'])->name('api.queue.stats');
     Route::get('/queue/{id}', [JobController::class, 'show'])->name('api.queue.show');

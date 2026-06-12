@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -73,5 +74,10 @@ class ClusterServer extends Model
     public function webhookSecretHistory(): HasMany
     {
         return $this->hasMany(WebhookSecretHistory::class, 'cluster_server_id');
+    }
+
+    public function farmAgent(): HasOne
+    {
+        return $this->hasOne(FarmAgent::class, 'cluster_server_id');
     }
 }
