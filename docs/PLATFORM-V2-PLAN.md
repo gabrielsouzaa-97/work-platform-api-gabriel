@@ -299,9 +299,9 @@ Inadimplência:
 
 | Sprint | Repo execução principal | Objetivo (resumo) | Depende de |
 |--------|-------------------------|-------------------|------------|
-| N14 | `work-rc-kit` | Dockerfile RC pinado + 21 plugins `me360_*` | — |
-| N15 | `work-platform-scripts` | SEC-004 retrofix + CPU/RAM no compose tenant | — |
-| N16 | `work-platform-scripts` | Canary/ring em `custom-apps update` | N14 |
+| N14 ✅ | `work-rc-kit` | Dockerfile RC pinado + 21 plugins `me360_*` | — |
+| N15 ✅ | `work-platform-scripts` | SEC-004 retrofix + CPU/RAM no compose tenant | — |
+| N16 ✅ | `work-platform-scripts` | Canary/ring em `custom-apps update` | N14 |
 | N17 | `work-platform-agent` *(novo)* | Daemon + outbound mTLS + poll comandos | — |
 | N18 | `work-platform-api` | FarmRegistry + AgentGateway + feature flag | N17 |
 | N19 | `work-platform-agent` + `work-platform-api` | Fase 1 cutover: create/remove sem SSH | N17, N18 |
@@ -395,11 +395,13 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 | Status | Tam | Tarefa | Skill | Depende |
 |--------|-----|--------|-------|---------|
-| [ ] | P | N15.1 — Auditar hosts prod: `find` compose 0644 + relatório | — | — |
-| [ ] | P | N15.2 — Confirmar fix SEC-004 (`mktemp`+`chmod 0600`+`mv`) em todas paths de geração | — | — |
-| [ ] | M | N15.3 — Defaults CPU/RAM no template docker-compose tenant (ISSUE-029) | — | N15.2 |
-| [ ] | P | N15.4 — Script remediação em massa `chmod 0600` + rollback doc | — | N15.1 |
-| [ ] | P | N15.5 — Testes regressão create gera compose 0600 | — | N15.2 |
+| [x] | P | N15.1 — Auditar hosts prod: `find` compose 0644 + relatório | — | — |
+| [x] | P | N15.2 — Confirmar fix SEC-004 (`mktemp`+`chmod 0600`+`mv`) em todas paths de geração | — | — |
+| [x] | M | N15.3 — Defaults CPU/RAM no template docker-compose tenant (ISSUE-029) | — | N15.2 |
+| [x] | P | N15.4 — Script remediação em massa `chmod 0600` + rollback doc | — | N15.1 |
+| [x] | P | N15.5 — Testes regressão create gera compose 0600 | — | N15.2 |
+
+> **Fechado:** 2026-06-12 — implemented in work-platform-scripts PR #45.
 
 ### Task N15.3 — Resource limits
 
@@ -418,10 +420,12 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 | Status | Tam | Tarefa | Depende |
 |--------|-----|--------|---------|
-| [ ] | M | N16.1 — Flags `--tenant`, `--ring`, `--health-check`, `--rollback-on-failure` | — |
-| [ ] | M | N16.2 — Ring registry file `/opt/mework360/rings.yaml` | N16.1 |
-| [ ] | P | N16.3 — Health hook pós-update (HTTP meMail + occ status) | N16.1 |
-| [ ] | P | N16.4 — Testes bats + doc operacional | N16.1–N16.3 |
+| [x] | M | N16.1 — Flags `--tenant`, `--ring`, `--health-check`, `--rollback-on-failure` | — |
+| [x] | M | N16.2 — Ring registry file `/opt/mework360/rings.yaml` | N16.1 |
+| [x] | P | N16.3 — Health hook pós-update (HTTP meMail + occ status) | N16.1 |
+| [x] | P | N16.4 — Testes bats + doc operacional | N16.1–N16.3 |
+
+> **Fechado:** 2026-06-12 — implemented in work-platform-scripts PR stacked on N15.
 
 ### Task N16.1 — Flags canary
 
@@ -835,6 +839,7 @@ Cada sprint ao concluir:
 
 | Data | Versão | Alteração |
 |------|--------|-----------|
+| 2026-06-12 | 1.5 | N15/N16 fechados (tasks `[x]`); índice §6 N14–N16 ✅; refs PR #45 work-platform-scripts |
 | 2026-06-12 | 1.4 | Decisão SO LAB: Debian 13 (auditoria de portabilidade Composer 2.5 — ~5 linhas no `deploy-server.sh`); sprint N30 criada (port Debian + CQ-003); N25 depende de N30; `LAB-PROVISION-PLAN.md` atualizado |
 | 2026-06-12 | 1.3 | `LAB-PROVISION-PLAN.md` criado (provisionamento via `/cloud-ops`: cliente `me360-work`, VM pid=6, DNS `lab.mework360.com.br` no PowerDNS) |
 | 2026-06-12 | 1.2 | NC↔WHMCS localizado (`nextcloudsaas-whmcs-module` v3.1.4); criado repo `work-gateway-whmcs` para gateway Vindi; N22 atualizada (pré-requisitos V1/V2, N22.4 referencia módulo Vindi) |

@@ -53,13 +53,8 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Executar runbook docs/runbooks/F10.3-prod-validation.md (ISSUE-023 ready_for_ops)",
-    "Fase 1: SSH deployer.mework360.com.br → git pull main → docker compose build/up → migrate",
-    "Fase 2: Disparar job async (users:create) → anotar job_id → aguardar job.finished",
-    "Fase 3: Verificar jobs.summary POPULATED no MariaDB (tinker ou SQL)",
-    "Fase 4: Abrir /queue/{job_id} → logs visíveis (não 'Nenhum log disponível')",
-    "Fase 5: OPS-001 — decidir failed_jobs (migration ou documentar ausência)",
-    "Pós-smoke: marcar ISSUE-023 checklist; [x] F10.3 no ROADMAP se UI OK"
+    "F10.3 runbook execution (docs/runbooks/F10.3-prod-validation.md)",
+    "Verify PRs #95 #1 #45"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -182,7 +177,7 @@
     "next_steps": "F10.3 — ISSUE-023 checklist deploy + smoke /queue/{id}",
     "updated_at": "2026-06-12T14:30:00Z"
   },
-  "contexto_rapido": "Sprint F3 fechada 2026-06-12 na branch rock/campanha-v2-f3-n16. 7 tasks F3.1–F3.7 concluídas; 8 findings LOW validados (D4-F009/F005, DBA-F010/F011/F012, SEC-F013/F014/F015). Próximo: F10.3 deploy prod (ISSUE-023). review: skip.",
+  "contexto_rapido": "Rock campanha v2 — F3 closed, N14-N16 code in sibling PRs",
   "autopilot": {
     "active": false
   },
