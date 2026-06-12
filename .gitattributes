@@ -1,5 +1,7 @@
 * text=auto eol=lf
 
+.cursorsession.git merge=union
+
 *.blade.php diff=html
 *.css diff=css
 *.html diff=html

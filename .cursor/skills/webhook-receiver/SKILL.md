@@ -1,5 +1,7 @@
 ---
 name: webhook-receiver
+scope: project
+created-by: manual
 description: >
   Padrões para implementação e validação de webhooks recebidos do upstream.
   Use when: webhook receiver, HMAC-SHA256, validação de assinatura, IP whitelist,

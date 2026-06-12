@@ -1,5 +1,7 @@
 ---
 name: api-rest-patterns
+scope: project
+created-by: manual
 description: >
   Padrões REST do mework360-deployer-api: controller, FormRequest, resposta JSON, mapeamento
   exceção->HTTP, idempotency, audit log, auth/middleware, e validação.
