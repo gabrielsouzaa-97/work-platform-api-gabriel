@@ -14,6 +14,7 @@ use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
+use RuntimeException;
 
 it('rotate secret cria versão N+1, expira versão N com valid_until, envia email', function () {
     Mail::fake();
@@ -187,7 +188,7 @@ it('rotate action lança RuntimeException quando cluster não tem secret ativo n
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 
     expect(fn () => app(RotateWebhookSecretAction::class)->execute($cluster))
-        ->toThrow(\RuntimeException::class, 'sem secret atual no histórico');
+        ->toThrow(RuntimeException::class, 'sem secret atual no histórico');
 });
 
 it('rotateSecret exibe erro amigável quando histórico de secret está ausente', function () {
@@ -202,7 +203,7 @@ it('rotateSecret exibe erro amigável quando histórico de secret está ausente'
 
 it('falha de sync SSH na rotação registra actor_id do operador no AuditLog', function () {
     $mock = Mockery::mock(SshClientInterface::class);
-    $mock->shouldReceive('run')->andThrow(new \RuntimeException('SSH down'));
+    $mock->shouldReceive('run')->andThrow(new RuntimeException('SSH down'));
     app()->instance(SshClientInterface::class, $mock);
 
     $admin = Operator::factory()->admin()->create();

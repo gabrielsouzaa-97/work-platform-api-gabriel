@@ -71,7 +71,7 @@
 | D8     | D         | CI verde; auditorias sem CRITICAL/HIGH; staging valida fluxo Marina end-to-end; retention 12m ativo                              | concluida | 6     | todos                 | Polish: Audit retention (F7) + Auditorias + Deploy staging | 1701-1900 |
 | F1     | F         | Admin gera credencial → token exibido uma vez; revogar seta revoked_at; audit log registra ambas as acoes                        | concluida | 1     | ApiKeys               | Fix MVP incompleto: Gerar + Revogar Bearer tokens no painel | 2650+    |
 | F2     | F         | Dashboard chart 7d; clipboard fix; fila redesenhada; log detalhado job; alterar senha; editar perfil; artisan admin; findings   | concluída  | 11    | Auth, Core, Jobs, painel | Sprint 2: UX + fila provisionamento + findings backlog   | 2720+    |
-| F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | pendente  | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
+| F3     | F         | 0 findings LOW cobertos; pt-BR; AuditLog rotate semantico; FK sessions; UNIQUE invite_token_hash; $fillable restrito; args SSH mascarados | concluida | 7     | Core, ClusterServers, Auth | Tech Debt LOW: Schema + Security + Observability | 2758+    |
 | N1     | N         | criar cluster → SSH `config set-webhook-secret` chamado; rotacionar → SSH com novo secret; secret via stdin; CI verde | concluida | 1 | ClusterServers | Sync Webhook Secret com Upstream via SSH | 2840+    |
 | N2     | N         | APP_ENV=local emite Log::debug('webhook.payload_received'); APP_ENV=testing não emite; 46/46 testes da suite de webhook passando | concluida | 1 | Jobs | Observabilidade: log de payload do webhook em ambiente local | 3013+    |
 | F5     | F         | Lifecycle async: cmd canônico → argv upstream; apps CSV; OccPanel same-path createUser | **concluída** | 11    | Customers, Core/Ssh, Livewire | ISSUE-006 — F5.11 done; cleanup F5 via F11; **R3 APROVADA** (2026-06-02) | 3047+    |
@@ -2796,13 +2796,13 @@ Apos aprovacao deste roadmap:
 
 | Status | Tamanho | Tarefa                                                                                          | Skill/Command         | Depende de |
 | ------ | ------- | ----------------------------------------------------------------------------------------------- | --------------------- | ---------- |
-| [ ]    | P       | F3.1 — [FIX] D4-F009: AuditLog especifico para `rotate_webhook_secret` em RotateWebhookSecretAction | `laravel-api`    | —          |
-| [ ]    | P       | F3.2 — [FIX] D4-F005: pt-BR — locale + laravel-lang/lang + `config/app.php`                   | `laravel-migration`   | —          |
-| [ ]    | P       | F3.3 — [FIX] DBA-F010/F011: FK `sessions.user_id` para operators + UNIQUE `invite_token_hash` (migration) | `laravel-migration` | — |
-| [ ]    | P       | F3.4 — [FIX] DBA-F012: Eager load `clusterServer` em OccController/OccPassthroughService       | `laravel-api`         | —          |
-| [ ]    | P       | F3.5 — [FIX] SEC-F013: Rate limit login secundario por email (5 tentativas, 300s block)         | `laravel-livewire`    | —          |
-| [ ]    | P       | F3.6 — [FIX] SEC-F015: Remover `role`/`status`/`invite_token_hash` do $fillable de Operator    | `laravel-migration`   | —          |
-| [ ]    | M       | F3.7 — [FIX] SEC-F014: Mascarar args SSH sensiveis nos logs (`--idempotency-key`, `--callback`) | `ssh-orchestrator`    | —          |
+| [x]    | P       | F3.1 — [FIX] D4-F009: AuditLog especifico para `rotate_webhook_secret` em RotateWebhookSecretAction | `laravel-api`    | —          |
+| [x]    | P       | F3.2 — [FIX] D4-F005: pt-BR — locale + laravel-lang/lang + `config/app.php`                   | `laravel-migration`   | —          |
+| [x]    | P       | F3.3 — [FIX] DBA-F010/F011: FK `sessions.user_id` para operators + UNIQUE `invite_token_hash` (migration) | `laravel-migration` | — |
+| [x]    | P       | F3.4 — [FIX] DBA-F012: Eager load `clusterServer` em OccController/OccPassthroughService       | `laravel-api`         | —          |
+| [x]    | P       | F3.5 — [FIX] SEC-F013: Rate limit login secundario por email (5 tentativas, 300s block)         | `laravel-livewire`    | —          |
+| [x]    | P       | F3.6 — [FIX] SEC-F015: Remover `role`/`status`/`invite_token_hash` do $fillable de Operator    | `laravel-migration`   | —          |
+| [x]    | M       | F3.7 — [FIX] SEC-F014: Mascarar args SSH sensiveis nos logs (`--idempotency-key`, `--callback`) | `ssh-orchestrator`    | —          |
 
 **Contexto F3**: 8 findings LOW pos-D8 nao cobertos pelo Sprint F2. Nenhum CRITICAL/HIGH. F2 ja cobre os MEDIUM (D3-F009, D4-F008) e SEC-F016. Foco em: (a) integridade de schema (FK sessions, UNIQUE invite token); (b) housekeeping de seguranca ($fillable restrito, rate limit por conta, mascaramento SSH); (c) observabilidade semantica (AuditLog rotate); (d) i18n pt-BR.
 

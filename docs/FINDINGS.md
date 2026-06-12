@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-06-09
+synced_at: 2026-06-12
 open_critical: 0
 open_high: 0
 open_medium: 34
-open_low: 33
+open_low: 25
 sprints_with_open_blockers: F10
-notes: F7 HIGH N1 zerados (Rock 2026-06-09); F6 validada; F10.3 prod ISSUE-023
+notes: F3 validada (Rock 2026-06-12); F7 HIGH N1 zerados; F6 validada; F10.3 prod ISSUE-023
 FINDINGS-INDEX -->
 
 
@@ -299,7 +299,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D4
 - **Severidade**: LOW
 - **Tipo**: compliance_gap
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **Arquivo**: `app/Observers/ClusterServerObserver.php`, `app/Modules/ClusterServers/Actions/RotateWebhookSecretAction.php`
 - **Descrição**: O mini design doc da tarefa 4.3 especifica `acao=rotate_webhook_secret` no AuditLog. A implementação atual depende do observer genérico: quando `RotateWebhookSecretAction` chama `$cluster->update([...])`, o observer registra `cluster_server.update` (não `cluster_server.rotate_webhook_secret`). O registro existe mas com semântica genérica — não é possível filtrar por tipo de operação "rotate" no painel de audit.
 - **Ação necessária**: Adicionar `AuditLog::create([..., 'action' => 'cluster_server.rotate_webhook_secret', ...])` explicitamente no `RotateWebhookSecretAction::execute()`, ou no método Livewire `rotateSecret()` após a ação concluir.
@@ -310,7 +310,7 @@ Nenhum finding registrado para D1 na validação atual.
 ### D4-F005 — LOW — Mensagens de validação e páginas de erro em inglês (app em pt-BR)- **Sprint**: D4
 - **Severidade**: LOW
 - **Tipo**: product_bug
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **URL**: http://localhost:8080/operators/create, http://localhost:8080/operators
 - **Ação**: Submeter formulário vazio; acessar rota protegida sem permissão
 - **Esperado**: Mensagens em pt-BR ("O campo nome é obrigatório.", "Ação não autorizada.")
@@ -626,7 +626,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: LOW
 - **Tipo**: schema
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **Arquivo**: `database/migrations/2026_05_08_164612_fix_sessions_user_id_uuid.php`
 - **Descrição**: `user_id` UUID sem FK — sessões órfãs permanecem após soft-delete de operator. Middleware `active.operator` mitiga mas não elimina o problema de integridade.
 - **Ação**: FK com `onDelete('cascade')` ou observer no soft-delete de operators.
@@ -638,7 +638,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: LOW
 - **Tipo**: schema
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **Arquivo**: `database/migrations/2026_05_08_164613_add_invite_fields_to_operators_table.php`
 - **Descrição**: `invite_token_hash` indexado mas sem `->unique()` — colisão de tokens possível sem garantia no banco.
 - **Ação**: Migration para `ADD UNIQUE (invite_token_hash)`.
@@ -796,7 +796,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: LOW
 - **Tipo**: brute_force
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **Arquivo**: `app/Http/Livewire/Auth/Login.php`
 - **Descrição**: Chave `login:{ip}` permite brute force com IPs rotativos contra uma conta específica.
 - **Ação**: Adicionar rate limiter secundário por email: `login:{email}`.
@@ -808,7 +808,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: LOW
 - **Tipo**: information_disclosure
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **Arquivo**: `app/Modules/Core/Ssh/SshClient.php`
 - **Descrição**: `--idempotency-key=<uuid>` e `--callback=<url>` registrados em log sem mascaramento.
 - **Ação**: Estender `SshSecretsMasker` para args com prefixos sensíveis.
@@ -820,7 +820,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: LOW
 - **Tipo**: mass_assignment
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **Arquivo**: `app/Models/Operator.php`
 - **Descrição**: `role` e `status` mass-assignable — risco se algum controller usar `->fill($request->all())`.
 - **Ação**: Remover `role`, `status`, `invite_token_hash` do `$fillable`.
@@ -856,7 +856,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: D8
 - **Severidade**: LOW
 - **Tipo**: performance
-- **Status**: Corrigido (Sprint F3)
+- **Status**: Validado
 - **Arquivos**: `app/Http/Controllers/Api/OccController.php`, `app/Modules/Customers/Services/OccPassthroughService.php`
 - **Descrição**: Route model binding resolve `Customer` sem eager load de `clusterServer`; cada OCC request gera uma query extra para resolver a relação ao criar `AuditLog`.
 - **Ação**: Adicionar `->load('clusterServer')` no controller ou ajustar route binding para eager-load.

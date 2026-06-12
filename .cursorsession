@@ -33,17 +33,17 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint F3 em andamento — Tech Debt LOW (schema, security, observability)",
-  "sprint_atual": "F3",
-  "sprint_branch": "sprint/F3",
-  "previous_sprint": "F7",
+  "fase_nome": "Sprint F3 concluída — próximo: F10.3 deploy prod (ISSUE-023)",
+  "sprint_atual": null,
+  "sprint_branch": null,
+  "previous_sprint": "F3",
   "beesy_version": "4.51.2",
   "decisions_applied_until": 234,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-12T12:00:00Z",
-  "next_sprint_planned": "F10",
+  "ultimo_update": "2026-06-12T14:30:00Z",
+  "next_sprint_planned": "F10.3",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -53,14 +53,14 @@
     "Customers"
   ],
   "proximos_passos": [
-    "F3.1 [P]: D4-F009 — AuditLog action cluster_server.rotate_webhook_secret em RotateWebhookSecretAction",
-    "F3.2 [P]: D4-F005 — pt-BR locale + laravel-lang/lang + config/app.php",
-    "F3.3 [P]: DBA-F010/F011 — migration FK sessions.user_id → operators + UNIQUE invite_token_hash",
-    "F3.4 [P]: DBA-F012 — eager load clusterServer em OccController/OccPassthroughService",
-    "F3.5 [P]: SEC-F013 — rate limit login por email (5/300s) em Login.php",
-    "F3.6 [P]: SEC-F015 — remover role/status/invite_token_hash do $fillable Operator",
-    "F3.7 [M]: SEC-F014 — mascarar --idempotency-key e --callback nos logs SSH",
-    "Gate: 0 findings LOW F3 pendentes; testes passando; review: skip no ROADMAP"
+    "F10.3 [P]: Deploy imagem/commit atual em produção (ISSUE-023)",
+    "Disparar 1 job async → aguardar job.finished",
+    "Confirmar jobs.summary JSON populado no MariaDB",
+    "Abrir /queue/{job_id} no painel → logs visíveis (não vazio)",
+    "Se webhook sem exit_code, confirmar JobLogFetcher preencheu summary (ISSUE-014)",
+    "OPS-001: Avaliar migration failed_jobs ou documentar no RUNBOOK",
+    "F7 (opcional): smoke criar cluster homolog + rotate secret → audit com actor_id",
+    "Gate: fechar F10.3 no ROADMAP quando UI OK (ISSUE-023 checklist)"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -107,7 +107,14 @@
     "F5.10: docs/openapi.yaml v2.0→v2.1 (apps/* novo shape + 501 groups/{g}/users) + OccPanelTest novo (19 testes) + Gate import fix em OccPanel.php (CQ-F5-001 HIGH + QA-F5-016 MED)",
     "F5.11: same-path fix p/ OccPanel::createUser (QA-F5-019 HIGH convergente) — blade <form wire:submit.prevent> + wire:model='userPasswordPlain'; componente sem escape-hatch + zera no finally; 4 testes atualizados + 2 novos (production scenario + cleanup); ISSUE-007 (E2E Dusk/Playwright) backlog",
     "F12.1: SshClient normaliza ConnectionClosedException do phpseclib durante exec()/stdin como SshConnectionException, remove conexão stale do pool e preserva retry; SshClientTest cobre retry e sucesso na segunda tentativa",
-    "F13.1-F13.4: create envia branding.logo_data_url/background_data_url via --payload-stdin quando cabe no limite real do stdin; usa SFTP staging quando base64 JSON >256KB; persiste branding_meta; re-provision de ghost reaproveita logo cadastrado; ProvisionTest 16 passed; validação senior+qa APROVADA R1"
+    "F13.1-F13.4: create envia branding.logo_data_url/background_data_url via --payload-stdin quando cabe no limite real do stdin; usa SFTP staging quando base64 JSON >256KB; persiste branding_meta; re-provision de ghost reaproveita logo cadastrado; ProvisionTest 16 passed; validação senior+qa APROVADA R1",
+    "F3.1: AuditLog cluster_server.rotate_webhook_secret em RotateWebhookSecretAction (D4-F009)",
+    "F3.2: pt-BR locale + laravel-lang/lang + config/app.php (D4-F005)",
+    "F3.3: FK sessions.user_id → operators + UNIQUE invite_token_hash (DBA-F010/F011)",
+    "F3.4: eager load clusterServer em OccController/OccPassthroughService (DBA-F012)",
+    "F3.5: rate limit login por email 5/300s em Login.php (SEC-F013)",
+    "F3.6: role/status/invite_token_hash removidos do $fillable Operator (SEC-F015)",
+    "F3.7: mascarar --idempotency-key e --callback nos logs SSH (SEC-F014)"
   ],
   "features_pendentes": [
     "F1: Login + cadastro manual de operadores (Laravel session, roles admin/operador/suporte)",
@@ -169,14 +176,14 @@
   ],
   "anchor": {
     "persona": "implementer (Composer 2.5 — Decision #225 default)",
-    "phase": "Sprint F3 — prerequisites",
-    "intent": "Tech debt LOW: AuditLog rotate semântico, pt-BR, FK sessions, eager load, rate limit email, $fillable restrito, mascarar args SSH",
-    "changes_made": null,
-    "decisions": "Ordem ROADMAP: F3.1→F3.7; migrations antes de backend; review: skip",
-    "next_steps": "F3.1 — RotateWebhookSecretAction AuditLog cluster_server.rotate_webhook_secret",
-    "updated_at": "2026-06-09T06:00:00Z"
+    "phase": "Sprint F3 — closed",
+    "intent": "F3 concluída Rock R1; 8 findings LOW validados; próximo F10.3 deploy prod ISSUE-023",
+    "changes_made": "ROADMAP F3 concluida; FINDINGS F3 validados; Pint fix RotateSecretTest",
+    "decisions": "Sprint gate F3 APROVADA; review: skip; Docker tests skipped (daemon unavailable)",
+    "next_steps": "F10.3 — ISSUE-023 checklist deploy + smoke /queue/{id}",
+    "updated_at": "2026-06-12T14:30:00Z"
   },
-  "contexto_rapido": "Sprint F3 iniciada 2026-06-09 na branch sprint/F3. Tech debt LOW: 7 tasks (8 findings D4/DBA/SEC). F7 mergeada na main (PR #85). F10.3 deploy pendente após F3. review: skip. Upgrade Beesy 4.47.1→4.51.2 (#226–#234) aplicado 2026-06-12: ledger .cursorsession.git criado, skills carimbadas scope:project.",
+  "contexto_rapido": "Sprint F3 fechada 2026-06-12 na branch rock/campanha-v2-f3-n16. 7 tasks F3.1–F3.7 concluídas; 8 findings LOW validados (D4-F009/F005, DBA-F010/F011/F012, SEC-F013/F014/F015). Próximo: F10.3 deploy prod (ISSUE-023). review: skip.",
   "autopilot": {
     "active": false
   },
@@ -187,22 +194,32 @@
     "messages_lost": 293
   },
   "compact_count": 1,
-  "checkpoint": {
+  "checkpoint": null,
+  "validation_gate": {
     "sprint": "F3",
-    "phase": "prerequisites",
-    "branch": "sprint/F3",
-    "relevant_paths": [
-      "app/Modules/Core/",
-      "app/Modules/ClusterServers/",
-      "app/Models/Operator.php",
-      "app/Http/Livewire/Auth/",
-      "app/Http/Controllers/Api/OccController.php",
-      "database/migrations/"
+    "produced_by": "rock-close-sprint-F3",
+    "result": "APROVADA",
+    "validation_mode": "closure",
+    "findings_validated": [
+      "D4-F009",
+      "D4-F005",
+      "DBA-F010",
+      "DBA-F011",
+      "DBA-F012",
+      "SEC-F013",
+      "SEC-F014",
+      "SEC-F015"
     ],
-    "head_sha": "29a6a51",
-    "last_completed_task": null,
-    "current_task": "F3.1",
-    "timestamp": "2026-06-09T06:00:00Z"
+    "tasks_completed": [
+      "F3.1",
+      "F3.2",
+      "F3.3",
+      "F3.4",
+      "F3.5",
+      "F3.6",
+      "F3.7"
+    ],
+    "stamped_at": "2026-06-12T14:30:00Z"
   },
   "planning_history": [
     {
