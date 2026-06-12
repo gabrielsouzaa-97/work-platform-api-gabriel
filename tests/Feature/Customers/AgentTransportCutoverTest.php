@@ -78,7 +78,7 @@ it('remove uses agent gateway when transport enabled and farm online', function 
     $operator = Operator::factory()->admin()->create();
     $jobId = Str::uuid()->toString();
 
-    $customer = \App\Models\Customer::create([
+    $customer = Customer::create([
         'slug' => 'remove-agent',
         'cluster_server_id' => $cluster->id,
         'domain' => 'remove-agent.example.com',
