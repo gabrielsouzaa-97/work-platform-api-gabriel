@@ -7,6 +7,13 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutVite();
+    }
+
     /**
      * Overrides DB config to SQLite :memory: immediately after the app is created
      * and BEFORE setUpTraits() triggers RefreshDatabase::migrate:fresh.

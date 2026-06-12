@@ -69,7 +69,7 @@ final class VerifyAgentAuth
             'actor_id' => null,
             'action' => $action,
             'resource_type' => 'farm_agent',
-            'resource_id' => null,
+            'resource_id' => $farmId,
             'payload' => ['ip' => $ip, 'farm_id' => $farmId],
         ]);
     }
