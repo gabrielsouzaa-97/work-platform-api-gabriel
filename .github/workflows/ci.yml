@@ -116,7 +116,7 @@ jobs:
           php artisan key:generate --ansi
 
       - name: Run migrations
-        run: php artisan migrate --force --seed=false --no-interaction
+        run: php artisan migrate --force --no-interaction
 
       - name: Run tests
         run: php artisan test --parallel --recreate-databases
