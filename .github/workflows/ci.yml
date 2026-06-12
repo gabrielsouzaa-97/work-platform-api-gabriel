@@ -24,7 +24,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo_pgsql, redis, intl, zip, bcmath, gd, mbstring
+          extensions: pdo_mysql, redis, intl, zip, bcmath, gd, mbstring
           coverage: none
           tools: composer:v2
 
@@ -49,15 +49,17 @@ jobs:
     needs: lint
 
     services:
-      postgres:
-        image: postgres:16-alpine
+      mariadb:
+        image: mariadb:11
         env:
-          POSTGRES_DB: mework360_deployer_test
-          POSTGRES_USER: mework360_deployer
-          POSTGRES_PASSWORD: secret
-        ports: ['5432:5432']
+          MYSQL_DATABASE: mework360_deployer_test
+          MYSQL_USER: mework360_deployer
+          MYSQL_PASSWORD: secret
+          MYSQL_ROOT_PASSWORD: root_secret
+          MARIADB_AUTO_UPGRADE: '1'
+        ports: ['3306:3306']
         options: >-
-          --health-cmd "pg_isready -U mework360_deployer -d mework360_deployer_test"
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -74,9 +76,9 @@ jobs:
     env:
       APP_ENV: testing
       APP_DEBUG: 'true'
-      DB_CONNECTION: pgsql
+      DB_CONNECTION: mysql
       DB_HOST: 127.0.0.1
-      DB_PORT: '5432'
+      DB_PORT: '3306'
       DB_DATABASE: mework360_deployer_test
       DB_USERNAME: mework360_deployer
       DB_PASSWORD: secret
@@ -94,7 +96,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo_pgsql, redis, intl, zip, bcmath, gd, mbstring
+          extensions: pdo_mysql, redis, intl, zip, bcmath, gd, mbstring
           coverage: none
           tools: composer:v2
 
