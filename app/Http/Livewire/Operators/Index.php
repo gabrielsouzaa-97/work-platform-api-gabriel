@@ -49,10 +49,9 @@ class Index extends Component
         $plainInviteToken = Str::random(64);
         $inviteExpiresAt = now()->addHours(48);
 
-        $operator->update([
-            'invite_token_hash' => Hash::make($plainInviteToken),
-            'invite_expires_at' => $inviteExpiresAt,
-        ]);
+        $operator->invite_token_hash = Hash::make($plainInviteToken);
+        $operator->invite_expires_at = $inviteExpiresAt;
+        $operator->save();
 
         $signedUrl = URL::temporarySignedRoute(
             'operators.accept-invite',
@@ -70,7 +69,8 @@ class Index extends Component
         Gate::authorize('manage-operators');
 
         $operator = Operator::findOrFail($operatorId);
-        $operator->update(['status' => 'inactive']);
+        $operator->status = 'inactive';
+        $operator->save();
         DB::table('sessions')->where('user_id', $operator->id)->delete();
 
         session()->flash('status', "Operador {$operator->name} desativado.");

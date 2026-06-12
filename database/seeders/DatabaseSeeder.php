@@ -18,14 +18,16 @@ class DatabaseSeeder extends Seeder
         $adminEmail = 'admin@mework360.local';
 
         if (! Operator::where('email', $adminEmail)->exists()) {
-            Operator::create([
+            $admin = Operator::create([
                 'id' => Str::uuid()->toString(),
                 'email' => $adminEmail,
                 'name' => 'Admin',
-                'role' => 'admin',
                 'password_hash' => Hash::make('password'),
-                'status' => 'active',
             ]);
+
+            $admin->role = 'admin';
+            $admin->status = 'active';
+            $admin->save();
         }
 
         $devClusterName = 'dev-cluster-local';

@@ -13,6 +13,8 @@ use function Pest\Laravel\get;
 
 beforeEach(function () {
     RateLimiter::clear('login:127.0.0.1');
+    RateLimiter::clear('login_email:lockout@test.local');
+    RateLimiter::clear('login_email:email-lock@test.local');
 });
 
 it('redirects guest to login when accessing root', function () {
@@ -133,6 +135,30 @@ it('blocks login after 5 failed attempts for 15 minutes', function () {
 
     $errors = $component->errors();
     expect($errors->first('email'))->toContain('Muitas tentativas');
+});
+
+it('blocks login after 5 failed attempts for same email on 6th attempt', function () {
+    Operator::factory()->create([
+        'email' => 'email-lock@test.local',
+        'password_hash' => Hash::make('correctpassword123'),
+        'role' => 'operador',
+        'status' => 'active',
+    ]);
+
+    $component = Livewire::test(Login::class)
+        ->set('email', 'email-lock@test.local')
+        ->set('password', 'wrongpassword123');
+
+    for ($i = 0; $i < 5; $i++) {
+        $component->call('login');
+    }
+
+    $component
+        ->set('password', 'correctpassword123')
+        ->call('login')
+        ->assertHasErrors(['email']);
+
+    expect($component->errors()->first('email'))->toContain('Muitas tentativas');
 });
 
 it('shows disabled message for inactive operator', function () {

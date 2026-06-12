@@ -53,6 +53,38 @@ it('rotate secret cria versão N+1, expira versão N com valid_until, envia emai
     Mail::assertQueued(WebhookSecretRotatedMail::class);
 });
 
+it('rotate secret registra audit log cluster_server.rotate_webhook_secret com actor_id', function () {
+    Mail::fake();
+
+    $mock = Mockery::mock(SshClientInterface::class);
+    $mock->shouldReceive('run')->andReturn(new SshResponse('', '', 0));
+    app()->instance(SshClientInterface::class, $mock);
+
+    $admin = Operator::factory()->admin()->create();
+    $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
+
+    WebhookSecretHistory::create([
+        'cluster_server_id' => $cluster->id,
+        'secret_encrypted' => 'original-secret',
+        'version' => 1,
+        'valid_from' => now()->subHour(),
+        'valid_until' => null,
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test(Index::class)
+        ->call('rotateSecret', $cluster->id);
+
+    $audit = AuditLog::where('action', 'cluster_server.rotate_webhook_secret')
+        ->where('resource_id', $cluster->id)
+        ->latest('created_at')
+        ->first();
+
+    expect($audit)->not->toBeNull()
+        ->and($audit->actor_id)->toBe($admin->id)
+        ->and($audit->payload['version'])->toBe(2);
+});
+
 it('webhook receiver aceita ambos os secrets durante grace period', function () {
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 

@@ -29,10 +29,7 @@ class Operator extends Authenticatable
         'id',
         'email',
         'name',
-        'role',
         'password_hash',
-        'status',
-        'invite_token_hash',
         'invite_expires_at',
         'last_login_at',
     ];

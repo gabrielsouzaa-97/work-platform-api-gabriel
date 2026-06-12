@@ -42,12 +42,14 @@ class Create extends Component
             'id' => Str::uuid()->toString(),
             'email' => $this->email,
             'name' => $this->name,
-            'role' => $this->role,
-            'status' => 'pending',
             'password_hash' => bcrypt(Str::random(64)),
-            'invite_token_hash' => Hash::make($plainInviteToken),
             'invite_expires_at' => $inviteExpiresAt,
         ]);
+
+        $operator->role = $this->role;
+        $operator->status = 'pending';
+        $operator->invite_token_hash = Hash::make($plainInviteToken);
+        $operator->save();
 
         $signedUrl = URL::temporarySignedRoute(
             'operators.accept-invite',

@@ -29,7 +29,8 @@ final class OccPassthroughService
      */
     public function exec(Customer $customer, string $subcmd, array $args = [], int $timeoutSec = 60): array
     {
-        $cluster = $customer->clusterServer ?? $customer->load('clusterServer')->clusterServer;
+        $customer->loadMissing('clusterServer');
+        $cluster = $customer->clusterServer;
 
         if ($cluster === null || $cluster->status !== 'active') {
             throw new ClusterUnreachableException;

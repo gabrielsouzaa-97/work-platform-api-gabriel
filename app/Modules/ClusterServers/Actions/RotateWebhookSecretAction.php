@@ -53,6 +53,15 @@ final class RotateWebhookSecretAction
             return $historyEntry;
         });
 
+        AuditLog::create([
+            'id' => Str::uuid()->toString(),
+            'actor_id' => $actorId,
+            'action' => 'cluster_server.rotate_webhook_secret',
+            'resource_type' => 'cluster_server',
+            'resource_id' => $cluster->id,
+            'payload' => ['version' => $new->version],
+        ]);
+
         // Sync new secret with upstream after commit.
         // $cluster->webhook_secret_encrypted returns the plain value (cast decrypts on read).
         // On SSH failure: grace period ensures the old secret remains valid for 24h.

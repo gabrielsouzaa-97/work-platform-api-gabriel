@@ -28,10 +28,11 @@ class Login extends Component
     {
         $this->validate();
 
-        $key = 'login:'.request()->ip();
+        $ipKey = 'login:'.request()->ip();
+        $emailKey = 'login_email:'.$this->email;
 
-        if (RateLimiter::tooManyAttempts($key, 5)) {
-            $seconds = RateLimiter::availableIn($key);
+        if (RateLimiter::tooManyAttempts($ipKey, 5) || RateLimiter::tooManyAttempts($emailKey, 5)) {
+            $seconds = max(RateLimiter::availableIn($ipKey), RateLimiter::availableIn($emailKey));
             throw ValidationException::withMessages([
                 'email' => "Muitas tentativas. Tente novamente em {$seconds} segundos.",
             ]);
@@ -42,13 +43,15 @@ class Login extends Component
         if (! $operator || $operator->status !== 'active' || ! Auth::attempt(
             ['email' => $this->email, 'password' => $this->password],
         )) {
-            RateLimiter::hit($key, 900);
+            RateLimiter::hit($ipKey, 900);
+            RateLimiter::hit($emailKey, 300);
             throw ValidationException::withMessages([
                 'email' => 'Credenciais invalidas ou conta desativada.',
             ]);
         }
 
-        RateLimiter::clear($key);
+        RateLimiter::clear($ipKey);
+        RateLimiter::clear($emailKey);
         session()->regenerate();
         $operator->update(['last_login_at' => now()]);
 

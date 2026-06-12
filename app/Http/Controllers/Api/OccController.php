@@ -178,6 +178,8 @@ final class OccController extends Controller
         Request $request,
         array $auditPayloadExtra = [],
     ): JsonResponse {
+        $customer->loadMissing('clusterServer');
+
         try {
             $result = $execute();
         } catch (ClusterUnreachableException) {

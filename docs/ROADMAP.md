@@ -1,7 +1,7 @@
 # Roadmap Tecnico — mework360-deployer
 
 > Gerado em: 2026-05-07
-> Atualizado em: 2026-05-14
+> Atualizado em: 2026-06-12
 > Fase: 9 — Planejamento Tecnico
 > Baseado em: docs/REQUIREMENTS.md v0.3 + docs/ARCHITECTURE.md v0.2 + docs/openapi.yaml v2.0 + docs/db-schema.dbml + docs/DATABASE.md
 > Status: MVP concluido (199/199 testes; D8 implementado; deploy staging pendente — tarefa humana)
@@ -83,6 +83,34 @@
 | F11    | F         | Slug reuse pós `provision.failed` + cleanup MEDIUM F5 | **concluída** | 6     | Customers, Core | ISSUE-018 — validação APROVADA R1 (2026-05-24) | 4082+    |
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
+
+---
+
+## Indice de Sprints — Platform V2
+
+> Plano mestre: `docs/PLATFORM-V2-PLAN.md` (Farm Agent + integrações comerciais).  
+> Categoria **N** — execução multi-repo via `/rock`. Detalhes de tasks nas seções §7–§22 do plano.
+
+| Sprint | Repo execução principal | Gate (resumo) | Status | Depende de |
+| ------ | ----------------------- | ------------- | ------ | ---------- |
+| N14 | `work-rc-kit` | Dockerfile RC pinado + 21 plugins `me360_*` | planejada | — |
+| N15 | `work-platform-scripts` | SEC-004 retrofix + CPU/RAM no compose tenant | planejada | — |
+| N16 | `work-platform-scripts` | Canary/ring em `custom-apps update` | planejada | N14 |
+| N17 | `work-platform-agent` | Daemon outbound mTLS + poll comandos | planejada | — |
+| N18 | `work-platform-api` | FarmRegistry + AgentGateway + feature flag | planejada | N17 |
+| N19 | agent + api | Cutover SSH → agente (create/remove) | planejada | N17, N18 |
+| N20 | agent + scripts | `tenant.create` + `memail.configure` tipados | planejada | N19 |
+| N21 | api + `meApiMail` | Integração mail no pipeline create | planejada | N20 |
+| N22 | onboarding-api + api + WHMCS | Signup/trial/billing WHMCS+Vindi | planejada | N21; N29 *(opcional)* |
+| N23 | `work-platform-api` | Inventário + placement automático | planejada | N19 |
+| N24 | multi-repo | Rollout por ring no agente | planejada | N16, N23 |
+| N25 | `work-platform` + scripts | LAB greenfield + BOM promote | planejada | N14, N20 |
+| N26 | `work-platform-scripts` | Restore drill mensal automatizado | planejada | — |
+| N27 | `work-platform-scripts` | Observabilidade default em deploy-server | planejada | — |
+| N28 | api + WHMCS + Proxmox | Tier Dedicated (VPS via WHMCS/`IDC-EVEO`) | planejada | N15, N23 |
+| N29 | api + `meApiMail` | DNS & deliverability (PowerDNS) | planejada | N21, N23 |
+
+**Ordem recomendada (`/rock`):** F3/F10.3 → N14 → N15 → N16 → [N17 ∥ N18] → N19 → N20 → N21 → N23 → **N29** → N22 → N25 → [N26 ∥ N27] → N24 → N28
 
 ---
 
@@ -4342,6 +4370,7 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-12 | 0.25   | Índice Platform V2 (N14–N29): sprint N29 DNS PowerDNS; N22 WHMCS+Vindi (`store.mecloud360.com.br`); N28 WHMCS/Proxmox `IDC-EVEO`. Ver `docs/PLATFORM-V2-PLAN.md` v1.1. | PLATFORM-V2-PLAN |
 | 2026-06-02 | 0.24   | Sync FINDINGS + ROADMAP: F5.11 `[x]`, F5/F11 no índice; F9 APROVADA R1; F10/F12 notas; F5 `/qa validar R3` pendente. | /pmo sync |
 | 2026-05-28 | 0.23   | Sprint F13 CONCLUÍDA — branding no `create` corrigido; ProvisionTest 16 passed; validação senior+qa APROVADA R1. | /fix F13 |
 | 2026-05-28 | 0.22   | Sprint F13 adicionada — ISSUE-019 (`create` deve enviar branding logo/background via `branding.*_data_url` ou `--staging-id`). | /fix (interativo) |

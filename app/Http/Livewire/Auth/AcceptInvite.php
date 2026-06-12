@@ -60,12 +60,11 @@ class AcceptInvite extends Component
                 ]);
             }
 
-            $operator->update([
-                'password_hash' => bcrypt($this->password),
-                'status' => 'active',
-                'invite_token_hash' => null,
-                'invite_expires_at' => null,
-            ]);
+            $operator->password_hash = bcrypt($this->password);
+            $operator->status = 'active';
+            $operator->invite_token_hash = null;
+            $operator->invite_expires_at = null;
+            $operator->save();
 
             return $operator;
         });

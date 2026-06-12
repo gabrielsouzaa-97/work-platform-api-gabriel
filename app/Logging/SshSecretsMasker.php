@@ -11,6 +11,10 @@ final class SshSecretsMasker implements ProcessorInterface
 {
     private const KEY_PATTERN = '/-----BEGIN[\s\S]*?-----END[\s\S]*?KEY-----/s';
 
+    private const IDEMPOTENCY_KEY_PATTERN = '/--idempotency-key=\S+/';
+
+    private const CALLBACK_PATTERN = '/--callback=\S+/';
+
     private const SENSITIVE_FIELDS = ['password', 'token', 'secret', 'private_key', 'passphrase'];
 
     private const REDACTED = '[REDACTED]';
@@ -37,6 +41,12 @@ final class SshSecretsMasker implements ProcessorInterface
                 continue;
             }
 
+            if ($key === 'command' && is_string($value)) {
+                $context[$key] = $this->maskMessage($value);
+
+                continue;
+            }
+
             if (is_string($value)) {
                 $context[$key] = $this->maskMessage($value);
             } elseif (is_array($value)) {
@@ -49,7 +59,10 @@ final class SshSecretsMasker implements ProcessorInterface
 
     private function maskMessage(string $message): string
     {
-        return preg_replace(self::KEY_PATTERN, self::REDACTED, $message) ?? $message;
+        $masked = preg_replace(self::KEY_PATTERN, self::REDACTED, $message) ?? $message;
+        $masked = preg_replace(self::IDEMPOTENCY_KEY_PATTERN, '--idempotency-key=***', $masked) ?? $masked;
+
+        return preg_replace(self::CALLBACK_PATTERN, '--callback=***', $masked) ?? $masked;
     }
 
     private function isSensitiveKey(string $key): bool

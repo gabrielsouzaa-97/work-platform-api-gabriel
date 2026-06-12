@@ -10,6 +10,7 @@ use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use Illuminate\Support\Facades\DB;
 
 function makeOccCluster(): ClusterServer
 {
@@ -63,6 +64,30 @@ it('PUT quota/{username} com quota válida → 200 + audit log', function () {
 
     $response->assertOk();
     expect(AuditLog::where('action', 'occ_set_quota')->where('resource_id', $customer->slug)->exists())->toBeTrue();
+});
+
+it('OCC request eager loads clusterServer without extra customer queries', function () {
+    $cluster = makeOccCluster();
+    $customer = makeOccCustomer($cluster);
+    $operator = makeOccOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->once()->andReturn(sshOccSuccess(['users' => []]));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    $this->actingAs($operator)
+        ->getJson("/api/customers/{$customer->slug}/occ/quota/audit")
+        ->assertOk();
+
+    $relationQueries = collect(DB::getQueryLog())->filter(
+        fn (array $query): bool => str_contains(strtolower($query['query']), 'customers')
+            || str_contains(strtolower($query['query']), 'cluster_servers'),
+    );
+
+    expect($relationQueries->count())->toBeLessThanOrEqual(2);
 });
 
 it('PUT quota/{username} com formato inválido → 422 sem SSH', function () {
