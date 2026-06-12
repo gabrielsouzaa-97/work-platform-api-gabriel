@@ -53,14 +53,13 @@
     "Customers"
   ],
   "proximos_passos": [
-    "F10.3 [P]: Deploy imagem/commit atual em produção (ISSUE-023)",
-    "Disparar 1 job async → aguardar job.finished",
-    "Confirmar jobs.summary JSON populado no MariaDB",
-    "Abrir /queue/{job_id} no painel → logs visíveis (não vazio)",
-    "Se webhook sem exit_code, confirmar JobLogFetcher preencheu summary (ISSUE-014)",
-    "OPS-001: Avaliar migration failed_jobs ou documentar no RUNBOOK",
-    "F7 (opcional): smoke criar cluster homolog + rotate secret → audit com actor_id",
-    "Gate: fechar F10.3 no ROADMAP quando UI OK (ISSUE-023 checklist)"
+    "Executar runbook docs/runbooks/F10.3-prod-validation.md (ISSUE-023 ready_for_ops)",
+    "Fase 1: SSH deployer.mework360.com.br → git pull main → docker compose build/up → migrate",
+    "Fase 2: Disparar job async (users:create) → anotar job_id → aguardar job.finished",
+    "Fase 3: Verificar jobs.summary POPULATED no MariaDB (tinker ou SQL)",
+    "Fase 4: Abrir /queue/{job_id} → logs visíveis (não 'Nenhum log disponível')",
+    "Fase 5: OPS-001 — decidir failed_jobs (migration ou documentar ausência)",
+    "Pós-smoke: marcar ISSUE-023 checklist; [x] F10.3 no ROADMAP se UI OK"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",

@@ -4098,7 +4098,7 @@ Cenários obrigatórios:
 |--------|---------|--------|---------------|------------|
 | [x] | P | F10.1 — [ISSUE-014] Corrigir argv em `JobLogFetcher` (`['job', $id, 'logs', '--json']`) + `fetchViaStatus` idem + catch `SshRemoteException(notImplemented)` | `ssh-orchestrator` | — |
 | [x] | P | F10.2 — [ISSUE-014] Testes: assert argv sem client slug; fallback via `SshRemoteException(99)`; contract comment fix | `laravel-testing` | F10.1 |
-| [ ] | P | F10.3 — Push `main` + deploy remoto + validar job novo em produção (`summary` populado, UI com logs) | `70-devops` | F10.2 |
+| [ ] | P | F10.3 — Push `main` + deploy remoto + validar job novo em produção (`summary` populado, UI com logs) — **bloqueado: execução ops**; runbook [F10.3-prod-validation.md](runbooks/F10.3-prod-validation.md) | `70-devops` | F10.2 |
 
 ### Contexto F10
 
@@ -4109,6 +4109,8 @@ Durante triagem de `/queue/{jobId}` vazio (2026-05-24), confirmado em produção
 - Job `e6dec946-b91a-4112-ab84-916c8be5c3c7`: SUCCESS + exit_code 0, mas `summary` null
 
 Fix implementado em `197ff46` (merged local em `main`). Sprint F10 formaliza gate de deploy.
+
+**F10.3 (2026-06-12):** código F10.1–F10.2 concluído; deploy + smoke prod **pendente execução humana** (ISSUE-023 `ready_for_ops`). Runbook: `docs/runbooks/F10.3-prod-validation.md`. Agente não faz SSH em `deployer.mework360.com.br`.
 
 ---
 

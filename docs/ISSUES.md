@@ -28,7 +28,7 @@
 | ISSUE-020 | bug | Readiness probe vaza `phpseclib` `ConnectionClosedException` quando conexão SSH pooled fecha antes de `exec()` | Core/Ssh, Customers | MEDIUM | fixed (Sprint F12) |
 | ISSUE-021 | change_request | OpenAPI global desalinhado do formato real (`{ error }` + JsonResource vs envelope `{ success, message, data }`) | Core, docs | MEDIUM | open |
 | ISSUE-022 | change_request | Cross-repo: fechar contrato API ↔ `mework360-deploy-scripts` (webhook payload, branding stdin, OCC allowlist) | Core, Jobs, Customers, Occ | HIGH | open (coordenação) |
-| ISSUE-023 | change_request | Validação produção pós-F10: deploy + smoke `/queue/{id}` + schema ops (`failed_jobs`) | Jobs, DevOps | MEDIUM | open |
+| ISSUE-023 | change_request | Validação produção pós-F10: deploy + smoke `/queue/{id}` + schema ops (`failed_jobs`) | Jobs, DevOps | MEDIUM | ready_for_ops |
 | ISSUE-024 | change_request | Automatizar config meMail no `create` (externalLocation, forceSSO, emailAddressChoice, disable `mail`) — eliminar runbook manual pós-create | Cross-repo (deploy-scripts), Customers, Webhook | HIGH | open |
 | ISSUE-025 | change_request | Evoluir `mework360-roundcube` para distribuição: Dockerfile pinado + camada B migrada + deploy por tag (dev = baseline; replica prod) | Cross-repo (mework360-roundcube, memail, deploy-scripts) | HIGH | open |
 | ISSUE-026 | bug | RC prod desalinhado do dev: cookie `domain=.mework360.com.br` (SEC-002 vivo) + `frame-ancestors *` (clickjacking) + imagem `:latest` sem pin nos 2 hosts | Cross-repo (infra SaaS-01/SaaS-02) | HIGH | open |
@@ -1843,7 +1843,8 @@ Abrir/atualizar issues espelho no repo `mework360-deploy-scripts`; reunião téc
 
 - **Tipo**: change_request (validação / DevOps)
 - **Prioridade**: MEDIUM
-- **Status**: open
+- **Status**: ready_for_ops
+- **Runbook**: [docs/runbooks/F10.3-prod-validation.md](runbooks/F10.3-prod-validation.md)
 - **Registrado em**: 2026-06-02
 - **Solicitante**: `/pmo` (SSH read-only `deployer.mework360.com.br`)
 - **Módulos afetados**: deploy produção, `Jobs`, fila Laravel, migrations
@@ -1873,4 +1874,6 @@ Código em `main` (`cf773dc`) já inclui F13 (branding payload), F12 (SSH retry)
 
 ### Próximo passo
 
-Executar checklist; atualizar ISSUE-009/013/014 com resultado; fechar F10.3 no ROADMAP quando UI OK.
+**Operador com SSH:** executar [runbook F10.3](runbooks/F10.3-prod-validation.md) fase a fase; marcar checklist abaixo; atualizar ISSUE-009/013/014 com resultado; fechar F10.3 no ROADMAP quando UI OK.
+
+> Agente **não** executa deploy prod autonomamente — gate bloqueado em credenciais ops (Rock Rodada 2).
