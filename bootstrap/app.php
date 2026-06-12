@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureOperatorIsActive;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\SecureHeaders;
+use App\Http\Middleware\VerifyAgentAuth;
 use App\Http\Middleware\VerifyWebhookHmac;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active.operator' => EnsureOperatorIsActive::class,
             'role' => EnsureRole::class,
             'webhook.hmac' => VerifyWebhookHmac::class,
+            'verify.agent' => VerifyAgentAuth::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -55,4 +55,11 @@ return [
         'max_wait_seconds' => env('CUSTOMER_READINESS_MAX_WAIT_SECONDS', 1200),
     ],
 
+    'agent' => [
+        'transport_enabled' => env('AGENT_TRANSPORT_ENABLED', false),
+        'poll_timeout_seconds' => env('AGENT_POLL_TIMEOUT_SEC', 55),
+        'rate_limit_per_minute' => env('AGENT_RATE_LIMIT_PER_MINUTE', 120),
+        'online_threshold_seconds' => env('AGENT_ONLINE_THRESHOLD_SEC', 120),
+    ],
+
 ];

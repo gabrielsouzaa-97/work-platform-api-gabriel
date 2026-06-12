@@ -93,11 +93,11 @@
 
 | Sprint | Repo execução principal | Gate (resumo) | Status | Depende de |
 | ------ | ----------------------- | ------------- | ------ | ---------- |
-| N14 | `work-rc-kit` | Dockerfile RC pinado + 21 plugins `me360_*` | planejada | — |
-| N15 | `work-platform-scripts` | SEC-004 retrofix + CPU/RAM no compose tenant | planejada | — |
-| N16 | `work-platform-scripts` | Canary/ring em `custom-apps update` | planejada | N14 |
-| N17 | `work-platform-agent` | Daemon outbound mTLS + poll comandos | planejada | — |
-| N18 | `work-platform-api` | FarmRegistry + AgentGateway + feature flag | planejada | N17 |
+| N14 | `work-rc-kit` | Dockerfile RC pinado + 21 plugins `me360_*` | concluida | — |
+| N15 | `work-platform-scripts` | SEC-004 retrofix + CPU/RAM no compose tenant | concluida | — |
+| N16 | `work-platform-scripts` | Canary/ring em `custom-apps update` | concluida | N14 |
+| N17 | `work-platform-agent` | Daemon outbound mTLS + poll comandos | concluida | — |
+| N18 | `work-platform-api` | FarmRegistry + AgentGateway + feature flag | concluida | N17 |
 | N19 | agent + api | Cutover SSH → agente (create/remove) | planejada | N17, N18 |
 | N20 | agent + scripts | `tenant.create` + `memail.configure` tipados | planejada | N19 |
 | N21 | api + `meApiMail` | Integração mail no pipeline create | planejada | N20 |
