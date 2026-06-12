@@ -9,6 +9,8 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Modules\Agents\Services\AgentTransportResolver;
+use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\JobTypeTranslator;
@@ -23,6 +25,8 @@ final class RemoveCustomerAction
     public function __construct(
         private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
+        private readonly AgentTransportResolver $transportResolver,
+        private readonly AgentUpstreamGateway $agentGateway,
     ) {}
 
     /**
@@ -64,7 +68,15 @@ final class RemoveCustomerAction
         ]);
 
         try {
-            $resp = $this->ssh->runAsync($cluster, 'nextcloud-manage', array_values($args));
+            if ($this->transportResolver->shouldUseAgentTransport($cluster)) {
+                $resp = $this->agentGateway->runAsync(
+                    $cluster,
+                    'nextcloud-manage',
+                    array_values($args),
+                );
+            } else {
+                $resp = $this->ssh->runAsync($cluster, 'nextcloud-manage', array_values($args));
+            }
         } catch (SshRemoteException $e) {
             if ($e->stateConflict) {
                 throw new StateConflictException($e->parsedJson['diff'] ?? []);

@@ -10,6 +10,8 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Modules\Agents\Services\AgentTransportResolver;
+use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
@@ -30,6 +32,8 @@ final class ProvisionCustomerAction
     public function __construct(
         private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
+        private readonly AgentTransportResolver $transportResolver,
+        private readonly AgentUpstreamGateway $agentGateway,
     ) {}
 
     /**
@@ -135,14 +139,26 @@ final class ProvisionCustomerAction
             'logo_filesize' => $payload->logoPath && file_exists($payload->logoPath) ? filesize($payload->logoPath) : null,
         ]);
 
+        $useAgentTransport = $this->transportResolver->shouldUseAgentTransport($cluster)
+            && $stagingId === null;
+
         try {
-            // runAsync appends --async --json automatically
-            $resp = $this->ssh->runAsync(
-                $cluster,
-                'nextcloud-manage',
-                $args,
-                $stdinJson
-            );
+            if ($useAgentTransport) {
+                $resp = $this->agentGateway->runAsync(
+                    $cluster,
+                    'nextcloud-manage',
+                    $args,
+                    $stdinJson,
+                );
+            } else {
+                // runAsync appends --async --json automatically
+                $resp = $this->ssh->runAsync(
+                    $cluster,
+                    'nextcloud-manage',
+                    $args,
+                    $stdinJson
+                );
+            }
         } catch (SshRemoteException $e) {
             if ($e->idempotencyConflict) {
                 $existingJobId = $e->parsedJson['existing_job_id'] ?? null;

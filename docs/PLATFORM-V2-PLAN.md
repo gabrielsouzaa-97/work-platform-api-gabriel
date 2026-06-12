@@ -486,11 +486,11 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 | Status | Tam | Tarefa | Depende |
 |--------|-----|--------|---------|
-| [ ] | M | N19.1 — Handler `manage.sh` adapter (invoke local `nextcloud-manage`) | N17 |
-| [ ] | M | N19.2 — Mapear operation `tenant.create` → `manage.sh create --async` | N19.1 |
-| [ ] | P | N19.3 — Mapear `tenant.remove` | N19.1 |
-| [ ] | M | N19.4 — Control plane: `SshClient` bypass quando flag + farm online | N18.4 |
-| [ ] | P | N19.5 — Runbook cutover + rollback SSH | N19.4 |
+| [x] | M | N19.1 — Handler `manage.sh` adapter (invoke local `nextcloud-manage`) | N17 |
+| [x] | M | N19.2 — Mapear operation `tenant.create` → `manage.sh create --async` | N19.1 |
+| [x] | P | N19.3 — Mapear `tenant.remove` | N19.1 |
+| [x] | M | N19.4 — Control plane: `SshClient` bypass quando flag + farm online | N18.4 |
+| [x] | P | N19.5 — Runbook cutover + rollback SSH | N19.4 |
 
 ---
 

@@ -6,6 +6,7 @@ namespace App\Modules\Agents\Services;
 
 use App\Models\AuditLog;
 use App\Models\FarmAgent;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 final class AgentEventHandler
@@ -26,6 +27,7 @@ final class AgentEventHandler
 
         if ($operationId !== '' && $state !== '') {
             $this->commandQueue->ack($operationId, $state);
+            $this->storeOperationResult($operationId, $event, $state);
         }
 
         AuditLog::create([
@@ -42,5 +44,32 @@ final class AgentEventHandler
                 'operation_id' => $operationId !== '' ? $operationId : null,
             ],
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    private function storeOperationResult(string $operationId, array $event, string $state): void
+    {
+        $data = $event['data'] ?? null;
+        if (! is_array($data)) {
+            if ($state === 'failed' && isset($event['message']) && is_string($event['message'])) {
+                Cache::put(
+                    AgentUpstreamGateway::resultCacheKey($operationId),
+                    ['error' => $event['message']],
+                    120,
+                );
+            }
+
+            return;
+        }
+
+        if (isset($data['job_id']) && is_string($data['job_id']) && $data['job_id'] !== '') {
+            Cache::put(
+                AgentUpstreamGateway::resultCacheKey($operationId),
+                ['job_id' => $data['job_id']],
+                120,
+            );
+        }
     }
 }
