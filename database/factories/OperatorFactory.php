@@ -65,17 +65,23 @@ class OperatorFactory extends Factory
 
     public function admin(): static
     {
-        return $this->afterMaking(fn (Operator $operator): void => $operator->role = 'admin');
+        return $this->afterMaking(function (Operator $operator): void {
+            $operator->role = 'admin';
+        });
     }
 
     public function inactive(): static
     {
-        return $this->afterMaking(fn (Operator $operator): void => $operator->status = 'inactive');
+        return $this->afterMaking(function (Operator $operator): void {
+            $operator->status = 'inactive';
+        });
     }
 
     public function pending(): static
     {
-        return $this->afterMaking(fn (Operator $operator): void => $operator->status = 'pending');
+        return $this->afterMaking(function (Operator $operator): void {
+            $operator->status = 'pending';
+        });
     }
 
     public function invited(string $token = 'valid-invite-token'): static
