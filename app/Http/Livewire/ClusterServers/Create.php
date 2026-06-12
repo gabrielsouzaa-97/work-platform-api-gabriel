@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
@@ -28,14 +27,12 @@ class Create extends Component
 
     public string $ssh_user = 'ncsaas-api';
 
-    /** @var string PEM — not bound via wire:model in the blade; read from request() in production. Set directly in tests. */
-    #[Locked]
+    /** @var string PEM — bound via wire:model; tests may set directly. */
     public string $ssh_private_key = '';
 
     public string $sftp_user = 'ncsaas-sftp';
 
     /** @var string PEM — Canal B (ncsaas-sftp). Optional at creation; required when branding upload is needed. */
-    #[Locked]
     public string $sftp_private_key = '';
 
     protected array $rules = [
