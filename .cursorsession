@@ -37,12 +37,12 @@
   "sprint_atual": "F3",
   "sprint_branch": "sprint/F3",
   "previous_sprint": "F7",
-  "beesy_version": "4.47.1",
-  "decisions_applied_until": 225,
+  "beesy_version": "4.51.2",
+  "decisions_applied_until": 234,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-09T06:00:00Z",
+  "ultimo_update": "2026-06-12T12:00:00Z",
   "next_sprint_planned": "F10",
   "modulos": [
     "Core",
@@ -176,7 +176,7 @@
     "next_steps": "F3.1 — RotateWebhookSecretAction AuditLog cluster_server.rotate_webhook_secret",
     "updated_at": "2026-06-09T06:00:00Z"
   },
-  "contexto_rapido": "Sprint F3 iniciada 2026-06-09 na branch sprint/F3. Tech debt LOW: 7 tasks (8 findings D4/DBA/SEC). F7 mergeada na main (PR #85). F10.3 deploy pendente após F3. review: skip.",
+  "contexto_rapido": "Sprint F3 iniciada 2026-06-09 na branch sprint/F3. Tech debt LOW: 7 tasks (8 findings D4/DBA/SEC). F7 mergeada na main (PR #85). F10.3 deploy pendente após F3. review: skip. Upgrade Beesy 4.47.1→4.51.2 (#226–#234) aplicado 2026-06-12: ledger .cursorsession.git criado, skills carimbadas scope:project.",
   "autopilot": {
     "active": false
   },

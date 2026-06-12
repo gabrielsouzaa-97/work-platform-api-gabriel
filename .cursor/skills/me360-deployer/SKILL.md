@@ -1,5 +1,7 @@
 ---
 name: me360-deployer
+scope: project
+created-by: manual
 description: >
   Operações end-to-end do mework360-deployer-api: infraestrutura, Docker local e produção,
   deploy/atualização de versão, provisionamento de customer/TN, gates de prontidão, simulação local,

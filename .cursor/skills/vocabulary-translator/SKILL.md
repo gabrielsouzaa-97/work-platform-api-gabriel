@@ -1,5 +1,7 @@
 ---
 name: vocabulary-translator
+scope: project
+created-by: manual
 description: >
   Padrões para tradução bidirecional de vocabulários entre a API e o upstream.
   Use when: JobTypeTranslator, StateTranslator, validação de slug, mapeamento de enums,

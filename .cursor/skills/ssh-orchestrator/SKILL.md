@@ -1,5 +1,7 @@
 ---
 name: ssh-orchestrator
+scope: project
+created-by: manual
 description: >
   Padrões para orquestração de comandos no nextcloud-saas-manager via SSH.
   Use when: chamadas SSH, manage.sh, passagem de payload via stdin, idempotency keys,
