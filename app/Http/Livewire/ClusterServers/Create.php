@@ -27,7 +27,7 @@ class Create extends Component
 
     public string $ssh_user = 'ncsaas-api';
 
-    /** @var string PEM — bound via wire:model; tests may set directly. */
+    /** @var string PEM — not bound via wire:model in the blade; read from request() in production. */
     public string $ssh_private_key = '';
 
     public string $sftp_user = 'ncsaas-sftp';
