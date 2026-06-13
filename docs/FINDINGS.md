@@ -2,10 +2,10 @@
 synced_at: 2026-06-12
 open_critical: 0
 open_high: 0
-open_medium: 34
-open_low: 25
+open_medium: 43
+open_low: 31
 sprints_with_open_blockers: F10
-notes: F3 validada (Rock 2026-06-12); F7 HIGH N1 zerados; F6 validada; F10.3 prod ISSUE-023
+notes: N19 validacao R2 APROVADA (2026-06-12); CQ-N19-001 + QA-N19-001 validados; F10.3 prod ISSUE-023
 FINDINGS-INDEX -->
 
 
@@ -34,7 +34,12 @@ FINDINGS-INDEX -->
 | F11 | 1 | 2 | 4 | 0 | 0 | 1 | 6 |
 | F12 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
 | F13 | 0 | 2 | 2 | 0 | 0 | 3 | 1 |
+| N19 | 0 | 2 | 9 | 6 | 15 | 0 | 2 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
+
+> **Validação N19 R2** (2026-06-12, `/qa validar N19`): correções CQ-N19-001 (ownership `operation_id` em `AgentEventHandler` + `ack` scoped) + QA-N19-001 (teste SFTP bypass com agent ON). **Testes**: 12 passed, 29 assertions (local SQLite). **Resultado: APROVADA** — 0 HIGH pendentes; 15 MEDIUM/LOW backlog non-blocking.
+
+> **Validação N19 R1** (2026-06-12, `/qa validar N19`): scope = delta `3a8fb65..HEAD` (AgentUpstreamGateway, Provision/Remove actions, AgentEventHandler, AgentTransportCutoverTest, runbook N19). Senior R1 + QA R1. **Testes**: CI verde `29d54b8` (GitHub Actions workflow CI, SQLite in-memory). **2 HIGH pendentes** (`CQ-N19-001` segurança operation_id; `QA-N19-001` gap teste SFTP+agent). **Resultado: REPROVADA** — PROC-012 exige corrigir HIGH in-sprint antes de fechar N19.
 
 > **Validação F5 R4** (2026-06-02, `/qa validar F5` + subagentes): scope = delta backlog (LifecycleAsyncAction refactor, OccPanel short-circuit, LifecycleTest boundaries, UpstreamContractTest, JobTypeTranslatorTest). **Testes**: 123 passed, 6 skipped, 241 assertions (Docker). **auditor-senior** → PASS_WITH_NOTES (0 HIGH). **auditor-qa** → FAIL bruto (3 HIGH out-of-contract pré-existentes: quotaUsername, apps bulk disable, idempotency orphan sem job_id — triados como Notes Non-Blocking; não regressões R4). **8 findings backlog** → Validado (CQ-F5-004/005/006, QA-F5-009/011/012/013/014). **Resultado: APROVADA COM RESSALVAS** — Hard Rule #2 (5 arquivos código não commitados). E2E: ISSUE-007.
 >
@@ -1934,6 +1939,178 @@ Nenhum finding registrado para D1 na validação atual.
 - **Descrição**: Controllers (`CustomerController`, `CustomerLifecycleController`, `OccController`, `JobController`) retornam erros como `{ "error": "<code>", ... }` e sucesso via `JsonResource` ou `{ "job_id": "..." }` (202). O OpenAPI ainda descreve envelope legado `{ success, message, data }` para sucesso/erro genérico. `CQ-F5-001` (Validado) corrigiu apenas drift de endpoints `apps/*` e 501 — não o contrato global.
 - **Impacto**: Integradores e geradores de cliente que confiam só no OpenAPI implementam parsers incorretos; suporte perde tempo em “API bugada”.
 - **Ação necessária**: Alinhar `docs/openapi.yaml` ao código (ou bump major version se houver consumidores externos no envelope antigo); `redocly lint`; exemplos reais nos paths críticos.
+
+## Sprint N19 — Cutover transporte SSH → agente (Fase 1)
+
+> Validação R1: 2026-06-12 (`/qa validar N19`). Delta `3a8fb65..29d54b8`. review: senior+qa.
+
+### CQ-N19-001 — HIGH — Evento de agente grava `job_id` em `operation_id` sem validar ownership
+
+- **Sprint**: N19
+- **Severidade**: HIGH
+- **Tipo**: product_bug / security
+- **Auditoria**: Senior
+- **Status**: **Validado (N19 R2 — 2026-06-12)**
+
+### QA-N19-001 — HIGH — Branding SFTP não testado com agent transport habilitado
+
+- **Sprint**: N19
+- **Severidade**: HIGH
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: **Validado (N19 R2 — 2026-06-12)**
+
+### CQ-N19-002 — MEDIUM — `waitForJobId` bloqueia worker PHP até 30s
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Status**: Pendente
+- **Arquivo**: `app/Modules/Agents/Services/AgentUpstreamGateway.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: Polling síncrono com `usleep(100_000)` por até 30s na thread HTTP. Risco de esgotar workers FPM sob carga no piloto.
+- **Correção sugerida**: Reduzir janela, mover para queue assíncrona, ou documentar SLA/limites de concorrência no runbook.
+
+### CQ-N19-003 — MEDIUM — Exceções do agent path não mapeadas para domínio da API
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Status**: Pendente
+- **Arquivo**: `app/Modules/Customers/Actions/ProvisionCustomerAction.php`, `RemoveCustomerAction.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: `catch` cobre `SshRemoteException`/`SshConnectionException`, mas `AgentUpstreamGateway` lança `\RuntimeException` (timeout, agente ausente). Vira 500 genérico.
+- **Correção sugerida**: `AgentTransportException` ou mapear para `ClusterUnreachableException` equivalente.
+
+### CQ-N19-004 — MEDIUM — TOCTOU: `findAgentForCluster` ignora `isOnline()`
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Status**: Pendente
+- **Arquivo**: `app/Modules/Agents/Services/AgentTransportResolver.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: `shouldUseAgentTransport()` exige online; `runAsync()` usa `findAgentForCluster()` sem revalidar. Agente pode cair entre as chamadas → timeout 30s sem fallback SSH.
+- **Correção sugerida**: Unificar `resolveActiveAgent()` usado por resolver e gateway.
+
+### CQ-N19-005 — MEDIUM — Falha do agente com `data` estruturado não encerra o poll
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Status**: Pendente
+- **Arquivo**: `app/Modules/Agents/Services/AgentEventHandler.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: Erro só vai para cache quando `data` não é array e `state === 'failed'`. `state: failed` + `data: { error }` deixa `waitForJobId` esperar timeout.
+- **Correção sugerida**: Tratar `data.error` / `state === 'failed'` sem `job_id`; alinhar contrato com agent.
+
+### QA-N19-002 — MEDIUM — Fallback SSH no remove sem teste simétrico
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/Customers/AgentTransportCutoverTest.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: Existe fallback SSH no provision (`transport_enabled=false`), mas não no remove.
+- **Correção sugerida**: Teste remove com flag off: `ssh->runAsync` once, `gateway->shouldNotReceive`.
+
+### QA-N19-003 — MEDIUM — Fallback SSH com agente offline não testado no action layer
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/Customers/AgentTransportCutoverTest.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: Resolver testa offline em unit; não há feature test provando SSH quando flag ON mas agente offline/ausente.
+- **Correção sugerida**: Flag ON + `FarmAgent::offline()`: assert `ssh->runAsync`, `gateway->shouldNotReceive`.
+
+### QA-N19-004 — MEDIUM — `AgentUpstreamGateway` sem testes dedicados
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Arquivo**: `app/Modules/Agents/Services/AgentUpstreamGateway.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: Zero testes para `resolveOperation`, timeout, erro via cache, cmd inválido.
+- **Correção sugerida**: Unit tests com `Cache::fake()` + mock `AgentCommandQueue`.
+
+### QA-N19-005 — MEDIUM — Handshake enqueue→event→cache não integrado
+
+- **Sprint**: N19
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Arquivo**: `tests/Feature/Api/AgentGatewayTest.php`
+- **Registrado em**: 2026-06-12
+- **Descrição**: Cutover tests mockam gateway; caminho real enqueue → POST events → cache → `waitForJobId` não exercitado.
+- **Correção sugerida**: Feature test sem mock do gateway: enqueue → evento com `data.job_id` → assert retorno.
+
+### CQ-N19-006 — LOW — Sem teste do bypass SFTP/staging → SSH
+
+- **Sprint**: N19
+- **Severidade**: LOW
+- **Tipo**: test_fragility
+- **Auditoria**: Senior
+- **Status**: Pendente
+- **Motivo LOW**: Duplicata parcial de QA-N19-001; cobertura ausente mas lógica presente no código.
+
+### CQ-N19-007 — LOW — Bridge cache↔eventos só testado via mock
+
+- **Sprint**: N19
+- **Severidade**: LOW
+- **Tipo**: test_fragility
+- **Auditoria**: Senior
+- **Status**: Pendente
+- **Motivo LOW**: Sobreposição com QA-N19-005; risco mitigável com smoke manual no piloto.
+
+### QA-N19-006 — LOW — Asserts rasos nos mocks de cutover
+
+- **Sprint**: N19
+- **Severidade**: LOW
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Motivo LOW**: Não valida `--idempotency-key`, `--callback`, `stdinJson` nos mocks.
+
+### QA-N19-007 — LOW — Remove via agente com `--backup-first` não coberto
+
+- **Sprint**: N19
+- **Severidade**: LOW
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Motivo LOW**: Cutover remove usa `backupFirst: false` apenas.
+
+### QA-N19-008 — LOW — Provision com branding inline via agente não testado
+
+- **Sprint**: N19
+- **Severidade**: LOW
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Motivo LOW**: Cenário stdin ≤256KB com agent não exercitado.
+
+### QA-N19-009 — LOW — Testes legados não fixam `transport_enabled=false`
+
+- **Sprint**: N19
+- **Severidade**: LOW
+- **Tipo**: test_fragility
+- **Auditoria**: QA
+- **Status**: Pendente
+- **Motivo LOW**: Default false hoje; frágil se config global mudar.
+
+---
 
 ### OPS-001 — LOW — Tabela `failed_jobs` ausente em produção
 

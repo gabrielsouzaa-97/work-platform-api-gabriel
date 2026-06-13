@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Models\AgentCommand;
 use App\Models\FarmAgent;
 use App\Modules\Agents\Services\AgentCommandQueue;
+use App\Modules\Agents\Services\AgentUpstreamGateway;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 
 beforeEach(function (): void {
@@ -78,4 +80,30 @@ it('receiveEvents updates last_seen and acks command', function (): void {
 
     $command->refresh();
     expect($command->status)->toBe('acked');
+});
+
+it('receiveEvents ignores operation_id owned by another farm agent', function (): void {
+    $owner = FarmAgent::factory()->create();
+    $intruder = FarmAgent::factory()->create();
+    $command = AgentCommand::create([
+        'farm_agent_id' => $owner->id,
+        'operation_id' => '660e8400-e29b-41d4-a716-446655440001',
+        'operation' => 'tenant.create',
+        'status' => 'pending',
+        'requested_at' => now(),
+    ]);
+    $injectedJobId = '770e8400-e29b-41d4-a716-446655440002';
+
+    $this->postJson('/api/agent/v1/events', [
+        'schema_version' => 1,
+        'operation_id' => $command->operation_id,
+        'farm_id' => $intruder->farm_id,
+        'state' => 'succeeded',
+        'data' => ['job_id' => $injectedJobId],
+        'ts' => now()->toIso8601String(),
+    ], agentAuthHeaders($intruder))->assertAccepted();
+
+    $command->refresh();
+    expect($command->status)->toBe('pending');
+    expect(Cache::get(AgentUpstreamGateway::resultCacheKey($command->operation_id)))->toBeNull();
 });

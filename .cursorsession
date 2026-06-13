@@ -33,16 +33,17 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint F3 concluída — próximo: F10.3 deploy prod (ISSUE-023)",
+  "fase_nome": "Sprint N19 concluída — validação R2 APROVADA",
   "sprint_atual": null,
+  "previous_sprint": "N19",
   "sprint_branch": null,
   "previous_sprint": "F3",
-  "beesy_version": "4.51.2",
-  "decisions_applied_until": 234,
+  "beesy_version": "4.52.0",
+  "decisions_applied_until": 237,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-12T14:30:00Z",
+  "ultimo_update": "2026-06-12T20:30:00Z",
   "next_sprint_planned": "F10.3",
   "modulos": [
     "Core",
@@ -170,14 +171,14 @@
   ],
   "anchor": {
     "persona": "implementer (Composer 2.5 — Decision #225 default)",
-    "phase": "Sprint F3 — closed",
-    "intent": "F3 concluída Rock R1; 8 findings LOW validados; próximo F10.3 deploy prod ISSUE-023",
-    "changes_made": "ROADMAP F3 concluida; FINDINGS F3 validados; Pint fix RotateSecretTest",
-    "decisions": "Sprint gate F3 APROVADA; review: skip; Docker tests skipped (daemon unavailable)",
-    "next_steps": "F10.3 — ISSUE-023 checklist deploy + smoke /queue/{id}",
-    "updated_at": "2026-06-12T14:30:00Z"
+    "phase": "Sprint N19 — closed",
+    "intent": "N19 APROVADA R2; HIGH zerados; próximo N20 ou F10.3 ops",
+    "changes_made": "CQ-N19-001 ownership fix; QA-N19-001 SFTP bypass test; validation_gate APROVADA R2",
+    "decisions": "Sprint gate N19 APROVADA",
+    "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
+    "updated_at": "2026-06-12T20:30:00Z"
   },
-  "contexto_rapido": "Rock campanha v2 — F3 closed, N14-N16 code in sibling PRs",
+  "contexto_rapido": "Upgrade 4.52.0 (#235-#237) — F3 closed; próximo F10.3 deploy prod ISSUE-023",
   "autopilot": {
     "active": false
   },
@@ -188,7 +189,23 @@
     "messages_lost": 293
   },
   "compact_count": 1,
-  "checkpoint": null,
+  "checkpoint": {
+    "validation_gate": {
+      "sprint": "N19",
+      "validation_round": 2,
+      "findings_found": 0,
+      "findings_registered": [],
+      "files_modified_outside_findings": 0,
+      "askquestion_shown": false,
+      "senior_review_status": "PASS_WITH_NOTES",
+      "result": "APROVADA",
+      "contract_source": "bootstrap",
+      "tests_evidence": "12 passed, 29 assertions (local SQLite); CQ-N19-001 + QA-N19-001 validados in-code",
+      "findings_validated": ["CQ-N19-001", "QA-N19-001"],
+      "in_contract": [],
+      "stamped_at": "2026-06-12T21:00:00Z"
+    }
+  },
   "validation_gate": {
     "sprint": "F3",
     "produced_by": "rock-close-sprint-F3",

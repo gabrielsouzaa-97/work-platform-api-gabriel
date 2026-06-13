@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Agents\Services;
 
+use App\Models\AgentCommand;
 use App\Models\AuditLog;
 use App\Models\FarmAgent;
 use Illuminate\Support\Facades\Cache;
@@ -25,8 +26,8 @@ final class AgentEventHandler
         $operationId = isset($event['operation_id']) ? (string) $event['operation_id'] : '';
         $state = isset($event['state']) ? (string) $event['state'] : '';
 
-        if ($operationId !== '' && $state !== '') {
-            $this->commandQueue->ack($operationId, $state);
+        if ($operationId !== '' && $state !== '' && $this->commandBelongsToAgent($operationId, $agent)) {
+            $this->commandQueue->ack($agent, $operationId, $state);
             $this->storeOperationResult($operationId, $event, $state);
         }
 
@@ -44,6 +45,14 @@ final class AgentEventHandler
                 'operation_id' => $operationId !== '' ? $operationId : null,
             ],
         ]);
+    }
+
+    private function commandBelongsToAgent(string $operationId, FarmAgent $agent): bool
+    {
+        return AgentCommand::query()
+            ->where('operation_id', $operationId)
+            ->where('farm_agent_id', $agent->id)
+            ->exists();
     }
 
     /**

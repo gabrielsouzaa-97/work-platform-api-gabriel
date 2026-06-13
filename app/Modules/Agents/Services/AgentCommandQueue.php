@@ -64,7 +64,7 @@ final class AgentCommandQueue
         return [];
     }
 
-    public function ack(string $operationId, string $terminalState): void
+    public function ack(FarmAgent $agent, string $operationId, string $terminalState): void
     {
         $status = in_array($terminalState, ['succeeded', 'failed', 'cancelled'], true)
             ? 'acked'
@@ -76,6 +76,7 @@ final class AgentCommandQueue
 
         AgentCommand::query()
             ->where('operation_id', $operationId)
+            ->where('farm_agent_id', $agent->id)
             ->where('status', 'pending')
             ->update([
                 'status' => 'acked',

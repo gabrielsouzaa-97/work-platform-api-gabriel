@@ -140,3 +140,53 @@ it('provision falls back to ssh when agent transport flag is off', function (): 
         $operator,
     );
 });
+
+it('provision uses ssh for large logo staging when agent transport enabled', function (): void {
+    Config::set('services.agent.transport_enabled', true);
+
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    FarmAgent::factory()->create([
+        'cluster_server_id' => $cluster->id,
+        'last_seen_at' => now(),
+    ]);
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $jobId = Str::uuid()->toString();
+
+    $tmpFile = tempnam(sys_get_temp_dir(), 'agent_sftp_logo_');
+    file_put_contents($tmpFile, str_repeat('X', 260 * 1024));
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('inboxInit')->once();
+    $sshMock->shouldReceive('sftpUpload')->once();
+    $sshMock->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function (ClusterServer $c, string $cmd, array $args, ?string $stdin): bool {
+            return $stdin === null
+                && $cmd === 'nextcloud-manage'
+                && collect($args)->contains(fn (mixed $a): bool => str_starts_with((string) $a, '--staging-id='))
+                && ! collect($args)->contains('--payload-stdin');
+        })
+        ->andReturn(agentTransportJobResponse($jobId));
+    app()->instance(SshClientInterface::class, $sshMock);
+
+    $gatewayMock = Mockery::mock(AgentUpstreamGateway::class);
+    $gatewayMock->shouldNotReceive('runAsync');
+    app()->instance(AgentUpstreamGateway::class, $gatewayMock);
+
+    $result = app(ProvisionCustomerAction::class)->execute(
+        new ProvisionPayload(
+            slug: 'agent-sftp-bypass',
+            clusterServerId: $cluster->id,
+            domain: 'agent-sftp-bypass.example.com',
+            apps: [],
+            fullApps: false,
+            logoPath: $tmpFile,
+            backgroundPath: null,
+        ),
+        $operator,
+    );
+
+    @unlink($tmpFile);
+
+    expect($result['job']->job_id)->toBe($jobId);
+});
