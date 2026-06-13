@@ -3,6 +3,7 @@
 > **Gerado em:** 2026-06-12  
 > **Status:** pronto para execução  
 > **Executor:** skill `/cloud-ops` + subagentes Composer 2.5 (delegação por fase)  
+> **Mecanismo de execução (automatizado):** [`work-platform-scripts/provision/README.md`](../../work-platform-scripts/provision/README.md) — runbook do pipeline `provision.sh --remote` (bifásico S0–S7). Este documento passa a ser a referência **conceitual** (fases/critérios de aceite); a execução real roda pelo pipeline.  
 > **Referências:** [`PLATFORM-V2-PLAN.md`](./PLATFORM-V2-PLAN.md) sprint N25 · [`PLATFORM-STACKS.md`](../../../mework360_memail/docs/PLATFORM-STACKS.md) (bootstrap Fase A–D)  
 > **Decisão SO (2026-06-12):** LAB greenfield em **Debian 13 (trixie)** — auditoria de portabilidade (Composer 2.5) confirmou camada de host quase distro-agnóstica; esforço estimado 2–4 h (~5 linhas em `deploy-server.sh`). Sprint **N30** bloqueante para Fase 3.
 
@@ -190,15 +191,17 @@ Idempotência: se registro já existe com IP correto → pular criação; se IP 
 ## 6. Fase 4 — Roundcube pinado
 
 > **Dependência:** sprint N14 (`work-rc-kit`) — imagem semver em GHCR.  
-> **Bloqueio:** se tag N14 ausente → usar tag provisória de validação documentada em OPERATIONS.md; **nunca** `:latest` em LAB baseline.
+> **Bloqueio:** se tag N14 ausente → usar tag provisória de validação documentada em OPERATIONS.md; **nunca** `:latest` em LAB baseline.  
+> **Auth GHCR:** usar credencial dedicada `GHCR_PULL_USER` / `GHCR_PULL_TOKEN` de `secret://env/cloud.env` (PAT classic, scope `read:packages` only — criado 2026-06-12). No host: `echo $GHCR_PULL_TOKEN | docker login ghcr.io -u $GHCR_PULL_USER --password-stdin`. **Não** usar token pessoal do `gh` CLI.
 
 | Status | Tarefa | Detalhe |
 |--------|--------|---------|
-| [ ] | Resolver tag RC do BOM | Ex.: `ghcr.io/softwarebeesy/mework360-rc:<semver>` |
+| [ ] | `docker login ghcr.io` no host | Credencial `GHCR_PULL_*` (cloud.env) via stdin — nunca em argv/log |
+| [ ] | Resolver tag RC do BOM | Tag validada: `ghcr.io/softwarebeesy/mework360-rc:0.2.8` (única semver publicada em 2026-06-12) |
 | [ ] | `/opt/roundcube/docker-compose.yml` | Imagem taggeada explícita |
 | [ ] | Config cookies | host-only |
 | [ ] | Config CSP | `frame-ancestors` restrito |
-| [ ] | `me360_nc_origin` | `https://cloud.lab.mework360.com.br` (ajustar à URL real) |
+| [ ] | `me360_nc_origin` | **`https://qa-platform-lab.lab.mework360.com.br`** — deve ser o domínio do tenant provisionado (S6), não um host `cloud.lab` genérico (LAB-03). Validado por `roundcube_shared.sh` via curl |
 | [ ] | Container healthy | `docker compose ps` → healthy |
 | [ ] | Baseline plugins | Contar 21 plugins `me360_*` |
 
