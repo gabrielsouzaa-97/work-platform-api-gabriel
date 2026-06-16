@@ -58,7 +58,7 @@
 
             <div class="form-group">
                 <label for="ssh_private_key">SSH Private Key (PEM) *</label>
-                <textarea id="ssh_private_key" class="form-control" wire:model="ssh_private_key"
+                <textarea id="ssh_private_key" class="form-control" name="ssh_private_key"
                     placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"></textarea>
                 <p class="form-hint">Cole o conteúdo do arquivo .pem. Nunca exibido após salvo.</p>
                 @error('ssh_private_key') <p class="error-msg">{{ $message }}</p> @enderror

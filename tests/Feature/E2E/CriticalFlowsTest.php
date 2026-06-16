@@ -19,7 +19,6 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Models\WebhookSecretHistory;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
@@ -33,17 +32,11 @@ use Illuminate\Support\Str;
 
 function e2eCluster(string $secret = 'e2e-secret'): ClusterServer
 {
-    $cluster = ClusterServer::factory()->create(['ssh_host' => '127.0.0.1', 'status' => 'active']);
-
-    WebhookSecretHistory::create([
-        'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $secret,
-        'version' => 1,
-        'valid_from' => now()->subHour(),
-        'valid_until' => null,
+    return ClusterServer::factory()->create([
+        'ssh_host' => '127.0.0.1',
+        'status' => 'active',
+        'webhook_secret_encrypted' => $secret,
     ]);
-
-    return $cluster;
 }
 
 function e2eOperator(string $role = 'admin'): Operator

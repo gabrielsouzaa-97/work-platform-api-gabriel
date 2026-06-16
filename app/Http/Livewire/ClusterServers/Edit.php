@@ -117,7 +117,7 @@ class Edit extends Component
         ];
 
         if ($this->replacingKey && $this->ssh_private_key !== '') {
-            $data['ssh_private_key_encrypted'] = $this->ssh_private_key;
+            $this->clusterServer->ssh_private_key_encrypted = $this->ssh_private_key;
         }
 
         if ($this->replacingSftpKey && $this->sftp_private_key !== '') {
@@ -126,7 +126,7 @@ class Edit extends Component
 
                 return null;
             }
-            $data['sftp_private_key_encrypted'] = $this->sftp_private_key;
+            $this->clusterServer->sftp_private_key_encrypted = $this->sftp_private_key;
             $this->sftp_public_key = $this->derivePublicKey($this->sftp_private_key);
         }
 

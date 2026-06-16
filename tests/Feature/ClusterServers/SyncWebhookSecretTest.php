@@ -31,6 +31,15 @@ Y55nNuHvHJGMn0YF275YLo9dE2svP9XY05CJYncfxg==
 PEM;
 }
 
+
+function syncSecretHistory(array $attributes, string $secret): WebhookSecretHistory
+{
+    $history = new WebhookSecretHistory($attributes);
+    $history->secret_encrypted = $secret;
+    $history->save();
+
+    return $history->fresh();
+}
 /** Binds a mock SshClientInterface that returns success on run(). */
 function mockSshSuccess(): void
 {
@@ -59,8 +68,7 @@ it('criar cluster com SSH success → status active e redireciona', function () 
         ->set('ssh_host', '10.0.0.1')
         ->set('ssh_port', 22)
         ->set('ssh_user', 'root')
-        ->set('ssh_private_key', syncTestPem())
-        ->call('save')
+        ->call('save', testPemOverride: syncTestPem())
         ->assertRedirect(route('cluster-servers.index'));
 
     $cluster = ClusterServer::where('name', 'Cluster SSH OK')->first();
@@ -80,8 +88,7 @@ it('criar cluster com SSH failure → cluster status=error, sem redirect, erro n
         ->set('ssh_host', '10.0.0.2')
         ->set('ssh_port', 22)
         ->set('ssh_user', 'root')
-        ->set('ssh_private_key', syncTestPem())
-        ->call('save')
+        ->call('save', testPemOverride: syncTestPem())
         ->assertNoRedirect()
         ->assertHasErrors(['ssh_private_key']);
 
@@ -100,8 +107,7 @@ it('criar cluster com SSH failure → AuditLog registra cluster_server.secret_sy
         ->set('ssh_host', '10.0.0.3')
         ->set('ssh_port', 22)
         ->set('ssh_user', 'root')
-        ->set('ssh_private_key', syncTestPem())
-        ->call('save');
+        ->call('save', testPemOverride: syncTestPem());
 
     $cluster = ClusterServer::where('name', 'Cluster Audit Log Fail')->first();
     expect($cluster)->not->toBeNull();
@@ -120,13 +126,12 @@ it('rotacionar secret com SSH success → novo secret no DB, SSH chamado', funct
     $admin = Operator::factory()->admin()->create();
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 
-    WebhookSecretHistory::create([
+    syncSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'original-secret',
         'version' => 1,
         'valid_from' => now()->subHour(),
         'valid_until' => null,
-    ]);
+    ], 'original-secret');
 
     Livewire::actingAs($admin)
         ->test(Index::class)
@@ -144,13 +149,12 @@ it('rotacionar secret com SSH failure → novo secret no DB, AuditLog registra f
     $admin = Operator::factory()->admin()->create();
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 
-    WebhookSecretHistory::create([
+    syncSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'secret-before-rotate',
         'version' => 1,
         'valid_from' => now()->subHour(),
         'valid_until' => null,
-    ]);
+    ], 'secret-before-rotate');
 
     // Should NOT throw — SSH failure is swallowed on rotate
     Livewire::actingAs($admin)

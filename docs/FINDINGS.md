@@ -53,7 +53,7 @@ FINDINGS-INDEX -->
 
 > **Validação F8 R1** (2026-05-23): follow-up F8.7–F8.10. Testes F8: 46 passed. **APROVADA** — QA-F8-001/002/003/004/005/006/007/009/010 corrigidos; QA-F8-008/011 remanescentes (MEDIUM/LOW, non-blocking).
 
-> **Pendentes pós-D8**: D3-F009 (backlog), D4-F004/F008/F009/F005 (backlog), SEC-F013/F014/F015/F016 (backlog), DBA-F010/F011/F012 (backlog). Nenhum CRITICAL ou HIGH aberto.
+> **Pendentes pós-D8**: D4-F004/F008/F009/F005 (backlog), SEC-F013/F014/F015/F016 (backlog), DBA-F010/F011/F012 (backlog). Nenhum CRITICAL ou HIGH aberto.
 >
 > **Pendentes pós-N1** (2026-05-20): 3 HIGH abertos — `CQ-N1-001` (transação faltante no Create), `CQ-N1-002` (actor_id=null no AuditLog de Rotate), `QA-N1-001` (error path "sem current secret" sem teste). Plus 8 MEDIUM e 12 LOW. Brief em `docs/.briefs/N1.brief.md`. Nenhum CRITICAL aberto. Sprint `/fix` recomendada para os 3 HIGH (~2-4h de trabalho).
 >
@@ -177,11 +177,12 @@ Nenhum finding registrado para D1 na validação atual.
 
 - **Sprint**: D3
 - **Severidade**: MEDIUM
-- **Status**: Pendente
-- **Arquivo**: `routes/web.php`
+- **Status**: Validado
+- **Arquivo**: `app/Http/Livewire/Customers/Show.php`, `routes/api.php`, `tests/Feature/Customers/RemoveTest.php`
 - **Descrição**: A validação cobre `/customers/create`, mas ainda não há rota/policy/teste sentinela para remoção de customers.
 - **Ação necessária**: Em D6, garantir rota/policy/teste para `customers.destroy` bloqueando suporte e outros perfis sem permissão destrutiva.
 - **Impacto**: A restrição de ações destrutivas pode regredir quando remoção de customers for implementada.
+- **Correção**: `Gate::authorize('provision-customers')` em `Show::remove()` (Livewire); middleware `can:provision-customers` em `api.customers.destroy`; botão Remover oculto via `@can` na blade; testes API (`role=suporte → 403`) e Livewire D3-F009 em `RemoveTest.php`.
 
 ### D3-F010 — LOW — Email de convite não é renderizado nos testes
 

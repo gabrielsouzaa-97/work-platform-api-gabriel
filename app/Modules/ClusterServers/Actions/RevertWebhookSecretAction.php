@@ -38,10 +38,9 @@ final class RevertWebhookSecretAction
 
             $graceRecord->update(['valid_until' => null]);
 
-            $cluster->update([
-                'webhook_secret_encrypted' => $graceRecord->secret_encrypted,
-                'webhook_secret_version' => $graceRecord->version,
-            ]);
+            $cluster->webhook_secret_encrypted = $graceRecord->secret_encrypted;
+            $cluster->webhook_secret_version = $graceRecord->version;
+            $cluster->save();
         });
     }
 }

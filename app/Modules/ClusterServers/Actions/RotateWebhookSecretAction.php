@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\WebhookSecretHistory;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
+use App\Modules\Core\Ssh\Exceptions\SshClientException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -37,18 +38,18 @@ final class RotateWebhookSecretAction
             $newSecret = $this->generator->generate();
             $newVersion = $current->version + 1;
 
-            $historyEntry = WebhookSecretHistory::create([
+            $historyEntry = new WebhookSecretHistory([
                 'cluster_server_id' => $cluster->id,
-                'secret_encrypted' => $newSecret,
                 'version' => $newVersion,
                 'valid_from' => now(),
                 'valid_until' => null,
             ]);
+            $historyEntry->secret_encrypted = $newSecret;
+            $historyEntry->save();
 
-            $cluster->update([
-                'webhook_secret_encrypted' => $newSecret,
-                'webhook_secret_version' => $newVersion,
-            ]);
+            $cluster->webhook_secret_encrypted = $newSecret;
+            $cluster->webhook_secret_version = $newVersion;
+            $cluster->save();
 
             return $historyEntry;
         });
@@ -74,7 +75,10 @@ final class RotateWebhookSecretAction
                 'action' => 'cluster_server.secret_sync_failed',
                 'resource_type' => 'cluster_server',
                 'resource_id' => $cluster->id,
-                'payload' => ['error' => $e->getMessage(), 'version' => $new->version],
+                'payload' => [
+                    'error_category' => SshClientException::auditCategoryFor($e),
+                    'version' => $new->version,
+                ],
             ]);
             Log::channel('security')->warning('webhook.secret_sync_failed', [
                 'cluster_id' => $cluster->id,

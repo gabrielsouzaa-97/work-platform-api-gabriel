@@ -84,6 +84,20 @@ it('customers create route is forbidden for suporte', function () {
         ->assertForbidden();
 });
 
+it('customers destroy route is forbidden for suporte (D3-F009)', function () {
+    $support = Operator::factory()->create([
+        'role' => 'suporte',
+        'status' => 'active',
+    ]);
+
+    actingAs($support)
+        ->deleteJson(route('api.customers.destroy', 'acme-rm-gate'), [
+            'confirm_slug' => 'acme-rm-gate',
+            'backup_first' => true,
+        ])
+        ->assertForbidden();
+});
+
 it('inactive authenticated operator is logged out and blocked', function () {
     $operator = Operator::factory()->create([
         'role' => 'operador',

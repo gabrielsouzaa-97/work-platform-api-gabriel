@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Modules\Agents\Exceptions\AgentTransportException;
 use App\Modules\Agents\Services\AgentTransportResolver;
 use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
@@ -159,6 +160,8 @@ final class ProvisionCustomerAction
                     $stdinJson
                 );
             }
+        } catch (AgentTransportException) {
+            throw new ClusterUnreachableException;
         } catch (SshRemoteException $e) {
             if ($e->idempotencyConflict) {
                 $existingJobId = $e->parsedJson['existing_job_id'] ?? null;

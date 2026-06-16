@@ -61,24 +61,73 @@ final class AgentEventHandler
     private function storeOperationResult(string $operationId, array $event, string $state): void
     {
         $data = $event['data'] ?? null;
-        if (! is_array($data)) {
-            if ($state === 'failed' && isset($event['message']) && is_string($event['message'])) {
+
+        if ($state === 'failed') {
+            $error = $this->resolveFailureMessage($event, $data);
+            if ($error !== null) {
                 Cache::put(
                     AgentUpstreamGateway::resultCacheKey($operationId),
-                    ['error' => $event['message']],
+                    ['error' => $error],
                     120,
                 );
-            }
 
+                return;
+            }
+        }
+
+        if (is_array($data) && $this->storeJobIdIfPresent($operationId, $data)) {
             return;
         }
+    }
 
-        if (isset($data['job_id']) && is_string($data['job_id']) && $data['job_id'] !== '') {
-            Cache::put(
-                AgentUpstreamGateway::resultCacheKey($operationId),
-                ['job_id' => $data['job_id']],
-                120,
-            );
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function storeJobIdIfPresent(string $operationId, array $data): bool
+    {
+        if (! isset($data['job_id']) || ! is_string($data['job_id']) || $data['job_id'] === '') {
+            return false;
         }
+
+        Cache::put(
+            AgentUpstreamGateway::resultCacheKey($operationId),
+            ['job_id' => $data['job_id']],
+            120,
+        );
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    private function resolveFailureMessage(array $event, mixed $data): ?string
+    {
+        if (is_array($data) && array_key_exists('error', $data)) {
+            return $this->formatAgentError($data['error']);
+        }
+
+        if (isset($event['message']) && is_string($event['message']) && $event['message'] !== '') {
+            return $event['message'];
+        }
+
+        return null;
+    }
+
+    private function formatAgentError(mixed $error): string
+    {
+        if (is_string($error) && $error !== '') {
+            return $error;
+        }
+
+        if (is_array($error)) {
+            $messages = array_values(array_filter($error, static fn (mixed $item): bool => is_string($item) && $item !== ''));
+
+            if ($messages !== []) {
+                return implode('; ', $messages);
+            }
+        }
+
+        return 'Agent operation failed';
     }
 }

@@ -10,7 +10,7 @@ class RemoveCustomerRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role, ['admin', 'operador'], true);
+        return $this->user()?->can('provision-customers') ?? false;
     }
 
     public function rules(): array

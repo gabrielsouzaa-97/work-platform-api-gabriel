@@ -30,7 +30,6 @@ class WebhookSecretHistory extends Model
 
     protected $fillable = [
         'cluster_server_id',
-        'secret_encrypted',
         'version',
         'valid_from',
         'valid_until',
@@ -48,5 +47,17 @@ class WebhookSecretHistory extends Model
     public function clusterServer(): BelongsTo
     {
         return $this->belongsTo(ClusterServer::class, 'cluster_server_id');
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function createWithSecret(array $attributes, string $plainSecret): self
+    {
+        $entry = new self($attributes);
+        $entry->secret_encrypted = $plainSecret;
+        $entry->save();
+
+        return $entry;
     }
 }

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Agents\Services;
 
 use App\Models\ClusterServer;
+use App\Modules\Agents\Exceptions\AgentTransportException;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use Illuminate\Support\Facades\Cache;
 
 class AgentUpstreamGateway
 {
-    private const WAIT_SECONDS = 30;
+    // Synchronous poll on the HTTP worker; keep short to avoid FPM exhaustion under pilot load.
+    private const WAIT_SECONDS = 10;
 
     public function __construct(
         private readonly AgentTransportResolver $transportResolver,
@@ -34,7 +36,7 @@ class AgentUpstreamGateway
 
         $agent = $this->transportResolver->findAgentForCluster($cluster);
         if ($agent === null) {
-            throw new \RuntimeException('No active farm agent for cluster');
+            throw new AgentTransportException('No active farm agent for cluster');
         }
 
         $operation = $this->resolveOperation($args);
@@ -93,13 +95,13 @@ class AgentUpstreamGateway
                 }
 
                 if (isset($result['error']) && is_string($result['error']) && $result['error'] !== '') {
-                    throw new \RuntimeException($result['error']);
+                    throw new AgentTransportException($result['error']);
                 }
             }
 
             usleep(100_000);
         }
 
-        throw new \RuntimeException('Farm agent did not return job_id in time');
+        throw new AgentTransportException('Farm agent did not return job_id in time');
     }
 }
