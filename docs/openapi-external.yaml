@@ -1,0 +1,1002 @@
+openapi: 3.0.3
+
+info:
+  title: meWork360 Platform API — External v1
+  version: 1.0.0-draft
+  description: |
+    **Contrato externo estável** do control plane meWork360 (`work-platform-api`).
+    Modela **capabilities de negócio** (Tenant, Apps, Users, Jobs) — nunca subcomandos
+    OCC, exit codes ou termos do protocolo Nextcloud interno.
+
+    ## Status
+    **DRAFT (ISSUE-038)** — este spec define o alvo do Sprint 0; **não está implementado**
+    em produção. Fonte de verdade code-first para corrigir o drift DOC-001/ISSUE-021.
+
+    ## Modelo assíncrono
+    Operações de mutação retornam **HTTP 202** com envelope `{ data, meta }`, onde
+    `meta.job_id` identifica o job na réplica local e `meta.status_url` aponta para
+    `GET /v1/jobs/{id}`. Acompanhe o job até estado terminal (`success`, `failed`,
+    `cancelled`).
+
+    ## Janela de readiness
+    Após provisionamento, o tenant pode permanecer em `provisioning` ou
+    `provisioning_finishing`. Enquanto nessa janela, `POST /v1/tenants/{slug}/users`
+    retorna **503** `tenant_not_ready` com header `Retry-After` (segundos).
+
+    ## Autorização (ISSUE-037 — pré-requisito)
+    Todas as rotas exigem Bearer token (`Authorization: Bearer <api_key>`).
+    Cada operação declara o **scope** mínimo via extensão `x-required-scope`.
+    A aplicação de scopes e o **binding tenant↔principal** depende do middleware
+    `VerifyExternalPrincipal` (ISSUE-037 / SEC-V1-001) — gate duro antes de abrir
+    a v1 a integradores externos.
+
+    ## Envelopes
+    - **Sucesso síncrono (200):** `{ "data": { ... } }`
+    - **Sucesso assíncrono (202):** `{ "data": { ... }, "meta": { "job_id", "status_url" } }`
+    - **Erro:** `{ "error": { "code", "message", "retry_after?", "details?" } }` (`DomainError`)
+
+  contact:
+    name: meWork360 Platform
+
+servers:
+  - url: https://deployer.mework360.com.br/api/v1
+    description: Control plane — namespace externo versionado
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Tenants
+    description: Provisionamento, leitura e remoção de tenants
+  - name: Apps
+    description: Habilitação de apps no tenant
+  - name: Users
+    description: Criação e remoção de usuários no tenant
+  - name: Jobs
+    description: Consulta de jobs assíncronos
+  - name: Branding
+    description: Personalização visual (bloqueada até D-02)
+  - name: Onboarding
+    description: Saga composta de onboarding (planned — atrás de D-02)
+
+paths:
+  /tenants:
+    post:
+      tags: [Tenants]
+      summary: Criar tenant
+      description: |
+        Enfileira provisionamento assíncrono de um novo tenant Nextcloud.
+        Retorna o registro local do tenant em `data` e o handle do job em `meta`.
+
+        **Scope:** `tenants:write` — ver `x-required-scope`.
+      operationId: createTenant
+      x-required-scope: tenants:write
+      x-internal-mapping: ProvisionCustomerAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+            examples:
+              minimal:
+                summary: Tenant mínimo
+                value:
+                  slug: acme-corp
+                  domain: acme.mework360.com.br
+                  cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  apps: [files, calendar]
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequestMultipart"
+      responses:
+        "202":
+          description: Provisionamento enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncTenantAccepted"
+              examples:
+                accepted:
+                  value:
+                    data:
+                      slug: acme-corp
+                      cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                      domain: acme.mework360.com.br
+                      status: provisioning
+                      last_sync_at: "2026-06-16T15:00:00+00:00"
+                      created_at: "2026-06-16T15:00:00+00:00"
+                    meta:
+                      job_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      status_url: "/v1/jobs/7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+
+  /tenants/{slug}:
+    parameters:
+      - $ref: "#/components/parameters/TenantSlug"
+    get:
+      tags: [Tenants]
+      summary: Ler tenant
+      description: |
+        Retorna a réplica local do tenant (Customer).
+
+        **Scope:** `tenants:read`.
+      operationId: getTenant
+      x-required-scope: tenants:read
+      x-internal-mapping: Customer (réplica local — CustomerResource)
+      responses:
+        "200":
+          description: Tenant encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantEnvelope"
+              examples:
+                active:
+                  value:
+                    data:
+                      slug: acme-corp
+                      cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                      domain: acme.mework360.com.br
+                      status: active
+                      last_sync_at: "2026-06-16T16:30:00+00:00"
+                      created_at: "2026-06-16T15:00:00+00:00"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    delete:
+      tags: [Tenants]
+      summary: Remover tenant
+      description: |
+        Enfileira remoção assíncrona. Exige `confirm_slug` igual ao slug do path
+        (proteção contra remoção acidental).
+
+        **Scope:** `tenants:write`.
+      operationId: removeTenant
+      x-required-scope: tenants:write
+      x-internal-mapping: RemoveCustomerAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoveTenantRequest"
+            examples:
+              withBackup:
+                value:
+                  confirm_slug: acme-corp
+                  backup_first: true
+      responses:
+        "202":
+          description: Remoção enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAccepted"
+              examples:
+                accepted:
+                  value:
+                    data: {}
+                    meta:
+                      job_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      status_url: "/v1/jobs/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "409":
+          $ref: "#/components/responses/StateConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+
+  /tenants/{slug}/apps:
+    parameters:
+      - $ref: "#/components/parameters/TenantSlug"
+    post:
+      tags: [Apps]
+      summary: Habilitar apps
+      description: |
+        Enfileira `apps:enable` com todos os app IDs consolidados em um único job
+        (CSV upstream). Ordem do array `apps` é preservada.
+
+        **Scope:** `apps:write`.
+      operationId: enableApps
+      x-required-scope: apps:write
+      x-internal-mapping: LifecycleAsyncAction (cmd apps:enable)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnableAppsRequest"
+            examples:
+              enable:
+                value:
+                  apps: [files, calendar, contacts]
+      responses:
+        "202":
+          description: Job enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAppsAccepted"
+              examples:
+                accepted:
+                  value:
+                    data:
+                      apps: [files, calendar, contacts]
+                    meta:
+                      job_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      status_url: "/v1/jobs/b2c3d4e5-f6a7-8901-bcde-f12345678901"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+
+  /tenants/{slug}/users:
+    parameters:
+      - $ref: "#/components/parameters/TenantSlug"
+    post:
+      tags: [Users]
+      summary: Criar usuário
+      description: |
+        Enfileira `users:create`. Campos extras (senha, e-mail, grupos) via payload
+        interno — não expõe subcomandos OCC.
+
+        Retorna **503** `tenant_not_ready` enquanto `status` ∈
+        `{provisioning, provisioning_finishing}`.
+
+        **Scope:** `users:write`.
+      operationId: createUser
+      x-required-scope: users:write
+      x-internal-mapping: LifecycleAsyncAction (cmd users:create)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            examples:
+              admin:
+                value:
+                  username: admin.acme
+                  password: "Str0ngP@ss1"
+                  display_name: Admin Acme
+                  email: admin@acme.com.br
+                  groups: [admin]
+      responses:
+        "202":
+          description: Job enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAccepted"
+              examples:
+                accepted:
+                  value:
+                    data:
+                      username: admin.acme
+                    meta:
+                      job_id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                      status_url: "/v1/jobs/c3d4e5f6-a7b8-9012-cdef-123456789012"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+        "503":
+          $ref: "#/components/responses/TenantNotReady"
+
+  /tenants/{slug}/users/{username}:
+    parameters:
+      - $ref: "#/components/parameters/TenantSlug"
+      - $ref: "#/components/parameters/Username"
+    delete:
+      tags: [Users]
+      summary: Remover usuário
+      description: |
+        Enfileira `users:delete` para o username informado.
+
+        **Scope:** `users:write`.
+      operationId: deleteUser
+      x-required-scope: users:write
+      x-internal-mapping: LifecycleAsyncAction (cmd users:delete)
+      responses:
+        "202":
+          description: Job enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAccepted"
+              examples:
+                accepted:
+                  value:
+                    data:
+                      username: admin.acme
+                    meta:
+                      job_id: "d4e5f6a7-b8c9-0123-def0-234567890123"
+                      status_url: "/v1/jobs/d4e5f6a7-b8c9-0123-def0-234567890123"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+
+  /jobs/{id}:
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    get:
+      tags: [Jobs]
+      summary: Status de job
+      description: |
+        Consulta a réplica local do job assíncrono.
+
+        **Scope:** `jobs:read`.
+      operationId: getJob
+      x-required-scope: jobs:read
+      x-internal-mapping: JobController::show → JobResource
+      responses:
+        "200":
+          description: Job encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobEnvelope"
+              examples:
+                running:
+                  value:
+                    data:
+                      job_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      customer_slug: acme-corp
+                      cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                      job_type: provision
+                      state: running
+                      summary: null
+                      queued_at: "2026-06-16T15:00:01+00:00"
+                      started_at: "2026-06-16T15:00:05+00:00"
+                      finished_at: null
+                      callback_received_at: null
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          description: Job não encontrado (código estável a definir na implementação — hoje Laravel 404 genérico)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /tenants/{slug}/branding:
+    parameters:
+      - $ref: "#/components/parameters/TenantSlug"
+    put:
+      tags: [Branding]
+      summary: Aplicar branding (indisponível)
+      description: |
+        **Capability bloqueada (D-02).** O upstream ainda não suporta branding via
+        allowlist estável. Retorna **404** `capability_not_available` até resolução
+        de D-02 / ISSUE-016. Schema documentado apenas como referência futura.
+
+        **Scope:** `branding:write`.
+      operationId: setBranding
+      x-required-scope: branding:write
+      x-internal-mapping: "(bloqueado — OccController::setBranding / PlatformPort.setBranding futuro)"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                logo:
+                  type: string
+                  format: binary
+                  description: PNG ou JPEG, máx. 5 MB
+                background:
+                  type: string
+                  format: binary
+                  description: PNG ou JPEG, máx. 5 MB
+      responses:
+        "404":
+          $ref: "#/components/responses/CapabilityNotAvailable"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /onboarding:
+    post:
+      tags: [Onboarding]
+      summary: Onboarding composto (planned)
+      description: |
+        **Planned — não implementado.** Operação composta (tenant + admin + apps +
+        branding) atrás de **D-02** resolvido. Retorna **501** `not_implemented`
+        até a Fase 4 do ADR. Não promete schema de execução neste draft.
+
+        **Scope:** `onboarding:run`.
+      operationId: runOnboarding
+      x-required-scope: onboarding:run
+      x-internal-mapping: OnboardingSaga (planned — Fase 4)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Schema de execução será definido na Fase 4 (pós D-02).
+              additionalProperties: true
+      responses:
+        "501":
+          description: Capability ainda não implementada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainError"
+              examples:
+                notImplemented:
+                  value:
+                    error:
+                      code: not_implemented
+                      message: Onboarding saga is planned and blocked behind D-02 upstream allowlist resolution.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        API key emitida pelo painel admin (`/api-keys`). O token deve incluir os
+        scopes exigidos pela operação (`x-required-scope`). Binding tenant↔principal
+        é aplicado pelo middleware `VerifyExternalPrincipal` (ISSUE-037).
+
+  parameters:
+    TenantSlug:
+      name: slug
+      in: path
+      required: true
+      description: |
+        Identificador do tenant. Pattern `^[a-z0-9-]+$`, 3–64 caracteres.
+        Underscore e maiúsculas são rejeitados com 422.
+      schema:
+        type: string
+        pattern: "^[a-z0-9-]+$"
+        minLength: 3
+        maxLength: 64
+      example: acme-corp
+    Username:
+      name: username
+      in: path
+      required: true
+      description: Username Nextcloud. Pattern `^[a-zA-Z0-9._-]+$`, máx. 64 caracteres.
+      schema:
+        type: string
+        pattern: "^[a-zA-Z0-9._-]+$"
+        maxLength: 64
+      example: admin.acme
+    JobId:
+      name: id
+      in: path
+      required: true
+      description: UUID v4 do job na réplica local.
+      schema:
+        type: string
+        format: uuid
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+  schemas:
+    Envelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          description: Recurso ou objeto de domínio da operação.
+          nullable: true
+        meta:
+          $ref: "#/components/schemas/Meta"
+
+    Meta:
+      type: object
+      required: [job_id, status_url]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: Identificador do job assíncrono na réplica local.
+        status_url:
+          type: string
+          description: Path relativo para polling do job (`GET /v1/jobs/{id}`).
+          example: "/v1/jobs/7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    AsyncAccepted:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          required: [meta]
+          properties:
+            data:
+              type: object
+              description: Payload mínimo da operação (pode ser `{}`).
+
+    AsyncTenantAccepted:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          required: [data, meta]
+          properties:
+            data:
+              $ref: "#/components/schemas/TenantResource"
+
+    AsyncAppsAccepted:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          required: [data, meta]
+          properties:
+            data:
+              type: object
+              required: [apps]
+              properties:
+                apps:
+                  type: array
+                  items:
+                    type: string
+
+    TenantEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/TenantResource"
+
+    JobEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/JobResource"
+
+    DomainError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Código estável de erro de domínio (nunca expõe subcmd/exit_code).
+              enum:
+                - validation_failed
+                - unauthenticated
+                - forbidden_scope
+                - tenant_not_found
+                - tenant_not_ready
+                - idempotency_conflict
+                - state_conflict
+                - cluster_unreachable
+                - upstream_unavailable
+                - capability_not_available
+                - rate_limited
+                - not_implemented
+            message:
+              type: string
+              description: Mensagem legível para integradores (sem stack trace).
+            retry_after:
+              type: integer
+              description: Segundos sugeridos antes de retry (espelha header Retry-After quando aplicável).
+              minimum: 1
+            details:
+              type: object
+              description: Metadados adicionais seguros (ex. existing_job_id, diff, field errors).
+              additionalProperties: true
+
+    TenantResource:
+      type: object
+      required: [slug, cluster_server_id, domain, status]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+        cluster_server_id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+          maxLength: 253
+        status:
+          type: string
+          description: Estado do ciclo de vida local do tenant.
+          enum:
+            - provisioning
+            - provisioning_finishing
+            - active
+            - failed
+            - removing
+            - removed
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateTenantRequest:
+      type: object
+      required: [slug, domain, cluster_server_id]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+          minLength: 3
+          maxLength: 64
+        domain:
+          type: string
+          maxLength: 253
+        cluster_server_id:
+          type: string
+          format: uuid
+        apps:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          description: App IDs a habilitar no provisionamento.
+        full_apps:
+          type: boolean
+          default: false
+          description: Habilita conjunto completo de apps (mutuamente exclusivo com lista explícita).
+
+    CreateTenantRequestMultipart:
+      allOf:
+        - $ref: "#/components/schemas/CreateTenantRequest"
+        - type: object
+          properties:
+            logo:
+              type: string
+              format: binary
+              description: PNG/JPEG, máx. 5120 KB.
+            background:
+              type: string
+              format: binary
+              description: PNG/JPEG, máx. 5120 KB.
+
+    RemoveTenantRequest:
+      type: object
+      required: [confirm_slug]
+      properties:
+        confirm_slug:
+          type: string
+          description: Deve ser idêntico ao `{slug}` do path.
+        backup_first:
+          type: boolean
+          default: true
+          description: Solicita backup antes da remoção (padrão upstream).
+
+    EnableAppsRequest:
+      type: object
+      required: [apps]
+      properties:
+        apps:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: "^[a-z0-9_]+$"
+            maxLength: 100
+
+    CreateUserRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          pattern: "^[a-zA-Z0-9._-]+$"
+          maxLength: 64
+        password:
+          type: string
+          minLength: 8
+          description: Mín. 8 caracteres, letras e números.
+        display_name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        quota:
+          type: string
+          description: "Ex.: `5 GB`, `none`, `default`, `unlimited`."
+        groups:
+          type: array
+          items:
+            type: string
+            maxLength: 256
+        subadmin_groups:
+          type: array
+          items:
+            type: string
+            maxLength: 256
+
+    JobResource:
+      type: object
+      required: [job_id, customer_slug, cluster_server_id, job_type, state]
+      description: |
+        Réplica local do job. **Não expõe** `cmd_canonical`, `exit_code` ou termos
+        do protocolo NC — sanitizado na borda v1.
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        customer_slug:
+          type: string
+        cluster_server_id:
+          type: string
+          format: uuid
+        job_type:
+          type: string
+          description: Tipo de negócio traduzido (ex. provision, users_create, apps_enable).
+          maxLength: 100
+        state:
+          type: string
+          enum: [queued, running, success, failed, cancelled]
+        summary:
+          type: string
+          nullable: true
+          description: Resumo sanitizado do resultado (sem exit codes).
+        queued_at:
+          type: string
+          format: date-time
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        callback_received_at:
+          type: string
+          format: date-time
+          nullable: true
+
+  responses:
+    Unauthenticated:
+      description: Token ausente ou inválido
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            unauthenticated:
+              value:
+                error:
+                  code: unauthenticated
+                  message: Authentication required.
+
+    ForbiddenScope:
+      description: Token válido mas sem scope ou binding tenant↔principal
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            forbidden:
+              value:
+                error:
+                  code: forbidden_scope
+                  message: Insufficient scope or tenant binding for this operation.
+
+    TenantNotFound:
+      description: Tenant não encontrado na réplica local
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            notFound:
+              value:
+                error:
+                  code: tenant_not_found
+                  message: Tenant not found.
+
+    TenantNotReady:
+      description: Tenant ainda em provisionamento — operação de usuário bloqueada
+      headers:
+        Retry-After:
+          description: Segundos antes de tentar novamente.
+          schema:
+            type: integer
+            example: 60
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            notReady:
+              value:
+                error:
+                  code: tenant_not_ready
+                  message: Tenant is not ready for user operations.
+                  retry_after: 60
+                  details:
+                    status: provisioning_finishing
+
+    IdempotencyConflict:
+      description: Requisição duplicada com payload diferente dentro da janela de 24h
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            conflict:
+              value:
+                error:
+                  code: idempotency_conflict
+                  message: A job with different parameters already exists for this operation.
+                  details:
+                    existing_job_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    StateConflict:
+      description: Conflito de estado (tenant em remoção, job em andamento, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            conflict:
+              value:
+                error:
+                  code: state_conflict
+                  message: Operation conflicts with current tenant or job state.
+                  details:
+                    reason: already_in_progress
+
+    ClusterUnreachable:
+      description: Cluster inativo ou inacessível
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            example: 60
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            unreachable:
+              value:
+                error:
+                  code: cluster_unreachable
+                  message: Target cluster is unreachable.
+                  retry_after: 60
+
+    UpstreamUnavailable:
+      description: Falha no upstream (SSH/Agent) — sem expor exit_code ou subcmd
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            upstream:
+              value:
+                error:
+                  code: upstream_unavailable
+                  message: Upstream platform temporarily unavailable.
+
+    CapabilityNotAvailable:
+      description: Capability bloqueada (D-02 / allowlist upstream)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            blocked:
+              value:
+                error:
+                  code: capability_not_available
+                  message: This capability is not available until upstream allowlist (D-02) is resolved.
+
+    RateLimited:
+      description: Limite de taxa excedido (120 req/min por padrão)
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            example: 60
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            limited:
+              value:
+                error:
+                  code: rate_limited
+                  message: Too many requests.
+                  retry_after: 60
+
+    ValidationFailed:
+      description: Falha de validação de entrada
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+          examples:
+            validation:
+              value:
+                error:
+                  code: validation_failed
+                  message: The given data was invalid.
+                  details:
+                    slug: ["Slug já em uso."]
