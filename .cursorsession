@@ -183,11 +183,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-16T17:07:57Z",
-    "usage_percent": 91.7505,
-    "messages_lost": 296
+    "compacted_at": "2026-06-16T19:42:58Z",
+    "usage_percent": 93.60033333333332,
+    "messages_lost": 270
   },
-  "compact_count": 1,
+  "compact_count": 2,
   "checkpoint": {
     "validation_gate": {
       "sprint": "N19",
