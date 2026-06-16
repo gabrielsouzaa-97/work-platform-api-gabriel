@@ -35,15 +35,14 @@
   "fase_atual": "13",
   "fase_nome": "Sprint N19 concluída — validação R2 APROVADA",
   "sprint_atual": null,
-  "previous_sprint": "N19",
-  "sprint_branch": null,
   "previous_sprint": "F3",
-  "beesy_version": "4.52.0",
-  "decisions_applied_until": 237,
+  "sprint_branch": null,
+  "beesy_version": "4.54.0",
+  "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-12T20:30:00Z",
+  "ultimo_update": "2026-06-16T15:30:00Z",
   "next_sprint_planned": "F10.3",
   "modulos": [
     "Core",
@@ -178,15 +177,15 @@
     "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
     "updated_at": "2026-06-12T20:30:00Z"
   },
-  "contexto_rapido": "Upgrade 4.52.0 (#235-#237) — F3 closed; próximo F10.3 deploy prod ISSUE-023",
+  "contexto_rapido": "Upgrade 4.54.0 (#239) — cursor-db-keeper via framework install; próximo F10.3 deploy prod ISSUE-023",
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-10T14:31:48Z",
-    "usage_percent": 90.279,
-    "messages_lost": 293
+    "compacted_at": "2026-06-16T17:07:57Z",
+    "usage_percent": 91.7505,
+    "messages_lost": 296
   },
   "compact_count": 1,
   "checkpoint": {
@@ -201,7 +200,10 @@
       "result": "APROVADA",
       "contract_source": "bootstrap",
       "tests_evidence": "12 passed, 29 assertions (local SQLite); CQ-N19-001 + QA-N19-001 validados in-code",
-      "findings_validated": ["CQ-N19-001", "QA-N19-001"],
+      "findings_validated": [
+        "CQ-N19-001",
+        "QA-N19-001"
+      ],
       "in_contract": [],
       "stamped_at": "2026-06-12T21:00:00Z"
     }
