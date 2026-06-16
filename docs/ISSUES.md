@@ -44,7 +44,7 @@
 | ISSUE-036 | bug | Containers `*-push` (notify_push) em `Restarting (127)` em 4 tenants do SaaS-02 | Cross-repo (deploy-scripts) | MEDIUM | open |
 | ISSUE-037 | security | `ApiKey.scopes` nunca aplicado + sem autorização por tenant — qualquer chave age sobre qualquer customer (IDOR latente; vira CRITICAL ao abrir `/v1` a terceiros) | Core (Auth/api-key), Customers | HIGH | open (triagem 2026-06-16 → Fix Brief / Sprint F) — finding SEC-V1-001 |
 | ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | open (triagem 2026-06-16 — ADR `.arch-panel/panel/final.md`; aguarda `/pmo new` p/ Sprint 0; depende de ISSUE-037) |
-| ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | open — Sprint F14 planejada (`/pmo fix` 2026-06-16) |
+| ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | corrigido local — aguarda CI verde pós-merge (Sprint F14) |
 
 ---
 
@@ -118,7 +118,7 @@ Decisão do painel (resumo — detalhe no ADR):
 
 - **Tipo**: bug (CI blocker)
 - **Prioridade**: HIGH
-- **Status**: open — Sprint **F14** planejada via `/pmo fix` (2026-06-16)
+- **Status**: corrigido local — Sprint **F14** implementada (2026-06-16); aguarda push + CI verde no `main`
 - **Registrado em**: 2026-06-16
 - **Origem**: Investigação CI run `27646529336` (commit `1eebced`); lint corrigido via sprint-Q (`CI-FAIL-20260616200847` parcial)
 - **Módulos afetados**: Audit, ClusterServers, Core (composer)
@@ -135,7 +135,7 @@ Não relacionado ao push de docs/contratos v1.
 
 ### Próximo passo
 
-`/pmo sprint F14` para executar as 4 tasks planejadas no ROADMAP.
+Commit + push da branch `sprint/F14` → merge no `main` → `/qa validar F14` para re-validar findings e fechar ISSUE-039.
 
 ## ISSUE-032 — Remover tenants de teste do host prod SaaS-02
 

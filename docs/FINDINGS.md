@@ -2158,35 +2158,38 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: F14
 - **Severidade**: HIGH (CI blocker — 2 testes)
 - **Tipo**: regression / test gap
-- **Status**: Pendente
+- **Status**: Corrigido
 - **Registrado em**: 2026-06-16
 - **Origem**: Investigação CI run `27646529336`; commit `4e2d1e9` (sprint N19)
 - **Arquivo**: `tests/Feature/Audit/AuditLogTest.php`, `app/Models/ClusterServer.php` (`$fillable`)
 - **Descrição**: N19 removeu `ssh_private_key_encrypted` e `webhook_secret_encrypted` do `$fillable` (hardening correto). Os testes `observer registra audit_log` e `observer sanitiza campos sensíveis` ainda usam `ClusterServer::create([...])` com mass assignment desses campos — Eloquent descarta silenciosamente → `NOT NULL constraint failed: cluster_servers.ssh_private_key_encrypted`.
 - **Ação necessária**: Ajustar testes para padrão de produção (`factory()->create()` + assign direto + `save()`), sem reabrir mass assignment.
+- **Correção**: Sprint F14 — testes usam `factory()->make()` + assign direto de secrets + `save()`; `$fillable` permanece sem secrets.
 
 ### QA-F14-002 — HIGH — `RotateSecretTest` desalinhado com factory auto-seed de `WebhookSecretHistory` (N19)
 
 - **Sprint**: F14
 - **Severidade**: HIGH (CI blocker — 4 testes)
 - **Tipo**: regression / test gap
-- **Status**: Pendente
+- **Status**: Corrigido
 - **Registrado em**: 2026-06-16
 - **Origem**: Investigação CI run `27646529336`; commit `4e2d1e9` (sprint N19)
 - **Arquivo**: `tests/Feature/ClusterServers/RotateSecretTest.php`, `database/factories/ClusterServerFactory.php`
 - **Descrição**: N19 adicionou `afterCreating` na factory que cria `WebhookSecretHistory` v1 automaticamente. Quatro testes ainda assumem cluster sem histórico ou fazem seed manual redundante de v1: `toHaveCount(2)` recebe 3; `RuntimeException` não lançada; `toast type=error` não disparado; `count() === 0` recebe 1.
 - **Ação necessária**: Alinhar testes ao novo contrato da factory — remover seed redundante; para cenários “sem histórico”, usar state `withoutWebhookHistory()` na factory ou `ClusterServer::withoutEvents()`.
+- **Correção**: Sprint F14 — seed manual redundante removido; `ClusterServerFactory::withoutWebhookHistory()` deleta histórico pós-create; 4 cenários alinhados.
 
 ### SEC-F14-001 — MEDIUM — `phpseclib/phpseclib` 3.0.52 vulnerável (GHSA-m557-wrgg-6rp4)
 
 - **Sprint**: F14
 - **Severidade**: MEDIUM (CI blocker — job Security)
 - **Tipo**: security / dependency
-- **Status**: Pendente
+- **Status**: Corrigido
 - **Registrado em**: 2026-06-16
 - **Origem**: `composer audit --no-dev --locked` no CI e local
 - **Arquivo**: `composer.lock` (`phpseclib/phpseclib` 3.0.52)
 - **Descrição**: Advisory SSRF via validação X.509 (AIA). Versões afetadas `<=3.0.53`; projeto locked em 3.0.52. Fix: `>=3.0.54`.
 - **Ação necessária**: `composer update phpseclib/phpseclib --with-dependencies`; commit lockfile; re-run `composer audit`.
+- **Correção**: Sprint F14 — `phpseclib/phpseclib` 3.0.55; `composer audit --no-dev --locked` exit 0.
 
 ---

@@ -1,10 +1,10 @@
 # .cursor/context-brief.yaml (auto-generated — do not edit)
-# Last update: 2026-06-16T20:05:18Z
+# Last update: 2026-06-16T22:17:35Z
 ---
-projeto: mework360-deployer
+projeto: work-platform-api
 versao: ?
-perfil: laravel
-fase: 13
+perfil: ?
+fase: ?
 sprint_atual: ?
 findings_criticos_count: 0
 findings_criticos: []

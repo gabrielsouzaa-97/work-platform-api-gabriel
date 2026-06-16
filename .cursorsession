@@ -33,16 +33,16 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N19 concluída — validação R2 APROVADA",
-  "sprint_atual": null,
+  "fase_nome": "Sprint F14 — implementação concluída; aguarda commit/push + CI",
+  "sprint_atual": "F14",
   "previous_sprint": "F3",
-  "sprint_branch": null,
+  "sprint_branch": "sprint/F14",
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-16T20:45:00Z",
+  "ultimo_update": "2026-06-16T22:10:00Z",
   "next_sprint_planned": "F14",
   "modulos": [
     "Core",
@@ -53,7 +53,8 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/pmo sprint F14 — CI verde no main (ISSUE-039: regressão N19 + phpseclib)",
+    "/git — commit + push sprint/F14 + PR para main",
+    "/qa validar F14 — re-validar QA-F14-001/002 + SEC-F14-001",
     "ISSUE-037 — authz scopes (outra aba)",
     "ISSUE-038 — /pmo new para Sprint 0 da API v1 (após ISSUE-037)"
   ],
@@ -178,7 +179,7 @@
     "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
     "updated_at": "2026-06-12T20:30:00Z"
   },
-  "contexto_rapido": "Sprint F14 planejada (CI verde main — ISSUE-039). Contrato v1 DRAFT versionado. ISSUE-037 em fix paralelo.",
+  "contexto_rapido": "Sprint F14 implementada localmente (phpseclib 3.0.55 + 6 testes N19). Aguarda commit/push. ISSUE-037 em fix paralelo.",
   "autopilot": {
     "active": false
   },
