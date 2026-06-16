@@ -31,13 +31,6 @@ it('rotate secret cria versão N+1, expira versão N com valid_until, envia emai
     $admin = Operator::factory()->admin()->create();
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 
-    rotateSecretHistory([
-        'cluster_server_id' => $cluster->id,
-        'version' => 1,
-        'valid_from' => now()->subHour(),
-        'valid_until' => null,
-    ], 'original-secret');
-
     Livewire::actingAs($admin)
         ->test(Index::class)
         ->call('rotateSecret', $cluster->id)
@@ -181,7 +174,7 @@ it('cron clean remove registros expirados há mais de 30 dias mas mantém os em 
 });
 
 it('rotate action lança RuntimeException quando cluster não tem secret ativo no histórico', function () {
-    $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
+    $cluster = ClusterServer::factory()->withoutWebhookHistory()->create(['webhook_secret_version' => 1]);
 
     expect(fn () => app(RotateWebhookSecretAction::class)->execute($cluster))
         ->toThrow(RuntimeException::class, 'sem secret atual no histórico');
@@ -189,7 +182,7 @@ it('rotate action lança RuntimeException quando cluster não tem secret ativo n
 
 it('rotateSecret exibe erro amigável quando histórico de secret está ausente', function () {
     $admin = Operator::factory()->admin()->create();
-    $cluster = ClusterServer::factory()->create();
+    $cluster = ClusterServer::factory()->withoutWebhookHistory()->create();
 
     Livewire::actingAs($admin)
         ->test(Index::class)
@@ -272,7 +265,7 @@ it('webhook validator aceita secret com valid_until um segundo após now()', fun
 });
 
 it('webhook validator retorna false para cluster sem nenhum WebhookSecretHistory', function () {
-    $cluster = ClusterServer::factory()->create();
+    $cluster = ClusterServer::factory()->withoutWebhookHistory()->create();
 
     expect(WebhookSecretHistory::where('cluster_server_id', $cluster->id)->count())->toBe(0);
     expect(app(WebhookSecretValidator::class)->valid($cluster, 'sha256=anything', 'body'))->toBeFalse();

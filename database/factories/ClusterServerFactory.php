@@ -16,6 +16,13 @@ class ClusterServerFactory extends Factory
 {
     protected $model = ClusterServer::class;
 
+    public function withoutWebhookHistory(): static
+    {
+        return $this->afterCreating(function (ClusterServer $cluster): void {
+            WebhookSecretHistory::where('cluster_server_id', $cluster->id)->delete();
+        });
+    }
+
     public function definition(): array
     {
         return [
