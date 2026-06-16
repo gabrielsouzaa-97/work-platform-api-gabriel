@@ -33,17 +33,17 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N19 concluída — validação R2 APROVADA",
+  "fase_nome": "Sprint F14 concluída — CI verde no main",
   "sprint_atual": null,
-  "previous_sprint": "F3",
+  "previous_sprint": "F14",
   "sprint_branch": null,
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-16T20:45:00Z",
-  "next_sprint_planned": "F14",
+  "ultimo_update": "2026-06-16T22:40:00Z",
+  "next_sprint_planned": null,
   "modulos": [
     "Core",
     "ClusterServers",
@@ -53,7 +53,6 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/pmo sprint F14 — CI verde no main (ISSUE-039: regressão N19 + phpseclib)",
     "ISSUE-037 — authz scopes (outra aba)",
     "ISSUE-038 — /pmo new para Sprint 0 da API v1 (após ISSUE-037)"
   ],
@@ -178,7 +177,7 @@
     "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
     "updated_at": "2026-06-12T20:30:00Z"
   },
-  "contexto_rapido": "Sprint F14 planejada (CI verde main — ISSUE-039). Contrato v1 DRAFT versionado. ISSUE-037 em fix paralelo.",
+  "contexto_rapido": "Sprint F14 APROVADA — CI verde no main (PR #112). ISSUE-039 fechada. ISSUE-037 em fix paralelo.",
   "autopilot": {
     "active": false
   },
@@ -210,30 +209,25 @@
     }
   },
   "validation_gate": {
-    "sprint": "F3",
-    "produced_by": "rock-close-sprint-F3",
+    "sprint": "F14",
+    "produced_by": "/qa validar F14 via /rock",
     "result": "APROVADA",
-    "validation_mode": "closure",
+    "validation_mode": "revalidation",
+    "validation_round": 1,
     "findings_validated": [
-      "D4-F009",
-      "D4-F005",
-      "DBA-F010",
-      "DBA-F011",
-      "DBA-F012",
-      "SEC-F013",
-      "SEC-F014",
-      "SEC-F015"
+      "QA-F14-001",
+      "QA-F14-002",
+      "SEC-F14-001"
     ],
     "tasks_completed": [
-      "F3.1",
-      "F3.2",
-      "F3.3",
-      "F3.4",
-      "F3.5",
-      "F3.6",
-      "F3.7"
+      "F14.1",
+      "F14.2",
+      "F14.3",
+      "F14.4"
     ],
-    "stamped_at": "2026-06-12T14:30:00Z"
+    "tests_evidence": "CI run 27652086261: Lint + Test + Security success; senior PASS; qa PASS_WITH_NOTES",
+    "senior_review_status": "PASS",
+    "stamped_at": "2026-06-16T22:40:00Z"
   },
   "planning_history": [
     {

@@ -16,17 +16,18 @@ it('observer registra audit_log ao criar cluster_server', function () {
     $admin = Operator::factory()->admin()->create();
     Auth::login($admin);
 
-    $cluster = ClusterServer::create([
+    $cluster = ClusterServer::factory()->make([
         'name' => 'Cluster Observer Test',
         'ssh_host' => '1.2.3.4',
         'ssh_port' => 22,
         'ssh_user' => 'root',
-        'ssh_private_key_encrypted' => 'pem-content',
-        'webhook_secret_encrypted' => 'secret',
         'webhook_secret_version' => 1,
         'schema_version' => 1,
         'status' => 'active',
     ]);
+    $cluster->ssh_private_key_encrypted = 'pem-content';
+    $cluster->webhook_secret_encrypted = 'secret';
+    $cluster->save();
 
     $log = AuditLog::where('resource_type', 'cluster_server')
         ->where('resource_id', $cluster->id)
@@ -41,17 +42,18 @@ it('observer sanitiza campos sensíveis no payload', function () {
     $admin = Operator::factory()->admin()->create();
     Auth::login($admin);
 
-    ClusterServer::create([
+    $cluster = ClusterServer::factory()->make([
         'name' => 'Sanitize Test',
         'ssh_host' => '5.6.7.8',
         'ssh_port' => 22,
         'ssh_user' => 'root',
-        'ssh_private_key_encrypted' => 'my-super-secret-pem',
-        'webhook_secret_encrypted' => 'my-webhook-secret',
         'webhook_secret_version' => 1,
         'schema_version' => 1,
         'status' => 'active',
     ]);
+    $cluster->ssh_private_key_encrypted = 'my-super-secret-pem';
+    $cluster->webhook_secret_encrypted = 'my-webhook-secret';
+    $cluster->save();
 
     $log = AuditLog::where('action', 'cluster_server.create')
         ->where('resource_type', 'cluster_server')

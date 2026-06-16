@@ -83,7 +83,7 @@
 | F11    | F         | Slug reuse pós `provision.failed` + cleanup MEDIUM F5 | **concluída** | 6     | Customers, Core | ISSUE-018 — validação APROVADA R1 (2026-05-24) | 4082+    |
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
-| F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **planejada** | 4 | Audit, ClusterServers, Core | ISSUE-039 — QA-F14-001/002 + SEC-F14-001 | 4372+ |
+| F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
 
 ---
 
@@ -4374,17 +4374,17 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 ## Sprint F14 — CI verde no main (regressão N19 + phpseclib)
 
 > Categoria: F
-> Status: planejada
+> Status: concluída — CI verde no main (PR #112 merge e350caba); validação `/qa validar F14` APROVADA
 > Gate: workflow CI verde no `main` (jobs Lint + Test + Security composer audit); findings QA-F14-001, QA-F14-002, SEC-F14-001 em status `corrigido` ou `validado`
 > Gerado via `/pmo fix` em 2026-06-16. Fonte: ISSUE-039 + 3 findings (investigação CI run `27646529336`).
 > review: senior+qa (regressão de testes + dependência security)
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | F14.1 — [FIX] Bump `phpseclib/phpseclib` → `>=3.0.54` (GHSA-m557-wrgg-6rp4) | `composer update` | — |
-| [ ] | M | F14.2 — [FIX] `AuditLogTest`: assign direto de secrets (fillable removido no N19) | `laravel-testing` | — |
-| [ ] | M | F14.3 — [FIX] `RotateSecretTest`: alinhar 4 testes ao factory auto-history (`withoutWebhookHistory()` ou remover seed redundante) | `laravel-testing` | — |
-| [ ] | P | F14.4 — [ISSUE-039] Atualizar `CI-FAIL-*` + validar CI verde no main | `/git` | F14.1–F14.3 |
+| [x] | P | F14.1 — [FIX] Bump `phpseclib/phpseclib` → `>=3.0.54` (GHSA-m557-wrgg-6rp4) | `composer update` | — |
+| [x] | M | F14.2 — [FIX] `AuditLogTest`: assign direto de secrets (fillable removido no N19) | `laravel-testing` | — |
+| [x] | M | F14.3 — [FIX] `RotateSecretTest`: alinhar 4 testes ao factory auto-history (`withoutWebhookHistory()` ou remover seed redundante) | `laravel-testing` | — |
+| [x] | P | F14.4 — [ISSUE-039] Atualizar `CI-FAIL-*` + validar CI verde no main | `/git` | F14.1–F14.3 |
 
 ### Task F14.1 — [FIX] Bump phpseclib
 
