@@ -33,17 +33,17 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N19 concluída — validação R2 APROVADA",
-  "sprint_atual": null,
+  "fase_nome": "Sprint F14 — implementação concluída; aguarda commit/push + CI",
+  "sprint_atual": "F14",
   "previous_sprint": "F3",
-  "sprint_branch": null,
+  "sprint_branch": "sprint/F14",
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-16T15:30:00Z",
-  "next_sprint_planned": "F10.3",
+  "ultimo_update": "2026-06-16T22:10:00Z",
+  "next_sprint_planned": "F14",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -53,8 +53,10 @@
     "Customers"
   ],
   "proximos_passos": [
-    "F10.3 runbook execution (docs/runbooks/F10.3-prod-validation.md)",
-    "Verify PRs #95 #1 #45"
+    "/git — commit + push sprint/F14 + PR para main",
+    "/qa validar F14 — re-validar QA-F14-001/002 + SEC-F14-001",
+    "ISSUE-037 — authz scopes (outra aba)",
+    "ISSUE-038 — /pmo new para Sprint 0 da API v1 (após ISSUE-037)"
   ],
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -177,7 +179,7 @@
     "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
     "updated_at": "2026-06-12T20:30:00Z"
   },
-  "contexto_rapido": "Upgrade 4.54.0 (#239) — cursor-db-keeper via framework install; próximo F10.3 deploy prod ISSUE-023",
+  "contexto_rapido": "Sprint F14 implementada localmente (phpseclib 3.0.55 + 6 testes N19). Aguarda commit/push. ISSUE-037 em fix paralelo.",
   "autopilot": {
     "active": false
   },
@@ -236,7 +238,13 @@
   },
   "planning_history": [
     {
-      "timestamp": "2026-06-02T20:00:00Z",
+      "timestamp": "2026-06-16T20:45:00Z",
+      "action": "/pmo fix",
+      "sprints_generated": ["F14"],
+      "findings_in_scope": ["QA-F14-001", "QA-F14-002", "SEC-F14-001"],
+      "findings_breakdown": { "HIGH": 2, "MEDIUM": 1 },
+      "split_strategy": "single sprint — CI blocker cluster from N19 regression + composer audit"
+    },
       "action": "/qa validar F5 R4",
       "validation_round": 4,
       "sprint_validated": "F5",

@@ -1,8 +1,8 @@
 <!-- FINDINGS-INDEX
 synced_at: 2026-06-16
 open_critical: 0
-open_high: 1
-open_medium: 43
+open_high: 3
+open_medium: 44
 open_low: 31
 sprints_with_open_blockers: F10
 notes: SEC-V1-001 (HIGH) registrado 2026-06-16 via triagem do painel de arquitetura — ApiKey.scopes nunca aplicado + sem autorizacao por tenant (IDOR latente); pre-requisito da API externa /v1. N19 validacao R2 APROVADA (2026-06-12)
@@ -34,6 +34,7 @@ FINDINGS-INDEX -->
 | F11 | 1 | 2 | 4 | 0 | 0 | 1 | 6 |
 | F12 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
 | F13 | 0 | 2 | 2 | 0 | 0 | 3 | 1 |
+| F14 | 0 | 2 | 1 | 0 | 3 | 0 | 0 |
 | N19 | 0 | 2 | 9 | 6 | 15 | 0 | 2 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 
@@ -2145,5 +2146,50 @@ Nenhum finding registrado para D1 na validação atual.
   3. Teste negativo obrigatório: chave do parceiro A → `403` no tenant B.
   4. Registrar `api_key_id`/escopo no `AuditLog` por capability.
 - **Relacionados**: SEC-F004 (guard Bearer — implementado, escopo nunca aplicado), painel `.arch-panel/panel/final.md` (authz escopado promovido a gate de Sprint 0/Fase inicial), ISSUE-037.
+
+---
+
+## Sprint F14 — CI verde no main (regressão N19 + phpseclib)
+
+> Registrado via `/pmo fix` em 2026-06-16. CI run `27646529336` (commit `1eebced`): Lint OK; Test 6 failed; composer audit 1 advisory.
+
+### QA-F14-001 — HIGH — `AuditLogTest` quebrado após remoção de secrets do `$fillable` (N19)
+
+- **Sprint**: F14
+- **Severidade**: HIGH (CI blocker — 2 testes)
+- **Tipo**: regression / test gap
+- **Status**: Corrigido
+- **Registrado em**: 2026-06-16
+- **Origem**: Investigação CI run `27646529336`; commit `4e2d1e9` (sprint N19)
+- **Arquivo**: `tests/Feature/Audit/AuditLogTest.php`, `app/Models/ClusterServer.php` (`$fillable`)
+- **Descrição**: N19 removeu `ssh_private_key_encrypted` e `webhook_secret_encrypted` do `$fillable` (hardening correto). Os testes `observer registra audit_log` e `observer sanitiza campos sensíveis` ainda usam `ClusterServer::create([...])` com mass assignment desses campos — Eloquent descarta silenciosamente → `NOT NULL constraint failed: cluster_servers.ssh_private_key_encrypted`.
+- **Ação necessária**: Ajustar testes para padrão de produção (`factory()->create()` + assign direto + `save()`), sem reabrir mass assignment.
+- **Correção**: Sprint F14 — testes usam `factory()->make()` + assign direto de secrets + `save()`; `$fillable` permanece sem secrets.
+
+### QA-F14-002 — HIGH — `RotateSecretTest` desalinhado com factory auto-seed de `WebhookSecretHistory` (N19)
+
+- **Sprint**: F14
+- **Severidade**: HIGH (CI blocker — 4 testes)
+- **Tipo**: regression / test gap
+- **Status**: Corrigido
+- **Registrado em**: 2026-06-16
+- **Origem**: Investigação CI run `27646529336`; commit `4e2d1e9` (sprint N19)
+- **Arquivo**: `tests/Feature/ClusterServers/RotateSecretTest.php`, `database/factories/ClusterServerFactory.php`
+- **Descrição**: N19 adicionou `afterCreating` na factory que cria `WebhookSecretHistory` v1 automaticamente. Quatro testes ainda assumem cluster sem histórico ou fazem seed manual redundante de v1: `toHaveCount(2)` recebe 3; `RuntimeException` não lançada; `toast type=error` não disparado; `count() === 0` recebe 1.
+- **Ação necessária**: Alinhar testes ao novo contrato da factory — remover seed redundante; para cenários “sem histórico”, usar state `withoutWebhookHistory()` na factory ou `ClusterServer::withoutEvents()`.
+- **Correção**: Sprint F14 — seed manual redundante removido; `ClusterServerFactory::withoutWebhookHistory()` deleta histórico pós-create; 4 cenários alinhados.
+
+### SEC-F14-001 — MEDIUM — `phpseclib/phpseclib` 3.0.52 vulnerável (GHSA-m557-wrgg-6rp4)
+
+- **Sprint**: F14
+- **Severidade**: MEDIUM (CI blocker — job Security)
+- **Tipo**: security / dependency
+- **Status**: Corrigido
+- **Registrado em**: 2026-06-16
+- **Origem**: `composer audit --no-dev --locked` no CI e local
+- **Arquivo**: `composer.lock` (`phpseclib/phpseclib` 3.0.52)
+- **Descrição**: Advisory SSRF via validação X.509 (AIA). Versões afetadas `<=3.0.53`; projeto locked em 3.0.52. Fix: `>=3.0.54`.
+- **Ação necessária**: `composer update phpseclib/phpseclib --with-dependencies`; commit lockfile; re-run `composer audit`.
+- **Correção**: Sprint F14 — `phpseclib/phpseclib` 3.0.55; `composer audit --no-dev --locked` exit 0.
 
 ---

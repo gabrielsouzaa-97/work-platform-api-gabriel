@@ -83,6 +83,7 @@
 | F11    | F         | Slug reuse pós `provision.failed` + cleanup MEDIUM F5 | **concluída** | 6     | Customers, Core | ISSUE-018 — validação APROVADA R1 (2026-05-24) | 4082+    |
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
+| F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **em andamento** | 4 | Audit, ClusterServers, Core | ISSUE-039 — QA-F14-001/002 + SEC-F14-001 | 4372+ |
 
 ---
 
@@ -4367,6 +4368,53 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 - Testes: `php artisan test tests/Feature/Customers/ProvisionTest.php` → 16 passed, 63 assertions.
 - Senior R1: 2 HIGH + 1 MEDIUM detectados inicialmente; corrigidos antes do fechamento (limite base64/JSON, tratamento de staging, `Storage::put`).
 - QA R1: gap de teste HTTP multipart coberto; follow-up sem findings.
+
+---
+
+## Sprint F14 — CI verde no main (regressão N19 + phpseclib)
+
+> Categoria: F
+> Status: em andamento (F14.1–F14.4 implementados localmente; CI pós-push pendente)
+> Gate: workflow CI verde no `main` (jobs Lint + Test + Security composer audit); findings QA-F14-001, QA-F14-002, SEC-F14-001 em status `corrigido` ou `validado`
+> Gerado via `/pmo fix` em 2026-06-16. Fonte: ISSUE-039 + 3 findings (investigação CI run `27646529336`).
+> review: senior+qa (regressão de testes + dependência security)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F14.1 — [FIX] Bump `phpseclib/phpseclib` → `>=3.0.54` (GHSA-m557-wrgg-6rp4) | `composer update` | — |
+| [x] | M | F14.2 — [FIX] `AuditLogTest`: assign direto de secrets (fillable removido no N19) | `laravel-testing` | — |
+| [x] | M | F14.3 — [FIX] `RotateSecretTest`: alinhar 4 testes ao factory auto-history (`withoutWebhookHistory()` ou remover seed redundante) | `laravel-testing` | — |
+| [x] | P | F14.4 — [ISSUE-039] Atualizar `CI-FAIL-*` + validar CI verde no main | `/git` | F14.1–F14.3 |
+
+### Task F14.1 — [FIX] Bump phpseclib
+
+**Finding(s)**: SEC-F14-001 (MEDIUM)
+**Arquivo(s)**: `composer.lock` (+ `composer.json` se constraint pinada)
+**ANTES**: `phpseclib/phpseclib` 3.0.52 — `composer audit` exit 1 (SSRF via X.509 AIA).
+**DEPOIS**: `>=3.0.54`; `composer audit --no-dev --locked` exit 0.
+**Validação**: `composer audit --no-dev --locked`
+
+### Task F14.2 — [FIX] AuditLogTest mass assignment
+
+**Finding(s)**: QA-F14-001 (HIGH)
+**Arquivo(s)**: `tests/Feature/Audit/AuditLogTest.php`
+**ANTES**: `ClusterServer::create(['ssh_private_key_encrypted' => ...])` — campos fora do `$fillable` desde N19 → NOT NULL violation.
+**DEPOIS**: `factory()->create()` + `$cluster->ssh_private_key_encrypted = '...'; $cluster->webhook_secret_encrypted = '...'; $cluster->save();` (padrão `Create.php`/`Edit.php`). Não reabrir `$fillable`.
+**Validação**: `php artisan test tests/Feature/Audit/AuditLogTest.php`
+
+### Task F14.3 — [FIX] RotateSecretTest factory contract
+
+**Finding(s)**: QA-F14-002 (HIGH)
+**Arquivo(s)**: `tests/Feature/ClusterServers/RotateSecretTest.php`, opcional `database/factories/ClusterServerFactory.php` (state `withoutWebhookHistory()`)
+**ANTES**: Factory `afterCreating` já cria `WebhookSecretHistory` v1; testes fazem seed manual ou esperam 0 registros.
+**DEPOIS**: Remover seed redundante nos testes de rotação feliz; cenários “sem histórico” usam state `withoutWebhookHistory()` na factory.
+**Validação**: `php artisan test tests/Feature/ClusterServers/RotateSecretTest.php`
+
+### Task F14.4 — [ISSUE-039] Fechar CI findings
+
+**Arquivo(s)**: `docs/sistema/ci-issues/CI-FAIL-*.md`
+**DEPOIS**: Marcar findings CI como corrigidos; confirmar run verde pós-push.
+**Validação**: `gh run list --branch main --limit 1` → success
 
 ---
 
