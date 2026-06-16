@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-06-12
+synced_at: 2026-06-16
 open_critical: 0
-open_high: 0
+open_high: 1
 open_medium: 43
 open_low: 31
 sprints_with_open_blockers: F10
-notes: N19 validacao R2 APROVADA (2026-06-12); CQ-N19-001 + QA-N19-001 validados; F10.3 prod ISSUE-023
+notes: SEC-V1-001 (HIGH) registrado 2026-06-16 via triagem do painel de arquitetura — ApiKey.scopes nunca aplicado + sem autorizacao por tenant (IDOR latente); pre-requisito da API externa /v1. N19 validacao R2 APROVADA (2026-06-12)
 FINDINGS-INDEX -->
 
 
@@ -2125,5 +2125,25 @@ Nenhum finding registrado para D1 na validação atual.
 - **Descrição**: Worker Laravel (`queue:work redis`) está ativo no host, mas falhas de jobs locais (e-mail, probes, etc.) não têm destino `failed_jobs` padrão se a tabela não existir — comportamento depende da config `queue.failed` e versão Laravel.
 - **Impacto**: Perda de visibilidade de falhas da fila **local** (não confundir com fila Redis upstream de jobs Nextcloud). Baixo volume hoje, mas dificulta debug de `ProbeCustomerReadinessJob` e mail queue.
 - **Ação necessária**: Decidir: (a) publicar migration `failed_jobs` + `job_batches` se necessário, ou (b) documentar em RUNBOOK que falhas locais só aparecem em `storage/logs/laravel.log`. Validar em ISSUE-023 checklist.
+
+---
+
+### SEC-V1-001 — HIGH — `ApiKey.scopes` nunca aplicado + ausência de autorização por tenant (IDOR latente)
+
+- **Sprint**: — (registrado via triagem 2026-06-16; pré-requisito da API externa `/v1`)
+- **Severidade**: HIGH (torna-se CRITICAL ao emitir chaves para terceiros)
+- **Tipo**: security / authorization gap
+- **Status**: Pendente (Fix Brief a aprovar — candidato a Sprint F)
+- **Registrado em**: 2026-06-16
+- **Origem**: Painel de arquitetura adversarial (crítico de Segurança) sobre o objetivo "dois contratos / ACL" (`.arch-panel/panel/critique-seguranca.md`); verificado no código.
+- **Arquivo**: `app/Providers/AppServiceProvider.php` (L50-70, guard `api-key`), `app/Models/ApiKey.php` (coluna `scopes` cast array), `app/Modules/Core/Services/ApiKeyService.php`, `app/Http/Livewire/ApiKeys/Index.php` (L72-76), `routes/api.php`.
+- **Descrição**: O guard `Auth::viaRequest('api-key', ...)` resolve a chave pelo `token_hash` e retorna o `Operator` **inteiro**, sem nunca consultar `ApiKey.scopes`. A coluna existe (fillable + cast `array`) e é persistida em `ApiKeyService::generate()`, mas **nenhum ponto do código a verifica** — e a UI (`ApiKeys/Index.php`) sempre cria com `scopes: null`. Além disso, **não há autorização por tenant**: as rotas usam `auth:web,api-key` + `active.operator`, e o `{customer}` vem do slug na URL; qualquer chave válida (→ operador ativo) age sobre **qualquer** customer. Só `DELETE /customers` tem gate adicional (`can:provision-customers`), e mesmo assim por role, não por tenant.
+- **Impacto**: Hoje o risco é **latente/contido** — chaves são emitidas apenas a operadores internos confiáveis via painel admin. Mas (a) `scopes` é *dead code* que dá falsa sensação de segurança (least-privilege que não existe), e (b) abrir a API a terceiros (WHMCS, onboarding-api, parceiros — plano da v1) sem binding tenant↔principal vira **IDOR sistêmico** e exposição cross-tenant de dados de clientes (LGPD). Pré-requisito DURO antes de qualquer credencial externa.
+- **Ação necessária**:
+  1. Aplicar `ApiKey.scopes` no guard (negar capability fora do escopo) — encerrar o gap deixado por SEC-F004.
+  2. Introduzir binding explícito tenant↔principal (allowlist de slugs ou claim `tenant_id`) verificado em **todo** `/customers/{customer}/*` antes de qualquer ação no `PlatformPort`/Action.
+  3. Teste negativo obrigatório: chave do parceiro A → `403` no tenant B.
+  4. Registrar `api_key_id`/escopo no `AuditLog` por capability.
+- **Relacionados**: SEC-F004 (guard Bearer — implementado, escopo nunca aplicado), painel `.arch-panel/panel/final.md` (authz escopado promovido a gate de Sprint 0/Fase inicial), ISSUE-037.
 
 ---

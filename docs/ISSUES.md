@@ -42,8 +42,76 @@
 | ISSUE-034 | change_request | 6 tenants prod sem registro no painel (76fibra, alloha, meltech, mework360, nextcloud-02, totum) — backfill via `customers:sync`; mework360=conta real colaboradores, demais=demo | Customers, Ops | MEDIUM | **closed (2026-06-10)** — sync inserted=6, painel consistente com host |
 | ISSUE-035 | investigacao | Tabela `personal_access_tokens` ausente no banco do deployer prod — API Bearer (Sanctum) não pode funcionar; verificar migrations pendentes em prod | Core, DevOps | HIGH | **closed (2026-06-10)** — premissa incorreta: projeto não usa Sanctum; auth Bearer usa `api_keys` (existe em prod); `failed_jobs` segue em OPS-001/ISSUE-023 |
 | ISSUE-036 | bug | Containers `*-push` (notify_push) em `Restarting (127)` em 4 tenants do SaaS-02 | Cross-repo (deploy-scripts) | MEDIUM | open |
+| ISSUE-037 | security | `ApiKey.scopes` nunca aplicado + sem autorização por tenant — qualquer chave age sobre qualquer customer (IDOR latente; vira CRITICAL ao abrir `/v1` a terceiros) | Core (Auth/api-key), Customers | HIGH | open (triagem 2026-06-16 → Fix Brief / Sprint F) — finding SEC-V1-001 |
+| ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | open (triagem 2026-06-16 — ADR `.arch-panel/panel/final.md`; aguarda `/pmo new` p/ Sprint 0; depende de ISSUE-037) |
 
 ---
+
+## ISSUE-037 — `ApiKey.scopes` nunca aplicado + ausência de autorização por tenant
+
+- **Tipo**: security (authorization gap)
+- **Prioridade**: HIGH (latente hoje; CRITICAL ao emitir chaves a terceiros)
+- **Status**: open — triagem 2026-06-16; aguardando Fix Brief (`/pmo fix` → Sprint F)
+- **Registrado em**: 2026-06-16
+- **Solicitante**: triagem do painel de arquitetura adversarial (`/arquiteto`) sobre o objetivo "dois contratos / ACL"
+- **Módulos afetados**: Core (Auth / guard `api-key`), Customers (rotas `/customers/{customer}/*`)
+- **Finding**: SEC-V1-001 (docs/FINDINGS.md)
+
+### Descrição
+
+Verificado no código durante a triagem:
+
+1. **`scopes` não é aplicado** — `Auth::viaRequest('api-key', ...)` em `app/Providers/AppServiceProvider.php` (L50-70) resolve a chave pelo `token_hash` e devolve o `Operator` inteiro; **nunca lê `ApiKey.scopes`**. A coluna existe (`app/Models/ApiKey.php`, cast `array`) e é gravada em `ApiKeyService::generate()`, mas a UI (`ApiKeys/Index.php` L72-76) sempre passa `scopes: null` e nenhum middleware/gate a consulta. É *dead code* de segurança (falsa sensação de least-privilege).
+2. **Sem autorização por tenant** — as rotas em `routes/api.php` usam `auth:web,api-key` + `active.operator`; o `{customer}` vem do slug na URL. Qualquer chave válida (→ operador ativo) opera sobre **qualquer** customer. Apenas `DELETE /customers` adiciona `can:provision-customers` (gate por role, não por tenant).
+
+### Impacto
+
+- **Hoje (contido)**: chaves são emitidas só a operadores internos via painel admin → acesso amplo é o design atual do control plane.
+- **Risco**: ao abrir `/v1` a WHMCS / onboarding-api / parceiros (plano Platform V2) sem binding tenant↔principal, vira **IDOR sistêmico** e exposição cross-tenant (LGPD). Por isso o painel promoveu authz escopado a **gate duro** antes da v1 (ver `.arch-panel/panel/final.md`).
+
+### Ação proposta (a detalhar no Fix Brief)
+
+1. Aplicar `ApiKey.scopes` no guard (capabilities) — fechar o gap deixado por SEC-F004.
+2. Binding explícito tenant↔principal (allowlist de slugs ou claim `tenant_id`) verificado em todo `/customers/{customer}/*`.
+3. Teste negativo: chave do parceiro A → `403` no tenant B.
+4. `AuditLog` por capability com `api_key_id`/escopo.
+
+### Relacionados
+
+- SEC-F004 (guard Bearer implementado, escopo nunca aplicado), SEC-V1-001 (FINDINGS), painel `.arch-panel/panel/` (v0 + 5 críticas + final).
+
+---
+
+## ISSUE-038 — API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL)
+
+- **Tipo**: change_request (iniciativa arquitetural)
+- **Prioridade**: HIGH
+- **Status**: open — triagem 2026-06-16; ADR decidido; aguarda `/pmo new` para planejar o Sprint 0
+- **Registrado em**: 2026-06-16
+- **Solicitante**: discussão de produto + painel de arquitetura adversarial (`/arquiteto`, protocolo `tests/arch-panel.md`)
+- **Módulos afetados**: Core (HTTP/Auth), Customers, Occ, Agents, docs (openapi)
+- **ADR (decisão)**: `.arch-panel/panel/final.md` (insumos: `v0.md` + 5 críticas — arquiteto, dev-senior, segurança, SRE, advogado, todas severidade ALTA)
+
+### Descrição
+
+Formalizar o `work-platform-api` como middleman com **dois contratos independentes**: para fora, uma API OpenAPI estável e versionada (`/api/v1`) em capabilities de negócio (Tenant, Branding, Apps, Users, Onboarding, Job); para dentro, um contrato técnico com a plataforma Nextcloud ("protocolo NC": SSH `nextcloud-manage`/`occ-exec`/webhook HMAC + Farm Agent) isolado atrás de um **PlatformPort** (ACL) com adapters `Ssh`/`Agent` intercambiáveis. Objetivo completo em `tests/arch-objetivo.md`.
+
+Decisão do painel (resumo — detalhe no ADR):
+1. **Sprint 0 reversível primeiro** (sanitizar erro na borda atual sem `subcmd`/`exit_code`; congelar `/occ/*` fora do spec público; corrigir DOC-001/ISSUE-021; rotas `/v1` como aliases finos sobre as Actions) **atrás de authz escopado**.
+2. **AuthZ por tenant+capability é gate duro** (= ISSUE-037 / SEC-V1-001 — pré-requisito).
+3. **`execOcc` fora do port público**; separar contextos `Integration` (comandos tipados, sem HTTP) e `TenantLifecycle` (linguagem `/api/v1`).
+4. **Strangler com port mínimo** (3-4 métodos) provado por 1 capability; ondas (Livewire/Artisan inclusos) com characterization tests.
+5. **Observabilidade obrigatória** na troca de transporte (`correlation_id`, alerta de job preso, paridade SSH vs Agent).
+6. **D-02 (allowlist upstream) é dependência dura** para branding/quota/maintenance e para a saga `/v1/onboarding`.
+
+### Dependências e relacionados
+
+- **Bloqueado por**: ISSUE-037 / SEC-V1-001 (authz escopado — gate duro antes de abrir `/v1` a terceiros).
+- **Relacionados**: ISSUE-021 / DOC-001 (drift OpenAPI), ISSUE-016 + D-02 / #ARCH-7 (allowlist OCC upstream), ISSUE-024 (memail.configure), `docs/PLATFORM-V2-PLAN.md` (Farm Agent 3 fases — a migração de transporte da v1 mapeia 1:1).
+
+### Próximo passo
+
+`/pmo new` para transformar o Sprint 0 do ADR em sprint planejada (tasks/IDs/blueprint) quando o ISSUE-037 estiver encaminhado. Não definir tasks inline (no-cowboy / phase-awareness).
 
 ## ISSUE-032 — Remover tenants de teste do host prod SaaS-02
 
