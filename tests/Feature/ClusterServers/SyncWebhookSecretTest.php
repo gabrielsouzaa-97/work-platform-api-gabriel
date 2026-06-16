@@ -31,7 +31,6 @@ Y55nNuHvHJGMn0YF275YLo9dE2svP9XY05CJYncfxg==
 PEM;
 }
 
-
 function syncSecretHistory(array $attributes, string $secret): WebhookSecretHistory
 {
     $history = new WebhookSecretHistory($attributes);
