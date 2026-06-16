@@ -2134,7 +2134,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: — (registrado via triagem 2026-06-16; pré-requisito da API externa `/v1`)
 - **Severidade**: HIGH (torna-se CRITICAL ao emitir chaves para terceiros)
 - **Tipo**: security / authorization gap
-- **Status**: Pendente (Fix Brief a aprovar — candidato a Sprint F)
+- **Status**: Pendente — Sprint **F15** planejada (`/rock` 2026-06-16)
 - **Registrado em**: 2026-06-16
 - **Origem**: Painel de arquitetura adversarial (crítico de Segurança) sobre o objetivo "dois contratos / ACL" (`.arch-panel/panel/critique-seguranca.md`); verificado no código.
 - **Arquivo**: `app/Providers/AppServiceProvider.php` (L50-70, guard `api-key`), `app/Models/ApiKey.php` (coluna `scopes` cast array), `app/Modules/Core/Services/ApiKeyService.php`, `app/Http/Livewire/ApiKeys/Index.php` (L72-76), `routes/api.php`.

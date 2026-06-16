@@ -33,17 +33,17 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint F14 concluída — CI verde no main",
-  "sprint_atual": null,
+  "fase_nome": "Sprint F15 em andamento — AuthZ ApiKey (ISSUE-037)",
+  "sprint_atual": "F15",
   "previous_sprint": "F14",
-  "sprint_branch": null,
+  "sprint_branch": "sprint/F15",
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-16T22:40:00Z",
-  "next_sprint_planned": null,
+  "ultimo_update": "2026-06-16T23:10:00Z",
+  "next_sprint_planned": "F15",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -53,9 +53,10 @@
     "Customers"
   ],
   "proximos_passos": [
-    "ISSUE-037 — authz scopes (outra aba)",
-    "ISSUE-038 — /pmo new para Sprint 0 da API v1 (após ISSUE-037)"
+    "/pmo sprint F15 — SEC-V1-001 scopes + tenant binding",
+    "ISSUE-038 — /pmo new para Sprint 0 API v1 (após F15 validada)"
   ],
+  "contexto_rapido": "F14 DONE. F15 planejada (ISSUE-037). CI-SEC Merlin fechado como falso positivo. ISSUE-038 bloqueada até F15.",
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
     "docs/openapi.yaml v1.0 -> v2.0 (slug pattern [a-z0-9-]+ max 64; description atualizada para orquestrador)",
@@ -177,7 +178,7 @@
     "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
     "updated_at": "2026-06-12T20:30:00Z"
   },
-  "contexto_rapido": "Sprint F14 APROVADA — CI verde no main (PR #112). ISSUE-039 fechada. ISSUE-037 em fix paralelo.",
+
   "autopilot": {
     "active": false
   },
