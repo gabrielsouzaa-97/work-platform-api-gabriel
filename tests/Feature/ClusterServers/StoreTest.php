@@ -64,8 +64,7 @@ it('admin cria cluster_server com PEM válido → redireciona e persiste no DB',
         ->set('ssh_host', '10.20.30.40')
         ->set('ssh_port', 22)
         ->set('ssh_user', 'deploy')
-        ->set('ssh_private_key', $pem)
-        ->call('save')
+        ->call('save', testPemOverride: $pem)
         ->assertRedirect(route('cluster-servers.index'));
 
     $this->assertDatabaseHas('cluster_servers', [
@@ -90,8 +89,7 @@ it('PEM inválido retorna erro de validação', function () {
         ->set('ssh_host', '1.2.3.4')
         ->set('ssh_port', 22)
         ->set('ssh_user', 'root')
-        ->set('ssh_private_key', 'nao-e-um-pem')
-        ->call('save')
+        ->call('save', testPemOverride: 'nao-e-um-pem')
         ->assertHasErrors(['ssh_private_key']);
 });
 
@@ -104,8 +102,7 @@ it('operador comum não consegue salvar via Livewire (gate bloqueia)', function 
         ->set('ssh_host', '9.9.9.9')
         ->set('ssh_port', 22)
         ->set('ssh_user', 'op')
-        ->set('ssh_private_key', TEST_CLUSTER_SERVER_VALID_PEM)
-        ->call('save')
+        ->call('save', testPemOverride: TEST_CLUSTER_SERVER_VALID_PEM)
         ->assertForbidden();
 });
 
@@ -152,8 +149,7 @@ it('webhook_secret_encrypted é gerado server-side na criação (não informado 
         ->set('ssh_host', '192.168.1.10')
         ->set('ssh_port', 22022)
         ->set('ssh_user', 'automation')
-        ->set('ssh_private_key', TEST_CLUSTER_SERVER_VALID_PEM)
-        ->call('save')
+        ->call('save', testPemOverride: TEST_CLUSTER_SERVER_VALID_PEM)
         ->assertRedirect(route('cluster-servers.index'));
 
     $stored = ClusterServer::where('name', $clusterName)->first();

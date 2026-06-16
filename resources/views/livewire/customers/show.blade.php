@@ -54,9 +54,11 @@
                     Painel OCC
                 </a>
             @endif
-            @if (in_array($customer->status, ['active', 'provisioning']) && auth()->user()?->role !== 'suporte')
-                <button class="btn-danger" wire:click="$set('showRemoveModal', true)">Remover</button>
-            @endif
+            @can('provision-customers')
+                @if (in_array($customer->status, ['active', 'provisioning']))
+                    <button class="btn-danger" wire:click="$set('showRemoveModal', true)">Remover</button>
+                @endif
+            @endcan
         </div>
     </div>
 

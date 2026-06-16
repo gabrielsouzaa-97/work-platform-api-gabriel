@@ -24,13 +24,16 @@ function webhookAllowlist_makeCluster(?string $webhookAllowedIp = null, string $
 
 function webhookAllowlist_setupSecret(ClusterServer $cluster, string $secret = 'test-secret-plain'): void
 {
-    WebhookSecretHistory::create([
+    WebhookSecretHistory::where('cluster_server_id', $cluster->id)->delete();
+    $cluster->webhook_secret_encrypted = $secret;
+    $cluster->save();
+
+    WebhookSecretHistory::createWithSecret([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $secret,
         'version' => 1,
         'valid_from' => now()->subHour(),
         'valid_until' => null,
-    ]);
+    ], $secret);
 }
 
 function webhookAllowlist_makeJob(string $clusterId): Job

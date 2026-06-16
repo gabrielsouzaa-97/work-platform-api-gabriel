@@ -6,7 +6,6 @@ use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
-use App\Models\WebhookSecretHistory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -19,14 +18,9 @@ use Illuminate\Support\Str;
  */
 function middlewareCluster(string $secret = 'mw-secret'): array
 {
-    $cluster = ClusterServer::factory()->create(['ssh_host' => '127.0.0.1']);
-
-    WebhookSecretHistory::create([
-        'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $secret,
-        'version' => 1,
-        'valid_from' => now()->subHour(),
-        'valid_until' => null,
+    $cluster = ClusterServer::factory()->create([
+        'ssh_host' => '127.0.0.1',
+        'webhook_secret_encrypted' => $secret,
     ]);
 
     return [$cluster, $secret];

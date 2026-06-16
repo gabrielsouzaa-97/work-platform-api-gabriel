@@ -13,14 +13,9 @@ use Illuminate\Support\Str;
 
 function makeCluster(string $secret = 'test-secret-plain'): array
 {
-    $cluster = ClusterServer::factory()->create(['ssh_host' => '127.0.0.1']);
-
-    WebhookSecretHistory::create([
-        'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $secret,
-        'version' => 1,
-        'valid_from' => now()->subHour(),
-        'valid_until' => null,
+    $cluster = ClusterServer::factory()->create([
+        'ssh_host' => '127.0.0.1',
+        'webhook_secret_encrypted' => $secret,
     ]);
 
     return [$cluster, $secret];
@@ -139,13 +134,15 @@ it('webhook_allowed_ip definido mas request IP diferente → 403 + webhook_ip_no
     ]);
 
     $secret = 'test-secret';
-    WebhookSecretHistory::create([
+    $cluster->webhook_secret_encrypted = $secret;
+    $cluster->save();
+    WebhookSecretHistory::where('cluster_server_id', $cluster->id)->delete();
+    WebhookSecretHistory::createWithSecret([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $secret,
         'version' => 1,
         'valid_from' => now()->subHour(),
         'valid_until' => null,
-    ]);
+    ], $secret);
 
     $job = makeJob($cluster->id);
     $body = webhookBody($job->job_id);
@@ -196,21 +193,21 @@ it('multi-secret: HMAC com secret antigo em grace period → 204 aceito', functi
     $oldSecret = 'old-secret-grace';
     $newSecret = 'new-secret-active';
 
-    WebhookSecretHistory::create([
+    WebhookSecretHistory::where('cluster_server_id', $cluster->id)->delete();
+
+    WebhookSecretHistory::createWithSecret([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $oldSecret,
         'version' => 1,
         'valid_from' => now()->subHours(2),
         'valid_until' => now()->addHours(22),
-    ]);
+    ], $oldSecret);
 
-    WebhookSecretHistory::create([
+    WebhookSecretHistory::createWithSecret([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $newSecret,
         'version' => 2,
         'valid_from' => now(),
         'valid_until' => null,
-    ]);
+    ], $newSecret);
 
     $job = makeJob($cluster->id);
     $body = webhookBody($job->job_id);

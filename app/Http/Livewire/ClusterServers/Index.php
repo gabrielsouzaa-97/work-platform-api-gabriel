@@ -7,6 +7,7 @@ namespace App\Http\Livewire\ClusterServers;
 use App\Mail\WebhookSecretRotatedMail;
 use App\Models\ClusterServer;
 use App\Modules\ClusterServers\Actions\RotateWebhookSecretAction;
+use App\Modules\Core\Ssh\Exceptions\SshClientException;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
@@ -46,7 +47,8 @@ class Index extends Component
             $this->dispatch('toast', type: 'warning', msg: "SSH OK mas comando retornou exit {$e->remoteExitCode}");
         } catch (SshConnectionException $e) {
             $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
-            $this->dispatch('toast', type: 'error', msg: 'Conexão falhou: '.$e->getMessage());
+            report($e);
+            $this->dispatch('toast', type: 'error', msg: SshClientException::userMessageFor($e));
         } catch (\Throwable $e) {
             $this->dispatch('toast', type: 'error', msg: 'Erro inesperado');
             report($e);

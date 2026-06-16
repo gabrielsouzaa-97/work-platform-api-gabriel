@@ -9,11 +9,13 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Modules\Agents\Exceptions\AgentTransportException;
 use App\Modules\Agents\Services\AgentTransportResolver;
 use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\JobTypeTranslator;
+use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
@@ -30,6 +32,7 @@ final class RemoveCustomerAction
     ) {}
 
     /**
+     * @throws ClusterUnreachableException
      * @throws ConfirmationMismatchException
      * @throws RemoveInProgressException
      * @throws StateConflictException
@@ -77,6 +80,8 @@ final class RemoveCustomerAction
             } else {
                 $resp = $this->ssh->runAsync($cluster, 'nextcloud-manage', array_values($args));
             }
+        } catch (AgentTransportException) {
+            throw new ClusterUnreachableException;
         } catch (SshRemoteException $e) {
             if ($e->stateConflict) {
                 throw new StateConflictException($e->parsedJson['diff'] ?? []);

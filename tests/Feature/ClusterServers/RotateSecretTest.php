@@ -12,9 +12,14 @@ use App\Modules\ClusterServers\Actions\RotateWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretValidator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
-use RuntimeException;
+
+function rotateSecretHistory(array $attributes, string $secret): WebhookSecretHistory
+{
+    return WebhookSecretHistory::createWithSecret($attributes, $secret);
+}
 
 it('rotate secret cria versão N+1, expira versão N com valid_until, envia email', function () {
     Mail::fake();
@@ -26,13 +31,12 @@ it('rotate secret cria versão N+1, expira versão N com valid_until, envia emai
     $admin = Operator::factory()->admin()->create();
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'original-secret',
         'version' => 1,
         'valid_from' => now()->subHour(),
         'valid_until' => null,
-    ]);
+    ], 'original-secret');
 
     Livewire::actingAs($admin)
         ->test(Index::class)
@@ -64,13 +68,12 @@ it('rotate secret registra audit log cluster_server.rotate_webhook_secret com ac
     $admin = Operator::factory()->admin()->create();
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'original-secret',
         'version' => 1,
         'valid_from' => now()->subHour(),
         'valid_until' => null,
-    ]);
+    ], 'original-secret');
 
     Livewire::actingAs($admin)
         ->test(Index::class)
@@ -92,21 +95,19 @@ it('webhook receiver aceita ambos os secrets durante grace period', function () 
     $oldSecret = 'old-secret-plain';
     $newSecret = 'new-secret-plain';
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $oldSecret,
         'version' => 1,
         'valid_from' => now()->subHours(2),
         'valid_until' => now()->addHours(23),
-    ]);
+    ], $oldSecret);
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $newSecret,
         'version' => 2,
         'valid_from' => now(),
         'valid_until' => null,
-    ]);
+    ], $newSecret);
 
     $validator = app(WebhookSecretValidator::class);
     $body = '{"job_id":"test"}';
@@ -124,21 +125,19 @@ it('webhook receiver rejeita secret expirado após grace period', function () {
     $oldSecret = 'expired-secret';
     $newSecret = 'active-secret';
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $oldSecret,
         'version' => 1,
         'valid_from' => now()->subHours(48),
         'valid_until' => now()->subHours(24),
-    ]);
+    ], $oldSecret);
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => $newSecret,
         'version' => 2,
         'valid_from' => now()->subHours(24),
         'valid_until' => null,
-    ]);
+    ], $newSecret);
 
     $validator = app(WebhookSecretValidator::class);
     $body = '{"job_id":"test"}';
@@ -153,29 +152,26 @@ it('webhook receiver rejeita secret expirado após grace period', function () {
 it('cron clean remove registros expirados há mais de 30 dias mas mantém os em grace', function () {
     $cluster = ClusterServer::factory()->create();
 
-    $oldExpired = WebhookSecretHistory::create([
+    $oldExpired = rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'very-old',
         'version' => 1,
         'valid_from' => now()->subDays(60),
         'valid_until' => now()->subDays(31),
-    ])->fresh();
+    ], 'very-old');
 
-    $graceRecord = WebhookSecretHistory::create([
+    $graceRecord = rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'in-grace',
         'version' => 2,
         'valid_from' => now()->subHours(1),
         'valid_until' => now()->addHours(23),
-    ])->fresh();
+    ], 'in-grace');
 
-    $current = WebhookSecretHistory::create([
+    $current = rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'current',
         'version' => 3,
         'valid_from' => now(),
         'valid_until' => null,
-    ])->fresh();
+    ], 'current');
 
     $this->artisan('webhook-secrets:clean')->assertSuccessful();
 
@@ -209,13 +205,12 @@ it('falha de sync SSH na rotação registra actor_id do operador no AuditLog', f
     $admin = Operator::factory()->admin()->create();
     $cluster = ClusterServer::factory()->create(['webhook_secret_version' => 1]);
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'original-secret',
         'version' => 1,
         'valid_from' => now()->subHour(),
         'valid_until' => null,
-    ]);
+    ], 'original-secret');
 
     Livewire::actingAs($admin)
         ->test(Index::class)
@@ -228,7 +223,59 @@ it('falha de sync SSH na rotação registra actor_id do operador no AuditLog', f
         ->first();
 
     expect($audit)->not->toBeNull()
-        ->and($audit->actor_id)->toBe($admin->id);
+        ->and($audit->actor_id)->toBe($admin->id)
+        ->and($audit->payload['error_category'])->toBe('unknown');
+});
+
+it('webhook validator rejeita secret com valid_until exatamente igual a now()', function () {
+    Carbon::setTestNow('2026-06-15 12:00:00');
+
+    $cluster = ClusterServer::factory()->create();
+    $secret = 'boundary-expired-secret';
+
+    rotateSecretHistory([
+        'cluster_server_id' => $cluster->id,
+        'version' => 1,
+        'valid_from' => now()->subDay(),
+        'valid_until' => now(),
+    ], $secret);
+
+    $validator = app(WebhookSecretValidator::class);
+    $body = '{"job_id":"boundary"}';
+    $signature = 'sha256='.hash_hmac('sha256', $body, $secret);
+
+    expect($validator->valid($cluster, $signature, $body))->toBeFalse();
+
+    Carbon::setTestNow();
+});
+
+it('webhook validator aceita secret com valid_until um segundo após now()', function () {
+    Carbon::setTestNow('2026-06-15 12:00:00');
+
+    $cluster = ClusterServer::factory()->create();
+    $secret = 'boundary-grace-secret';
+
+    rotateSecretHistory([
+        'cluster_server_id' => $cluster->id,
+        'version' => 1,
+        'valid_from' => now()->subHour(),
+        'valid_until' => now()->addSecond(),
+    ], $secret);
+
+    $validator = app(WebhookSecretValidator::class);
+    $body = '{"job_id":"boundary-grace"}';
+    $signature = 'sha256='.hash_hmac('sha256', $body, $secret);
+
+    expect($validator->valid($cluster, $signature, $body))->toBeTrue();
+
+    Carbon::setTestNow();
+});
+
+it('webhook validator retorna false para cluster sem nenhum WebhookSecretHistory', function () {
+    $cluster = ClusterServer::factory()->create();
+
+    expect(WebhookSecretHistory::where('cluster_server_id', $cluster->id)->count())->toBe(0);
+    expect(app(WebhookSecretValidator::class)->valid($cluster, 'sha256=anything', 'body'))->toBeFalse();
 });
 
 it('operador comum não pode chamar rotateSecret', function () {
@@ -239,13 +286,12 @@ it('operador comum não pode chamar rotateSecret', function () {
     $operador = Operator::factory()->create(['role' => 'operador']);
     $cluster = ClusterServer::factory()->create();
 
-    WebhookSecretHistory::create([
+    rotateSecretHistory([
         'cluster_server_id' => $cluster->id,
-        'secret_encrypted' => 'secret',
         'version' => 1,
         'valid_from' => now(),
         'valid_until' => null,
-    ]);
+    ], 'secret');
 
     Livewire::actingAs($operador)
         ->test(Index::class)

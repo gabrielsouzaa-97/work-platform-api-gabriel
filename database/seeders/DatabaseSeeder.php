@@ -46,13 +46,12 @@ class DatabaseSeeder extends Seeder
                 'status' => 'active',
             ]);
 
-            WebhookSecretHistory::create([
+            WebhookSecretHistory::createWithSecret([
                 'cluster_server_id' => $cluster->id,
-                'secret_encrypted' => $cluster->webhook_secret_encrypted,
                 'version' => 1,
                 'valid_from' => now(),
                 'valid_until' => null,
-            ]);
+            ], (string) $cluster->webhook_secret_encrypted);
         }
     }
 }

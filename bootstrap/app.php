@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\SecureHeaders;
 use App\Http\Middleware\VerifyAgentAuth;
 use App\Http\Middleware\VerifyWebhookHmac;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -33,13 +34,17 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function (Request $request) {
-            return $request->is('api/*') || $request->expectsJson();
+            return $request->is('api', 'api/*') || $request->expectsJson();
         });
 
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if ($request->is('api/*')) {
+            if ($request->is('api', 'api/*')) {
+                $error = $e->getPrevious() instanceof ModelNotFoundException
+                    ? 'not_found'
+                    : 'route_not_found';
+
                 return response()->json([
-                    'error' => 'route_not_found',
+                    'error' => $error,
                     'path' => $request->getPathInfo(),
                     'method' => $request->method(),
                 ], 404);
@@ -47,7 +52,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
-            if ($request->is('api/*')) {
+            if ($request->is('api', 'api/*')) {
                 return response()->json([
                     'error' => 'method_not_allowed',
                     'path' => $request->getPathInfo(),

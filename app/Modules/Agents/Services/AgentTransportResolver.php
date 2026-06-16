@@ -20,19 +20,25 @@ final class AgentTransportResolver
             return false;
         }
 
+        return $this->resolveActiveAgent($cluster) !== null;
+    }
+
+    public function findAgentForCluster(ClusterServer $cluster): ?FarmAgent
+    {
+        return $this->resolveActiveAgent($cluster);
+    }
+
+    private function resolveActiveAgent(ClusterServer $cluster): ?FarmAgent
+    {
         $agent = FarmAgent::query()
             ->where('cluster_server_id', $cluster->id)
             ->where('status', 'active')
             ->first();
 
-        return $agent !== null && $agent->isOnline();
-    }
+        if ($agent === null || ! $agent->isOnline()) {
+            return null;
+        }
 
-    public function findAgentForCluster(ClusterServer $cluster): ?FarmAgent
-    {
-        return FarmAgent::query()
-            ->where('cluster_server_id', $cluster->id)
-            ->where('status', 'active')
-            ->first();
+        return $agent;
     }
 }
