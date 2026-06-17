@@ -2134,7 +2134,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: — (registrado via triagem 2026-06-16; pré-requisito da API externa `/v1`)
 - **Severidade**: HIGH (torna-se CRITICAL ao emitir chaves para terceiros)
 - **Tipo**: security / authorization gap
-- **Status**: Pendente (Fix Brief a aprovar — candidato a Sprint F)
+- **Status**: Corrigido
 - **Registrado em**: 2026-06-16
 - **Origem**: Painel de arquitetura adversarial (crítico de Segurança) sobre o objetivo "dois contratos / ACL" (`.arch-panel/panel/critique-seguranca.md`); verificado no código.
 - **Arquivo**: `app/Providers/AppServiceProvider.php` (L50-70, guard `api-key`), `app/Models/ApiKey.php` (coluna `scopes` cast array), `app/Modules/Core/Services/ApiKeyService.php`, `app/Http/Livewire/ApiKeys/Index.php` (L72-76), `routes/api.php`.
@@ -2145,6 +2145,7 @@ Nenhum finding registrado para D1 na validação atual.
   2. Introduzir binding explícito tenant↔principal (allowlist de slugs ou claim `tenant_id`) verificado em **todo** `/customers/{customer}/*` antes de qualquer ação no `PlatformPort`/Action.
   3. Teste negativo obrigatório: chave do parceiro A → `403` no tenant B.
   4. Registrar `api_key_id`/escopo no `AuditLog` por capability.
+- **Correção** (Sprint F15, 2026-06-16): Guard `api-key` vincula `ApiKey` ao request (`current_api_key()`); middlewares `EnsureApiKeyScope` (`api.scope`) e `EnsureTenantBinding` (`api.tenant`) aplicados em `routes/api.php`; coluna `allowed_tenant_slugs` em `api_keys`; `AuditLog.api_key_id` preenchido automaticamente em ações via Bearer. Testes: `ApiKeyAuthorizationTest`.
 - **Relacionados**: SEC-F004 (guard Bearer — implementado, escopo nunca aplicado), painel `.arch-panel/panel/final.md` (authz escopado promovido a gate de Sprint 0/Fase inicial), ISSUE-037.
 
 ---

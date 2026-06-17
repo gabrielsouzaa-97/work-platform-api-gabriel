@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Middleware\EnsureApiKeyScope;
 use App\Http\Middleware\EnsureOperatorIsActive;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\EnsureTenantBinding;
 use App\Http\Middleware\SecureHeaders;
 use App\Http\Middleware\VerifyAgentAuth;
 use App\Http\Middleware\VerifyWebhookHmac;
@@ -30,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureRole::class,
             'webhook.hmac' => VerifyWebhookHmac::class,
             'verify.agent' => VerifyAgentAuth::class,
+            'api.scope' => EnsureApiKeyScope::class,
+            'api.tenant' => EnsureTenantBinding::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

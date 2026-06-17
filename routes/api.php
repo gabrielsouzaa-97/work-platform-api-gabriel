@@ -34,45 +34,58 @@ Route::prefix('agent/v1')
     });
 
 Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->group(function (): void {
-    Route::get('/farm-agents', [FarmAgentController::class, 'index'])->name('api.farm-agents.index');
-    Route::post('/farm-agents', [FarmAgentController::class, 'store'])->name('api.farm-agents.store');
-    Route::get('/farm-agents/{id}', [FarmAgentController::class, 'show'])->name('api.farm-agents.show');
-    Route::patch('/farm-agents/{id}', [FarmAgentController::class, 'update'])->name('api.farm-agents.update');
-    Route::post('/farm-agents/{id}/ping', [FarmAgentController::class, 'enqueuePing'])
-        ->name('api.farm-agents.ping');
+    Route::middleware('api.scope:farm-agents:read')->group(function (): void {
+        Route::get('/farm-agents', [FarmAgentController::class, 'index'])->name('api.farm-agents.index');
+        Route::get('/farm-agents/{id}', [FarmAgentController::class, 'show'])->name('api.farm-agents.show');
+    });
 
-    Route::get('/queue', [JobController::class, 'index'])->name('api.queue.index');
-    Route::get('/queue/stats', [JobController::class, 'stats'])->name('api.queue.stats');
-    Route::get('/queue/{id}', [JobController::class, 'show'])->name('api.queue.show');
-    Route::post('/queue/{id}/cancel', [JobController::class, 'cancel'])->name('api.queue.cancel');
+    Route::middleware('api.scope:farm-agents:write')->group(function (): void {
+        Route::post('/farm-agents', [FarmAgentController::class, 'store'])->name('api.farm-agents.store');
+        Route::patch('/farm-agents/{id}', [FarmAgentController::class, 'update'])->name('api.farm-agents.update');
+        Route::post('/farm-agents/{id}/ping', [FarmAgentController::class, 'enqueuePing'])
+            ->name('api.farm-agents.ping');
+    });
 
-    Route::post('/customers', [CustomerController::class, 'store'])->name('api.customers.store');
+    Route::middleware('api.scope:queue:read')->group(function (): void {
+        Route::get('/queue', [JobController::class, 'index'])->name('api.queue.index');
+        Route::get('/queue/stats', [JobController::class, 'stats'])->name('api.queue.stats');
+        Route::get('/queue/{id}', [JobController::class, 'show'])->name('api.queue.show');
+        Route::post('/queue/{id}/cancel', [JobController::class, 'cancel'])->name('api.queue.cancel');
+    });
+
+    Route::post('/customers', [CustomerController::class, 'store'])
+        ->middleware('api.scope:customers:write')
+        ->name('api.customers.store');
     Route::delete('/customers/{slug}', [CustomerController::class, 'destroy'])
-        ->middleware('can:provision-customers')
+        ->middleware(['can:provision-customers', 'api.scope:customers:write'])
         ->name('api.customers.destroy');
 
     // OCC sync passthrough (F6 — Feature P) — timeout 60s, resposta direta upstream
-    Route::prefix('customers/{customer}/occ')->group(function (): void {
-        Route::put('quota/default', [OccController::class, 'setQuotaDefault'])->name('api.occ.quota.default');
-        Route::put('quota/all', [OccController::class, 'setQuotaAll'])->name('api.occ.quota.all');
-        Route::get('quota/audit', [OccController::class, 'quotaAudit'])->name('api.occ.quota.audit');
-        Route::get('quota/options', [OccController::class, 'quotaOptions'])->name('api.occ.quota.options');
-        Route::put('quota/{username}', [OccController::class, 'setQuota'])->name('api.occ.quota.set');
-        Route::put('branding', [OccController::class, 'setBranding'])->name('api.occ.branding');
-        Route::post('maintenance', [OccController::class, 'toggleMaintenance'])->name('api.occ.maintenance');
-        Route::post('files-rescan', [OccController::class, 'filesRescan'])->name('api.occ.files-rescan');
-        Route::post('apps/{appId}/enable', [OccController::class, 'enableApp'])->name('api.occ.app.enable');
-    });
+    Route::prefix('customers/{customer}/occ')
+        ->middleware(['api.tenant', 'api.scope:occ:write'])
+        ->group(function (): void {
+            Route::put('quota/default', [OccController::class, 'setQuotaDefault'])->name('api.occ.quota.default');
+            Route::put('quota/all', [OccController::class, 'setQuotaAll'])->name('api.occ.quota.all');
+            Route::get('quota/audit', [OccController::class, 'quotaAudit'])->name('api.occ.quota.audit');
+            Route::get('quota/options', [OccController::class, 'quotaOptions'])->name('api.occ.quota.options');
+            Route::put('quota/{username}', [OccController::class, 'setQuota'])->name('api.occ.quota.set');
+            Route::put('branding', [OccController::class, 'setBranding'])->name('api.occ.branding');
+            Route::post('maintenance', [OccController::class, 'toggleMaintenance'])->name('api.occ.maintenance');
+            Route::post('files-rescan', [OccController::class, 'filesRescan'])->name('api.occ.files-rescan');
+            Route::post('apps/{appId}/enable', [OccController::class, 'enableApp'])->name('api.occ.app.enable');
+        });
 
     // Lifecycle async (F6 — Feature O.2) — SSH --async, retorna job_id em <2s
-    Route::prefix('customers/{customer}')->group(function (): void {
-        Route::post('users', [CustomerLifecycleController::class, 'createUser'])->name('api.lifecycle.users.create');
-        Route::delete('users/{username}', [CustomerLifecycleController::class, 'deleteUser'])->name('api.lifecycle.users.delete');
-        Route::post('groups', [CustomerLifecycleController::class, 'createGroup'])->name('api.lifecycle.groups.create');
-        Route::delete('groups/{group}', [CustomerLifecycleController::class, 'deleteGroup'])->name('api.lifecycle.groups.delete');
-        Route::post('groups/{group}/users', [CustomerLifecycleController::class, 'addUserToGroup'])->name('api.lifecycle.groups.users.add');
-        Route::delete('groups/{group}/users/{username}', [CustomerLifecycleController::class, 'removeUserFromGroup'])->name('api.lifecycle.groups.users.remove');
-        Route::post('apps/enable', [CustomerLifecycleController::class, 'enableApps'])->name('api.lifecycle.apps.enable');
-        Route::post('apps/disable', [CustomerLifecycleController::class, 'disableApps'])->name('api.lifecycle.apps.disable');
-    });
+    Route::prefix('customers/{customer}')
+        ->middleware(['api.tenant', 'api.scope:lifecycle:write'])
+        ->group(function (): void {
+            Route::post('users', [CustomerLifecycleController::class, 'createUser'])->name('api.lifecycle.users.create');
+            Route::delete('users/{username}', [CustomerLifecycleController::class, 'deleteUser'])->name('api.lifecycle.users.delete');
+            Route::post('groups', [CustomerLifecycleController::class, 'createGroup'])->name('api.lifecycle.groups.create');
+            Route::delete('groups/{group}', [CustomerLifecycleController::class, 'deleteGroup'])->name('api.lifecycle.groups.delete');
+            Route::post('groups/{group}/users', [CustomerLifecycleController::class, 'addUserToGroup'])->name('api.lifecycle.groups.users.add');
+            Route::delete('groups/{group}/users/{username}', [CustomerLifecycleController::class, 'removeUserFromGroup'])->name('api.lifecycle.groups.users.remove');
+            Route::post('apps/enable', [CustomerLifecycleController::class, 'enableApps'])->name('api.lifecycle.apps.enable');
+            Route::post('apps/disable', [CustomerLifecycleController::class, 'disableApps'])->name('api.lifecycle.apps.disable');
+        });
 });

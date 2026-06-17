@@ -26,6 +26,7 @@ class ApiKey extends Model
         'name',
         'token_hash',
         'scopes',
+        'allowed_tenant_slugs',
         'last_used_at',
         'revoked_at',
     ];
@@ -43,6 +44,7 @@ class ApiKey extends Model
     {
         return [
             'scopes' => 'array',
+            'allowed_tenant_slugs' => 'array',
             'last_used_at' => 'datetime',
             'revoked_at' => 'datetime',
         ];

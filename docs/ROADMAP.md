@@ -84,6 +84,7 @@
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
+| F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **em andamento** | 5 | Core, Auth, Customers, Audit | SEC-V1-001 — aguarda `/git` + `/qa validar F15` | 4420+ |
 
 ---
 
@@ -4415,6 +4416,62 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 **Arquivo(s)**: `docs/sistema/ci-issues/CI-FAIL-*.md`
 **DEPOIS**: Marcar findings CI como corrigidos; confirmar run verde pós-push.
 **Validação**: `gh run list --branch main --limit 1` → success
+
+---
+
+## Sprint F15 — AuthZ ApiKey (scopes + binding tenant)
+
+> Categoria: F
+> Status: em andamento (F15.1–F15.5 implementados; aguarda PR + `/qa validar F15`)
+> Gate: `ApiKey.scopes` enforced; tenant binding em `/api/customers/{customer}/*`; teste negativo 403 cross-tenant; findings SEC-V1-001 corrigido
+> Gerado via `/rock` + `/pmo fix` em 2026-06-16. Fonte: ISSUE-037 + SEC-V1-001 + ADR `.arch-panel/panel/final.md` §2.1
+> review: senior+security (IDOR latente / pré-requisito API v1)
+> Bloqueia: ISSUE-038 Sprint 0 (`/pmo new` após F15 validada)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | F15.1 — [FIX] Expor `ApiKey` resolvida no request após auth `api-key` (request attribute + helper) | `laravel-api` | — |
+| [x] | M | F15.2 — [FIX] Middleware `EnsureApiKeyScope` + catálogo de scopes por rota (`customers:read`, `customers:write`, `lifecycle:write`, etc.) | `laravel-api` | F15.1 |
+| [x] | M | F15.3 — [FIX] Migration `allowed_tenant_slugs` (json nullable) + middleware `EnsureTenantBinding` em rotas `customers/{customer}/*` | `laravel-migration` | F15.1 |
+| [x] | M | F15.4 — [FIX] Testes negativos: chave sem scope → 403; chave tenant A em slug B → 403 | `laravel-testing` | F15.2–F15.3 |
+| [x] | P | F15.5 — [ISSUE-037] AuditLog com `api_key_id` em ações via Bearer; atualizar FINDINGS/ISSUES | `/git` | F15.1–F15.4 |
+
+### Task F15.1 — Bind ApiKey no request
+
+**Finding(s)**: SEC-V1-001 (HIGH)
+**Arquivo(s)**: `app/Providers/AppServiceProvider.php`, novo `app/Http/Middleware/AttachApiKeyToRequest.php` ou equivalente
+**ANTES**: Guard `api-key` retorna só `Operator`; `ApiKey.scopes` nunca consultado.
+**DEPOIS**: Após resolver chave, `request()->attributes->set('api_key', $apiKey)`; helper `currentApiKey(): ?ApiKey`.
+**Validação**: unit test do helper + smoke auth Bearer
+
+### Task F15.2 — Scope enforcement
+
+**Finding(s)**: SEC-V1-001, SEC-F004
+**Arquivo(s)**: `routes/api.php`, middleware `EnsureApiKeyScope`, `app/Modules/Core/Enums/ApiKeyScope.php` (ou const array)
+**ANTES**: Qualquer chave válida acessa todas as rotas autenticadas.
+**DEPOIS**: Rotas customer/lifecycle exigem scopes declarados; `null` scopes em chave interna = full access (backward compat operadores) OU deny-by-default — **decisão: deny-by-default para rotas com scope declarado; chaves UI admin com scopes explícitos `*` ou lista completa**.
+**Validação**: `php artisan test` scope tests
+
+### Task F15.3 — Tenant binding
+
+**Finding(s)**: SEC-V1-001
+**Arquivo(s)**: migration, `app/Models/ApiKey.php`, middleware `EnsureTenantBinding`
+**ANTES**: IDOR — qualquer chave acessa qualquer `{customer}` slug.
+**DEPOIS**: `allowed_tenant_slugs` json; `null` = unrestricted (chaves internas); array não-vazio = allowlist; 403 `forbidden_tenant` se slug fora.
+**Validação**: feature test cross-tenant 403
+
+### Task F15.4 — Testes negativos obrigatórios (gate ADR)
+
+**Finding(s)**: SEC-V1-001
+**Arquivo(s)**: `tests/Feature/Auth/ApiKeyAuthorizationTest.php`
+**DEPOIS**: Parceiro A → tenant B = 403; scope insuficiente = 403; chave interna unrestricted = 200 nos cenários permitidos.
+**Validação**: `php artisan test tests/Feature/Auth/ApiKeyAuthorizationTest.php`
+
+### Task F15.5 — Fechar ISSUE-037
+
+**Arquivo(s)**: `docs/FINDINGS.md`, `docs/ISSUES.md`
+**DEPOIS**: SEC-V1-001 `corrigido`; ISSUE-037 encaminhada para validação.
+**Validação**: `/qa validar F15`
 
 ---
 
