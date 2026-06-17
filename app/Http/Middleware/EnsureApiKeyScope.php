@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Http\Exceptions\RenderDomainError;
+use App\Modules\Core\Domain\DomainError;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,7 +25,7 @@ class EnsureApiKeyScope
         }
 
         if (! $this->scopesAreGranted($apiKey->scopes, $requiredScopes)) {
-            return response()->json(['error' => 'forbidden_scope'], 403);
+            return RenderDomainError::respond($request, DomainError::ForbiddenScope);
         }
 
         return $next($request);

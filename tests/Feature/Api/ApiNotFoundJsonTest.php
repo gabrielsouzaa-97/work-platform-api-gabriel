@@ -86,6 +86,23 @@ it('returns JSON 405 for POST on GET-only API route', function () {
     ]);
 });
 
+it('returns DomainError envelope for unknown /api/v1 route', function () {
+    $response = $this->getJson('/api/v1/rota-inexistente');
+
+    $response->assertNotFound();
+    $response->assertJsonStructure([
+        'error' => [
+            'code',
+            'message',
+        ],
+    ]);
+    expect($response->json('error'))->toBeArray();
+    expect($response->json('error.code'))->toBeString()->not->toBeEmpty();
+    expect(strtolower($response->getContent()))->not->toContain('"subcmd"')
+        ->and(strtolower($response->getContent()))->not->toContain('"exit_code"')
+        ->and(strtolower($response->getContent()))->not->toContain('"cmd_canonical"');
+});
+
 it('does not leak debug keys in 404/405 JSON when APP_DEBUG is true', function (string $method, string $path, int $status) {
     config(['app.debug' => true]);
 

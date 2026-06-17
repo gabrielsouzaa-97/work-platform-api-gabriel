@@ -1,7 +1,7 @@
 # Contratos v1 — Nota de Design (DRAFT)
 
 > **ISSUE-038** · ADR: `.arch-panel/panel/final.md` · Status: **DRAFT — não implementado**
-> Spec OpenAPI: [`openapi-external.yaml`](openapi-external.yaml)
+> **Contrato externo (v1):** [`openapi-external.yaml`](openapi-external.yaml) · **Legacy interno (não publicar):** [`openapi.yaml`](openapi.yaml)
 
 ---
 
