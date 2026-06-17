@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint F15 em andamento — AuthZ ApiKey (ISSUE-037)",
+  "fase_nome": "Sprint F15 validada R2 — AuthZ ApiKey (ISSUE-037)",
   "sprint_atual": "F15",
   "previous_sprint": "F14",
-  "sprint_branch": "sprint/F15",
+  "sprint_branch": "campanha/f15-authz-followup",
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
@@ -53,11 +53,10 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/git — commit + push sprint/F15 + PR",
-    "/qa validar F15 — SEC-V1-001 + ISSUE-037",
-    "ISSUE-038 — /pmo new após F15 validada"
+    "/git — merge PR #114 (campanha/f15-authz-followup)",
+    "ISSUE-038 — /pmo new após merge F15 completo"
   ],
-  "contexto_rapido": "Sprint F15 implementada (scopes + tenant binding). 13 testes auth OK. Aguarda PR.",
+  "contexto_rapido": "F15 validada R2 APROVADA. PR #114 aguarda merge + CI VERIFY.",
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
     "docs/openapi.yaml v1.0 -> v2.0 (slug pattern [a-z0-9-]+ max 64; description atualizada para orquestrador)",
@@ -192,44 +191,43 @@
   "compact_count": 2,
   "checkpoint": {
     "validation_gate": {
-      "sprint": "N19",
+      "sprint": "F15",
       "validation_round": 2,
       "findings_found": 0,
       "findings_registered": [],
       "files_modified_outside_findings": 0,
       "askquestion_shown": false,
-      "senior_review_status": "PASS_WITH_NOTES",
+      "senior_review_status": "PASS",
       "result": "APROVADA",
       "contract_source": "bootstrap",
-      "tests_evidence": "12 passed, 29 assertions (local SQLite); CQ-N19-001 + QA-N19-001 validados in-code",
+      "tests_evidence": "ApiKeyAuthorizationTest 9 passed + CancelJobTest 4 passed, 29 assertions (SQLite local)",
       "findings_validated": [
-        "CQ-N19-001",
-        "QA-N19-001"
+        "CQ-F15-001",
+        "CQ-F15-002",
+        "CQ-F15-003",
+        "CQ-F15-005",
+        "SEC-V1-001"
       ],
       "in_contract": [],
-      "stamped_at": "2026-06-12T21:00:00Z"
+      "stamped_at": "2026-06-17T01:30:00Z"
     }
   },
   "validation_gate": {
-    "sprint": "F14",
-    "produced_by": "/qa validar F14 via /rock",
+    "sprint": "F15",
+    "produced_by": "/qa validar F15 R2 via /rock",
     "result": "APROVADA",
     "validation_mode": "revalidation",
-    "validation_round": 1,
+    "validation_round": 2,
     "findings_validated": [
-      "QA-F14-001",
-      "QA-F14-002",
-      "SEC-F14-001"
+      "CQ-F15-001",
+      "CQ-F15-002",
+      "CQ-F15-003",
+      "CQ-F15-005",
+      "SEC-V1-001"
     ],
-    "tasks_completed": [
-      "F14.1",
-      "F14.2",
-      "F14.3",
-      "F14.4"
-    ],
-    "tests_evidence": "CI run 27652086261: Lint + Test + Security success; senior PASS; qa PASS_WITH_NOTES",
+    "tests_evidence": "ApiKeyAuthorizationTest 9 passed + CancelJobTest 4 passed, 29 assertions",
     "senior_review_status": "PASS",
-    "stamped_at": "2026-06-16T22:40:00Z"
+    "stamped_at": "2026-06-17T01:30:00Z"
   },
   "planning_history": [
     {
