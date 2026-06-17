@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Http\Exceptions\RenderDomainError;
 use App\Models\Customer;
+use App\Modules\Core\Domain\DomainError;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +24,10 @@ class EnsureTenantBinding
         $slug = $this->resolveCustomerSlug($request);
 
         if ($slug === null || ! in_array($slug, $apiKey->allowed_tenant_slugs, true)) {
+            if (RenderDomainError::isV1($request)) {
+                return RenderDomainError::response(DomainError::ForbiddenScope);
+            }
+
             return response()->json(['error' => 'forbidden_tenant'], 403);
         }
 
@@ -46,7 +52,7 @@ class EnsureTenantBinding
             return $slug;
         }
 
-        if ($request->routeIs('api.customers.store')) {
+        if ($request->routeIs('api.customers.store', 'api.v1.tenants.store')) {
             $bodySlug = $request->input('slug');
 
             if (is_string($bodySlug) && $bodySlug !== '') {

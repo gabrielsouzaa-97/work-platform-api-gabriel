@@ -84,7 +84,12 @@
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
-| F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **em andamento** | 5 | Core, Auth, Customers, Audit | SEC-V1-001 — aguarda `/git` + `/qa validar F15` | 4420+ |
+| F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
+| N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **em andamento** | 7 | Core, Auth, Customers, Jobs | branch `sprint/N30`; gate ADR Sprint 0 | 4500+ |
+| N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | planejada | — | Integration, Customers | Depende N30 + D-02 parcial | — |
+| N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | planejada | — | Integration, Jobs, Core | Depende N31 | — |
+| N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | planejada | — | Customers, Core | Depende N32 + D-02 | — |
+| N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | planejada | — | TenantLifecycle | Depende N33 + D-02 resolvido | — |
 
 ---
 
@@ -4422,11 +4427,11 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 ## Sprint F15 — AuthZ ApiKey (scopes + binding tenant)
 
 > Categoria: F
-> Status: em andamento (F15.1–F15.5 implementados; aguarda PR + `/qa validar F15`)
+> Status: **concluída** (PR #114 mergeada 2026-06-17; validation R2 APROVADA)
 > Gate: `ApiKey.scopes` enforced; tenant binding em `/api/customers/{customer}/*`; teste negativo 403 cross-tenant; findings SEC-V1-001 corrigido
 > Gerado via `/rock` + `/pmo fix` em 2026-06-16. Fonte: ISSUE-037 + SEC-V1-001 + ADR `.arch-panel/panel/final.md` §2.1
 > review: senior+security (IDOR latente / pré-requisito API v1)
-> Bloqueia: ISSUE-038 Sprint 0 (`/pmo new` após F15 validada)
+> Desbloqueia: ISSUE-038 Sprint 0 → Sprint **N30**
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
@@ -4475,9 +4480,153 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 
 ---
 
+## Sprint N30 — ISSUE-038 Sprint 0: API `/api/v1` (aliases + DomainError + spec externo)
+
+> Categoria: N
+> Status: **em andamento** (iniciada 2026-06-17 via `/pmo sprint iniciar N30`)
+> Gate: nenhuma resposta `/api/v1/*` contém `subcmd`/`exit_code`/stack trace; chave parceiro A → **403** em tenant B; `redocly lint docs/openapi-external.yaml` 0 errors; endpoints v1 delegam às Actions existentes sem alterar semântica upstream
+> Fonte: **ISSUE-038** + ADR `.arch-panel/panel/final.md` Sprint 0 + `docs/CONTRACTS-V1.md` + `docs/openapi-external.yaml`
+> review: **senior+security** (superfície externa + IDOR + vazamento protocolo NC)
+> Pré-requisito: **F15/ISSUE-037** ✓ (merge PR #114, validation R2 APROVADA)
+> Bloqueia: Sprint **N31** (PlatformPort mínimo)
+> Fora de escopo N30: extrair `PlatformPort`, saga `/v1/onboarding`, `PUT /v1/tenants/{slug}/branding` (gate D-02), grep gate adapters
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | N30.1 — `DomainError` enum + `RenderDomainError` handler (mapeamento único → HTTP; sem vazamento NC) | `laravel-api` | — |
+| [x] | P | N30.2 — Congelar specs: `openapi.yaml` → internal/legacy; `openapi-external.yaml` como contrato externo; nota DOC-001 | `/dev doc` | — |
+| [x] | M | N30.3 — Catálogo scopes v1 (`tenants:*`, `apps:write`, `users:write`, `jobs:read`) + grupo rotas `/api/v1` com `api.scope` + `api.tenant` | `laravel-api` | — |
+| [x] | M | N30.4 — `routes/api_v1.php` + controllers `Api\V1\*` (aliases finos → Actions existentes, mapa CONTRACTS-V1 §4) | `api-rest-patterns` | N30.1, N30.3 |
+| [x] | M | N30.5 — Envelope v1 (`{ data, meta? }`) + FormRequests + Resources sanitizados | `laravel-api` | N30.4 |
+| [x] | M | N30.6 — Testes gate ADR: cross-tenant 403 em `/v1/*` + `DomainErrorSanitizationTest` (sem subcmd/exit_code) | `laravel-testing` | N30.4, N30.5 |
+| [x] | P | N30.7 — `redocly lint` de `openapi-external.yaml` no CI | `ci-automations` | N30.2 |
+
+### Task N30.1 — DomainError + exception handler
+
+**Estado atual**: Erros API expõem vocabulário NC (`occ_subcmd_not_allowed`, `exit_code`, `subcmd`) e formatos heterogêneos (`{ error: 'not_found' }` vs `JsonResource`). DOC-001 documenta drift com envelope `{ success, message, data }`.
+**Estado desejado**: Hierarquia `DomainError` com códigos estáveis (`tenant_not_ready`, `forbidden_scope`, `upstream_unavailable`, etc.) conforme `docs/CONTRACTS-V1.md` §2; handler único para `api/*` e especialmente `api/v1/*`; adapters/actions traduzem exceções upstream **antes** da borda HTTP.
+**Fonte(s)**: ISSUE-038, DOC-001, ADR `final.md` Sprint 0, ISSUE-011
+**Módulo(s)**: `app/Modules/Core/Domain/`, `bootstrap/app.php`, controllers API existentes (mapeamento mínimo)
+**Risco**: MEDIUM — mudança observável em respostas de erro; legado `/api/customers` deve manter compat ou migrar gradualmente com testes de regressão
+**Task size**: M (3–5 arquivos)
+
+**executor_prompt**:
+Melhoria: Introduzir `DomainError` enum/class + `RenderDomainError` no exception handler.
+Contexto: Clientes externos recebem `subcmd`/`exit_code` quando OCC falha (ISSUE-011). ADR Sprint 0 exige sanitização na borda.
+Objetivo: Respostas de erro usam `{ error: { code, message, retry_after?, details? } }` com códigos de `CONTRACTS-V1.md` §2; nenhum campo `subcmd`, `exit_code`, `cmd_canonical` na resposta.
+Arquivos: `app/Modules/Core/Domain/DomainError.php`, `app/Http/Exceptions/RenderDomainError.php`, `bootstrap/app.php`, mapeamentos em `OccController`/`CustomerLifecycleController` (mínimo para paths v1).
+Critério de pronto: `DomainErrorSanitizationTest` prova ausência de termos NC em JSON de erro; códigos HTTP alinhados à tabela CONTRACTS-V1.
+reuse_targets:
+  - component: `bootstrap/app.php` (render 404/405 JSON existente)
+    reuse_as: extend
+    convergence_check: rg "shouldRenderJsonWhen" bootstrap/app.php
+Cenários de teste:
+  1. OCC bloqueado → 403 `capability_not_available` ou `forbidden_scope` sem `subcmd`
+  2. Tenant em provisioning → 503 `tenant_not_ready` com `retry_after`
+  3. Regressão: 404 JSON em `/api/v1/tenants/inexistente` mantém formato DomainError
+
+### Task N30.3 — Scopes v1 + grupo de rotas `/api/v1`
+
+**Estado atual**: F15 implementou `EnsureApiKeyScope` + `EnsureTenantBinding` em rotas legado (`customers:write`, `lifecycle:write`, etc.). Scopes v1 (`tenants:read`, `tenants:write`, …) ainda não existem.
+**Estado desejado**: Matriz scope→rota de `CONTRACTS-V1.md` §3 aplicada em todo `/api/v1/*`; binding tenant em rotas `{slug}`; sessão web de operador interno continua funcionando onde aplicável.
+**Fonte(s)**: ISSUE-038, CONTRACTS-V1 §3, F15 (SEC-V1-001)
+**Módulo(s)**: `app/Http/Middleware/EnsureApiKeyScope.php`, `routes/api_v1.php`, `bootstrap/app.php`
+**Risco**: MEDIUM — authz incorreta = IDOR; testes negativos obrigatórios
+**Task size**: M
+
+**executor_prompt**:
+Melhoria: Registrar scopes v1 e grupo middleware para prefixo `/api/v1`.
+Contexto: ADR exige `VerifyExternalPrincipal` — reutilizar F15 (`api.scope`, `api.tenant`) em vez de duplicar lógica.
+Objetivo: Cada rota v1 declara scope conforme CONTRACTS-V1 §3; `DELETE /v1/tenants/{slug}` usa `api.tenant` com parâmetro `slug` (mesmo padrão F15.6 fix).
+Arquivos: `EnsureApiKeyScope.php` (ou `config/api-scopes.php`), `routes/api_v1.php`, registro em `bootstrap/app.php` ou `routes/api.php`.
+Critério de pronto: chave com `allowed_tenant_slugs: ['a']` → 403 em `/v1/tenants/b/*`; chave sem `tenants:write` → 403 em POST tenants.
+reuse_targets:
+  - component: `app/Http/Middleware/EnsureApiKeyScope.php`
+    reuse_as: extend
+    convergence_check: rg "api.scope" routes/api.php
+  - component: `app/Http/Middleware/EnsureTenantBinding.php`
+    reuse_as: extend
+    convergence_check: rg "api.tenant" routes/api.php
+Cenários de teste:
+  1. Cross-tenant 403 (gate ADR)
+  2. Scope insuficiente 403 `forbidden_scope`
+  3. Chave unrestricted interna → 200 nos cenários permitidos
+
+### Task N30.4 — Rotas e controllers V1 (aliases finos)
+
+**Estado atual**: Integração externa usa `/api/customers/*`, `/api/queue/*`, `/occ/*`. Não existe `/api/v1/*` implementado (spec em `openapi-external.yaml` é DRAFT).
+**Estado desejado**: `routes/api_v1.php` com endpoints do mapa CONTRACTS-V1 §4 delegando a `ProvisionCustomerAction`, `RemoveCustomerAction`, `LifecycleAsyncAction`, `JobController::show` — **sem** duplicar lógica de negócio.
+**Fonte(s)**: ISSUE-038, CONTRACTS-V1 §4, `openapi-external.yaml`
+**Módulo(s)**: `routes/api_v1.php`, `app/Http/Controllers/Api/V1/`
+**Risco**: MEDIUM — divergência v1 vs legado se aliases não forem finos
+**Task size**: M (4–6 arquivos)
+
+**executor_prompt**:
+Melhoria: Implementar controllers V1 como aliases HTTP sobre Actions existentes.
+Contexto: Sprint 0 ADR proíbe extrair PlatformPort; valor = namespace estável `/api/v1` sem big-bang.
+Objetivo: Endpoints listados em CONTRACTS-V1 §4 funcionais; `POST /v1/tenants` → mesmo outcome que `POST /api/customers`; `GET /v1/jobs/{id}` sanitiza campos NC no Resource.
+Arquivos: `routes/api_v1.php`, `TenantController.php`, `TenantUserController.php`, `TenantAppsController.php`, `JobV1Controller.php` (nomes conforme convenção do projeto).
+Critério de pronto: smoke Pest por endpoint v1; nenhuma chamada SSH nova nos controllers (só Actions).
+reuse_targets:
+  - component: `app/Modules/Customers/Actions/ProvisionCustomerAction.php`
+    reuse_as: call
+    convergence_check: rg "ProvisionCustomerAction" app/Http/Controllers
+  - component: `routes/api.php` (padrão middleware/throttle)
+    reuse_as: copy_pattern
+    convergence_check: rg "throttle:120" routes/api.php
+Cenários de teste:
+  1. POST tenant → 202 + `job_id` (async)
+  2. POST users em tenant provisioning → 503 `tenant_not_ready`
+  3. GET job → 200 sem campos `cmd`/`exit_code` no JSON v1
+
+### Task N30.5 — Envelope v1 + FormRequests
+
+**Estado atual**: Respostas misturam `{ job_id }` cru e `JsonResource` sem `meta.status_url`.
+**Estado desejado**: Sucesso async `{ data, meta: { job_id, status_url } }`; sucesso sync `{ data }`; alinhado a `openapi-external.yaml` e CONTRACTS-V1 §8.
+**Fonte(s)**: DOC-001, ISSUE-038, openapi-external.yaml
+**Módulo(s)**: `app/Http/Resources/V1/`, `app/Http/Requests/V1/`
+**Risco**: LOW–MEDIUM — breaking para quem já consumisse draft (nenhum em prod ainda)
+**Task size**: M
+
+**executor_prompt**:
+Melhoria: Padronizar envelope de sucesso/erro na borda v1.
+Objetivo: Resources V1 encapsulam `Customer`, `Job`; FormRequests validam slug/username conforme regras existentes (reuso de `ProvisionCustomerRequest` rules onde possível).
+Arquivos: `app/Http/Resources/V1/*`, `app/Http/Requests/V1/*`, trait `RespondsWithV1Envelope` (se necessário).
+Critério de pronto: responses batem exemplos do spec externo; erros passam por DomainError handler (N30.1).
+
+### Task N30.6 — Testes gate ADR
+
+**Estado atual**: `ApiKeyAuthorizationTest` cobre rotas legado F15; sem cobertura `/v1/*`.
+**Estado desejado**: Gate ADR Sprint 0 verificável em CI: 403 cross-tenant + sanitização erro + smoke v1.
+**Fonte(s)**: ADR `final.md` critérios Sprint 0, F15.4
+**Módulo(s)**: `tests/Feature/Api/V1/`, `tests/Feature/Auth/ApiKeyAuthorizationTest.php`
+**Risco**: LOW
+**Task size**: M
+
+**executor_prompt**:
+Melhoria: Suite de testes que fecha o gate da Sprint N30.
+Objetivo: `ApiV1AuthorizationTest` (cross-tenant + scopes v1); `DomainErrorSanitizationTest` (regex negativa para subcmd/exit_code); smoke por endpoint do mapa §4.
+Arquivos: `tests/Feature/Api/V1/ApiV1AuthorizationTest.php`, `tests/Feature/Api/V1/DomainErrorSanitizationTest.php`, `tests/Feature/Api/V1/TenantLifecycleV1Test.php`.
+Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR reproduzível localmente.
+
+---
+
+## Roadmap ISSUE-038 — Fases posteriores (stubs)
+
+> Detalhamento completo via `/pmo plan` quando N30 estiver validada. Fonte: ADR `final.md` §4.
+
+| Sprint | Fase ADR | Gate resumido | Bloqueio |
+|--------|----------|---------------|----------|
+| **N31** | Fase 1 — PlatformPort mínimo | `PUT /v1/tenants/{slug}/branding` 100% via port; characterization tests | N30 + D-02 (branding) |
+| **N32** | Fase 2 — Ondas + observabilidade | grep gate adapters; `correlation_id`; alertas job preso | N31 |
+| **N33** | Fase 3 — Despublicar `/occ/*` | `/occ/*` fora do spec externo; capabilities mutação via port | N32 + D-02 |
+| **N34** | Fase 4 — Saga onboarding | `POST /v1/onboarding` idempotente + runbook parcial | N33 + D-02 resolvido |
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| 2026-06-12 | 0.25   | Índice Platform V2 (N14–N29): sprint N29 DNS PowerDNS; N22 WHMCS+Vindi (`store.mecloud360.com.br`); N28 WHMCS/Proxmox `IDC-EVEO`. Ver `docs/PLATFORM-V2-PLAN.md` v1.1. | PLATFORM-V2-PLAN |
+| 2026-06-17 | 0.26   | Sprint N30 planejada — ISSUE-038 Sprint 0 (`/api/v1` aliases + DomainError + spec externo); stubs N31–N34; F15 índice → concluída. | `/pmo plan` |
 | 2026-06-02 | 0.24   | Sync FINDINGS + ROADMAP: F5.11 `[x]`, F5/F11 no índice; F9 APROVADA R1; F10/F12 notas; F5 `/qa validar R3` pendente. | /pmo sync |
 | 2026-05-28 | 0.23   | Sprint F13 CONCLUÍDA — branding no `create` corrigido; ProvisionTest 16 passed; validação senior+qa APROVADA R1. | /fix F13 |
 | 2026-05-28 | 0.22   | Sprint F13 adicionada — ISSUE-019 (`create` deve enviar branding logo/background via `branding.*_data_url` ou `--staging-id`). | /fix (interativo) |

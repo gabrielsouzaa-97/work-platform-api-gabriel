@@ -149,3 +149,12 @@ jobs:
 
       - name: Composer audit
         run: composer audit --no-dev --locked --abandoned=report
+
+  openapi-external:
+    name: OpenAPI (Redocly external)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Redocly lint (external spec)
+        run: npx --yes @redocly/cli lint docs/openapi-external.yaml

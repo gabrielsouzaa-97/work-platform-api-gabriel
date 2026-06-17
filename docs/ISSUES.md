@@ -43,7 +43,7 @@
 | ISSUE-035 | investigacao | Tabela `personal_access_tokens` ausente no banco do deployer prod — API Bearer (Sanctum) não pode funcionar; verificar migrations pendentes em prod | Core, DevOps | HIGH | **closed (2026-06-10)** — premissa incorreta: projeto não usa Sanctum; auth Bearer usa `api_keys` (existe em prod); `failed_jobs` segue em OPS-001/ISSUE-023 |
 | ISSUE-036 | bug | Containers `*-push` (notify_push) em `Restarting (127)` em 4 tenants do SaaS-02 | Cross-repo (deploy-scripts) | MEDIUM | open |
 | ISSUE-037 | security | `ApiKey.scopes` nunca aplicado + sem autorização por tenant — qualquer chave age sobre qualquer customer (IDOR latente; vira CRITICAL ao abrir `/v1` a terceiros) | Core (Auth/api-key), Customers | HIGH | **corrigido local** — Sprint F15 (2026-06-16) |
-| ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | open (triagem 2026-06-16 — ADR `.arch-panel/panel/final.md`; aguarda `/pmo new` p/ Sprint 0; depende de ISSUE-037) |
+| ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | planned — Sprint N30 (2026-06-17) |
 | ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | **closed (2026-06-16)** — Sprint F14 merge PR #112; CI verde |
 
 ---
@@ -87,7 +87,7 @@ Verificado no código durante a triagem:
 
 - **Tipo**: change_request (iniciativa arquitetural)
 - **Prioridade**: HIGH
-- **Status**: open — triagem 2026-06-16; ADR decidido; aguarda `/pmo new` para planejar o Sprint 0
+- **Status**: planned — Sprint **N30** no ROADMAP (2026-06-17 via `/pmo plan`); ADR decidido; pré-req ISSUE-037/F15 ✓
 - **Registrado em**: 2026-06-16
 - **Solicitante**: discussão de produto + painel de arquitetura adversarial (`/arquiteto`, protocolo `tests/arch-panel.md`)
 - **Módulos afetados**: Core (HTTP/Auth), Customers, Occ, Agents, docs (openapi)
@@ -112,7 +112,7 @@ Decisão do painel (resumo — detalhe no ADR):
 
 ### Próximo passo
 
-`/pmo new` para transformar o Sprint 0 do ADR em sprint planejada (tasks/IDs/blueprint) quando o ISSUE-037 estiver encaminhado. Não definir tasks inline (no-cowboy / phase-awareness).
+`/pmo sprint iniciar N30` — executar Sprint 0 do ADR (aliases `/v1` + DomainError + spec externo). Fases 1–4 → N31–N34 (stubs no ROADMAP).
 
 ## ISSUE-039 — CI vermelho no `main` (regressão N19 + phpseclib)
 

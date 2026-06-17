@@ -1,8 +1,13 @@
 openapi: 3.0.3
 
 info:
-  title: Nextcloud Deployer API
+  title: Nextcloud Deployer API (internal / legacy)
   description: |
+    **Internal / legacy OpenAPI spec** — documenta rotas admin e legado da API atual
+    (envelope `{ success, message, data }` e paths fora de `/api/v1/*`).
+    **Não use para integração pública.** Contrato externo v1 estável:
+    [`openapi-external.yaml`](openapi-external.yaml) · nota de design: [`CONTRACTS-V1.md`](CONTRACTS-V1.md).
+
     API REST orquestradora (Laravel) que delega o provisionamento e a gestão de instâncias
     Nextcloud para o sistema upstream `nextcloud-saas-manager` (Bash scripts + Redis worker)
     via SSH (`nextcloud-manage ... --async`) + Webhook HMAC-SHA256.

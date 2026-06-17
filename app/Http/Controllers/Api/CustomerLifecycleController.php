@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Exceptions\RenderDomainError;
 use App\Http\Requests\Lifecycle\AddUserToGroupRequest;
 use App\Http\Requests\Lifecycle\CreateGroupRequest;
 use App\Http\Requests\Lifecycle\CreateUserRequest;
@@ -145,10 +146,7 @@ final class CustomerLifecycleController extends Controller
         try {
             $job = $this->action->execute($customer, $cmd, $args, $stdinPayload, $actor);
         } catch (TenantNotReadyException $e) {
-            return response()->json([
-                'error' => 'tenant_not_ready',
-                'status' => $e->customerStatus,
-            ], 503)->header('Retry-After', (string) $e->retryAfterSeconds);
+            return RenderDomainError::tenantNotReadyResponse($request, $e);
         } catch (BlockedOnUpstreamException $e) {
             // Verb is pending in mework360-deployer-scripts (D3/D4) — surface HTTP 501
             // so clients know this is *intentionally* unavailable, not a transient bug.
@@ -158,16 +156,9 @@ final class CustomerLifecycleController extends Controller
                 'cmd' => $e->cmd,
             ], 501);
         } catch (SshRemoteException $e) {
-            if ($e->remoteExitCode === 4) {
-                return response()->json(['error' => 'already_exists'], 409);
-            }
-            if ($e->remoteExitCode === 22) {
-                return response()->json(['error' => 'validation_failed', 'message' => 'Password does not meet requirements.'], 422);
-            }
-
-            return response()->json(['error' => 'upstream_error', 'exit_code' => $e->remoteExitCode], 502);
+            return RenderDomainError::mapSshRemoteException($e, $request);
         } catch (\Throwable $e) {
-            if ($r = $this->mapLifecycleException($e)) {
+            if ($r = $this->mapLifecycleException($e, $request)) {
                 return $r;
             }
             throw $e;
@@ -200,13 +191,9 @@ final class CustomerLifecycleController extends Controller
         try {
             $job = $this->action->execute($customer, $cmd, [$appsCsv], null, $actor);
         } catch (SshRemoteException $e) {
-            return response()->json([
-                'error' => 'upstream_error',
-                'exit_code' => $e->remoteExitCode,
-                'apps_csv' => $appsCsv,
-            ], 502);
+            return RenderDomainError::mapSshRemoteException($e, $request, ['apps_csv' => $appsCsv]);
         } catch (\Throwable $e) {
-            if ($r = $this->mapLifecycleException($e)) {
+            if ($r = $this->mapLifecycleException($e, $request)) {
                 return $r;
             }
             throw $e;
@@ -222,16 +209,12 @@ final class CustomerLifecycleController extends Controller
      * Maps common lifecycle exceptions to JSON responses. Returns null for exceptions
      * that require caller-specific handling (e.g. SshRemoteException with exit-code routing).
      */
-    private function mapLifecycleException(\Throwable $e): ?JsonResponse
+    private function mapLifecycleException(\Throwable $e, Request $request): ?JsonResponse
     {
         return match (true) {
-            $e instanceof ClusterUnreachableException => response()->json(['error' => 'cluster_unreachable'], 503)
-                ->header('Retry-After', '60'),
+            $e instanceof ClusterUnreachableException => RenderDomainError::clusterUnreachableResponse($request),
             $e instanceof SshTimeoutException => response()->json(['error' => 'lifecycle_timeout'], 504),
-            $e instanceof IdempotencyConflictException => response()->json([
-                'error' => 'idempotency_conflict',
-                'existing_job_id' => $e->getExistingJobId(),
-            ], 409),
+            $e instanceof IdempotencyConflictException => RenderDomainError::idempotencyConflictResponse($request, $e),
             default => null,
         };
     }

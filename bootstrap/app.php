@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Exceptions\RenderDomainError;
 use App\Http\Middleware\EnsureApiKeyScope;
 use App\Http\Middleware\EnsureOperatorIsActive;
 use App\Http\Middleware\EnsureRole;
@@ -7,11 +8,11 @@ use App\Http\Middleware\EnsureTenantBinding;
 use App\Http\Middleware\SecureHeaders;
 use App\Http\Middleware\VerifyAgentAuth;
 use App\Http\Middleware\VerifyWebhookHmac;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -21,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            Route::middleware('api')
+                ->prefix('api/v1')
+                ->group(base_path('routes/api_v1.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
@@ -42,26 +48,10 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if ($request->is('api', 'api/*')) {
-                $error = $e->getPrevious() instanceof ModelNotFoundException
-                    ? 'not_found'
-                    : 'route_not_found';
-
-                return response()->json([
-                    'error' => $error,
-                    'path' => $request->getPathInfo(),
-                    'method' => $request->method(),
-                ], 404);
-            }
+            return RenderDomainError::renderNotFound($e, $request);
         });
 
         $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
-            if ($request->is('api', 'api/*')) {
-                return response()->json([
-                    'error' => 'method_not_allowed',
-                    'path' => $request->getPathInfo(),
-                    'method' => $request->method(),
-                ], 405);
-            }
+            return RenderDomainError::renderMethodNotAllowed($e, $request);
         });
     })->create();

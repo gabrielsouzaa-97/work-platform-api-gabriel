@@ -33,16 +33,16 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint F15 validada R2 — AuthZ ApiKey (ISSUE-037)",
-  "sprint_atual": "F15",
-  "previous_sprint": "F14",
-  "sprint_branch": "campanha/f15-authz-followup",
+  "fase_nome": "Sprint N30 em andamento — ISSUE-038 API v1 Sprint 0",
+  "sprint_atual": "N30",
+  "previous_sprint": "F15",
+  "sprint_branch": "sprint/N30",
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-16T23:30:00Z",
+  "ultimo_update": "2026-06-17T14:00:00Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -53,10 +53,17 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/git — merge PR #114 (campanha/f15-authz-followup)",
-    "ISSUE-038 — /pmo new após merge F15 completo"
+    "VERIFY — CI verde no PR sprint/N30",
+    "Pós-merge: smoke opcional no lab deployer.mework360.com.br"
   ],
-  "contexto_rapido": "F15 validada R2 APROVADA. PR #114 aguarda merge + CI VERIFY.",
+  "contexto_rapido": "Sprint N30 implementada (7/7 tasks). Aguarda CI do PR. Sem ambiente local — lab nuvem pós-deploy.",
+  "validation_env": {
+    "mode": "ci_authority",
+    "local_docker": false,
+    "local_env": false,
+    "cloud_lab_host": "deployer.mework360.com.br",
+    "note": "Usuário 2026-06-17: não existe ambiente local de teste; CI do PR é autoridade; lab nuvem para smoke pós-deploy opcional"
+  },
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
     "docs/openapi.yaml v1.0 -> v2.0 (slug pattern [a-z0-9-]+ max 64; description atualizada para orquestrador)",
@@ -190,7 +197,26 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "validation_gate": {
+    "sprint": "N30",
+    "phase": "testing",
+    "branch": "sprint/N30",
+    "validation_mode": "full",
+    "validation_authority": "github_actions_pr",
+    "current_task": null,
+    "last_completed_task": "N30.7",
+    "timestamp": "2026-06-17T16:30:00Z",
+    "prereq_blockers": []
+  },
+  "sprint_tasks": [
+    { "id": "N30.1", "status": "completed", "size": "M", "title": "DomainError enum + RenderDomainError handler" },
+    { "id": "N30.2", "status": "completed", "size": "P", "title": "Congelar specs openapi legacy vs external" },
+    { "id": "N30.3", "status": "completed", "size": "M", "title": "Scopes v1 + grupo rotas /api/v1" },
+    { "id": "N30.4", "status": "completed", "size": "M", "title": "routes/api_v1.php + controllers Api\\V1", "depends": ["N30.1", "N30.3"] },
+    { "id": "N30.5", "status": "completed", "size": "M", "title": "Envelope v1 + FormRequests + Resources", "depends": ["N30.4"] },
+    { "id": "N30.6", "status": "completed", "size": "M", "title": "Testes gate ADR cross-tenant + sanitização", "depends": ["N30.4", "N30.5"] },
+    { "id": "N30.7", "status": "completed", "size": "P", "title": "redocly lint openapi-external no CI", "depends": ["N30.2"] }
+  ],
+  "validation_gate": {
       "sprint": "F15",
       "validation_round": 2,
       "findings_found": 0,
@@ -230,6 +256,20 @@
     "stamped_at": "2026-06-17T01:30:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-06-17T12:00:00Z",
+      "action": "/pmo plan — ISSUE-038",
+      "sprints_generated": ["N30"],
+      "sprint_stubs": ["N31", "N32", "N33", "N34"],
+      "issues_in_scope": ["ISSUE-038"],
+      "findings_in_scope": ["DOC-001"],
+      "findings_breakdown": { "HIGH": 0, "MEDIUM": 1 },
+      "split_strategy": "ADR Sprint 0 → N30 (7 tasks: 5M + 2P); Fases 1–4 → stubs N31–N34",
+      "tasks_count": { "P": 2, "M": 5, "total": 7 },
+      "review_level": "senior+security",
+      "source_skill_invocation": "/pmo plan → planejador-melhorias",
+      "gate": "403 cross-tenant + DomainError sem subcmd/exit_code + redocly lint 0 errors"
+    },
     {
       "timestamp": "2026-06-16T20:45:00Z",
       "action": "/pmo fix",
