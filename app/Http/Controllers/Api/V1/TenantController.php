@@ -57,9 +57,4 @@ final class TenantController extends Controller
             $this->customerController->destroy($slug, $request, $action),
         );
     }
-
-    public function updateBranding(string $slug): JsonResponse
-    {
-        return RenderDomainError::response(DomainError::CapabilityNotAvailable);
-    }
 }

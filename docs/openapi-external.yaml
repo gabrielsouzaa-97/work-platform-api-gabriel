@@ -430,38 +430,77 @@ paths:
       - $ref: "#/components/parameters/TenantSlug"
     put:
       tags: [Branding]
-      summary: Aplicar branding (indisponível)
+      summary: Aplicar branding do tenant
       description: |
-        **Capability bloqueada (D-02).** O upstream ainda não suporta branding via
-        allowlist estável. Retorna **404** `capability_not_available` até resolução
-        de D-02 / ISSUE-016. Schema documentado apenas como referência futura.
+        Aplica theming Nextcloud (`theming:config`) via **PlatformPort::setBranding**.
+        Campos vazios são omitidos. Se o upstream bloquear o subcmd (allowlist D-02),
+        retorna **404** `capability_not_available` com envelope DomainError.
 
         **Scope:** `branding:write`.
       operationId: setBranding
       x-required-scope: branding:write
-      x-internal-mapping: "(bloqueado — OccController::setBranding / PlatformPort.setBranding futuro)"
+      x-internal-mapping: PlatformPort::setBranding
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               type: object
               properties:
-                logo:
+                name:
                   type: string
-                  format: binary
-                  description: PNG ou JPEG, máx. 5 MB
-                background:
+                  maxLength: 255
+                color:
                   type: string
-                  format: binary
-                  description: PNG ou JPEG, máx. 5 MB
+                  pattern: '^#[0-9a-fA-F]{6}$'
+                url:
+                  type: string
+                  format: uri
+                slogan:
+                  type: string
+                  maxLength: 255
+                imprintUrl:
+                  type: string
+                  format: uri
+                privacyUrl:
+                  type: string
+                  format: uri
+            examples:
+              minimal:
+                value:
+                  name: Acme Corp
+                  color: '#123456'
       responses:
+        "200":
+          description: Branding aplicado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+              examples:
+                ok:
+                  value:
+                    data:
+                      result: ok
         "404":
-          $ref: "#/components/responses/CapabilityNotAvailable"
+          description: Tenant não encontrado ou capability bloqueada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainError"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/ForbiddenScope"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
         "429":
           $ref: "#/components/responses/RateLimited"
 

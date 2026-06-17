@@ -86,7 +86,7 @@
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
-| N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | planejada | — | Integration, Customers | Depende N30 + D-02 parcial | — |
+| N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **planejada** | 7 | Integration, Customers | N30 ✓; D-02 parcial (branding OCC) | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | planejada | — | Integration, Jobs, Core | Depende N31 | — |
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | planejada | — | Customers, Core | Depende N32 + D-02 | — |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | planejada | — | TenantLifecycle | Depende N33 + D-02 resolvido | — |
@@ -4620,6 +4620,51 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 - **CI** (`837173c`): Lint, Test/Pest, composer audit, OpenAPI Redocly — verde
 - **Testes**: ~35 Pest em `tests/Feature/Api/V1/`
 - **Resultado**: **APROVADA** (validation_gate_qa)
+
+---
+
+## Sprint N31 — ISSUE-038 Fase 1: PlatformPort mínimo (branding via port)
+
+> Categoria: N
+> Status: **planejada** (planejamento 2026-06-17 via `/pmo plan` + `/rock`)
+> Gate: `PUT /v1/tenants/{slug}/branding` servido **100% via `PlatformPort`**; `ProvisionCustomerAction` + `LifecycleAsyncAction` delegam ao port; characterization tests verdes **antes** da migração; regra `stagingId === null` → transporte na factory **sem mudança de outcome**; grep gate adapters permanece **N32**
+> Fonte: **ISSUE-038** Fase 1 + ADR `.arch-panel/panel/final.md` §4 + `docs/CONTRACTS-V1.md` §4
+> review: **senior+qa** (refactor cross-module + paridade transporte SSH/Agent)
+> Pré-requisito: **N30** ✓ (PR #115, validation R1 APROVADA)
+> Bloqueia: Sprint **N32** (ondas migração + observabilidade)
+> Fora de escopo N31: `execOcc` no port; migração `JobLogFetcher`/`OccPanel`/Artisan; grep gate CI; saga `/v1/onboarding`; expandir allowlist upstream (D-02 estratégico)
+> Nota D-02: branding OCC pode ainda retornar `capability_not_available` se upstream bloquear — port deve sanitizar; sucesso da sprint = **wiring via port**, não garantir OCC em produção
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | N31.1 — `PlatformPort` interface + DTOs (`createTenant`, `enableApps`, `setBranding`, `probeReadiness`; **sem `execOcc`**) | `modular-architecture` | — |
+| [x] | M | N31.2 — `SshPlatformAdapter` + `AgentPlatformAdapter` (wrap `SshClient` / `AgentUpstreamGateway`) | `laravel-api` | N31.1 |
+| [x] | M | N31.3 — `PlatformPortFactory` + bind DI; mover regra `stagingId === null` / `AgentTransportResolver` para factory | `laravel-api` | N31.2 |
+| [x] | M | N31.4 — Characterization tests baseline (`ProvisionCustomerAction`, `LifecycleAsyncAction`) **antes** da migração | `laravel-testing` | — |
+| [x] | M | N31.5 — Migrar `ProvisionCustomerAction` → `PlatformPort::createTenant` | `laravel-api` | N31.3, N31.4 |
+| [x] | M | N31.6 — Migrar `LifecycleAsyncAction` → port (`enableApps` + paths lifecycle) | `laravel-api` | N31.3, N31.4 |
+| [x] | M | N31.7 — `PUT /api/v1/tenants/{slug}/branding` via port + scope `branding:write` + testes + `openapi-external.yaml` | `api-rest-patterns` | N31.1, N31.3, N31.6 |
+
+### Melhorias avaliadas (não entram N31)
+
+| Item | Decisão | Motivo |
+|------|---------|--------|
+| SEC-N30-003/004 (erros DELETE provision legados) | **N32 ou fast-track** | Fora do gate Fase 1; já sanitizado em v1 na N30 |
+| ValidationException envelope v1 | **Backlog** | MEDIUM; não bloqueia port |
+| Grep gate adapters no CI | **N32** | ADR Fase 2 |
+| Expandir D-02 allowlist upstream | **ISSUE-016 / scripts** | Dependência externa; N31 prova port com comportamento atual |
+
+### Task N31.1 — PlatformPort contract
+
+**Estado atual**: `ProvisionCustomerAction` e `LifecycleAsyncAction` injetam `SshClientInterface` + `AgentUpstreamGateway` + `AgentTransportResolver` diretamente.
+**Estado desejado**: `App\Modules\Integration\Contracts\PlatformPort` com comandos tipados; adapters em `Integration/Adapters/`; **sem** `execOcc` na interface pública.
+**Critério de pronto**: interface + DTOs registrados; service provider bind factory; zero mudança de comportamento em runtime até N31.5/N31.6.
+
+### Task N31.7 — Branding v1 via port
+
+**Estado atual**: `TenantController::updateBranding` retorna `404 capability_not_available` (gate D-02 N30).
+**Estado desejado**: `BrandingV1Controller` chama `PlatformPort::setBranding`; erros via `RenderDomainError`; scope `branding:write` em `config/api-scopes.php`.
+**Critério de pronto**: characterization + feature test provam paridade com `OccController::setBranding` (via port); resposta v1 com envelope DomainError.
 
 ---
 

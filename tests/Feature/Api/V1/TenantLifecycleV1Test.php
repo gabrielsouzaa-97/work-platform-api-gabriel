@@ -250,19 +250,10 @@ it('GET /api/v1/jobs/{id} returns 200 v1 sync envelope without NC fields', funct
     assertLifecycleV1ExcludesNcVocabulary($response->getContent());
 });
 
-it('blocked v1 capabilities return DomainError without NC vocabulary', function () {
+it('blocked v1 onboarding returns not_implemented without NC vocabulary', function () {
     $slug = 'blocked-v1-'.substr(uniqid(), -6);
     makeLifecycleV1Tenant($slug);
-    $rawToken = createLifecycleV1ApiKey(scopes: ['branding:write', 'onboarding:run'], allowedTenantSlugs: [$slug]);
-
-    $branding = $this->putJson(
-        "/api/v1/tenants/{$slug}/branding",
-        ['logo_url' => 'https://example.com/logo.png'],
-        lifecycleV1Bearer($rawToken),
-    );
-    $branding->assertNotFound();
-    $branding->assertJsonPath('error.code', 'capability_not_available');
-    assertLifecycleV1ExcludesNcVocabulary($branding->getContent());
+    $rawToken = createLifecycleV1ApiKey(scopes: ['onboarding:run'], allowedTenantSlugs: [$slug]);
 
     $onboarding = $this->postJson(
         '/api/v1/onboarding',

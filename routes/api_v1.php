@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\BrandingV1Controller;
 use App\Http\Controllers\Api\V1\JobV1Controller;
 use App\Http\Controllers\Api\V1\OnboardingV1Controller;
 use App\Http\Controllers\Api\V1\TenantAppsController;
@@ -34,7 +35,7 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
         ->middleware(['api.tenant', 'api.scope:users:write'])
         ->name('api.v1.tenants.users.delete');
 
-    Route::put('/tenants/{slug}/branding', [TenantController::class, 'updateBranding'])
+    Route::put('/tenants/{slug}/branding', [BrandingV1Controller::class, 'update'])
         ->middleware(['api.tenant', 'api.scope:branding:write'])
         ->name('api.v1.tenants.branding.update');
 

@@ -10,6 +10,9 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Ssh\SshConnectionPool;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Core\Translators\StateTranslator;
+use App\Modules\Integration\Adapters\AgentPlatformAdapter;
+use App\Modules\Integration\Adapters\SshPlatformAdapter;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Observers\ClusterServerObserver;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -37,6 +40,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(JobTypeTranslator::class);
         $this->app->singleton(StateTranslator::class);
+
+        $this->app->singleton(SshPlatformAdapter::class);
+        $this->app->singleton(AgentPlatformAdapter::class);
+        $this->app->singleton(PlatformPortFactory::class);
     }
 
     public function boot(): void
