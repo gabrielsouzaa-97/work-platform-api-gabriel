@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
 synced_at: 2026-06-16
 open_critical: 0
-open_high: 3
-open_medium: 44
-open_low: 31
-sprints_with_open_blockers: F10
-notes: SEC-V1-001 (HIGH) registrado 2026-06-16 via triagem do painel de arquitetura — ApiKey.scopes nunca aplicado + sem autorizacao por tenant (IDOR latente); pre-requisito da API externa /v1. N19 validacao R2 APROVADA (2026-06-12)
+open_high: 4
+open_medium: 47
+open_low: 33
+sprints_with_open_blockers: F10,F15
+notes: F15 validacao R1 REPROVADA (2026-06-16) — CQ-F15-001 HIGH tenant bypass DELETE /customers/{slug}; SEC-V1-001 correcao parcial validada em customers/{customer}/*. N19 validacao R2 APROVADA (2026-06-12)
 FINDINGS-INDEX -->
 
 
@@ -35,8 +35,11 @@ FINDINGS-INDEX -->
 | F12 | 0 | 0 | 1 | 0 | 0 | 1 | 0 |
 | F13 | 0 | 2 | 2 | 0 | 0 | 3 | 1 |
 | F14 | 0 | 2 | 1 | 0 | 3 | 0 | 0 |
+| F15 | 0 | 1 | 3 | 2 | 4 | 0 | 0 |
 | N19 | 0 | 2 | 9 | 6 | 15 | 0 | 2 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
+
+> **Validação F15 R1** (2026-06-16, `/qa validar F15`): scope = delta `main...430078a` (ApiKey authz). **Testes**: `ApiKeyAuthorizationTest` 5 passed, 7 assertions (SQLite local, APP_KEY). **auditor-senior** → **FAIL** (`CQ-F15-001` HIGH — `DELETE /customers/{slug}` ignora `api.tenant`). **auditor-security** → PASS no gate literal F15 (`customers/{customer}/*`); 2 MEDIUM residuais (provision/delete). **SEC-V1-001** → correcao parcial validada (scopes + tenant em lifecycle/OCC); gap DELETE pendente via `CQ-F15-001`. **Hard Rule #2**: 3 arquivos probe fora de whitelist (`tests/_probe.*`). **Resultado: REPROVADA** — PROC-012 exige corrigir HIGH in-sprint (`F15.6`).
 
 > **Validação N19 R2** (2026-06-12, `/qa validar N19`): correções CQ-N19-001 (ownership `operation_id` em `AgentEventHandler` + `ack` scoped) + QA-N19-001 (teste SFTP bypass com agent ON). **Testes**: 12 passed, 29 assertions (local SQLite). **Resultado: APROVADA** — 0 HIGH pendentes; 15 MEDIUM/LOW backlog non-blocking.
 
@@ -2147,6 +2150,86 @@ Nenhum finding registrado para D1 na validação atual.
   4. Registrar `api_key_id`/escopo no `AuditLog` por capability.
 - **Correção** (Sprint F15, 2026-06-16): Guard `api-key` vincula `ApiKey` ao request (`current_api_key()`); middlewares `EnsureApiKeyScope` (`api.scope`) e `EnsureTenantBinding` (`api.tenant`) aplicados em `routes/api.php`; coluna `allowed_tenant_slugs` em `api_keys`; `AuditLog.api_key_id` preenchido automaticamente em ações via Bearer. Testes: `ApiKeyAuthorizationTest`.
 - **Relacionados**: SEC-F004 (guard Bearer — implementado, escopo nunca aplicado), painel `.arch-panel/panel/final.md` (authz escopado promovido a gate de Sprint 0/Fase inicial), ISSUE-037.
+- **Validação** (F15 R1, 2026-06-16): Escopo `customers/{customer}/*` + scopes enforced — **validado in-code**. Gaps DELETE/provision/cancel/audit test corrigidos em campanha follow-up 2026-06-17 (`CQ-F15-001/002/003/005`). Aguarda `/qa validar F15` R2.
+
+---
+
+## Sprint F15 — AuthZ ApiKey (validação R1)
+
+> Registrado via `/qa validar F15` R1 em 2026-06-16. Senior review no delta `main...HEAD`.
+
+### CQ-F15-001 — HIGH — `DELETE /customers/{slug}` ignora tenant binding
+
+- **Sprint**: F15
+- **Severidade**: HIGH (IDOR destrutivo cross-tenant)
+- **Tipo**: security / authorization gap
+- **Status**: Corrigido
+- **Registrado em**: 2026-06-16
+- **Origem**: `/qa validar F15` — auditor-senior R1
+- **Arquivo**: `routes/api.php`, `app/Http/Middleware/EnsureTenantBinding.php`, `tests/Feature/Auth/ApiKeyAuthorizationTest.php`
+- **Descrição**: `EnsureTenantBinding` só lê `route('customer')`. A rota de remoção usa parâmetro `{slug}` e não carrega middleware `api.tenant`. Chave Bearer com `allowed_tenant_slugs: ['tenant-a']` + `customers:write` pode iniciar `DELETE /api/customers/tenant-b` sem `forbidden_tenant`.
+- **Correção** (campanha F15 follow-up, 2026-06-17): `api.tenant` em `DELETE /customers/{slug}`; `resolveCustomerSlug()` lê `route('slug')`; teste negativo cross-tenant DELETE.
+- **Impacto**: Remoção cross-tenant com chave tenant-restrita; bloqueia confiança em credenciais externas (ISSUE-037 / SEC-V1-001).
+
+### CQ-F15-002 — MEDIUM — `POST /customers` contorna allowlist de tenant
+
+- **Sprint**: F15
+- **Severidade**: MEDIUM
+- **Tipo**: security / least privilege
+- **Status**: Corrigido
+- **Registrado em**: 2026-06-16
+- **Origem**: `/qa validar F15` — auditor-senior + auditor-security R1
+- **Arquivo**: `routes/api.php`, `app/Http/Middleware/EnsureTenantBinding.php`, `tests/Feature/Auth/ApiKeyAuthorizationTest.php`
+- **Descrição**: Provisionamento não passa por `api.tenant`. Chave restrita a `tenant-a` pode criar customer com slug arbitrário se tiver `customers:write`.
+- **Correção** (campanha F15 follow-up, 2026-06-17): `api.tenant` em `POST /customers`; `resolveCustomerSlug()` lê `slug` do body; teste negativo provision cross-tenant.
+
+### CQ-F15-003 — MEDIUM — `POST /queue/{id}/cancel` exige apenas `queue:read`
+
+- **Sprint**: F15
+- **Severidade**: MEDIUM
+- **Tipo**: authorization / least privilege
+- **Status**: Corrigido
+- **Registrado em**: 2026-06-16
+- **Origem**: `/qa validar F15` — auditor-senior R1
+- **Arquivo**: `routes/api.php`, `tests/Feature/Auth/ApiKeyAuthorizationTest.php`
+- **Descrição**: Cancelamento é mutação de estado mas está no grupo `api.scope:queue:read`. Chave read-only pode cancelar jobs.
+- **Correção** (campanha F15 follow-up, 2026-06-17): `POST /queue/{id}/cancel` exige `queue:write`; GETs permanecem em `queue:read`; teste negativo cancel com só `queue:read`.
+
+### CQ-F15-005 — MEDIUM — Sem teste de `api_key_id` em ações Bearer (F15.5)
+
+- **Sprint**: F15
+- **Severidade**: MEDIUM
+- **Tipo**: test gap
+- **Status**: Corrigido
+- **Registrado em**: 2026-06-16
+- **Origem**: `/qa validar F15` — auditor-senior R1
+- **Arquivo**: `tests/Feature/Auth/ApiKeyAuthorizationTest.php`, `app/Models/AuditLog.php`
+- **Descrição**: F15.5 exige `api_key_id` em audit via Bearer. Implementação existe no `creating` hook, mas nenhum teste asserta o campo.
+- **Correção** (campanha F15 follow-up, 2026-06-17): Teste `records api_key_id on AuditLog when bearer key cancels a job` asserta `api_key_id` após `POST /queue/{id}/cancel`.
+
+### CQ-F15-007 — LOW — FK `audit_logs.api_key_id` sem `onDelete`
+
+- **Sprint**: F15
+- **Severidade**: LOW
+- **Tipo**: data integrity
+- **Status**: Pendente
+- **Registrado em**: 2026-06-16
+- **Origem**: `/qa validar F15` — auditor-senior R1
+- **Arquivo**: `database/migrations/2026_06_16_000002_add_api_key_id_to_audit_logs_table.php`
+- **Descrição**: FK default RESTRICT impede hard-delete de `api_keys` referenciadas.
+- **Ação necessária**: `->nullOnDelete()` se auditoria deve sobreviver à remoção da chave.
+
+### CQ-F15-008 — LOW — Semântica de `allowed_tenant_slugs: []` não testada
+
+- **Sprint**: F15
+- **Severidade**: LOW
+- **Tipo**: test gap / contract clarity
+- **Status**: Pendente
+- **Registrado em**: 2026-06-16
+- **Origem**: `/qa validar F15` — auditor-senior R1
+- **Arquivo**: `app/Http/Middleware/EnsureTenantBinding.php`, `tests/Feature/Auth/ApiKeyAuthorizationTest.php`
+- **Descrição**: `[]` não é `null` → deny em rotas tenant-scoped (correto), mas sem teste nem documentação explícita.
+- **Ação necessária**: Teste 403 em lifecycle + documentar: `null` = unrestricted, `[]` = deny-all tenant routes.
 
 ---
 
