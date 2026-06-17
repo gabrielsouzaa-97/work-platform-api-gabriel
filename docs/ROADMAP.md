@@ -86,7 +86,7 @@
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
-| N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **planejada** | 7 | Integration, Customers | N30 ✓; D-02 parcial (branding OCC) | 4626+ |
+| N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | planejada | — | Integration, Jobs, Core | Depende N31 | — |
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | planejada | — | Customers, Core | Depende N32 + D-02 | — |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | planejada | — | TenantLifecycle | Depende N33 + D-02 resolvido | — |
@@ -4626,7 +4626,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 ## Sprint N31 — ISSUE-038 Fase 1: PlatformPort mínimo (branding via port)
 
 > Categoria: N
-> Status: **planejada** (planejamento 2026-06-17 via `/pmo plan` + `/rock`)
+> Status: **concluída** (PR #116 mergeada 2026-06-17; validation R1 APROVADA; fix CQ-001 in-sprint)
 > Gate: `PUT /v1/tenants/{slug}/branding` servido **100% via `PlatformPort`**; `ProvisionCustomerAction` + `LifecycleAsyncAction` delegam ao port; characterization tests verdes **antes** da migração; regra `stagingId === null` → transporte na factory **sem mudança de outcome**; grep gate adapters permanece **N32**
 > Fonte: **ISSUE-038** Fase 1 + ADR `.arch-panel/panel/final.md` §4 + `docs/CONTRACTS-V1.md` §4
 > review: **senior+qa** (refactor cross-module + paridade transporte SSH/Agent)

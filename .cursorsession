@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N31 em andamento — PlatformPort Fase 1",
-  "sprint_atual": "N31",
-  "previous_sprint": "N30",
-  "sprint_branch": "sprint/N31",
+  "fase_nome": "N31 validada",
+  "sprint_atual": null,
+  "previous_sprint": "N31",
+  "sprint_branch": null,
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
@@ -198,7 +198,7 @@
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N30.7"
+    "last_completed_task": "N31.7"
   },
   "sprint_tasks": [],
   "validation_gate": {
@@ -676,5 +676,71 @@
       ]
     }
   ],
-  "sprint_pr": 115
+  "sprint_pr": 116,
+  "checkpoint_n31_archived": {
+    "phase": "auditing",
+    "sprint": "N31",
+    "pr_number": 116,
+    "ci_main_green": true,
+    "current_task": null,
+    "last_completed_task": "N31.7",
+    "validation_gate_qa": {
+      "sprint": "N31",
+      "produced_by": "/qa validar N31 R1 via /rock",
+      "result": "APROVADA",
+      "validation_round": 1,
+      "senior_review_status": "PASS",
+      "security_review_status": "PASS",
+      "findings_found": 1,
+      "findings_fixed_in_sprint": [
+        "CQ-N31-001"
+      ],
+      "tests_evidence": "CI green PR #116; characterization + BrandingV1Test",
+      "stamped_at": "2026-06-17T13:20:00Z"
+    }
+  },
+  "sprint_tasks_n31_archived": [
+    {
+      "id": "N31.1",
+      "status": "completed",
+      "size": "P",
+      "title": "PlatformPort interface + DTOs"
+    },
+    {
+      "id": "N31.2",
+      "status": "completed",
+      "size": "M",
+      "title": "SshPlatformAdapter + AgentPlatformAdapter"
+    },
+    {
+      "id": "N31.3",
+      "status": "completed",
+      "size": "M",
+      "title": "PlatformPortFactory + DI"
+    },
+    {
+      "id": "N31.4",
+      "status": "completed",
+      "size": "M",
+      "title": "Characterization tests baseline"
+    },
+    {
+      "id": "N31.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Migrate ProvisionCustomerAction"
+    },
+    {
+      "id": "N31.6",
+      "status": "completed",
+      "size": "M",
+      "title": "Migrate LifecycleAsyncAction"
+    },
+    {
+      "id": "N31.7",
+      "status": "completed",
+      "size": "M",
+      "title": "PUT branding v1 via port"
+    }
+  ]
 }
