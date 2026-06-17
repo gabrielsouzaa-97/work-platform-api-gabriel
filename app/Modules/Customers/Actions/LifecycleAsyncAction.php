@@ -179,7 +179,7 @@ final class LifecycleAsyncAction
 
         try {
             return $this->platformPortFactory->dispatchManageAsync($cluster, $sshArgs, $stdinJson);
-        } catch (SshConnectionException) {
+        } catch (ClusterUnreachableException|SshConnectionException) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
             throw new ClusterUnreachableException;
         } catch (SshTimeoutException $e) {

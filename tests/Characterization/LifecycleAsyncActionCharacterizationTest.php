@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
+use App\Models\IdempotencyKey;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
@@ -121,4 +122,7 @@ it('characterizes lifecycle async rolls back idempotency key on connection failu
         null,
         $operator,
     ))->toThrow(ClusterUnreachableException::class);
+
+    expect(IdempotencyKey::where('customer_slug', $customer->slug)->where('cmd', 'users:delete')->exists())
+        ->toBeFalse();
 });
