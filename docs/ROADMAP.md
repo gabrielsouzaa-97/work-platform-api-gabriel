@@ -84,7 +84,7 @@
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
-| F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **planejada** | 5 | Core, Auth, Customers, Audit | SEC-V1-001 — gate duro antes de ISSUE-038 | 4420+ |
+| F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **em andamento** | 5 | Core, Auth, Customers, Audit | SEC-V1-001 — aguarda `/git` + `/qa validar F15` | 4420+ |
 
 ---
 
@@ -4422,7 +4422,7 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 ## Sprint F15 — AuthZ ApiKey (scopes + binding tenant)
 
 > Categoria: F
-> Status: planejada
+> Status: em andamento (F15.1–F15.5 implementados; aguarda PR + `/qa validar F15`)
 > Gate: `ApiKey.scopes` enforced; tenant binding em `/api/customers/{customer}/*`; teste negativo 403 cross-tenant; findings SEC-V1-001 corrigido
 > Gerado via `/rock` + `/pmo fix` em 2026-06-16. Fonte: ISSUE-037 + SEC-V1-001 + ADR `.arch-panel/panel/final.md` §2.1
 > review: senior+security (IDOR latente / pré-requisito API v1)
@@ -4430,11 +4430,11 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | F15.1 — [FIX] Expor `ApiKey` resolvida no request após auth `api-key` (request attribute + helper) | `laravel-api` | — |
-| [ ] | M | F15.2 — [FIX] Middleware `EnsureApiKeyScope` + catálogo de scopes por rota (`customers:read`, `customers:write`, `lifecycle:write`, etc.) | `laravel-api` | F15.1 |
-| [ ] | M | F15.3 — [FIX] Migration `allowed_tenant_slugs` (json nullable) + middleware `EnsureTenantBinding` em rotas `customers/{customer}/*` | `laravel-migration` | F15.1 |
-| [ ] | M | F15.4 — [FIX] Testes negativos: chave sem scope → 403; chave tenant A em slug B → 403 | `laravel-testing` | F15.2–F15.3 |
-| [ ] | P | F15.5 — [ISSUE-037] AuditLog com `api_key_id` em ações via Bearer; atualizar FINDINGS/ISSUES | `/git` | F15.1–F15.4 |
+| [x] | M | F15.1 — [FIX] Expor `ApiKey` resolvida no request após auth `api-key` (request attribute + helper) | `laravel-api` | — |
+| [x] | M | F15.2 — [FIX] Middleware `EnsureApiKeyScope` + catálogo de scopes por rota (`customers:read`, `customers:write`, `lifecycle:write`, etc.) | `laravel-api` | F15.1 |
+| [x] | M | F15.3 — [FIX] Migration `allowed_tenant_slugs` (json nullable) + middleware `EnsureTenantBinding` em rotas `customers/{customer}/*` | `laravel-migration` | F15.1 |
+| [x] | M | F15.4 — [FIX] Testes negativos: chave sem scope → 403; chave tenant A em slug B → 403 | `laravel-testing` | F15.2–F15.3 |
+| [x] | P | F15.5 — [ISSUE-037] AuditLog com `api_key_id` em ações via Bearer; atualizar FINDINGS/ISSUES | `/git` | F15.1–F15.4 |
 
 ### Task F15.1 — Bind ApiKey no request
 
