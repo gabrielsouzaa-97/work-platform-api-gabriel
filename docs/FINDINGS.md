@@ -5,7 +5,7 @@ open_high: 3
 open_medium: 44
 open_low: 33
 sprints_with_open_blockers: F10
-notes: F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
+notes: N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
 FINDINGS-INDEX -->
 
 
@@ -36,10 +36,13 @@ FINDINGS-INDEX -->
 | F13 | 0 | 2 | 2 | 0 | 0 | 3 | 1 |
 | F14 | 0 | 2 | 1 | 0 | 3 | 0 | 0 |
 | F15 | 0 | 0 | 0 | 2 | 2 | 4 | 1 |
+| N30 | 0 | 2 | 0 | 0 | 0 | 2 | 2 |
 | N19 | 0 | 2 | 9 | 6 | 15 | 0 | 2 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 
 > **Validação F15 R2** (2026-06-17, `/qa validar F15` via `/rock`): scope = follow-up `ce86325` (campanha `f15-authz-followup`). **Testes**: `ApiKeyAuthorizationTest` 9 passed + `CancelJobTest` 4 passed, 29 assertions (SQLite local). **auditor-senior R2** → **PASS** (0 HIGH). **Findings validados**: `CQ-F15-001`, `CQ-F15-002`, `CQ-F15-003`, `CQ-F15-005`, `SEC-V1-001`. **Backlog non-blocking**: `CQ-F15-007`, `CQ-F15-008` (LOW). **Hard Rule #2**: OK (0 arquivos fora whitelist). **Resultado: APROVADA**.
+
+> **Validação N30 R1** (2026-06-17, `/qa validar N30`): scope = PR #115 + follow-up `837173c`. **Review**: senior+security (superfície externa `/api/v1`). **Testes**: ~35 Pest em `tests/Feature/Api/V1/`; CI verde (Lint, Test/Pest, composer audit, Redocly). **2 HIGH** detectados R1 e corrigidos in-sprint: `CQ-N30-001` (IDOR `GET /v1/jobs/{id}`), `SEC-N30-001` (vazamento `exit_code` em provision). **Resultado: APROVADA** — validation_gate_qa APROVADA; gate ADR Sprint 0 fechado.
 
 > **Validação F15 R1** (2026-06-16, `/qa validar F15`): scope = delta `main...430078a` (ApiKey authz). **Testes**: `ApiKeyAuthorizationTest` 5 passed, 7 assertions (SQLite local, APP_KEY). **auditor-senior** → **FAIL** (`CQ-F15-001` HIGH — `DELETE /customers/{slug}` ignora `api.tenant`). **auditor-security** → PASS no gate literal F15 (`customers/{customer}/*`); 2 MEDIUM residuais (provision/delete). **SEC-V1-001** → correcao parcial validada (scopes + tenant em lifecycle/OCC); gap DELETE pendente via `CQ-F15-001`. **Hard Rule #2**: 3 arquivos probe fora de whitelist (`tests/_probe.*`). **Resultado: REPROVADA** — PROC-012 exige corrigir HIGH in-sprint (`F15.6`).
 
@@ -2236,6 +2239,38 @@ Nenhum finding registrado para D1 na validação atual.
 - **Arquivo**: `app/Http/Middleware/EnsureTenantBinding.php`, `tests/Feature/Auth/ApiKeyAuthorizationTest.php`
 - **Descrição**: `[]` não é `null` → deny em rotas tenant-scoped (correto), mas sem teste nem documentação explícita.
 - **Ação necessária**: Teste 403 em lifecycle + documentar: `null` = unrestricted, `[]` = deny-all tenant routes.
+
+---
+
+## Sprint N30 — API `/api/v1` Sprint 0 (ISSUE-038)
+
+> Registrado via `/qa validar N30` R1 em 2026-06-17. Senior + security review na superfície externa. PR #115 mergeada; follow-up segurança `837173c`.
+
+### CQ-N30-001 — HIGH — `GET /api/v1/jobs/{id}` sem tenant binding (IDOR)
+
+- **Sprint**: N30
+- **Severidade**: HIGH
+- **Tipo**: security / IDOR
+- **Status**: Validado
+- **Registrado em**: 2026-06-17
+- **Origem**: `/qa validar N30` — auditor-senior + auditor-security R1
+- **Arquivo**: `app/Http/Controllers/Api/V1/JobV1Controller.php`, `routes/api_v1.php`
+- **Descrição**: Lookup de job por UUID global sem verificar `allowed_tenant_slugs` — chave parceiro tenant A podia ler job de tenant B via `GET /api/v1/jobs/{id}` (rota sem `{slug}`).
+- **Correção** (Sprint N30, commit `837173c`): `JobV1Controller::isJobForbiddenForCurrentApiKey()` nega acesso quando `customer_slug` do job está fora da allowlist da chave; retorna `403 forbidden_scope` via `DomainError`.
+- **Validação** (N30 R1, 2026-06-17): teste `denies cross-tenant GET /api/v1/jobs/{id}` em `ApiV1AuthorizationTest`; validation_gate_qa APROVADA.
+
+### SEC-N30-001 — HIGH — vazamento `exit_code` em erro de provision `POST /api/v1/tenants`
+
+- **Sprint**: N30
+- **Severidade**: HIGH
+- **Tipo**: security / protocol leak
+- **Status**: Validado
+- **Registrado em**: 2026-06-17
+- **Origem**: `/qa validar N30` — auditor-security R1
+- **Arquivo**: `app/Http/Exceptions/RenderDomainError.php`, controllers V1 de provision, `tests/Feature/Api/V1/DomainErrorSanitizationTest.php`
+- **Descrição**: Falha SSH no provision propagava campos do protocolo NC (`exit_code`) na resposta JSON v1 — viola gate ADR Sprint 0 (sanitização na borda).
+- **Correção** (Sprint N30, commit `837173c`): mapeamento upstream → `DomainError` antes da borda HTTP; respostas v1 usam envelope `{ error: { code, message } }` sem termos NC.
+- **Validação** (N30 R1, 2026-06-17): teste `returns DomainError without exit_code when provision SSH fails on POST /api/v1/tenants`; `DomainErrorSanitizationTest` regex negativa; validation_gate_qa APROVADA.
 
 ---
 

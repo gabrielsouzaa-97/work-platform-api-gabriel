@@ -85,7 +85,7 @@
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
-| N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **em andamento** | 7 | Core, Auth, Customers, Jobs | branch `sprint/N30`; gate ADR Sprint 0 | 4500+ |
+| N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | planejada | — | Integration, Customers | Depende N30 + D-02 parcial | — |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | planejada | — | Integration, Jobs, Core | Depende N31 | — |
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | planejada | — | Customers, Core | Depende N32 + D-02 | — |
@@ -4483,7 +4483,7 @@ expect($args)->toContain(fn ($a) => str_contains($a, '/api/jobs/hook?cluster='))
 ## Sprint N30 — ISSUE-038 Sprint 0: API `/api/v1` (aliases + DomainError + spec externo)
 
 > Categoria: N
-> Status: **em andamento** (iniciada 2026-06-17 via `/pmo sprint iniciar N30`)
+> Status: **concluída** (PR #115 mergeada 2026-06-17; validation R1 APROVADA; follow-up HIGH em `837173c`)
 > Gate: nenhuma resposta `/api/v1/*` contém `subcmd`/`exit_code`/stack trace; chave parceiro A → **403** em tenant B; `redocly lint docs/openapi-external.yaml` 0 errors; endpoints v1 delegam às Actions existentes sem alterar semântica upstream
 > Fonte: **ISSUE-038** + ADR `.arch-panel/panel/final.md` Sprint 0 + `docs/CONTRACTS-V1.md` + `docs/openapi-external.yaml`
 > review: **senior+security** (superfície externa + IDOR + vazamento protocolo NC)
@@ -4609,6 +4609,18 @@ Objetivo: `ApiV1AuthorizationTest` (cross-tenant + scopes v1); `DomainErrorSanit
 Arquivos: `tests/Feature/Api/V1/ApiV1AuthorizationTest.php`, `tests/Feature/Api/V1/DomainErrorSanitizationTest.php`, `tests/Feature/Api/V1/TenantLifecycleV1Test.php`.
 Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR reproduzível localmente.
 
+### Quality Brief (Sprint N30)
+
+> PATTERN-001 (Decision #187): auditoria R1 senior+security; artefato de brief conforme gate pre-commit quando aplicável.
+
+- **Review**: senior+security (superfície externa, IDOR, vazamento protocolo NC)
+- **PR**: #115 mergeada em `main`; follow-up segurança `837173c`
+- **Gate ADR Sprint 0**: ✓ respostas `/api/v1/*` sem `subcmd`/`exit_code`; cross-tenant 403; `redocly lint` 0 errors; aliases delegam às Actions existentes
+- **Findings R1**: 2 HIGH detectados e corrigidos in-sprint — `CQ-N30-001` (IDOR jobs), `SEC-N30-001` (exit_code leak provision)
+- **CI** (`837173c`): Lint, Test/Pest, composer audit, OpenAPI Redocly — verde
+- **Testes**: ~35 Pest em `tests/Feature/Api/V1/`
+- **Resultado**: **APROVADA** (validation_gate_qa)
+
 ---
 
 ## Roadmap ISSUE-038 — Fases posteriores (stubs)
@@ -4626,6 +4638,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-17 | 0.27   | Sprint N30 concluída — ISSUE-038 Sprint 0 (`/api/v1` + DomainError + openapi-external); PR #115; 2 HIGH R1 corrigidos (`CQ-N30-001`, `SEC-N30-001`). | sprint-finalizer |
 | 2026-06-17 | 0.26   | Sprint N30 planejada — ISSUE-038 Sprint 0 (`/api/v1` aliases + DomainError + spec externo); stubs N31–N34; F15 índice → concluída. | `/pmo plan` |
 | 2026-06-02 | 0.24   | Sync FINDINGS + ROADMAP: F5.11 `[x]`, F5/F11 no índice; F9 APROVADA R1; F10/F12 notas; F5 `/qa validar R3` pendente. | /pmo sync |
 | 2026-05-28 | 0.23   | Sprint F13 CONCLUÍDA — branding no `create` corrigido; ProvisionTest 16 passed; validação senior+qa APROVADA R1. | /fix F13 |

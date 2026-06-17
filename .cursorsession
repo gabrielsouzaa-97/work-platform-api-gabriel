@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N30 em andamento — ISSUE-038 API v1 Sprint 0",
-  "sprint_atual": "N30",
-  "previous_sprint": "F15",
-  "sprint_branch": "sprint/N30",
+  "fase_nome": "N30 validada",
+  "sprint_atual": null,
+  "previous_sprint": "N30",
+  "sprint_branch": null,
   "beesy_version": "4.54.0",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
@@ -185,7 +185,6 @@
     "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
     "updated_at": "2026-06-12T20:30:00Z"
   },
-
   "autopilot": {
     "active": false
   },
@@ -197,47 +196,11 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "sprint": "N30",
-    "phase": "testing",
-    "branch": "sprint/N30",
-    "validation_mode": "full",
-    "validation_authority": "github_actions_pr",
+    "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N30.7",
-    "timestamp": "2026-06-17T16:30:00Z",
-    "prereq_blockers": []
+    "last_completed_task": "N30.7"
   },
-  "sprint_tasks": [
-    { "id": "N30.1", "status": "completed", "size": "M", "title": "DomainError enum + RenderDomainError handler" },
-    { "id": "N30.2", "status": "completed", "size": "P", "title": "Congelar specs openapi legacy vs external" },
-    { "id": "N30.3", "status": "completed", "size": "M", "title": "Scopes v1 + grupo rotas /api/v1" },
-    { "id": "N30.4", "status": "completed", "size": "M", "title": "routes/api_v1.php + controllers Api\\V1", "depends": ["N30.1", "N30.3"] },
-    { "id": "N30.5", "status": "completed", "size": "M", "title": "Envelope v1 + FormRequests + Resources", "depends": ["N30.4"] },
-    { "id": "N30.6", "status": "completed", "size": "M", "title": "Testes gate ADR cross-tenant + sanitização", "depends": ["N30.4", "N30.5"] },
-    { "id": "N30.7", "status": "completed", "size": "P", "title": "redocly lint openapi-external no CI", "depends": ["N30.2"] }
-  ],
-  "validation_gate": {
-      "sprint": "F15",
-      "validation_round": 2,
-      "findings_found": 0,
-      "findings_registered": [],
-      "files_modified_outside_findings": 0,
-      "askquestion_shown": false,
-      "senior_review_status": "PASS",
-      "result": "APROVADA",
-      "contract_source": "bootstrap",
-      "tests_evidence": "ApiKeyAuthorizationTest 9 passed + CancelJobTest 4 passed, 29 assertions (SQLite local)",
-      "findings_validated": [
-        "CQ-F15-001",
-        "CQ-F15-002",
-        "CQ-F15-003",
-        "CQ-F15-005",
-        "SEC-V1-001"
-      ],
-      "in_contract": [],
-      "stamped_at": "2026-06-17T01:30:00Z"
-    }
-  },
+  "sprint_tasks": [],
   "validation_gate": {
     "sprint": "F15",
     "produced_by": "/qa validar F15 R2 via /rock",
@@ -259,13 +222,31 @@
     {
       "timestamp": "2026-06-17T12:00:00Z",
       "action": "/pmo plan — ISSUE-038",
-      "sprints_generated": ["N30"],
-      "sprint_stubs": ["N31", "N32", "N33", "N34"],
-      "issues_in_scope": ["ISSUE-038"],
-      "findings_in_scope": ["DOC-001"],
-      "findings_breakdown": { "HIGH": 0, "MEDIUM": 1 },
+      "sprints_generated": [
+        "N30"
+      ],
+      "sprint_stubs": [
+        "N31",
+        "N32",
+        "N33",
+        "N34"
+      ],
+      "issues_in_scope": [
+        "ISSUE-038"
+      ],
+      "findings_in_scope": [
+        "DOC-001"
+      ],
+      "findings_breakdown": {
+        "HIGH": 0,
+        "MEDIUM": 1
+      },
       "split_strategy": "ADR Sprint 0 → N30 (7 tasks: 5M + 2P); Fases 1–4 → stubs N31–N34",
-      "tasks_count": { "P": 2, "M": 5, "total": 7 },
+      "tasks_count": {
+        "P": 2,
+        "M": 5,
+        "total": 7
+      },
       "review_level": "senior+security",
       "source_skill_invocation": "/pmo plan → planejador-melhorias",
       "gate": "403 cross-tenant + DomainError sem subcmd/exit_code + redocly lint 0 errors"
@@ -273,11 +254,22 @@
     {
       "timestamp": "2026-06-16T20:45:00Z",
       "action": "/pmo fix",
-      "sprints_generated": ["F14"],
-      "findings_in_scope": ["QA-F14-001", "QA-F14-002", "SEC-F14-001"],
-      "findings_breakdown": { "HIGH": 2, "MEDIUM": 1 },
+      "sprints_generated": [
+        "F14"
+      ],
+      "findings_in_scope": [
+        "QA-F14-001",
+        "QA-F14-002",
+        "SEC-F14-001"
+      ],
+      "findings_breakdown": {
+        "HIGH": 2,
+        "MEDIUM": 1
+      },
       "split_strategy": "single sprint — CI blocker cluster from N19 regression + composer audit"
     },
+    {
+      "timestamp": "2026-06-12T00:00:00Z",
       "action": "/qa validar F5 R4",
       "validation_round": 4,
       "sprint_validated": "F5",
@@ -589,5 +581,100 @@
       "rationale": "1 finding HIGH pendente em sprint aberta (QA-F5-019 OccPanel::createUser quebrado em produção; convergência crítica entre auditor-senior claude-4.6-sonnet e auditor-qa gemini-3.1-pro). PROC-012 exige correção in-sprint OU justificação documentada para COM_RESSALVAS.",
       "next_action": "AskQuestion ao usuário: [A] continuar sprint (F5.11 fix createUser) | [B] aceitar COM_RESSALVAS (justificar bug pré-existente em main) | [C] dúvida"
     }
-  ]
+  ],
+  "checkpoint_n30_archived": {
+    "sprint": "N30",
+    "phase": "auditing",
+    "branch": "main",
+    "validation_mode": "full",
+    "validation_authority": "github_actions_pr",
+    "pr_number": 115,
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/115",
+    "ci_main_green": true,
+    "current_task": null,
+    "last_completed_task": "N30.7",
+    "timestamp": "2026-06-17T18:00:00Z",
+    "prereq_blockers": [],
+    "validation_gate_qa": {
+      "sprint": "N30",
+      "produced_by": "/qa validar N30 R1 via /rock",
+      "result": "APROVADA",
+      "validation_round": 1,
+      "validation_mode": "revalidation",
+      "senior_review_status": "PASS",
+      "security_review_status": "PASS",
+      "findings_found": 2,
+      "findings_fixed_in_sprint": [
+        "CQ-N30-001",
+        "SEC-N30-001"
+      ],
+      "findings_registered": [
+        "CQ-N30-001",
+        "SEC-N30-001",
+        "SEC-N30-003",
+        "SEC-N30-004"
+      ],
+      "tests_evidence": "CI green on 837173c: Lint, Test/Pest, Security, OpenAPI Redocly",
+      "stamped_at": "2026-06-17T18:00:00Z"
+    }
+  },
+  "sprint_tasks_n30_archived": [
+    {
+      "id": "N30.1",
+      "status": "completed",
+      "size": "M",
+      "title": "DomainError enum + RenderDomainError handler"
+    },
+    {
+      "id": "N30.2",
+      "status": "completed",
+      "size": "P",
+      "title": "Congelar specs openapi legacy vs external"
+    },
+    {
+      "id": "N30.3",
+      "status": "completed",
+      "size": "M",
+      "title": "Scopes v1 + grupo rotas /api/v1"
+    },
+    {
+      "id": "N30.4",
+      "status": "completed",
+      "size": "M",
+      "title": "routes/api_v1.php + controllers Api\\V1",
+      "depends": [
+        "N30.1",
+        "N30.3"
+      ]
+    },
+    {
+      "id": "N30.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Envelope v1 + FormRequests + Resources",
+      "depends": [
+        "N30.4"
+      ]
+    },
+    {
+      "id": "N30.6",
+      "status": "completed",
+      "size": "M",
+      "title": "Testes gate ADR cross-tenant + sanitização",
+      "depends": [
+        "N30.4",
+        "N30.5"
+      ]
+    },
+    {
+      "id": "N30.7",
+      "status": "completed",
+      "size": "P",
+      "title": "redocly lint openapi-external no CI",
+      "depends": [
+        "N30.2"
+      ]
+    }
+  ],
+  "sprint_pr": 115
 }
