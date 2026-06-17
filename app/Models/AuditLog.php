@@ -22,6 +22,7 @@ class AuditLog extends Model
     protected $fillable = [
         'id',
         'actor_id',
+        'api_key_id',
         'action',
         'resource_type',
         'resource_id',
@@ -47,12 +48,25 @@ class AuditLog extends Model
             if (empty($model->created_at)) {
                 $model->created_at = now();
             }
+
+            if (empty($model->api_key_id)) {
+                $apiKey = current_api_key();
+
+                if ($apiKey !== null) {
+                    $model->api_key_id = $apiKey->id;
+                }
+            }
         });
     }
 
     public function actor(): BelongsTo
     {
         return $this->belongsTo(Operator::class, 'actor_id');
+    }
+
+    public function apiKey(): BelongsTo
+    {
+        return $this->belongsTo(ApiKey::class, 'api_key_id');
     }
 
     public function clusterServer(): BelongsTo

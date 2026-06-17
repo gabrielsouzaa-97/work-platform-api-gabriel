@@ -66,6 +66,8 @@ class AppServiceProvider extends ServiceProvider
 
             $apiKey->update(['last_used_at' => now()]);
 
+            $request->attributes->set('api_key', $apiKey);
+
             return $apiKey->operator;
         });
 

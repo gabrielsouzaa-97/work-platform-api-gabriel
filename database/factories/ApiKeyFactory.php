@@ -39,4 +39,9 @@ class ApiKeyFactory extends Factory
     {
         return $this->state(['scopes' => $scopes]);
     }
+
+    public function withAllowedTenants(string ...$slugs): static
+    {
+        return $this->state(['allowed_tenant_slugs' => $slugs]);
+    }
 }
