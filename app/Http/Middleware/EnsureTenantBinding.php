@@ -40,6 +40,20 @@ class EnsureTenantBinding
             return $customer;
         }
 
+        $slug = $request->route('slug');
+
+        if (is_string($slug) && $slug !== '') {
+            return $slug;
+        }
+
+        if ($request->routeIs('api.customers.store')) {
+            $bodySlug = $request->input('slug');
+
+            if (is_string($bodySlug) && $bodySlug !== '') {
+                return $bodySlug;
+            }
+        }
+
         return null;
     }
 }

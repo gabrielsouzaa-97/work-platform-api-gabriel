@@ -50,14 +50,17 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
         Route::get('/queue', [JobController::class, 'index'])->name('api.queue.index');
         Route::get('/queue/stats', [JobController::class, 'stats'])->name('api.queue.stats');
         Route::get('/queue/{id}', [JobController::class, 'show'])->name('api.queue.show');
-        Route::post('/queue/{id}/cancel', [JobController::class, 'cancel'])->name('api.queue.cancel');
     });
 
+    Route::post('/queue/{id}/cancel', [JobController::class, 'cancel'])
+        ->middleware('api.scope:queue:write')
+        ->name('api.queue.cancel');
+
     Route::post('/customers', [CustomerController::class, 'store'])
-        ->middleware('api.scope:customers:write')
+        ->middleware(['api.tenant', 'api.scope:customers:write'])
         ->name('api.customers.store');
     Route::delete('/customers/{slug}', [CustomerController::class, 'destroy'])
-        ->middleware(['can:provision-customers', 'api.scope:customers:write'])
+        ->middleware(['api.tenant', 'can:provision-customers', 'api.scope:customers:write'])
         ->name('api.customers.destroy');
 
     // OCC sync passthrough (F6 — Feature P) — timeout 60s, resposta direta upstream
