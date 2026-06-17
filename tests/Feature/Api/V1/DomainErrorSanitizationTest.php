@@ -83,6 +83,30 @@ function assertDomainErrorEnvelope(
     assertApiV1ResponseExcludesNcVocabulary($response->getContent());
 }
 
+it('returns DomainError without exit_code when provision SSH fails on POST /api/v1/tenants', function () {
+    $cluster = makeDomainErrorCluster();
+    $slug = 'prov-ssh-'.substr(uniqid(), -6);
+    $rawToken = createDomainErrorApiKey(scopes: ['tenants:write']);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andThrow(new SshRemoteException('upstream fail', 99));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $response = $this->postJson(
+        '/api/v1/tenants',
+        [
+            'slug' => $slug,
+            'cluster_server_id' => $cluster->id,
+            'domain' => "{$slug}.example.com",
+        ],
+        domainErrorBearer($rawToken),
+    );
+
+    assertDomainErrorEnvelope($response, 502, 'upstream_unavailable');
+});
+
 it('returns 403 DomainError without NC fields when upstream blocks OCC subcmd on v1 apps', function () {
     $slug = 'occ-block-'.substr(uniqid(), -6);
     makeDomainErrorTenant($slug);

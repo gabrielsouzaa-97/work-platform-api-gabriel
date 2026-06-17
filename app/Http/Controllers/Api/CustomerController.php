@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Exceptions\RenderDomainError;
 use App\Http\Requests\ProvisionCustomerRequest;
 use App\Http\Requests\RemoveCustomerRequest;
 use App\Http\Resources\CustomerResource;
 use App\Models\Customer;
+use App\Modules\Core\Domain\DomainError;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Actions\RemoveCustomerAction;
@@ -34,24 +36,20 @@ final class CustomerController extends Controller
         try {
             $result = $action->execute($payload, $request->user());
         } catch (IdempotencyConflictException $e) {
-            return response()->json([
-                'error' => 'idempotency_conflict',
-                'existing_job_id' => $e->getExistingJobId(),
-            ], 409);
+            return RenderDomainError::idempotencyConflictResponse($request, $e);
         } catch (StateConflictException $e) {
+            if (RenderDomainError::isV1($request)) {
+                return RenderDomainError::respond($request, DomainError::StateConflict);
+            }
+
             return response()->json([
                 'error' => 'state_conflict',
                 'diff' => $e->getDiff(),
             ], 409);
         } catch (ClusterUnreachableException) {
-            return response()->json(['error' => 'cluster_unreachable'], 503)
-                ->header('Retry-After', '60');
+            return RenderDomainError::clusterUnreachableResponse($request);
         } catch (SshRemoteException $e) {
-            return response()->json([
-                'error' => 'upstream_error',
-                'exit_code' => $e->remoteExitCode,
-                'detail' => $e->parsedJson,
-            ], 502);
+            return RenderDomainError::mapSshRemoteException($e, $request);
         }
 
         return new CustomerResource($result['customer']);
@@ -67,13 +65,29 @@ final class CustomerController extends Controller
                 $request->user(),
             );
         } catch (ConfirmationMismatchException) {
+            if (RenderDomainError::isV1($request)) {
+                return RenderDomainError::respond(
+                    $request,
+                    DomainError::ValidationFailed,
+                    'The confirm_slug field does not match the tenant slug.',
+                );
+            }
+
             return response()->json(['error' => 'confirm_slug_mismatch'], 422);
         } catch (RemoveInProgressException) {
+            if (RenderDomainError::isV1($request)) {
+                return RenderDomainError::respond($request, DomainError::StateConflict);
+            }
+
             return response()->json(['error' => 'already_in_progress'], 409);
         } catch (StateConflictException) {
+            if (RenderDomainError::isV1($request)) {
+                return RenderDomainError::respond($request, DomainError::StateConflict);
+            }
+
             return response()->json(['error' => 'state_conflict'], 409);
         } catch (SshRemoteException $e) {
-            return response()->json(['error' => 'upstream_error', 'message' => $e->getMessage()], 502);
+            return RenderDomainError::mapSshRemoteException($e, $request);
         }
 
         return response()->json(['job_id' => $job->job_id], 202);

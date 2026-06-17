@@ -212,6 +212,35 @@ it('denies bearer key without tenants:write on POST /api/v1/tenants', function (
     assertV1AuthzForbiddenEnvelope($response);
 });
 
+it('denies cross-tenant GET /api/v1/jobs/{id} with DomainError envelope', function () {
+    makeV1AuthzTenant('tenant-a');
+    $cluster = makeV1AuthzCluster();
+    Customer::firstOrCreate(['slug' => 'tenant-b'], [
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'tenant-b.example.com',
+        'status' => 'active',
+    ]);
+
+    $job = Job::create([
+        'job_id' => Str::uuid()->toString(),
+        'customer_slug' => 'tenant-b',
+        'cluster_server_id' => $cluster->id,
+        'cmd_canonical' => 'nextcloud-manage tenant-b _ provision',
+        'job_type' => 'provision',
+        'state' => 'running',
+        'idempotency_key' => Str::uuid()->toString(),
+        'queued_at' => now()->subMinutes(5),
+    ]);
+
+    $rawToken = createV1AuthzApiKey(
+        scopes: ['jobs:read'],
+        allowedTenantSlugs: ['tenant-a'],
+    );
+
+    $response = $this->getJson("/api/v1/jobs/{$job->job_id}", v1AuthzBearer($rawToken));
+    assertV1AuthzForbiddenEnvelope($response);
+});
+
 it('denies bearer key without jobs:read on GET /api/v1/jobs/{id}', function () {
     $job = makeV1AuthzJob();
     $rawToken = createV1AuthzApiKey(scopes: ['tenants:read']);
