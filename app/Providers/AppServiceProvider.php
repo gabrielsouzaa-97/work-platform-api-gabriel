@@ -37,6 +37,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(JobTypeTranslator::class);
         $this->app->singleton(StateTranslator::class);
+
+        $this->app->singleton(SshPlatformAdapter::class);
+        $this->app->singleton(AgentPlatformAdapter::class);
+        $this->app->singleton(PlatformPortFactory::class);
     }
 
     public function boot(): void

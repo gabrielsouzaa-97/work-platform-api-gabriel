@@ -10,16 +10,16 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
-use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Integration\Dto\AsyncJobRef;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -29,7 +29,7 @@ final class LifecycleAsyncAction
     private const USER_READINESS_GATED_CMDS = ['users:create', 'users:delete'];
 
     public function __construct(
-        private readonly SshClientInterface $ssh,
+        private readonly PlatformPortFactory $platformPortFactory,
         private readonly JobTypeTranslator $translator,
     ) {}
 
@@ -73,10 +73,9 @@ final class LifecycleAsyncAction
 
         $this->persistIdempotencyKey($idempotencyKey, $argsHash, $cmd, $customer);
 
-        $resp = $this->dispatchSshAsync($cluster, $sshArgs, $stdinPayload, $idempotencyKey);
+        $resp = $this->dispatchViaPort($cluster, $sshArgs, $stdinPayload, $idempotencyKey);
 
-        $jobId = $resp->parsedJson['job_id']
-            ?? throw new \RuntimeException('SSH did not return job_id in async response');
+        $jobId = $resp->jobId;
 
         return $this->persistJobAndAudit($customer, $cluster, $jobId, $idempotencyKey, $cmd, $args, $actor);
     }
@@ -170,19 +169,16 @@ final class LifecycleAsyncAction
     /**
      * @param  list<string>  $sshArgs
      */
-    private function dispatchSshAsync(
+    private function dispatchViaPort(
         ClusterServer $cluster,
         array $sshArgs,
         ?array $stdinPayload,
         string $idempotencyKey,
-    ): SshResponse {
+    ): AsyncJobRef {
+        $stdinJson = $stdinPayload !== null ? json_encode($stdinPayload) : null;
+
         try {
-            return $this->ssh->runAsync(
-                $cluster,
-                'nextcloud-manage',
-                $sshArgs,
-                $stdinPayload !== null ? json_encode($stdinPayload) : null,
-            );
+            return $this->platformPortFactory->dispatchManageAsync($cluster, $sshArgs, $stdinJson);
         } catch (SshConnectionException) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
             throw new ClusterUnreachableException;

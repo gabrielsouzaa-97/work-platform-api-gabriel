@@ -10,9 +10,6 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Modules\Agents\Exceptions\AgentTransportException;
-use App\Modules\Agents\Services\AgentTransportResolver;
-use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
@@ -21,6 +18,8 @@ use App\Modules\Customers\Dto\ProvisionPayload;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Integration\Dto\CreateTenantCommand;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -33,8 +32,7 @@ final class ProvisionCustomerAction
     public function __construct(
         private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
-        private readonly AgentTransportResolver $transportResolver,
-        private readonly AgentUpstreamGateway $agentGateway,
+        private readonly PlatformPortFactory $platformPortFactory,
     ) {}
 
     /**
@@ -140,28 +138,14 @@ final class ProvisionCustomerAction
             'logo_filesize' => $payload->logoPath && file_exists($payload->logoPath) ? filesize($payload->logoPath) : null,
         ]);
 
-        $useAgentTransport = $this->transportResolver->shouldUseAgentTransport($cluster)
-            && $stagingId === null;
-
         try {
-            if ($useAgentTransport) {
-                $resp = $this->agentGateway->runAsync(
-                    $cluster,
-                    'nextcloud-manage',
-                    $args,
-                    $stdinJson,
-                );
-            } else {
-                // runAsync appends --async --json automatically
-                $resp = $this->ssh->runAsync(
-                    $cluster,
-                    'nextcloud-manage',
-                    $args,
-                    $stdinJson
-                );
-            }
-        } catch (AgentTransportException) {
-            throw new ClusterUnreachableException;
+            $port = $this->platformPortFactory->for($cluster, $stagingId);
+            $jobRef = $port->createTenant(new CreateTenantCommand(
+                cluster: $cluster,
+                manageArgs: $args,
+                stdinJson: $stdinJson,
+                stagingId: $stagingId,
+            ));
         } catch (SshRemoteException $e) {
             if ($e->idempotencyConflict) {
                 $existingJobId = $e->parsedJson['existing_job_id'] ?? null;
@@ -171,12 +155,9 @@ final class ProvisionCustomerAction
                 throw new StateConflictException($e->parsedJson['diff'] ?? []);
             }
             throw $e;
-        } catch (SshConnectionException) {
-            throw new ClusterUnreachableException;
         }
 
-        $jobId = $resp->parsedJson['job_id']
-            ?? throw new \RuntimeException('SSH did not return job_id in response');
+        $jobId = $jobRef->jobId;
 
         return DB::transaction(function () use ($payload, $cluster, $jobId, $idempotencyKey, $actor): array {
             // If a ghost (soft-deleted) Customer exists from a previous failed provisioning,

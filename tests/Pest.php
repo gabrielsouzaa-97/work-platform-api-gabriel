@@ -20,6 +20,10 @@ pest()->extend(TestCase::class)
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->in('Characterization');
+
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->in('Unit/Modules/Agents');
 
 // Contract tests run against REAL upstream — opt-in via RUN_UPSTREAM_CONTRACT=1.
