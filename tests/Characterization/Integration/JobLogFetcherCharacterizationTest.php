@@ -106,7 +106,7 @@ it('characterizes exit 99 triggers fallback argv: job {id} status --json', funct
     expect($lines)->toBe(['Fallback line']);
 });
 
-it('characterizes SshClientException wraps as JobLogFetchException', function (): void {
+it('characterizes upstream transport failure wraps as JobLogFetchException', function (): void {
     [$cluster, $job] = characterizationFetcherJob();
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -119,7 +119,7 @@ it('characterizes SshClientException wraps as JobLogFetchException', function ()
         ->toThrow(JobLogFetchException::class, 'SSH unreachable');
 });
 
-it('characterizes non-notImplemented SshRemoteException wraps as JobLogFetchException', function (): void {
+it('characterizes upstream remote failure wraps as JobLogFetchException', function (): void {
     [$cluster, $job] = characterizationFetcherJob();
 
     $ssh = Mockery::mock(SshClientInterface::class);

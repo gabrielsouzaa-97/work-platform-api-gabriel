@@ -6,8 +6,8 @@ namespace App\Modules\Jobs\Actions;
 
 use App\Models\AuditLog;
 use App\Models\Job;
-use App\Modules\Core\Ssh\Exceptions\SshClientException;
 use App\Modules\Integration\Dto\CancelJobCommand;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,7 +21,7 @@ final class CancelJobAction
     /**
      * Sends cancel command to upstream and updates the local job state.
      *
-     * @throws SshClientException
+     * @throws UpstreamUnavailableException
      * @throws \DomainException if job is not in a cancellable state
      */
     public function execute(Job $job, ?string $actorId = null): void

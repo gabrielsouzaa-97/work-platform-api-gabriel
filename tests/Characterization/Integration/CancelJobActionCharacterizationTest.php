@@ -11,6 +11,7 @@ use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Jobs\Actions\CancelJobAction;
 use Illuminate\Support\Str;
 
@@ -106,7 +107,7 @@ it('characterizes non-cancellable state throws DomainException without SSH', fun
         ->toThrow(DomainException::class, 'cannot be cancelled from state [success]');
 });
 
-it('characterizes SshClientException propagates without mutating job state', function (): void {
+it('characterizes UpstreamUnavailableException propagates without mutating job state', function (): void {
     $job = characterizationCancellableJob('running');
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -114,7 +115,7 @@ it('characterizes SshClientException propagates without mutating job state', fun
     app()->instance(SshClientInterface::class, $ssh);
 
     expect(fn () => app(CancelJobAction::class)->execute($job))
-        ->toThrow(SshConnectionException::class);
+        ->toThrow(UpstreamUnavailableException::class);
 
     expect($job->fresh()->state)->toBe('running');
     expect(AuditLog::where('action', 'job.cancel')->where('job_id', $job->job_id)->exists())->toBeFalse();

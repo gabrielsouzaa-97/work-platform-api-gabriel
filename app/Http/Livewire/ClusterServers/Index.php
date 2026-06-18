@@ -12,6 +12,7 @@ use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Integration\Dto\ProbeClusterHealthCommand;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
@@ -42,16 +43,31 @@ class Index extends Component
                 $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
                 $this->dispatch('toast', type: 'warning', msg: "Comando retornou exit {$report->exitCode}");
             }
-        } catch (SshTimeoutException) {
+        } catch (UpstreamUnavailableException $e) {
             $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
-            $this->dispatch('toast', type: 'error', msg: 'Timeout ao conectar');
-        } catch (SshRemoteException $e) {
-            $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
-            $this->dispatch('toast', type: 'warning', msg: "SSH OK mas comando retornou exit {$e->remoteExitCode}");
-        } catch (SshConnectionException $e) {
-            $cluster->update(['status' => 'unreachable', 'last_health_at' => now()]);
+
+            if ($e->getPrevious() instanceof SshTimeoutException) {
+                $this->dispatch('toast', type: 'error', msg: 'Timeout ao conectar');
+
+                return;
+            }
+
+            if ($e->getPrevious() instanceof SshConnectionException) {
+                report($e);
+                $this->dispatch('toast', type: 'error', msg: SshClientException::userMessageFor($e->getPrevious()));
+
+                return;
+            }
+
+            $previous = $e->getPrevious();
+            if ($previous instanceof SshRemoteException) {
+                $this->dispatch('toast', type: 'warning', msg: "SSH OK mas comando retornou exit {$previous->remoteExitCode}");
+
+                return;
+            }
+
+            $this->dispatch('toast', type: 'error', msg: 'Erro inesperado');
             report($e);
-            $this->dispatch('toast', type: 'error', msg: SshClientException::userMessageFor($e));
         } catch (\Throwable $e) {
             $this->dispatch('toast', type: 'error', msg: 'Erro inesperado');
             report($e);

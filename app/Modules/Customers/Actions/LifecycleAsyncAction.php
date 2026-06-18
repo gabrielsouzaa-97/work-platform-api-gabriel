@@ -10,16 +10,17 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
+use App\Modules\Customers\Exceptions\StateConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Integration\Dto\AsyncJobRef;
 use App\Modules\Integration\Dto\ManageAsyncCommand;
+use App\Modules\Integration\Exceptions\PortIdempotencyConflictException;
+use App\Modules\Integration\Exceptions\PortStateConflictException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -45,8 +46,9 @@ final class LifecycleAsyncAction
      *
      * @throws ClusterUnreachableException
      * @throws IdempotencyConflictException
-     * @throws SshRemoteException
+     * @throws StateConflictException
      * @throws TenantNotReadyException
+     * @throws UpstreamUnavailableException
      */
     public function execute(
         Customer $customer,
@@ -194,13 +196,16 @@ final class LifecycleAsyncAction
             return $this->platformPortFactory->for($cluster)->dispatchManageAsync(
                 new ManageAsyncCommand($cluster, $sshArgs, $stdinJson),
             );
-        } catch (ClusterUnreachableException|SshConnectionException) {
+        } catch (ClusterUnreachableException) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
             throw new ClusterUnreachableException;
-        } catch (SshTimeoutException $e) {
+        } catch (PortIdempotencyConflictException $e) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
-            throw $e;
-        } catch (SshRemoteException $e) {
+            throw new IdempotencyConflictException($e->existingJobId);
+        } catch (PortStateConflictException $e) {
+            IdempotencyKey::where('key', $idempotencyKey)->delete();
+            throw new StateConflictException($e->diff);
+        } catch (UpstreamUnavailableException $e) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
             throw $e;
         }

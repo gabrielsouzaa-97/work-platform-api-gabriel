@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\ClusterServer;
-use App\Modules\Core\Ssh\Exceptions\SshClientException;
 use App\Modules\Integration\Dto\ProbeClusterHealthCommand;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Console\Command;
 
@@ -31,7 +31,7 @@ class ClusterHealthCheckCommand extends Command
                     new ProbeClusterHealthCommand($cluster, 10),
                 );
                 $status = $report->exitCode === 0 ? 'active' : 'unreachable';
-            } catch (SshClientException) {
+            } catch (UpstreamUnavailableException) {
                 $status = 'unreachable';
             }
 

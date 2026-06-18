@@ -11,6 +11,7 @@ use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 
 beforeEach(function (): void {
     if (config('app.key') === '' || config('app.key') === null) {
@@ -125,7 +126,7 @@ it('characterizes invalid JSON stdout throws RuntimeException', function (): voi
         ->toThrow(RuntimeException::class);
 });
 
-it('characterizes SshRemoteException propagates unchanged', function (): void {
+it('characterizes CapabilityBlockedException propagates from port boundary', function (): void {
     $customer = characterizationOccCustomer('char-occ-remote');
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -136,7 +137,7 @@ it('characterizes SshRemoteException propagates unchanged', function (): void {
     app()->instance(SshClientInterface::class, $ssh);
 
     expect(fn () => app(OccPassthroughService::class)->exec($customer, 'user:delete'))
-        ->toThrow(SshRemoteException::class);
+        ->toThrow(CapabilityBlockedException::class);
 });
 
 it('characterizes execThemingConfig invokes one occ-exec per key-value pair', function (): void {

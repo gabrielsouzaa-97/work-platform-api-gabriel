@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Integration\Adapters;
 
 use App\Modules\Agents\Exceptions\AgentTransportException;
+use App\Modules\Agents\Services\AgentTransportResolver;
 use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
+use App\Modules\Integration\Adapters\Concerns\MapsTransportExceptions;
 use App\Modules\Integration\Contracts\PlatformPort;
 use App\Modules\Integration\Dto\AsyncJobRef;
 use App\Modules\Integration\Dto\BrandingResult;
@@ -26,16 +28,21 @@ use App\Modules\Integration\Dto\PollJobStatusCommand;
 use App\Modules\Integration\Dto\ProbeClusterHealthCommand;
 use App\Modules\Integration\Dto\ProbeReadinessCommand;
 use App\Modules\Integration\Dto\ReadinessReport;
+use App\Modules\Integration\Dto\RemoveTenantCommand;
 use App\Modules\Integration\Dto\SetBrandingCommand;
 use App\Modules\Integration\Dto\SyncTenantCommand;
 use App\Modules\Integration\Dto\SyncTenantResult;
+use App\Modules\Integration\Dto\SyncWebhookSecretCommand;
 use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Support\Facades\Log;
 
 final class AgentPlatformAdapter implements PlatformPort
 {
+    use MapsTransportExceptions;
+
     public function __construct(
         private readonly AgentUpstreamGateway $agentGateway,
+        private readonly AgentTransportResolver $transportResolver,
         private readonly SshPlatformAdapter $sshFallback,
         private readonly TransportObservability $observability,
     ) {}
@@ -60,6 +67,8 @@ final class AgentPlatformAdapter implements PlatformPort
             );
         } catch (AgentTransportException) {
             throw new ClusterUnreachableException;
+        } catch (\Throwable $e) {
+            $this->mapTransportException($e);
         }
 
         return $this->jobRefFromResponse($resp);
@@ -86,6 +95,8 @@ final class AgentPlatformAdapter implements PlatformPort
             );
         } catch (AgentTransportException) {
             throw new ClusterUnreachableException;
+        } catch (\Throwable $e) {
+            $this->mapTransportException($e);
         }
 
         return $this->jobRefFromResponse($resp);
@@ -129,6 +140,24 @@ final class AgentPlatformAdapter implements PlatformPort
     public function runOccPassthrough(OccPassthroughCommand $command): OccPassthroughResult
     {
         return $this->sshFallback->runOccPassthrough($command);
+    }
+
+    public function removeTenant(RemoveTenantCommand $command): AsyncJobRef
+    {
+        if ($this->transportResolver->shouldUseAgentTransport($command->cluster)) {
+            return $this->dispatchManageAsync(new ManageAsyncCommand(
+                $command->cluster,
+                $command->manageArgs,
+                null,
+            ));
+        }
+
+        return $this->sshFallback->removeTenant($command);
+    }
+
+    public function syncWebhookSecret(SyncWebhookSecretCommand $command): void
+    {
+        $this->sshFallback->syncWebhookSecret($command);
     }
 
     private function jobRefFromResponse(SshResponse $resp): AsyncJobRef

@@ -8,12 +8,12 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
 use App\Modules\Core\Ssh\Dto\SshResponse;
-use App\Modules\Core\Ssh\Exceptions\SshClientException;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
+use App\Modules\Integration\Adapters\Concerns\MapsTransportExceptions;
 use App\Modules\Integration\Contracts\PlatformPort;
 use App\Modules\Integration\Dto\AsyncJobRef;
 use App\Modules\Integration\Dto\BrandingResult;
@@ -33,14 +33,18 @@ use App\Modules\Integration\Dto\PollJobStatusCommand;
 use App\Modules\Integration\Dto\ProbeClusterHealthCommand;
 use App\Modules\Integration\Dto\ProbeReadinessCommand;
 use App\Modules\Integration\Dto\ReadinessReport;
+use App\Modules\Integration\Dto\RemoveTenantCommand;
 use App\Modules\Integration\Dto\SetBrandingCommand;
 use App\Modules\Integration\Dto\SyncTenantCommand;
 use App\Modules\Integration\Dto\SyncTenantResult;
+use App\Modules\Integration\Dto\SyncWebhookSecretCommand;
 use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Support\Facades\Log;
 
 final class SshPlatformAdapter implements PlatformPort
 {
+    use MapsTransportExceptions;
+
     private const EXIT_NOT_IMPLEMENTED = 99;
 
     private const REDACT_PATTERN = '/(password|token|secret|pwd)\s*[:=]\s*\S+/i';
@@ -52,11 +56,34 @@ final class SshPlatformAdapter implements PlatformPort
 
     public function createTenant(CreateTenantCommand $command): AsyncJobRef
     {
+        $this->stageBrandingFilesIfNeeded($command);
+
         return $this->toJobRef($this->runManageAsync(
             $command->cluster,
             $command->manageArgs,
             $command->stdinJson,
         ));
+    }
+
+    public function removeTenant(RemoveTenantCommand $command): AsyncJobRef
+    {
+        return $this->toJobRef($this->runManageAsync(
+            $command->cluster,
+            $command->manageArgs,
+            null,
+        ));
+    }
+
+    public function syncWebhookSecret(SyncWebhookSecretCommand $command): void
+    {
+        $this->withMappedTransport(function () use ($command): void {
+            $this->ssh->run(
+                $command->cluster,
+                'nextcloud-manage',
+                ['config', 'set-webhook-secret', '--payload-stdin'],
+                json_encode(['secret' => $command->plainSecret]),
+            );
+        });
     }
 
     public function enableApps(EnableAppsCommand $command): AsyncJobRef
@@ -105,84 +132,90 @@ final class SshPlatformAdapter implements PlatformPort
 
     public function probeClusterHealth(ProbeClusterHealthCommand $command): ClusterHealthReport
     {
-        $resp = $this->ssh->ping($command->cluster, $command->timeoutSec);
+        $resp = $this->withMappedTransport(
+            fn () => $this->ssh->ping($command->cluster, $command->timeoutSec),
+        );
 
         return new ClusterHealthReport($resp->exitCode);
     }
 
     public function fetchJobLogs(FetchJobLogsCommand $command): JobLogsResult
     {
-        $job = $command->job;
-        $cluster = $command->cluster;
-        $timeoutSec = (int) config('services.ssh.log_fetch_timeout_seconds', 15);
+        return $this->withMappedTransport(function () use ($command): JobLogsResult {
+            $job = $command->job;
+            $cluster = $command->cluster;
+            $timeoutSec = (int) config('services.ssh.log_fetch_timeout_seconds', 15);
 
-        try {
-            $response = $this->ssh->run(
-                $cluster,
-                'nextcloud-manage',
-                ['job', $job->job_id, 'logs', '--json'],
-                null,
-                $timeoutSec,
-            );
-        } catch (SshRemoteException $e) {
-            if ($e->notImplemented) {
+            try {
+                $response = $this->ssh->run(
+                    $cluster,
+                    'nextcloud-manage',
+                    ['job', $job->job_id, 'logs', '--json'],
+                    null,
+                    $timeoutSec,
+                );
+            } catch (SshRemoteException $e) {
+                if ($e->notImplemented) {
+                    return new JobLogsResult($this->fetchJobLogsViaStatus($job, $cluster, $timeoutSec));
+                }
+
+                throw $e;
+            }
+
+            if ($response->exitCode === self::EXIT_NOT_IMPLEMENTED) {
                 return new JobLogsResult($this->fetchJobLogsViaStatus($job, $cluster, $timeoutSec));
             }
 
-            throw $e;
-        } catch (SshClientException $e) {
-            throw $e;
-        }
+            if ($response->exitCode !== 0) {
+                throw new \RuntimeException(
+                    "nextcloud-manage job logs returned exit_code={$response->exitCode} for job {$job->job_id}",
+                );
+            }
 
-        if ($response->exitCode === self::EXIT_NOT_IMPLEMENTED) {
+            $lines = $this->parseAndSanitizeJobLogs($response->stdout);
+            if ($lines !== []) {
+                return new JobLogsResult($lines);
+            }
+
             return new JobLogsResult($this->fetchJobLogsViaStatus($job, $cluster, $timeoutSec));
-        }
-
-        if ($response->exitCode !== 0) {
-            throw new \RuntimeException(
-                "nextcloud-manage job logs returned exit_code={$response->exitCode} for job {$job->job_id}",
-            );
-        }
-
-        $lines = $this->parseAndSanitizeJobLogs($response->stdout);
-        if ($lines !== []) {
-            return new JobLogsResult($lines);
-        }
-
-        return new JobLogsResult($this->fetchJobLogsViaStatus($job, $cluster, $timeoutSec));
+        });
     }
 
     public function cancelJob(CancelJobCommand $command): CancelJobResult
     {
-        $job = $command->job;
+        return $this->withMappedTransport(function () use ($command): CancelJobResult {
+            $job = $command->job;
 
-        $this->ssh->run(
-            cluster: $job->clusterServer,
-            cmd: 'nextcloud-manage',
-            args: ['job', $job->job_id, 'cancel', '--json'],
-        );
+            $this->ssh->run(
+                cluster: $job->clusterServer,
+                cmd: 'nextcloud-manage',
+                args: ['job', $job->job_id, 'cancel', '--json'],
+            );
 
-        return new CancelJobResult;
+            return new CancelJobResult;
+        });
     }
 
     public function pollJobStatus(PollJobStatusCommand $command): JobStatusResult
     {
-        $resp = $this->ssh->run(
-            $command->cluster,
-            'nextcloud-manage',
-            ['job', $command->job->job_id, 'status', '--json'],
-            null,
-            30,
-        );
-
-        $data = $resp->parsedJson;
-        if (! is_array($data) || ! isset($data['state'])) {
-            throw new \RuntimeException(
-                "No valid JSON response for job {$command->job->job_id}",
+        return $this->withMappedTransport(function () use ($command): JobStatusResult {
+            $resp = $this->ssh->run(
+                $command->cluster,
+                'nextcloud-manage',
+                ['job', $command->job->job_id, 'status', '--json'],
+                null,
+                30,
             );
-        }
 
-        return new JobStatusResult((string) $data['state'], $data);
+            $data = $resp->parsedJson;
+            if (! is_array($data) || ! isset($data['state'])) {
+                throw new \RuntimeException(
+                    "No valid JSON response for job {$command->job->job_id}",
+                );
+            }
+
+            return new JobStatusResult((string) $data['state'], $data);
+        });
     }
 
     public function syncTenant(SyncTenantCommand $command): SyncTenantResult
@@ -292,8 +325,6 @@ final class SshPlatformAdapter implements PlatformPort
      * @return array<string, mixed>
      *
      * @throws ClusterUnreachableException
-     * @throws SshTimeoutException
-     * @throws SshRemoteException
      */
     private function execOccSubcmd(
         Customer $customer,
@@ -318,6 +349,8 @@ final class SshPlatformAdapter implements PlatformPort
             $resp = $this->ssh->run($cluster, 'nextcloud-manage', $sshArgs, null, $timeoutSec);
         } catch (SshConnectionException) {
             throw new ClusterUnreachableException;
+        } catch (\Throwable $e) {
+            $this->mapTransportException($e);
         }
 
         return $resp->parsedJson
@@ -326,8 +359,6 @@ final class SshPlatformAdapter implements PlatformPort
 
     /**
      * @throws ClusterUnreachableException
-     * @throws SshRemoteException
-     * @throws SshTimeoutException
      */
     private function runManageAsync(
         ClusterServer $cluster,
@@ -341,6 +372,42 @@ final class SshPlatformAdapter implements PlatformPort
 
         try {
             return $this->ssh->runAsync($cluster, 'nextcloud-manage', $manageArgs, $stdinJson);
+        } catch (SshConnectionException) {
+            throw new ClusterUnreachableException;
+        } catch (\Throwable $e) {
+            $this->mapTransportException($e);
+        }
+    }
+
+    private function stageBrandingFilesIfNeeded(CreateTenantCommand $command): void
+    {
+        if ($command->stagingId === null || $command->brandingStaging === null) {
+            return;
+        }
+
+        $staging = $command->brandingStaging;
+        $cluster = $command->cluster;
+
+        try {
+            $this->ssh->inboxInit($cluster, $command->stagingId);
+
+            if ($staging->logoPath !== null) {
+                $this->ssh->sftpUpload(
+                    $cluster,
+                    $staging->logoPath,
+                    $command->stagingId,
+                    'logo.'.$staging->logoExtension,
+                );
+            }
+
+            if ($staging->backgroundPath !== null) {
+                $this->ssh->sftpUpload(
+                    $cluster,
+                    $staging->backgroundPath,
+                    $command->stagingId,
+                    'background.'.$staging->backgroundExtension,
+                );
+            }
         } catch (SshConnectionException) {
             throw new ClusterUnreachableException;
         }
