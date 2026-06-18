@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **docs(sprint-N34)**: Sprint N34 concluída — ISSUE-038 Fase 4 (saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook); validation R2 APROVADA (auditor-senior PASS após `5bd7456`; CQ-N34-001/002/003 corrigidos); 582 tests Docker; version 0.1.5.
 - **docs(sprint-N33)**: Sprint N33 concluída — ISSUE-038 Fase 3 (despublicar `/occ/*` + mutação via port + grep gate estrito + CQ-N32-003); PR #117; validation R1 APROVADA (auditor-senior PASS, 0 HIGH/CRITICAL); 563 tests Docker; version 0.1.4.
 - **docs(N30.2)**: Congelamento de specs OpenAPI — `openapi.yaml` marcado internal/legacy; `openapi-external.yaml` como contrato externo v1 (ref. DOC-001 / ISSUE-021).
 

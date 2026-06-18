@@ -195,3 +195,52 @@
 - Saga `POST /v1/onboarding` idempotente + runbook (Fase 4 ADR ISSUE-038)
 - Depende D-02 upstream para quota/branding/maintenance em produção
 
+---
+
+## Sprint N34 — ISSUE-038 Fase 4: Saga `POST /v1/onboarding`
+
+**Data**: 2026-06-18
+**Status**: CONCLUÍDA
+**Tasks**: 8/8
+**Branch**: `sprint/N34` (commits `22118d1`..`06c97bf`; follow-up R2 `5bd7456`)
+
+### Entregas
+
+- Modelo `Onboarding` + migration + enums de estado/step (`pending`, `running`, `completed`, `failed`, `partial`)
+- `OnboardingSaga` orquestrador: provision → readiness → create_admin → enable_apps → set_branding via `PlatformPort` + Actions existentes
+- `POST /api/v1/onboarding`: 202 + idempotência 24h (`IdempotencyKey`), scope `onboarding:run`, PII minimizada
+- `GET /api/v1/onboarding/{id}`: status step-by-step + tenant binding
+- Readiness gate entre steps (`CustomerReadinessProbe`); `tenant_not_ready` com `retry_after` na borda
+- `openapi-external.yaml` + `CONTRACTS-V1.md` alinhados (schemas onboarding; D-02 branding skip documentado)
+- Feature + characterization tests: happy path, idempotency replay, step failure parcial, branding `capability_not_available`
+- Runbook `docs/runbooks/onboarding-saga.md`: estados terminais parciais, retry seguro, game-day checklist
+
+### Decisões Técnicas
+
+1. **Saga assíncrona por step (N34.2)**: cada step assíncrono persiste `job_id`; `WebhookHandler` avança saga por `correlation_id` após job terminal — fecha ADR Fase 4 signup 1 chamada + polling.
+2. **Credenciais admin criptografadas (N34 follow-up)**: `admin_payload` com cast `encrypted:array` + `hidden`; consumido no dispatch de `users:create` — evita perda de credenciais após retorno 202.
+3. **Falha terminal explícita (N34 follow-up)**: `markStepFailed()` + roteamento webhook seta `OnboardingState::Failed` — polling não fica em estado zumbi.
+4. **D-02 honesto no branding**: step `set_branding` bloqueado → `skipped` + saga `completed`/`partial` sem vocabulário NC.
+
+### Problemas Encontrados (QA R1 → R2)
+
+- **CQ-N34-001** (HIGH): saga incompleta pós-readiness — steps `create_admin`/`enable_apps`/`set_branding` não despachados; corrigido em `5bd7456`.
+- **CQ-N34-002** (HIGH): credenciais admin validadas mas descartadas — corrigido com `admin_payload` criptografado em `5bd7456`.
+- **CQ-N34-003** (HIGH): falha de job não propagava para `onboarding.state=failed` — corrigido via `WebhookHandler` + `markStepFailed()` em `5bd7456`.
+
+### Gate da Sprint
+
+- [x] POST 202 + GET step-by-step; replay idempotente 24h não duplica tenant
+- [x] Saga completa provision→readiness→admin→apps→branding (ou `partial` se branding D-02)
+- [x] `correlation_id` propagado (`onboarding_id` → `job_id`)
+- [x] Runbook saga parcial publicado
+- [x] Spec externo + CONTRACTS-V1 alinhados; redocly lint verde
+- [x] 582 tests passed Docker (suite completa local)
+- [x] validation_gate_qa: **APROVADA R2** (auditor-senior PASS após `5bd7456`; 0 HIGH/CRITICAL)
+
+### Próximos Passos
+
+- Adoção real por onboarding-api/WHMCS (N22); smoke/staging E2E
+- Expandir allowlist upstream D-02 (ISSUE-016) para branding/quota em produção
+- PR/merge branch `sprint/N34`
+
