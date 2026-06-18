@@ -5,7 +5,7 @@ open_high: 9
 open_medium: 44
 open_low: 33
 sprints_with_open_blockers: F10
-notes: N33 validacao R1 APROVADA (2026-06-18) — CQ-N32-003 validado (PR #117). N32 validacao R2 APROVADA (2026-06-18) — CQ-N32-001/002/004/005/006/007 validados (PR #117). N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
+notes: N34 validacao R2 APROVADA (2026-06-18) — CQ-N34-001/002/003 corrigidos in-sprint (5bd7456). N33 validacao R1 APROVADA (2026-06-18) — CQ-N32-003 validado (PR #117). N32 validacao R2 APROVADA (2026-06-18) — CQ-N32-001/002/004/005/006/007 validados (PR #117). N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
 FINDINGS-INDEX -->
 
 
@@ -38,6 +38,7 @@ FINDINGS-INDEX -->
 | F15 | 0 | 0 | 0 | 2 | 2 | 4 | 1 |
 | N30 | 0 | 2 | 0 | 0 | 0 | 2 | 2 |
 | N32 | 0 | 7 | 0 | 0 | 1 | 6 | 6 |
+| N34 | 0 | 3 | 0 | 0 | 0 | 3 | 3 |
 | N19 | 0 | 2 | 9 | 6 | 15 | 0 | 2 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 
@@ -2412,5 +2413,52 @@ Nenhum finding registrado para D1 na validação atual.
 - **Descrição**: Implementação existe só no working tree; branch tem apenas commit de docs.
 - **Correção** (Sprint N32, PR #117): commit `491f5d9` (`feat(sprint-N32): PlatformPort migration waves + transport observability`) com todos os artefatos de produção; CI run `27768621255` verde.
 - **Validação** (N32 R2, 2026-06-18): preflight PROC-025 OK; 82 tests Docker passed; validation_gate_qa APROVADA R2.
+
+---
+
+## Sprint N34 — Saga `POST /v1/onboarding` (ISSUE-038 Fase 4)
+
+> Registrado via `/qa validar N34` R1 em 2026-06-18. Senior review na saga composta. Branch `sprint/N34`; follow-up R2 `5bd7456`.
+
+> **Validação N34 R2** (2026-06-18, `/qa validar N34` R2): commits `22118d1`..`06c97bf` + follow-up `5bd7456`. **Testes**: 582 passed Docker (suite completa local). **auditor-senior R2** → **PASS** (0 HIGH no delta). **HIGH R1**: 3/3 corrigidos in-sprint (`CQ-N34-001`, `CQ-N34-002`, `CQ-N34-003`). **Resultado: APROVADA**.
+
+### CQ-N34-001 — HIGH — Saga incompleta: steps pós-readiness nunca despachados
+
+- **Sprint**: N34
+- **Severidade**: HIGH
+- **Tipo**: product_bug / architectural
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N34` — auditor-senior R1
+- **Arquivo**: `app/Modules/Onboarding/Saga/OnboardingSaga.php`, `app/Modules/Jobs/Services/WebhookHandler.php`
+- **Descrição**: `OnboardingSaga` implementava apenas `provision_tenant` + `wait_readiness`. Após readiness OK, `advanceToCreateAdmin()` só persistia `create_admin: pending` — sem dispatch de `LifecycleAsyncAction` (`users:create`), `enable_apps` nem `setBranding`. Webhook não avançava saga além do gate.
+- **Correção** (Sprint N34, commit `5bd7456`): saga despacha `users:create` → `enable_apps` → `setBranding`; `WebhookHandler::handleOnboardingTerminalJob` roteia jobs terminais por `correlation_id`; estados `completed`/`partial` ao final.
+- **Validação** (N34 R2, 2026-06-18): `OnboardingSagaTest` + `OnboardingSagaTest` feature verdes; auditor-senior R2 PASS.
+
+### CQ-N34-002 — HIGH — Credenciais de admin validadas mas descartadas
+
+- **Sprint**: N34
+- **Severidade**: HIGH
+- **Tipo**: product_bug / security
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N34` — auditor-senior R1
+- **Arquivo**: `app/Http/Controllers/Api/V1/OnboardingV1Controller.php`, `app/Models/Onboarding.php`, `database/migrations/2026_06_18_000003_add_admin_payload_to_onboardings_table.php`
+- **Descrição**: `CreateOnboardingRequest` exigia `admin.password`, mas password nunca entrava no DTO nem era persistido. Step `create_admin` impossível após retorno 202.
+- **Correção** (Sprint N34, commit `5bd7456`): `OnboardingSpec.adminPassword` no controller; coluna `admin_payload` com cast `encrypted:array` + `hidden`; consumo em `dispatchCreateAdmin`.
+- **Validação** (N34 R2, 2026-06-18): `OnboardingModelTest` verifica persistência criptografada; auditor-senior R2 PASS.
+
+### CQ-N34-003 — HIGH — Falha de job não propaga para estado `failed` da saga
+
+- **Sprint**: N34
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N34` — auditor-senior R1
+- **Arquivo**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Onboarding/Saga/OnboardingSaga.php`
+- **Descrição**: Job `provision` terminal `failed`/`cancelled` atualizava `Customer` mas não `Onboarding`. Poll GET retornava `running` indefinidamente; runbook documentava `state=failed` mas código nunca setava.
+- **Correção** (Sprint N34, commit `5bd7456`): `markStepFailed()` seta `OnboardingState::Failed`; webhook cobre provision `failed`/`cancelled` e steps assíncronos subsequentes via `handleTerminalJob`.
+- **Validação** (N34 R2, 2026-06-18): `OnboardingReadinessGateTest` + feature tests de step failure verdes; auditor-senior R2 PASS.
 
 ---

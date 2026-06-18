@@ -249,18 +249,3 @@ it('GET /api/v1/jobs/{id} returns 200 v1 sync envelope without NC fields', funct
     $response->assertJsonPath('data.job_id', $job->job_id);
     assertLifecycleV1ExcludesNcVocabulary($response->getContent());
 });
-
-it('blocked v1 onboarding returns not_implemented without NC vocabulary', function () {
-    $slug = 'blocked-v1-'.substr(uniqid(), -6);
-    makeLifecycleV1Tenant($slug);
-    $rawToken = createLifecycleV1ApiKey(scopes: ['onboarding:run'], allowedTenantSlugs: [$slug]);
-
-    $onboarding = $this->postJson(
-        '/api/v1/onboarding',
-        ['slug' => $slug],
-        lifecycleV1Bearer($rawToken),
-    );
-    $onboarding->assertStatus(501);
-    $onboarding->assertJsonPath('error.code', 'not_implemented');
-    assertLifecycleV1ExcludesNcVocabulary($onboarding->getContent());
-});

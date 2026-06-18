@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -70,6 +71,8 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
                 'job_id' => null,
                 'ip' => null,
             ]);
+
+            app(OnboardingSaga::class)->advanceAfterProvisionForSlug($customer->slug);
 
             return;
         }

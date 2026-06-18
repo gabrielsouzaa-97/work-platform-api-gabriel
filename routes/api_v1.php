@@ -47,6 +47,10 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
         ->middleware('api.scope:onboarding:run')
         ->name('api.v1.onboarding.store');
 
+    Route::get('/onboarding/{id}', [OnboardingV1Controller::class, 'show'])
+        ->middleware('api.scope:onboarding:run')
+        ->name('api.v1.onboarding.show');
+
     Route::get('/jobs/{id}', [JobV1Controller::class, 'show'])
         ->middleware('api.scope:jobs:read')
         ->name('api.v1.jobs.show');

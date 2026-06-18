@@ -57,7 +57,7 @@ tags:
   - name: Branding
     description: Personalização visual (bloqueada até D-02)
   - name: Onboarding
-    description: Saga composta de onboarding (planned — atrás de D-02)
+    description: Saga composta de onboarding (tenant, admin, apps, branding opcional)
 
 paths:
   /tenants:
@@ -564,41 +564,121 @@ paths:
   /onboarding:
     post:
       tags: [Onboarding]
-      summary: Onboarding composto (planned)
+      summary: Iniciar saga de onboarding
       description: |
-        **Planned — não implementado.** Operação composta (tenant + admin + apps +
-        branding) atrás de **D-02** resolvido. Retorna **501** `not_implemented`
-        até a Fase 4 do ADR. Não promete schema de execução neste draft.
+        Operação composta assíncrona: provisiona tenant, aguarda readiness gate,
+        cria admin, habilita apps e aplica branding opcional.
+
+        Retorna **202** com `onboarding_id` e `meta.status_url` para polling.
+        Replay idempotente (hash de slug + domain + admin username, janela 24h).
+
+        Step `set_branding` pode retornar `skipped` com `capability_not_available`
+        quando D-02 bloqueia branding upstream (sem expor subcmd/exit_code).
 
         **Scope:** `onboarding:run`.
       operationId: runOnboarding
       x-required-scope: onboarding:run
-      x-internal-mapping: OnboardingSaga (planned — Fase 4)
+      x-internal-mapping: OnboardingSaga
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              description: Schema de execução será definido na Fase 4 (pós D-02).
-              additionalProperties: true
+              $ref: "#/components/schemas/CreateOnboardingRequest"
+            examples:
+              minimal:
+                value:
+                  tenant:
+                    slug: acme-corp
+                    domain: acme.mework360.com.br
+                    cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  admin:
+                    username: admin.acme
+                    password: "Str0ngP@ss1"
+                    email: admin@acme.com.br
+                  apps_enabled: [files, calendar]
       responses:
-        "501":
-          description: Capability ainda não implementada
+        "202":
+          description: Saga aceita — polling via status_url
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DomainError"
+                $ref: "#/components/schemas/OnboardingAccepted"
               examples:
-                notImplemented:
+                accepted:
                   value:
-                    error:
-                      code: not_implemented
-                      message: Onboarding saga is planned and blocked behind D-02 upstream allowlist resolution.
+                    data:
+                      id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      status: running
+                      current_step: wait_readiness
+                      tenant_slug: acme-corp
+                      correlation_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      steps:
+                        - name: provision_tenant
+                          status: running
+                    meta:
+                      status_url: "/v1/onboarding/7c9e6679-7425-40de-944b-e07fc1f90ae7"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/ForbiddenScope"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /onboarding/{id}:
+    get:
+      tags: [Onboarding]
+      summary: Status da saga de onboarding
+      description: |
+        Retorna progresso step-by-step da saga (`steps[]` com `name` + `status`).
+
+        Status de step: `pending`, `running`, `completed`, `skipped`, `failed`.
+        Step `wait_readiness` pode permanecer `pending` com semântica `tenant_not_ready`
+        interna (polling recomendado via `retry_after` no recurso quando aplicável).
+
+        **Scope:** `onboarding:run`.
+      operationId: getOnboardingStatus
+      x-required-scope: onboarding:run
+      x-internal-mapping: OnboardingV1Controller::show
+      parameters:
+        - $ref: "#/components/parameters/OnboardingId"
+      responses:
+        "200":
+          description: Status atual da saga
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingEnvelope"
+              examples:
+                partialBrandingSkipped:
+                  value:
+                    data:
+                      id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      status: partial
+                      current_step: set_branding
+                      tenant_slug: acme-corp
+                      correlation_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      steps:
+                        - name: provision_tenant
+                          status: completed
+                        - name: wait_readiness
+                          status: completed
+                        - name: create_admin
+                          status: completed
+                        - name: enable_apps
+                          status: completed
+                        - name: set_branding
+                          status: skipped
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
         "429":
           $ref: "#/components/responses/RateLimited"
 
@@ -613,6 +693,15 @@ components:
         é aplicado pelo middleware `VerifyExternalPrincipal` (ISSUE-037).
 
   parameters:
+    OnboardingId:
+      name: id
+      in: path
+      required: true
+      description: Identificador UUID da saga de onboarding.
+      schema:
+        type: string
+        format: uuid
+
     TenantSlug:
       name: slug
       in: path
@@ -786,6 +875,131 @@ components:
           type: string
           format: date-time
           nullable: true
+
+
+    OnboardingAccepted:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/OnboardingResource"
+        meta:
+          $ref: "#/components/schemas/OnboardingMeta"
+
+    OnboardingEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/OnboardingResource"
+
+    OnboardingMeta:
+      type: object
+      required: [status_url]
+      properties:
+        status_url:
+          type: string
+          description: Path relativo para polling do onboarding (`GET /v1/onboarding/{id}`).
+          example: "/v1/onboarding/7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    OnboardingResource:
+      type: object
+      required: [id, status, tenant_slug, correlation_id, steps]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed, partial]
+        current_step:
+          type: string
+          enum:
+            - provision_tenant
+            - wait_readiness
+            - create_admin
+            - enable_apps
+            - set_branding
+          nullable: true
+        tenant_slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+        correlation_id:
+          type: string
+          format: uuid
+          description: Propagado aos jobs da saga para rastreio ponta-a-ponta (N32).
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/OnboardingStepStatus"
+
+    OnboardingStepStatus:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          enum:
+            - provision_tenant
+            - wait_readiness
+            - create_admin
+            - enable_apps
+            - set_branding
+        status:
+          type: string
+          enum: [pending, running, completed, skipped, failed]
+
+    CreateOnboardingRequest:
+      type: object
+      required: [tenant, admin, apps_enabled]
+      properties:
+        tenant:
+          type: object
+          required: [slug, domain, cluster_server_id]
+          properties:
+            slug:
+              type: string
+              pattern: "^[a-z0-9-]+$"
+              minLength: 3
+              maxLength: 64
+            domain:
+              type: string
+              maxLength: 253
+            cluster_server_id:
+              type: string
+              format: uuid
+        admin:
+          type: object
+          required: [username, password, email]
+          properties:
+            username:
+              type: string
+              maxLength: 64
+            password:
+              type: string
+              minLength: 8
+            email:
+              type: string
+              format: email
+        apps_enabled:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            maxLength: 100
+        branding:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              maxLength: 255
+            color:
+              type: string
+              pattern: "^#[0-9a-fA-F]{6}$"
+            url:
+              type: string
+              format: uri
 
     CreateTenantRequest:
       type: object

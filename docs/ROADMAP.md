@@ -89,7 +89,7 @@
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | **concluída** | 8 | Integration, Customers, Core, ClusterServers, Agents | PR #117; validation R1 APROVADA; CQ-N32-003 validado | 4740+ |
-| N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | planejada | — | TenantLifecycle | Depende N33 + D-02 resolvido | — |
+| N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | **concluída** | 8 | TenantLifecycle, Integration | branch `sprint/N34`; validation R2 APROVADA; CQ-N34-001/002/003 corrigidos | 4854+ |
 
 ---
 
@@ -4811,21 +4811,100 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 
 ---
 
+## Sprint N34 — ISSUE-038 Fase 4: Saga `POST /v1/onboarding`
+
+> Categoria: N
+> Status: **concluída**
+> Gate: `POST /api/v1/onboarding` retorna **202** + `onboarding_id` em <2s; `GET /api/v1/onboarding/{id}` expõe progresso step-by-step; replay idempotente (24h) não duplica tenant; etapas assíncronas via `PlatformPort` + Actions existentes (`ProvisionCustomerAction`, `LifecycleAsyncAction`); readiness gate entre steps (`CustomerReadinessProbe`); branding bloqueado por D-02 → step `skipped`/`capability_not_available` honesto (sem `subcmd`/`exit_code`); `correlation_id` (`onboarding_id` → `job_id`) propagado; runbook de saga parcial em `docs/runbooks/onboarding-saga.md`; spec externo + CONTRACTS-V1 alinhados; characterization + feature tests verdes
+> Fonte: **ISSUE-038** Fase 4 + ADR `.arch-panel/panel/final.md` §4 (Fase 4) + `docs/CONTRACTS-V1.md` §3–§4 + carry-over observabilidade N32.6
+> review: **senior+qa** (saga composta + idempotência + falha parcial + contrato externo)
+> Pré-requisito: **N33** ✓ (PR #117, validation R1 APROVADA); **D-02** gate honesto ✓ (padrão `capability_not_available` de N33.6 — branding/quota podem retornar 404 na borda)
+> Desbloqueia: consumo real por onboarding-api/WHMCS (N22); medição de adoção v1
+> Fora de escopo N34: compensação automática de tenant provisionado (ADR R-5 — só assistida + runbook); expandir allowlist upstream D-02 (ISSUE-016); E2E onboarding-api em produção (smoke/staging OK); `execOcc` genérico; listagem paginada de onboardings; groups lifecycle
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | N34.1 — Modelo `Onboarding` + migration + enums de estado/step (`pending`, `running`, `completed`, `failed`, `partial`; steps: `provision_tenant`, `wait_readiness`, `create_admin`, `enable_apps`, `set_branding`) | `laravel-migration` | — |
+| [x] | M | N34.2 — `OnboardingSaga` orquestrador: dispatch assíncrono por step via `PlatformPort` + `ProvisionCustomerAction`/`LifecycleAsyncAction`; persistência de `current_step`, `job_id` por step, `correlation_id` | `modular-architecture` | N34.1 |
+| [x] | M | N34.3 — `POST /v1/onboarding`: `OnboardingV1Controller::store` + `CreateOnboardingRequest` + idempotência (`IdempotencyKey` 24h, PII minimizada) + scope `onboarding:run` | `api-rest-patterns` | N34.1, N34.2 |
+| [x] | M | N34.4 — `GET /v1/onboarding/{id}`: status step-by-step + `OnboardingResource` + binding tenant/principal + scope `onboarding:run` | `api-rest-patterns` | N34.1 |
+| [x] | M | N34.5 — Readiness gate entre steps: integrar `CustomerReadinessProbe` após provision; retry/backoff configurável; bloqueio `tenant_not_ready` na borda v1 | `laravel-api` | N34.2 |
+| [x] | P | N34.6 — `openapi-external.yaml` + `CONTRACTS-V1.md`: schemas request/response onboarding; remover stub 501-only; documentar D-02 skip de branding | `/dev doc` | N34.3, N34.4 |
+| [x] | M | N34.7 — Feature tests + characterization: happy path, idempotency replay, step failure parcial, branding `capability_not_available`, sanitização DomainError | `laravel-testing` | N34.3–N34.5 |
+| [x] | P | N34.8 — Runbook `docs/runbooks/onboarding-saga.md`: estados terminais parciais, retry seguro por step, game-day checklist, alertas N32.7 | `/dev doc` | N34.2 |
+
+### Saga steps (referência ADR Fase 4)
+
+| Step | Ação interna | Port / Action | Async | Notas |
+|------|--------------|---------------|-------|-------|
+| `provision_tenant` | Criar tenant | `PlatformPort::createTenant` / `ProvisionCustomerAction` | 202 + job | IdempotencyKey por saga |
+| `wait_readiness` | Gate readiness | `CustomerReadinessProbe` / `probeReadiness` | sync poll | `tenant_not_ready` + `retry_after` |
+| `create_admin` | Admin inicial | `LifecycleAsyncAction` (`users:create`) | 202 + job | Após readiness OK |
+| `enable_apps` | Apps CSV | `PlatformPort::enableApps` / `LifecycleAsyncAction` | 202 + job | Opcional no payload |
+| `set_branding` | Logo/background | `PlatformPort::setBranding` | sync/async | D-02 → `capability_not_available` → step `skipped` |
+
+### Task N34.2 — OnboardingSaga orquestrador
+
+**Estado atual**: `OnboardingV1Controller::store()` retorna 501 `not_implemented`; não existe modelo nem orquestrador; steps existem isolados em Actions/Port.
+**Estado desejado**: `OnboardingSaga` coordena steps sequenciais com jobs assíncronos; avança apenas após job terminal + readiness quando aplicável; persiste estado por step; propaga `correlation_id` (`onboarding_id` → `job_id`).
+**Critério de pronto**: unit/feature test prova avanço step-a-step; falha em step N deixa saga em `partial` com retry seguro documentado; nenhum transporte SSH/Agent fora de adapters.
+
+**executor_prompt**:
+Feature: Implementar `OnboardingSaga` como orquestrador de steps assíncronos.
+Contexto: ADR Fase 4 — signup completo (tenant→admin→apps→branding) por 1 chamada + polling. PlatformPort e Actions já existem (N31–N33).
+Objetivo: Saga persiste progresso; dispatch via port/actions; webhook/polling avança step; compensação automática **fora** de escopo (ADR R-5).
+Arquivos: `app/Modules/Onboarding/Saga/OnboardingSaga.php`, `app/Modules/Onboarding/Enums/OnboardingStep.php`, listener/job para avanço pós-webhook.
+Critério de pronto: characterization prova sequência mínima provision→readiness→admin; grep gate adapters continua verde.
+
+### Task N34.3 — POST + idempotência
+
+**Estado atual**: Rota existe; controller stub 501; OpenAPI descreve apenas 501.
+**Estado desejado**: `POST /api/v1/onboarding` aceita payload composto (tenant + admin + apps + branding opcional); retorna 202 + `{ data: { id, status, steps }, meta: { status_url } }`; header/idempotency key 24h — replay retorna mesmo `onboarding_id` sem duplicar tenant.
+**Critério de pronto**: teste idempotency replay; PII minimizada em logs/audit; scope `onboarding:run` enforced.
+
+### Task N34.5 — Readiness gate
+
+**Estado atual**: `CustomerReadinessProbe` usado em lifecycle isolado; saga não existe.
+**Estado desejado**: Step `wait_readiness` bloqueia `create_admin` até `ReadinessReport::isReady()`; expõe `503 tenant_not_ready` com `retry_after` na borda se polling externo; internamente saga re-enfileira probe com backoff.
+**Critério de pronto**: teste simula tenant em `provisioning` — saga não avança para users; após readiness OK avança.
+
+### Task N34.6 — Spec externo + CONTRACTS-V1
+
+**Estado atual**: `openapi-external.yaml` `/onboarding` stub 501-only; CONTRACTS-V1 lista `not_implemented` para POST onboarding.
+**Estado desejado**: Schemas `CreateOnboardingRequest`, `OnboardingStatus`, step objects; GET `{id}` documentado; D-02 branding skip documentado; `redocly lint` 0 errors.
+**Critério de pronto**: spec externo reflete implementação; CONTRACTS-V1 §2–§4 atualizados; CI redocly verde.
+
+### Quality Brief (Sprint N34)
+
+> PATTERN-001 (Decision #187): auditoria R1 senior+qa; saga composta + idempotência + falha parcial + contrato externo.
+
+- **Review**: senior+qa (orquestração saga, idempotência 24h, D-02 honesto, runbook parcial)
+- **Branch**: `sprint/N34`; commits `22118d1`..`06c97bf`; follow-up R2 `5bd7456`
+- **Gate ADR Fase 4**: ✓ POST 202 + GET step-by-step; idempotência 24h; saga provision→readiness→admin→apps→branding; `correlation_id` propagado; runbook `docs/runbooks/onboarding-saga.md`; spec externo alinhado
+- **HIGH R1 corrigidos in-sprint**: **CQ-N34-001** (saga pós-readiness completa + webhook advance), **CQ-N34-002** (`admin_payload` criptografado), **CQ-N34-003** (falha terminal → `onboarding.state=failed`)
+- **Testes**: 582 passed Docker (suite completa local); 7 skipped
+- **Version**: 0.1.5
+- **Resultado**: **APROVADA R2** (auditor-senior PASS após `5bd7456`; 0 HIGH/CRITICAL no delta)
+
+---
+
 ## Roadmap ISSUE-038 — Fases posteriores (stubs)
 
-> Fonte: ADR `final.md` §4. N32 detalhada acima.
+> Fonte: ADR `final.md` §4. N34 detalhada acima.
 
 | Sprint | Fase ADR | Gate resumido | Bloqueio |
 |--------|----------|---------------|----------|
 | **N31** | Fase 1 — PlatformPort mínimo | `PUT /v1/tenants/{slug}/branding` 100% via port | ✅ concluída |
 | **N32** | Fase 2 — Ondas + observabilidade | grep gate; `correlation_id`; alertas | ✅ concluída |
 | **N33** | Fase 3 — Despublicar `/occ/*` | `/occ/*` fora do spec externo; mutação via port; grep gate estrito | ✅ concluída |
-| **N34** | Fase 4 — Saga onboarding | `POST /v1/onboarding` idempotente + runbook | N33 + D-02 |
+| **N34** | Fase 4 — Saga onboarding | `POST /v1/onboarding` idempotente + runbook | ✅ concluída |
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-18 | 0.33   | Sprint N34 concluída — ISSUE-038 Fase 4 (saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook); validation R2 APROVADA; CQ-N34-001/002/003 corrigidos; 582 tests; version 0.1.5. | sprint-finalizer |
+| 2026-06-18 | 0.32   | Sprint N34 planejada — ISSUE-038 Fase 4 (8 tasks: saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook). | `/pmo plan` |
 | 2026-06-18 | 0.31   | Sprint N33 concluída — ISSUE-038 Fase 3 (despublicar `/occ/*` + mutação via port + grep gate estrito); PR #117; validation R1 APROVADA; CQ-N32-003 validado. | sprint-finalizer |
 | 2026-06-18 | 0.30   | Sprint N33 planejada — ISSUE-038 Fase 3 (8 tasks: despublicar `/occ/*` + mutação via port + residual grep gate + CQ-N32-003). | `/pmo plan` |
 | 2026-06-18 | 0.29   | Sprint N32 concluída — ISSUE-038 Fase 2 (ondas PlatformPort + observabilidade + grep gate CI); PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33. | sprint-finalizer |

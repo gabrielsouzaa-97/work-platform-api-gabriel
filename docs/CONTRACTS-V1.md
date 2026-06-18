@@ -46,7 +46,7 @@ O contrato externo **nunca** expõe vocabulário NC. O interno pode trocar trans
 | `upstream_unavailable` | 502 | Falha upstream genérica | Erro remoto sem expor exit_code/subcmd |
 | `capability_not_available` | 404 | Capability bloqueada | Branding/quota/maintenance até D-02 |
 | `rate_limited` | 429 | Throttle | >120 req/min (padrão atual) |
-| `not_implemented` | 501 | Planned | `POST /v1/onboarding` (Fase 4, pós D-02) |
+| `not_implemented` | 501 | Planned | reservado para capabilities futuras fora do v1 |
 
 Todos os erros usam envelope `{ error: { code, message, retry_after?, details? } }`.
 
@@ -62,7 +62,7 @@ Todos os erros usam envelope `{ error: { code, message, retry_after?, details? }
 | `users:write` | Gestão de usuários | `POST /v1/tenants/{slug}/users`, `DELETE /v1/tenants/{slug}/users/{username}` |
 | `jobs:read` | Status de job | `GET /v1/jobs/{id}` |
 | `branding:write` | Branding | `PUT /v1/tenants/{slug}/branding` *(404 até D-02)* |
-| `onboarding:run` | Saga onboarding | `POST /v1/onboarding` *(501 planned)* |
+| `onboarding:run` | Saga onboarding | `POST /v1/onboarding`, `GET /v1/onboarding/{id}` |
 
 Middleware: `VerifyExternalPrincipal` em **todo** `/api/v1/*` (ISSUE-037 — gate duro).
 
@@ -80,7 +80,8 @@ Middleware: `VerifyExternalPrincipal` em **todo** `/api/v1/*` (ISSUE-037 — gat
 | `DELETE /v1/tenants/{slug}/users/{username}` | `LifecycleAsyncAction` (`users:delete`) | permanece Action |
 | `GET /v1/jobs/{id}` | `JobController::show` → `JobResource` | sanitizar campos NC na borda v1 |
 | `PUT /v1/tenants/{slug}/branding` | *(bloqueado)* | → `PlatformPort::setBranding` (Fase 1, pós D-02) |
-| `POST /v1/onboarding` | `OnboardingSaga` *(planned)* | Fase 4, atrás de D-02 |
+| `POST /v1/onboarding` | `OnboardingSaga::start` | saga assíncrona; step branding pode `skipped` (D-02) |
+| `GET /v1/onboarding/{id}` | `OnboardingV1Controller::show` | progresso step-by-step |
 
 Sprint 0 = **aliases finos** sobre Actions existentes, com envelope e erros normalizados na borda.
 
