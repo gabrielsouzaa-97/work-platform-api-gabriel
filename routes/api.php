@@ -33,7 +33,7 @@ Route::prefix('agent/v1')
             ->name('api.agent.events.receive');
     });
 
-Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->group(function (): void {
+Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1', 'api.legacy-deprecation'])->group(function (): void {
     Route::middleware('api.scope:farm-agents:read')->group(function (): void {
         Route::get('/farm-agents', [FarmAgentController::class, 'index'])->name('api.farm-agents.index');
         Route::get('/farm-agents/{id}', [FarmAgentController::class, 'show'])->name('api.farm-agents.show');
@@ -63,9 +63,9 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
         ->middleware(['api.tenant', 'can:provision-customers', 'api.scope:customers:write'])
         ->name('api.customers.destroy');
 
-    // OCC sync passthrough (F6 — Feature P) — timeout 60s, resposta direta upstream
+    // OCC sync passthrough — admin/interno only (fora do spec externo; consumidores usam /api/v1)
     Route::prefix('customers/{customer}/occ')
-        ->middleware(['api.tenant', 'api.scope:occ:write'])
+        ->middleware(['can:manage-operators', 'api.tenant', 'api.scope:occ:write'])
         ->group(function (): void {
             Route::put('quota/default', [OccController::class, 'setQuotaDefault'])->name('api.occ.quota.default');
             Route::put('quota/all', [OccController::class, 'setQuotaAll'])->name('api.occ.quota.all');

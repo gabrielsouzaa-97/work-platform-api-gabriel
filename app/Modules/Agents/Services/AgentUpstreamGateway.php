@@ -61,7 +61,7 @@ class AgentUpstreamGateway
 
     public static function resultCacheKey(string $operationId): string
     {
-        return 'agent_op_result:'.$operationId;
+        return AgentOperationResultCache::key($operationId);
     }
 
     /**
@@ -82,7 +82,7 @@ class AgentUpstreamGateway
 
     private function waitForJobId(string $operationId): string
     {
-        $cacheKey = self::resultCacheKey($operationId);
+        $cacheKey = AgentOperationResultCache::key($operationId);
         $deadline = microtime(true) + self::WAIT_SECONDS;
 
         while (microtime(true) < $deadline) {

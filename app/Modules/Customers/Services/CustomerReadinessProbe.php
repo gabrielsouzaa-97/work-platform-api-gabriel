@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Modules\Customers\Services;
 
+use App\Models\ClusterServer;
 use App\Models\Customer;
-use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
-use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
-use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Integration\Contracts\PlatformPort;
+use App\Modules\Integration\Dto\ProbeReadinessCommand;
+use App\Modules\Integration\Services\PlatformPortFactory;
 
 final class CustomerReadinessProbe
 {
-    public function __construct(private readonly SshClientInterface $ssh) {}
+    public function __construct(
+        private readonly PlatformPortFactory $factory,
+    ) {}
 
     public function isReady(Customer $customer): bool
     {
@@ -21,18 +24,11 @@ final class CustomerReadinessProbe
             return false;
         }
 
-        try {
-            $resp = $this->ssh->run(
-                $cluster,
-                'nextcloud-manage',
-                [$customer->slug, 'occ-exec', 'user:list', '--json'],
-                null,
-                (int) config('services.customer_readiness.probe_timeout_seconds', 30),
-            );
+        return $this->portFor($cluster)->probeReadiness(new ProbeReadinessCommand($customer))->ready;
+    }
 
-            return $resp->exitCode === 0;
-        } catch (SshConnectionException|SshTimeoutException) {
-            return false;
-        }
+    private function portFor(ClusterServer $cluster): PlatformPort
+    {
+        return $this->factory->for($cluster);
     }
 }

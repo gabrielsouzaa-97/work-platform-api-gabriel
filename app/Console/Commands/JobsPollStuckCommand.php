@@ -6,9 +6,11 @@ namespace App\Console\Commands;
 
 use App\Models\AuditLog;
 use App\Models\Job;
-use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\Exceptions\UnknownStateException;
 use App\Modules\Core\Translators\StateTranslator;
+use App\Modules\Integration\Dto\PollJobStatusCommand;
+use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -19,17 +21,23 @@ class JobsPollStuckCommand extends Command
 
     protected $description = 'Poll upstream for jobs stuck in running state with no callback after 60s';
 
-    public function handle(SshClientInterface $ssh, StateTranslator $st): int
-    {
+    public function handle(
+        PlatformPortFactory $factory,
+        StateTranslator $st,
+        TransportObservability $observability,
+    ): int {
+        $slaSeconds = $observability->stuckJobSlaSeconds();
         $stuck = Job::query()
             ->where('state', 'running')
             ->whereNull('callback_received_at')
-            ->where('queued_at', '<', now()->subMinute())
+            ->where('queued_at', '<', now()->subSeconds($slaSeconds))
             ->limit(50)
             ->with('clusterServer')
             ->get();
 
         foreach ($stuck as $job) {
+            $observability->alertJobStuckBeyondSla($job);
+
             $cluster = $job->clusterServer;
 
             if (! $cluster || $cluster->status !== 'active') {
@@ -39,22 +47,12 @@ class JobsPollStuckCommand extends Command
             }
 
             try {
-                $resp = $ssh->run(
-                    $cluster,
-                    'nextcloud-manage',
-                    ['job', $job->job_id, 'status', '--json'],
-                    null,
-                    30
+                $result = $factory->for($cluster)->pollJobStatus(
+                    new PollJobStatusCommand($job, $cluster),
                 );
 
-                $data = $resp->parsedJson;
-                if (! $data || ! isset($data['state'])) {
-                    $this->warn("No valid JSON response for {$job->job_id}");
-
-                    continue;
-                }
-
-                $canonical = $st->toCanonical($data['state']);
+                $canonical = $st->toCanonical($result->state);
+                $data = $result->payload;
                 $job->update([
                     'state' => $canonical,
                     'last_poll_at' => now(),
@@ -62,13 +60,18 @@ class JobsPollStuckCommand extends Command
                     'exit_code' => $data['exit_code'] ?? null,
                 ]);
 
+                $auditPayload = ['from_polling' => true, 'canonical' => $canonical];
+                if ($job->correlation_id !== null && $job->correlation_id !== '') {
+                    $auditPayload['correlation_id'] = $job->correlation_id;
+                }
+
                 AuditLog::create([
                     'id' => Str::uuid()->toString(),
                     'actor_id' => null,
                     'action' => 'job_polled',
                     'resource_type' => 'job',
                     'resource_id' => $job->job_id,
-                    'payload' => ['from_polling' => true, 'canonical' => $canonical],
+                    'payload' => $auditPayload,
                     'cluster_server_id' => $job->cluster_server_id,
                     'job_id' => $job->job_id,
                 ]);

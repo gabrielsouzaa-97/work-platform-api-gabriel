@@ -35,6 +35,10 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
         ->middleware(['api.tenant', 'api.scope:users:write'])
         ->name('api.v1.tenants.users.delete');
 
+    Route::put('/tenants/{slug}/users/{username}/quota', [TenantUserController::class, 'setQuota'])
+        ->middleware(['api.tenant', 'api.scope:users:write'])
+        ->name('api.v1.tenants.users.quota');
+
     Route::put('/tenants/{slug}/branding', [BrandingV1Controller::class, 'update'])
         ->middleware(['api.tenant', 'api.scope:branding:write'])
         ->name('api.v1.tenants.branding.update');

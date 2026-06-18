@@ -6,6 +6,7 @@ use App\Models\ApiKey;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Operator;
+use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
@@ -116,7 +117,7 @@ it('returns 403 DomainError without NC fields when upstream blocks OCC subcmd on
     $ssh->shouldReceive('runAsync')
         ->once()
         ->andThrow(new SshRemoteException('subcmd not allowed', 16));
-    $this->app->instance(SshClientInterface::class, $ssh);
+    app()->instance(SshClientInterface::class, $ssh);
 
     $response = $this->postJson(
         "/api/v1/tenants/{$slug}/apps",
@@ -212,6 +213,56 @@ it('returns DomainError envelope for unknown v1 route without legacy flat error 
     assertApiV1ResponseExcludesNcVocabulary($response->getContent());
 });
 
+it('returns DomainError without exit_code when remove SSH fails on DELETE /api/v1/tenants/{slug}', function () {
+    $slug = 'del-ssh-'.substr(uniqid(), -6);
+    makeDomainErrorTenant($slug);
+    $rawToken = createDomainErrorApiKey(scopes: ['tenants:write'], allowedTenantSlugs: [$slug]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andThrow(new SshRemoteException('upstream remove failed', 99));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $response = $this->deleteJson(
+        "/api/v1/tenants/{$slug}",
+        ['confirm_slug' => $slug],
+        domainErrorBearer($rawToken),
+    );
+
+    assertDomainErrorEnvelope($response, 502, 'upstream_unavailable');
+});
+
+it('returns 503 cluster_unreachable DomainError on DELETE /api/v1/tenants/{slug} when transport fails', function () {
+    $slug = 'del-unreach-'.substr(uniqid(), -6);
+    makeDomainErrorTenant($slug);
+    $rawToken = createDomainErrorApiKey(scopes: ['tenants:write'], allowedTenantSlugs: [$slug]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andThrow(new SshConnectionException('connection refused'));
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $response = $this->deleteJson(
+        "/api/v1/tenants/{$slug}",
+        ['confirm_slug' => $slug],
+        domainErrorBearer($rawToken),
+    );
+
+    $response->assertStatus(503);
+    $response->assertJsonStructure([
+        'error' => [
+            'code',
+            'message',
+            'retry_after',
+        ],
+    ]);
+    $response->assertJsonPath('error.code', 'cluster_unreachable');
+    $response->assertHeader('Retry-After');
+    assertApiV1ResponseExcludesNcVocabulary($response->getContent());
+});
+
 it('never exposes subcmd exit_code or cmd_canonical in v1 error JSON bodies', function () {
     $slug = 'nc-leak-'.substr(uniqid(), -6);
     makeDomainErrorTenant($slug);
@@ -221,7 +272,7 @@ it('never exposes subcmd exit_code or cmd_canonical in v1 error JSON bodies', fu
     $ssh->shouldReceive('runAsync')
         ->once()
         ->andThrow(new SshRemoteException('subcmd not allowed', 16));
-    $this->app->instance(SshClientInterface::class, $ssh);
+    app()->instance(SshClientInterface::class, $ssh);
 
     $responses = [
         $this->postJson(

@@ -6,6 +6,7 @@ use App\Http\Livewire\ClusterServers\Create;
 use App\Http\Livewire\ClusterServers\Edit;
 use App\Models\ClusterServer;
 use App\Models\Operator;
+use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\DB;
@@ -58,14 +59,15 @@ it('admin cria cluster_server com PEM válido → redireciona e persiste no DB',
     $admin = Operator::factory()->admin()->create();
     $pem = TEST_CLUSTER_SERVER_VALID_PEM;
 
-    Livewire::actingAs($admin)
-        ->test(Create::class)
-        ->set('name', 'Nova Origem Produção')
-        ->set('ssh_host', '10.20.30.40')
-        ->set('ssh_port', 22)
-        ->set('ssh_user', 'deploy')
-        ->call('save', testPemOverride: $pem)
-        ->assertRedirect(route('cluster-servers.index'));
+    callCreateSaveWithPem(
+        Livewire::actingAs($admin)
+            ->test(Create::class)
+            ->set('name', 'Nova Origem Produção')
+            ->set('ssh_host', '10.20.30.40')
+            ->set('ssh_port', 22)
+            ->set('ssh_user', 'deploy'),
+        $pem,
+    );
 
     $this->assertDatabaseHas('cluster_servers', [
         'name' => 'Nova Origem Produção',
@@ -83,14 +85,17 @@ it('admin cria cluster_server com PEM válido → redireciona e persiste no DB',
 it('PEM inválido retorna erro de validação', function () {
     $admin = Operator::factory()->admin()->create();
 
-    Livewire::actingAs($admin)
-        ->test(Create::class)
-        ->set('name', 'Cluster PEM Ruim')
-        ->set('ssh_host', '1.2.3.4')
-        ->set('ssh_port', 22)
-        ->set('ssh_user', 'root')
-        ->call('save', testPemOverride: 'nao-e-um-pem')
-        ->assertHasErrors(['ssh_private_key']);
+    $testable = callCreateSaveWithPem(
+        Livewire::actingAs($admin)
+            ->test(Create::class)
+            ->set('name', 'Cluster PEM Ruim')
+            ->set('ssh_host', '1.2.3.4')
+            ->set('ssh_port', 22)
+            ->set('ssh_user', 'root'),
+        'nao-e-um-pem',
+    );
+
+    expect($testable->instance()->getErrorBag()->has('ssh_private_key'))->toBeTrue();
 });
 
 it('operador comum não consegue salvar via Livewire (gate bloqueia)', function () {
@@ -102,7 +107,10 @@ it('operador comum não consegue salvar via Livewire (gate bloqueia)', function 
         ->set('ssh_host', '9.9.9.9')
         ->set('ssh_port', 22)
         ->set('ssh_user', 'op')
-        ->call('save', testPemOverride: TEST_CLUSTER_SERVER_VALID_PEM)
+        ->tap(function ($testable): void {
+            $testable->instance()->testPemOverrideBase64 = base64_encode(TEST_CLUSTER_SERVER_VALID_PEM);
+        })
+        ->call('save')
         ->assertForbidden();
 });
 
@@ -143,14 +151,15 @@ it('webhook_secret_encrypted é gerado server-side na criação (não informado 
     $admin = Operator::factory()->admin()->create();
     $clusterName = 'Cluster Com Webhook Secret';
 
-    Livewire::actingAs($admin)
-        ->test(Create::class)
-        ->set('name', $clusterName)
-        ->set('ssh_host', '192.168.1.10')
-        ->set('ssh_port', 22022)
-        ->set('ssh_user', 'automation')
-        ->call('save', testPemOverride: TEST_CLUSTER_SERVER_VALID_PEM)
-        ->assertRedirect(route('cluster-servers.index'));
+    callCreateSaveWithPem(
+        Livewire::actingAs($admin)
+            ->test(Create::class)
+            ->set('name', $clusterName)
+            ->set('ssh_host', '192.168.1.10')
+            ->set('ssh_port', 22022)
+            ->set('ssh_user', 'automation'),
+        TEST_CLUSTER_SERVER_VALID_PEM,
+    );
 
     $stored = ClusterServer::where('name', $clusterName)->first();
 

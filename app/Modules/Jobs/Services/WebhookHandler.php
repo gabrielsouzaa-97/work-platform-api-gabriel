@@ -25,6 +25,7 @@ final class WebhookHandler
     public function __construct(
         private readonly StateTranslator $stateTranslator,
         private readonly JobLogFetcher $jobLogFetcher,
+        private readonly TransportObservability $observability,
     ) {}
 
     public function handle(ClusterServer $cluster, array $rawPayload): void
@@ -36,6 +37,13 @@ final class WebhookHandler
         if (! $job) {
             throw (new ModelNotFoundException)->setModel(Job::class, $payload->jobId);
         }
+
+        if ($job->correlation_id !== null) {
+            Log::withContext(['correlation_id' => $job->correlation_id]);
+        }
+
+        $this->observability->attachTransportToJob($job);
+        $job->refresh();
 
         if ($job->cluster_server_id !== $cluster->id) {
             throw new \DomainException("Job {$payload->jobId} belongs to a different cluster.");
@@ -95,6 +103,7 @@ final class WebhookHandler
                     'event' => $payload->event,
                     'state' => $canonical,
                     'cmd' => $payload->cmd ?? $job->job_type,
+                    'correlation_id' => $job->correlation_id,
                 ],
                 'cluster_server_id' => $cluster->id,
                 'job_id' => $job->job_id,
@@ -203,6 +212,7 @@ final class WebhookHandler
                     'cmd' => $payload->cmd ?? $job->job_type,
                     'exit_code' => $payload->exitCode,
                     'duration_ms' => $payload->durationMs,
+                    'correlation_id' => $job->correlation_id,
                 ],
                 'cluster_server_id' => $cluster->id,
                 'job_id' => $job->job_id,

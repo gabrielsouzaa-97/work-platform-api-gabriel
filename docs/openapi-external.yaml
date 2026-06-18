@@ -378,6 +378,63 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
+  /tenants/{slug}/users/{username}/quota:
+    parameters:
+      - $ref: "#/components/parameters/TenantSlug"
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags: [Users]
+      summary: Definir quota de usuário
+      description: |
+        Aplica quota de arquivos via OCC `user:setting` através do **PlatformPort**
+        (passthrough). Se o upstream bloquear o subcmd (allowlist D-02), retorna
+        **404** `capability_not_available` com envelope DomainError (sem `subcmd`/`exit_code`).
+
+        **Scope:** `users:write`.
+      operationId: setUserQuota
+      x-required-scope: users:write
+      x-internal-mapping: OccPassthroughService (user:setting files quota)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quota]
+              properties:
+                quota:
+                  type: string
+                  example: 5GB
+      responses:
+        "200":
+          description: Quota aplicada (resposta sync do upstream)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          description: Tenant não encontrado ou capability indisponível
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainError"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+
   /jobs/{id}:
     parameters:
       - $ref: "#/components/parameters/JobId"

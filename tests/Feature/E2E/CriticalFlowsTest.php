@@ -193,7 +193,7 @@ it('[Rafael] cancela job queued → state=cancelled via API', function () {
 // ── Fluxo Sofia: resetar quota via OCC sync passthrough ──────────────────────
 
 it('[Sofia] reseta quota de usuário via OCC passthrough → SSH retorna OK', function () {
-    $sofia = e2eOperator('operador');
+    $sofia = e2eOperator('admin');
     $cluster = e2eCluster();
 
     $customer = Customer::firstOrCreate(['slug' => 'gamma-e2e'], [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Livewire\Customers;
 
+use App\Http\Exceptions\RenderDomainError;
 use App\Models\Customer;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
@@ -16,6 +17,7 @@ use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Services\OccPassthroughService;
 use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
+use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -363,6 +365,12 @@ class OccPanel extends Component
 
     private function formatError(\Throwable $e): string
     {
+        if ($e instanceof CapabilityBlockedException) {
+            return 'Operação OCC não permitida pelo upstream — subcomando bloqueado na allowlist occ-exec (exit 16).';
+        }
+
+        $e = RenderDomainError::unwrapTransport($e);
+
         return match (true) {
             $e instanceof BlockedOnUpstreamException => 'Funcionalidade pendente no upstream — disponível em release futura.',
             $e instanceof TenantNotReadyException => 'Tenant ainda finalizando provisionamento — tente novamente em cerca de 60 segundos.',

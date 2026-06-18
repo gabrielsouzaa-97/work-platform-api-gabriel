@@ -10,17 +10,20 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
+use App\Modules\Customers\Exceptions\StateConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Integration\Dto\AsyncJobRef;
+use App\Modules\Integration\Dto\ManageAsyncCommand;
+use App\Modules\Integration\Exceptions\PortIdempotencyConflictException;
+use App\Modules\Integration\Exceptions\PortStateConflictException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class LifecycleAsyncAction
@@ -43,8 +46,9 @@ final class LifecycleAsyncAction
      *
      * @throws ClusterUnreachableException
      * @throws IdempotencyConflictException
-     * @throws SshRemoteException
+     * @throws StateConflictException
      * @throws TenantNotReadyException
+     * @throws UpstreamUnavailableException
      */
     public function execute(
         Customer $customer,
@@ -61,6 +65,8 @@ final class LifecycleAsyncAction
         $this->assertNoIdempotencyConflict($argsHash);
 
         $idempotencyKey = (string) Str::uuid();
+        $correlationId = (string) Str::uuid();
+        Log::withContext(['correlation_id' => $correlationId]);
         $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
         $sshArgs = $this->buildSshArgs(
             $customer,
@@ -77,7 +83,16 @@ final class LifecycleAsyncAction
 
         $jobId = $resp->jobId;
 
-        return $this->persistJobAndAudit($customer, $cluster, $jobId, $idempotencyKey, $cmd, $args, $actor);
+        return $this->persistJobAndAudit(
+            $customer,
+            $cluster,
+            $jobId,
+            $idempotencyKey,
+            $correlationId,
+            $cmd,
+            $args,
+            $actor,
+        );
     }
 
     private function resolveActiveCluster(Customer $customer): ClusterServer
@@ -178,14 +193,19 @@ final class LifecycleAsyncAction
         $stdinJson = $stdinPayload !== null ? json_encode($stdinPayload) : null;
 
         try {
-            return $this->platformPortFactory->dispatchManageAsync($cluster, $sshArgs, $stdinJson);
-        } catch (ClusterUnreachableException|SshConnectionException) {
+            return $this->platformPortFactory->for($cluster)->dispatchManageAsync(
+                new ManageAsyncCommand($cluster, $sshArgs, $stdinJson),
+            );
+        } catch (ClusterUnreachableException) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
             throw new ClusterUnreachableException;
-        } catch (SshTimeoutException $e) {
+        } catch (PortIdempotencyConflictException $e) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
-            throw $e;
-        } catch (SshRemoteException $e) {
+            throw new IdempotencyConflictException($e->existingJobId);
+        } catch (PortStateConflictException $e) {
+            IdempotencyKey::where('key', $idempotencyKey)->delete();
+            throw new StateConflictException($e->diff);
+        } catch (UpstreamUnavailableException $e) {
             IdempotencyKey::where('key', $idempotencyKey)->delete();
             throw $e;
         }
@@ -199,11 +219,21 @@ final class LifecycleAsyncAction
         ClusterServer $cluster,
         string $jobId,
         string $idempotencyKey,
+        string $correlationId,
         string $cmd,
         array $args,
         Operator $actor,
     ): Job {
-        return DB::transaction(function () use ($customer, $cluster, $jobId, $idempotencyKey, $cmd, $args, $actor): Job {
+        return DB::transaction(function () use (
+            $customer,
+            $cluster,
+            $jobId,
+            $idempotencyKey,
+            $correlationId,
+            $cmd,
+            $args,
+            $actor,
+        ): Job {
             $job = Job::create([
                 'job_id' => $jobId,
                 'customer_slug' => $customer->slug,
@@ -212,6 +242,7 @@ final class LifecycleAsyncAction
                 'job_type' => $this->translator->cmdToJobType($cmd),
                 'state' => 'queued',
                 'idempotency_key' => $idempotencyKey,
+                'correlation_id' => $correlationId,
                 'payload_sanitized' => ['cmd' => $cmd, 'args' => $args],
                 'queued_at' => now(),
             ]);
@@ -224,7 +255,11 @@ final class LifecycleAsyncAction
                 'action' => str_replace(':', '_', $cmd).'_initiated',
                 'resource_type' => 'customer',
                 'resource_id' => $customer->slug,
-                'payload' => ['cmd' => $cmd, 'args' => $args],
+                'payload' => [
+                    'cmd' => $cmd,
+                    'args' => $args,
+                    'correlation_id' => $correlationId,
+                ],
                 'cluster_server_id' => $cluster->id,
                 'job_id' => $jobId,
             ]);

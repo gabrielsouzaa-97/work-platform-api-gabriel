@@ -1,6 +1,9 @@
 <?php
 
+use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
+use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
 use Tests\TestCase;
 
 /*
@@ -80,4 +83,19 @@ function noUpstreamFlagDuplication(array $args, string $canonicalCmd): bool
     return ! in_array('--async', $args, true)
         && ! in_array('--json', $args, true)
         && ! in_array($canonicalCmd, $args, true);
+}
+
+/**
+ * Exercise Create::save with PEM on the component instance (bypasses Livewire wire for PEM).
+ */
+function callCreateSaveWithPem(Testable $testable, string $pem): Testable
+{
+    $component = $testable->instance();
+    $component->testPemOverrideBase64 = base64_encode($pem);
+    $component->save(
+        app(WebhookSecretGenerator::class),
+        app(SyncWebhookSecretAction::class),
+    );
+
+    return $testable;
 }

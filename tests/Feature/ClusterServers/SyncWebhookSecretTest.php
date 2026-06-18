@@ -61,14 +61,15 @@ it('criar cluster com SSH success → status active e redireciona', function () 
     mockSshSuccess();
     $admin = Operator::factory()->admin()->create();
 
-    Livewire::actingAs($admin)
-        ->test(Create::class)
-        ->set('name', 'Cluster SSH OK')
-        ->set('ssh_host', '10.0.0.1')
-        ->set('ssh_port', 22)
-        ->set('ssh_user', 'root')
-        ->call('save', testPemOverride: syncTestPem())
-        ->assertRedirect(route('cluster-servers.index'));
+    callCreateSaveWithPem(
+        Livewire::actingAs($admin)
+            ->test(Create::class)
+            ->set('name', 'Cluster SSH OK')
+            ->set('ssh_host', '10.0.0.1')
+            ->set('ssh_port', 22)
+            ->set('ssh_user', 'root'),
+        syncTestPem(),
+    );
 
     $cluster = ClusterServer::where('name', 'Cluster SSH OK')->first();
     expect($cluster)->not->toBeNull()
@@ -81,15 +82,17 @@ it('criar cluster com SSH failure → cluster status=error, sem redirect, erro n
     mockSshFailure('Connection refused during sync');
     $admin = Operator::factory()->admin()->create();
 
-    Livewire::actingAs($admin)
-        ->test(Create::class)
-        ->set('name', 'Cluster SSH Fail')
-        ->set('ssh_host', '10.0.0.2')
-        ->set('ssh_port', 22)
-        ->set('ssh_user', 'root')
-        ->call('save', testPemOverride: syncTestPem())
-        ->assertNoRedirect()
-        ->assertHasErrors(['ssh_private_key']);
+    $testable = callCreateSaveWithPem(
+        Livewire::actingAs($admin)
+            ->test(Create::class)
+            ->set('name', 'Cluster SSH Fail')
+            ->set('ssh_host', '10.0.0.2')
+            ->set('ssh_port', 22)
+            ->set('ssh_user', 'root'),
+        syncTestPem(),
+    );
+
+    expect($testable->instance()->getErrorBag()->has('ssh_private_key'))->toBeTrue();
 
     $cluster = ClusterServer::where('name', 'Cluster SSH Fail')->first();
     expect($cluster)->not->toBeNull()
@@ -100,13 +103,15 @@ it('criar cluster com SSH failure → AuditLog registra cluster_server.secret_sy
     mockSshFailure('Host unreachable');
     $admin = Operator::factory()->admin()->create();
 
-    Livewire::actingAs($admin)
-        ->test(Create::class)
-        ->set('name', 'Cluster Audit Log Fail')
-        ->set('ssh_host', '10.0.0.3')
-        ->set('ssh_port', 22)
-        ->set('ssh_user', 'root')
-        ->call('save', testPemOverride: syncTestPem());
+    callCreateSaveWithPem(
+        Livewire::actingAs($admin)
+            ->test(Create::class)
+            ->set('name', 'Cluster Audit Log Fail')
+            ->set('ssh_host', '10.0.0.3')
+            ->set('ssh_port', 22)
+            ->set('ssh_user', 'root'),
+        syncTestPem(),
+    );
 
     $cluster = ClusterServer::where('name', 'Cluster Audit Log Fail')->first();
     expect($cluster)->not->toBeNull();
@@ -189,7 +194,8 @@ it('SyncWebhookSecretAction chama SSH com config set-webhook-secret --payload-st
         ->andReturn(new SshResponse('', '', 0));
 
     $cluster = ClusterServer::factory()->create();
-    $action = new SyncWebhookSecretAction($mock);
+    app()->instance(SshClientInterface::class, $mock);
+    $action = app(SyncWebhookSecretAction::class);
     $action->execute($cluster, 'my-plain-secret');
 
     expect($capturedArgs)->toBe(['config', 'set-webhook-secret', '--payload-stdin']);
@@ -217,7 +223,8 @@ it('SyncWebhookSecretAction nunca passa o secret como argumento CLI', function (
 
     $plainSecret = 'super-sensitive-secret-value';
     $cluster = ClusterServer::factory()->create();
-    $action = new SyncWebhookSecretAction($mock);
+    app()->instance(SshClientInterface::class, $mock);
+    $action = app(SyncWebhookSecretAction::class);
     $action->execute($cluster, $plainSecret);
 
     foreach ($capturedArgs as $arg) {

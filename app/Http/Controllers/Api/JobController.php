@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Exceptions\RenderDomainError;
 use App\Http\Resources\JobResource;
 use App\Models\Job;
-use App\Modules\Core\Ssh\Exceptions\SshClientException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Jobs\Actions\CancelJobAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,11 @@ final class JobController extends Controller
             $action->execute($job, auth()->id());
         } catch (\DomainException $e) {
             return response()->json(['error' => 'invalid_state', 'message' => $e->getMessage()], 422);
-        } catch (SshClientException $e) {
+        } catch (UpstreamUnavailableException $e) {
+            if ($response = RenderDomainError::mapPortTransportException($e, request())) {
+                return $response;
+            }
+
             return response()->json(['error' => 'upstream_error', 'message' => $e->getMessage()], 502);
         }
 

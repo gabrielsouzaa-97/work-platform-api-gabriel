@@ -16,5 +16,6 @@ final readonly class CreateTenantCommand
         public array $manageArgs,
         public ?string $stdinJson,
         public ?string $stagingId,
+        public ?BrandingStagingFiles $brandingStaging = null,
     ) {}
 }

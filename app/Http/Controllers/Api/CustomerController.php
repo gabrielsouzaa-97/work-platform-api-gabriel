@@ -11,7 +11,6 @@ use App\Http\Requests\RemoveCustomerRequest;
 use App\Http\Resources\CustomerResource;
 use App\Models\Customer;
 use App\Modules\Core\Domain\DomainError;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Actions\RemoveCustomerAction;
 use App\Modules\Customers\Dto\ProvisionPayload;
@@ -20,6 +19,8 @@ use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Integration\Exceptions\CapabilityBlockedException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use Illuminate\Http\JsonResponse;
 
 final class CustomerController extends Controller
@@ -48,8 +49,12 @@ final class CustomerController extends Controller
             ], 409);
         } catch (ClusterUnreachableException) {
             return RenderDomainError::clusterUnreachableResponse($request);
-        } catch (SshRemoteException $e) {
-            return RenderDomainError::mapSshRemoteException($e, $request);
+        } catch (UpstreamUnavailableException|CapabilityBlockedException $e) {
+            if ($response = RenderDomainError::mapPortTransportException($e, $request)) {
+                return $response;
+            }
+
+            throw $e;
         }
 
         return new CustomerResource($result['customer']);
@@ -86,8 +91,14 @@ final class CustomerController extends Controller
             }
 
             return response()->json(['error' => 'state_conflict'], 409);
-        } catch (SshRemoteException $e) {
-            return RenderDomainError::mapSshRemoteException($e, $request);
+        } catch (ClusterUnreachableException) {
+            return RenderDomainError::clusterUnreachableResponse($request);
+        } catch (UpstreamUnavailableException|CapabilityBlockedException $e) {
+            if ($response = RenderDomainError::mapPortTransportException($e, $request)) {
+                return $response;
+            }
+
+            throw $e;
         }
 
         return response()->json(['job_id' => $job->job_id], 202);

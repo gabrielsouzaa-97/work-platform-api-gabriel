@@ -9,26 +9,24 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Modules\Agents\Exceptions\AgentTransportException;
-use App\Modules\Agents\Services\AgentTransportResolver;
-use App\Modules\Agents\Services\AgentUpstreamGateway;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Integration\Dto\RemoveTenantCommand;
+use App\Modules\Integration\Exceptions\PortStateConflictException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class RemoveCustomerAction
 {
     public function __construct(
-        private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
-        private readonly AgentTransportResolver $transportResolver,
-        private readonly AgentUpstreamGateway $agentGateway,
+        private readonly PlatformPortFactory $platformPortFactory,
     ) {}
 
     /**
@@ -36,7 +34,7 @@ final class RemoveCustomerAction
      * @throws ConfirmationMismatchException
      * @throws RemoveInProgressException
      * @throws StateConflictException
-     * @throws SshRemoteException
+     * @throws UpstreamUnavailableException
      */
     public function execute(
         string $slug,
@@ -56,11 +54,11 @@ final class RemoveCustomerAction
 
         $cluster = $customer->clusterServer;
         $idempotencyKey = (string) Str::uuid();
+        $correlationId = (string) Str::uuid();
+        Log::withContext(['correlation_id' => $correlationId]);
         $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
-        // [E1,E4] nextcloud-manage <client> _ remove --force [--backup-first] --async --json
-        // runAsync appends --async --json automatically
-        $args = array_filter([
+        $args = array_values(array_filter([
             $slug,
             '_',
             'remove',
@@ -68,31 +66,21 @@ final class RemoveCustomerAction
             $backupFirst ? '--backup-first' : null,
             "--idempotency-key={$idempotencyKey}",
             "--callback={$callbackUrl}",
-        ]);
+        ]));
 
         try {
-            if ($this->transportResolver->shouldUseAgentTransport($cluster)) {
-                $resp = $this->agentGateway->runAsync(
-                    $cluster,
-                    'nextcloud-manage',
-                    array_values($args),
-                );
-            } else {
-                $resp = $this->ssh->runAsync($cluster, 'nextcloud-manage', array_values($args));
-            }
-        } catch (AgentTransportException) {
+            $jobRef = $this->platformPortFactory
+                ->for($cluster)
+                ->removeTenant(new RemoveTenantCommand($cluster, $args));
+        } catch (ClusterUnreachableException) {
             throw new ClusterUnreachableException;
-        } catch (SshRemoteException $e) {
-            if ($e->stateConflict) {
-                throw new StateConflictException($e->parsedJson['diff'] ?? []);
-            }
-            throw $e;
+        } catch (PortStateConflictException $e) {
+            throw new StateConflictException($e->diff);
         }
 
-        $jobId = $resp->parsedJson['job_id']
-            ?? throw new \RuntimeException('SSH did not return job_id in response');
+        $jobId = $jobRef->jobId;
 
-        return DB::transaction(function () use ($customer, $cluster, $jobId, $idempotencyKey, $actor, $backupFirst): Job {
+        return DB::transaction(function () use ($customer, $cluster, $jobId, $idempotencyKey, $correlationId, $actor, $backupFirst): Job {
             $customer->update(['status' => 'removing']);
 
             $job = Job::create([
@@ -103,6 +91,7 @@ final class RemoveCustomerAction
                 'job_type' => $this->translator->cmdToJobType('remove'),
                 'state' => 'queued',
                 'idempotency_key' => $idempotencyKey,
+                'correlation_id' => $correlationId,
                 'payload_sanitized' => ['backup_first' => $backupFirst],
                 'queued_at' => now(),
             ]);
@@ -122,7 +111,11 @@ final class RemoveCustomerAction
                 'action' => 'remove_initiated',
                 'resource_type' => 'customer',
                 'resource_id' => $customer->slug,
-                'payload' => ['backup_first' => $backupFirst, 'severity' => 'high'],
+                'payload' => [
+                    'backup_first' => $backupFirst,
+                    'severity' => 'high',
+                    'correlation_id' => $correlationId,
+                ],
                 'cluster_server_id' => $cluster->id,
                 'job_id' => $jobId,
             ]);

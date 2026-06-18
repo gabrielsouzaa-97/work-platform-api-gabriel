@@ -12,10 +12,10 @@ use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Models\Operator;
 use App\Modules\Core\Domain\DomainError;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Integration\Dto\SetBrandingCommand;
+use App\Modules\Integration\Exceptions\CapabilityBlockedException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -53,10 +53,10 @@ final class BrandingV1Controller extends Controller
                 DomainError::ClusterUnreachable,
                 retryAfter: 60,
             );
-        } catch (SshTimeoutException) {
+        } catch (CapabilityBlockedException) {
+            return RenderDomainError::response(DomainError::CapabilityNotAvailable);
+        } catch (UpstreamUnavailableException) {
             return RenderDomainError::response(DomainError::UpstreamUnavailable);
-        } catch (SshRemoteException $e) {
-            return RenderDomainError::mapSshRemoteException($e, $request);
         } catch (\RuntimeException) {
             return RenderDomainError::response(DomainError::UpstreamUnavailable);
         }

@@ -33,17 +33,17 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N31 validada",
+  "fase_nome": "N33 validada",
   "sprint_atual": null,
-  "previous_sprint": "N31",
+  "previous_sprint": "N33",
   "sprint_branch": null,
-  "beesy_version": "4.54.0",
+  "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-17T14:00:00Z",
-  "next_sprint_planned": null,
+  "ultimo_update": "2026-06-18T15:15:14Z",
+  "next_sprint_planned": "N34",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -56,7 +56,7 @@
     "VERIFY — CI verde no PR sprint/N30",
     "Pós-merge: smoke opcional no lab deployer.mework360.com.br"
   ],
-  "contexto_rapido": "Sprint N30 implementada (7/7 tasks). Aguarda CI do PR. Sem ambiente local — lab nuvem pós-deploy.",
+  "contexto_rapido": "Sprint N33 planejada (ISSUE-038 Fase 3: despublicar /occ/* + mutação via port + grep gate estrito). N32 validada PR #117. Carry-over CQ-N32-003 → N33.2.",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
@@ -198,7 +198,34 @@
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N31.7"
+    "last_completed_task": "N33.8",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "./vendor/bin/pint --test",
+          "exit_code": 0
+        },
+        {
+          "cmd": "bash scripts/grep-gate-adapters.sh",
+          "exit_code": 0
+        },
+        {
+          "cmd": "bash scripts/openapi-external-occ-gate.sh",
+          "exit_code": 0
+        },
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "f563b62ce0e28f79c45d860cf7b60d49b22f5685",
+      "stamped_at": "2026-06-18T17:05:54Z"
+    }
   },
   "sprint_tasks": [],
   "validation_gate": {
@@ -219,6 +246,30 @@
     "stamped_at": "2026-06-17T01:30:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-06-18T16:30:00Z",
+      "action": "/pmo plan — ISSUE-038 Fase 3",
+      "sprints_generated": [
+        "N33"
+      ],
+      "sprint_stubs": [
+        "N34"
+      ],
+      "issues_in_scope": [
+        "ISSUE-038"
+      ],
+      "findings_in_scope": [
+        "CQ-N32-003"
+      ],
+      "split_strategy": "ADR Fase 3 → N33 (8 tasks: 2P + 6M); residual grep gate + CQ-N32-003",
+      "tasks_count": {
+        "P": 2,
+        "M": 6,
+        "total": 8
+      },
+      "review_level": "senior+qa",
+      "gate": "/occ/* fora openapi-external; mutação via PlatformPort; grep gate estrito; D-02 capability_not_available"
+    },
     {
       "timestamp": "2026-06-17T12:00:00Z",
       "action": "/pmo plan — ISSUE-038",
@@ -676,7 +727,7 @@
       ]
     }
   ],
-  "sprint_pr": 116,
+  "sprint_pr": 117,
   "checkpoint_n31_archived": {
     "phase": "auditing",
     "sprint": "N31",
@@ -741,6 +792,223 @@
       "status": "completed",
       "size": "M",
       "title": "PUT branding v1 via port"
+    }
+  ],
+  "funnel_state": {
+    "current_sprint": "N33",
+    "completed_sprints": [],
+    "skipped": [],
+    "git_head": "49be7e785fe582a055521406d2c0f3198cfc261c",
+    "branch": "campanha/n32-issue038"
+  },
+  "checkpoint_n32_archived": {
+    "phase": "auditing",
+    "current_task": null,
+    "last_completed_task": "N32.8",
+    "sprint": "N32",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test tests/Characterization/Integration/ tests/Feature/Jobs/ tests/Feature/Api/V1/DomainErrorSanitizationTest.php",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "f061d6fa9f9ad4d7614c18bc340d75ce6ad9c560",
+      "stamped_at": "2026-06-18T14:59:49Z"
+    },
+    "validation_gate_qa": {
+      "sprint": "N32",
+      "produced_by": "/qa validar N32 R2 via /rock",
+      "validation_round": 2,
+      "validation_mode": "revalidation",
+      "findings_found": 0,
+      "findings_validated": [
+        "CQ-N32-001",
+        "CQ-N32-002",
+        "CQ-N32-004",
+        "CQ-N32-005",
+        "CQ-N32-006",
+        "CQ-N32-007"
+      ],
+      "findings_parked": [
+        "CQ-N32-003"
+      ],
+      "senior_review_status": "PASS",
+      "tests_evidence": "Docker: 82 passed, 380 assertions",
+      "result": "APROVADA",
+      "last_validated_sha": "2e78ee78e7616bec45df254556e7cf17acff4b5a",
+      "stamped_at": "2026-06-18T16:05:00Z"
+    }
+  },
+  "sprint_tasks_n32_archived": [
+    {
+      "id": "N32.1",
+      "status": "completed",
+      "size": "M",
+      "title": "Extend PlatformPort + DTOs",
+      "file": "app/Modules/Integration/Contracts/PlatformPort.php"
+    },
+    {
+      "id": "N32.2",
+      "status": "completed",
+      "size": "M",
+      "title": "Characterization tests waves (a)+(b)",
+      "file": "tests/Characterization/Integration/"
+    },
+    {
+      "id": "N32.3",
+      "status": "completed",
+      "size": "M",
+      "title": "Wave (a) OccPassthrough + ReadinessProbe",
+      "file": "app/Modules/Customers/Services/OccPassthroughService.php",
+      "depends": [
+        "N32.1",
+        "N32.2"
+      ]
+    },
+    {
+      "id": "N32.4",
+      "status": "completed",
+      "size": "M",
+      "title": "Wave (b) JobLogFetcher + Cancel + Sync",
+      "file": "app/Modules/Jobs/Services/JobLogFetcher.php",
+      "depends": [
+        "N32.1",
+        "N32.2"
+      ]
+    },
+    {
+      "id": "N32.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Wave (c) Artisan + Livewire",
+      "file": "app/Console/Commands/JobsPollStuckCommand.php",
+      "depends": [
+        "N32.1",
+        "N32.3"
+      ]
+    },
+    {
+      "id": "N32.6",
+      "status": "completed",
+      "size": "M",
+      "title": "correlation_id end-to-end",
+      "file": "app/Modules/Jobs/",
+      "depends": [
+        "N32.4"
+      ]
+    },
+    {
+      "id": "N32.7",
+      "status": "completed",
+      "size": "M",
+      "title": "Operational observability alerts",
+      "file": "app/Modules/Jobs/",
+      "depends": [
+        "N32.6"
+      ]
+    },
+    {
+      "id": "N32.8",
+      "status": "completed",
+      "size": "P",
+      "title": "CI grep gate + SEC-N30 fast-track",
+      "file": ".github/workflows/ci.yml",
+      "depends": [
+        "N32.3",
+        "N32.4",
+        "N32.5"
+      ]
+    }
+  ],
+  "checkpoint_n33_archived": {
+    "phase": "ready",
+    "current_task": null,
+    "last_completed_task": null
+  },
+  "sprint_tasks_n33_archived": [
+    {
+      "id": "N33.1",
+      "status": "pending",
+      "size": "P",
+      "title": "OpenAPI gate + Deprecation/Sunset legacy",
+      "file": "docs/openapi-external.yaml"
+    },
+    {
+      "id": "N33.2",
+      "status": "pending",
+      "size": "M",
+      "title": "CQ-N32-003 domain exceptions on PlatformPort",
+      "file": "app/Modules/Integration/Contracts/PlatformPort.php"
+    },
+    {
+      "id": "N33.3",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate RemoveCustomerAction → port",
+      "file": "app/Modules/Customers/Actions/RemoveCustomerAction.php",
+      "depends": [
+        "N33.2"
+      ]
+    },
+    {
+      "id": "N33.4",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate SyncWebhookSecret + AgentEventHandler",
+      "file": "app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php",
+      "depends": [
+        "N33.2"
+      ]
+    },
+    {
+      "id": "N33.5",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate ProvisionCustomerAction SFTP → adapter",
+      "file": "app/Modules/Customers/Actions/ProvisionCustomerAction.php",
+      "depends": [
+        "N33.2"
+      ]
+    },
+    {
+      "id": "N33.6",
+      "status": "pending",
+      "size": "M",
+      "title": "v1 quota capability + apps/users via port",
+      "file": "routes/api_v1.php",
+      "depends": [
+        "N33.2",
+        "N33.5"
+      ]
+    },
+    {
+      "id": "N33.7",
+      "status": "pending",
+      "size": "M",
+      "title": "OccController admin-only via Integration adapter",
+      "file": "app/Http/Controllers/Api/OccController.php",
+      "depends": [
+        "N33.6"
+      ]
+    },
+    {
+      "id": "N33.8",
+      "status": "pending",
+      "size": "P",
+      "title": "Strict grep gate + characterization CI",
+      "file": "scripts/grep-gate-adapters.sh",
+      "depends": [
+        "N33.3",
+        "N33.4",
+        "N33.5",
+        "N33.7"
+      ]
     }
   ]
 }

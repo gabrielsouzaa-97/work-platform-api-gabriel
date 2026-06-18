@@ -43,6 +43,9 @@ jobs:
       - name: Pint (code style)
         run: ./vendor/bin/pint --test
 
+      - name: Grep gate (platform adapters)
+        run: bash scripts/grep-gate-adapters.sh
+
   test:
     name: Test (Pest/PHPUnit)
     runs-on: ubuntu-latest
@@ -120,6 +123,12 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --force --no-interaction
 
+      - name: Characterization integration gate (N33)
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan test tests/Characterization/Integration/
+
       - name: Run tests
         env:
           DB_CONNECTION: sqlite
@@ -158,3 +167,6 @@ jobs:
 
       - name: Redocly lint (external spec)
         run: npx --yes @redocly/cli lint docs/openapi-external.yaml
+
+      - name: External spec occ gate
+        run: bash scripts/openapi-external-occ-gate.sh

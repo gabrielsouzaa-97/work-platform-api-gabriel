@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-06-17
+synced_at: 2026-06-18
 open_critical: 0
-open_high: 3
+open_high: 9
 open_medium: 44
 open_low: 33
 sprints_with_open_blockers: F10
-notes: N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
+notes: N33 validacao R1 APROVADA (2026-06-18) — CQ-N32-003 validado (PR #117). N32 validacao R2 APROVADA (2026-06-18) — CQ-N32-001/002/004/005/006/007 validados (PR #117). N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
 FINDINGS-INDEX -->
 
 
@@ -37,6 +37,7 @@ FINDINGS-INDEX -->
 | F14 | 0 | 2 | 1 | 0 | 3 | 0 | 0 |
 | F15 | 0 | 0 | 0 | 2 | 2 | 4 | 1 |
 | N30 | 0 | 2 | 0 | 0 | 0 | 2 | 2 |
+| N32 | 0 | 7 | 0 | 0 | 1 | 6 | 6 |
 | N19 | 0 | 2 | 9 | 6 | 15 | 0 | 2 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 
@@ -2316,5 +2317,100 @@ Nenhum finding registrado para D1 na validação atual.
 - **Descrição**: Advisory SSRF via validação X.509 (AIA). Versões afetadas `<=3.0.53`; projeto locked em 3.0.52. Fix: `>=3.0.54`.
 - **Ação necessária**: `composer update phpseclib/phpseclib --with-dependencies`; commit lockfile; re-run `composer audit`.
 - **Correção**: Sprint F14 — `phpseclib/phpseclib` 3.0.55; `composer audit --no-dev --locked` exit 0.
+
+> **Validação N32 R2** (2026-06-18, `/qa validar N32` via `/rock`): commits `491f5d9`..`db21720`. **Testes**: 82 passed Docker (Characterization + Jobs + DomainErrorSanitization). **auditor-senior R2** → **PASS** (0 HIGH no delta). **HIGH R1**: 6/7 validados; CQ-N32-003 parked N33 (architectural). **Resultado: APROVADA COM RESSALVAS**.
+
+### CQ-N32-001 — HIGH — Schedule observability sem import em `routes/console.php`
+
+- **Sprint**: N32
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N32` — auditor-senior R1
+- **Arquivo**: `routes/console.php:15,20`
+- **Descrição**: `JobsObservabilityCheckCommand::class` e `AuditPurgeCommand::class` usados sem `use`; Laravel resolve string errada e o scheduler nunca executa checks de SLA/paridade.
+- **Correção** (Sprint N32, PR #117): imports `use App\Console\Commands\JobsObservabilityCheckCommand;` e `use App\Console\Commands\AuditPurgeCommand;` adicionados em `routes/console.php`.
+- **Validação** (N32 R2, 2026-06-18): auditor-senior R2 PASS; schedule observability executável; CI run `27768621255` verde.
+
+### CQ-N32-002 — HIGH — Lógica de domínio/persistência dentro de `SshPlatformAdapter`
+
+- **Sprint**: N32
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N32` — auditor-senior R1
+- **Arquivo**: `app/Modules/Integration/Adapters/SshPlatformAdapter.php`
+- **Descrição**: `syncTenant()`/`applyTenantSync()` executa `Customer::create/update/delete` e `AuditLog::create` no adapter SSH.
+- **Correção** (Sprint N32, PR #117): sincronização de réplica movida para `CustomerSyncService`; adapter SSH delega transporte e mapeia DTO apenas.
+- **Validação** (N32 R2, 2026-06-18): `CustomerSyncServiceCharacterizationTest` verde; auditor-senior R2 PASS (0 HIGH no delta).
+
+### CQ-N32-003 — HIGH — `PlatformPort` vaza exceções de transporte SSH
+
+- **Sprint**: N32 → N33
+- **Severidade**: HIGH
+- **Tipo**: product_bug / architectural
+- **Status**: Validado
+- **parked_since**: N33
+- **resolved_by**: Sprint N33 (N33.2)
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N32` — auditor-senior R1
+- **Arquivo**: `app/Modules/Integration/Contracts/PlatformPort.php`
+- **Descrição**: Interface declara `@throws SshClientException` etc.; consumidores ainda acoplam ao transporte.
+- **Correção** (Sprint N33, PR #117, N33.2): exceções de domínio no port (`UpstreamUnavailableException`, `CapabilityBlockedException`, `PortStateConflictException`, `PortIdempotencyConflictException`); adapters SSH/Agent mapeiam transporte; interface sem `@throws` de transporte.
+- **Validação** (N33 R1, 2026-06-18): `PlatformPortContractTest` + characterization suite verdes; auditor-senior R1 PASS (0 HIGH/CRITICAL no delta); grep em `Customers`/`Jobs` não importa `SshClientException`.
+
+### CQ-N32-004 — HIGH — `correlation_id` incompleto em remove/cancel/poll
+
+- **Sprint**: N32
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N32` — auditor-senior R1
+- **Arquivo**: `app/Modules/Customers/Actions/RemoveCustomerAction.php`, `app/Modules/Jobs/Actions/CancelJobAction.php`, `app/Console/Commands/JobsPollStuckCommand.php`
+- **Descrição**: Gate sprint exige `correlation_id` dispatch→webhook→audit; remove/cancel/poll omitem geração/propagação.
+- **Correção** (Sprint N32, PR #117): `correlation_id` gerado/propagado em `RemoveCustomerAction`, `CancelJobAction`, `JobsPollStuckCommand` e entradas `AuditLog` de lifecycle.
+- **Validação** (N32 R2, 2026-06-18): `CorrelationIdEndToEndTest` verde; auditor-senior R2 PASS.
+
+### CQ-N32-005 — HIGH — `CancelJobAction` grava `previous_state` errado no audit
+
+- **Sprint**: N32
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N32` — auditor-senior R1
+- **Arquivo**: `app/Modules/Jobs/Actions/CancelJobAction.php:39-48`
+- **Descrição**: `getOriginal('state')` após `update()` retorna `cancelled` em vez do estado anterior.
+- **Correção** (Sprint N32, PR #117): `$previousState = $job->state` capturado antes do `update()`; audit persiste estado anterior correto.
+- **Validação** (N32 R2, 2026-06-18): `CancelJobActionCharacterizationTest` verde; auditor-senior R2 PASS.
+
+### CQ-N32-006 — HIGH — `dispatchManageAsync` ignora transporte Agent
+
+- **Sprint**: N32
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N32` — auditor-senior R1
+- **Arquivo**: `app/Modules/Integration/Services/PlatformPortFactory.php`, `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
+- **Descrição**: `dispatchManageAsync()` sempre delega a `SshPlatformAdapter`, mesmo com Agent ativo.
+- **Correção** (Sprint N32, PR #117): `LifecycleAsyncAction` delega via `PlatformPortFactory::for()` — mesma regra de transporte SSH/Agent que demais métodos do port.
+- **Validação** (N32 R2, 2026-06-18): characterization tests verdes; auditor-senior R2 PASS.
+
+### CQ-N32-007 — HIGH — Artefatos críticos N32 não commitados
+
+- **Sprint**: N32
+- **Severidade**: HIGH
+- **Tipo**: environment
+- **Status**: Validado
+- **Registrado em**: 2026-06-18
+- **Origem**: `/qa validar N32` — preflight PROC-025 + auditor-senior R1
+- **Arquivo**: `scripts/grep-gate-adapters.sh`, `database/migrations/2026_06_18_*`, `TransportObservability.php`, DTOs Integration
+- **Descrição**: Implementação existe só no working tree; branch tem apenas commit de docs.
+- **Correção** (Sprint N32, PR #117): commit `491f5d9` (`feat(sprint-N32): PlatformPort migration waves + transport observability`) com todos os artefatos de produção; CI run `27768621255` verde.
+- **Validação** (N32 R2, 2026-06-18): preflight PROC-025 OK; 82 tests Docker passed; validation_gate_qa APROVADA R2.
 
 ---

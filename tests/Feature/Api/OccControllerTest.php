@@ -27,7 +27,7 @@ function makeOccCustomer(ClusterServer $cluster): Customer
     ]);
 }
 
-function makeOccOperator(string $role = 'operador'): Operator
+function makeOccOperator(string $role = 'admin'): Operator
 {
     return Operator::factory()->create(['role' => $role, 'status' => 'active']);
 }
@@ -224,9 +224,10 @@ it('SSH timeout → 504', function () {
     $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('Timeout'));
     $this->app->instance(SshClientInterface::class, $ssh);
 
-    $this->actingAs($operator)
-        ->postJson("/api/customers/{$customer->slug}/occ/maintenance", ['on' => false])
-        ->assertStatus(504)
+    $response = $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/occ/maintenance", ['on' => false]);
+
+    $response->assertStatus(504)
         ->assertJsonPath('error', 'occ_timeout');
 });
 
@@ -263,6 +264,16 @@ it('SSH exit 1 → 404', function () {
         ->putJson("/api/customers/{$customer->slug}/occ/quota/ghost", ['quota' => '1 GB'])
         ->assertStatus(404)
         ->assertJsonPath('error', 'not_found');
+});
+
+it('operador não autorizado nos endpoints OCC → 403', function () {
+    $cluster = makeOccCluster();
+    $customer = makeOccCustomer($cluster);
+    $operador = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+
+    $this->actingAs($operador)
+        ->putJson("/api/customers/{$customer->slug}/occ/quota/alice", ['quota' => '1 GB'])
+        ->assertStatus(403);
 });
 
 it('suporte não autorizado nos endpoints OCC → 403', function () {
