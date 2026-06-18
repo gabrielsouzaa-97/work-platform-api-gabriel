@@ -161,3 +161,6 @@ jobs:
 
       - name: Redocly lint (external spec)
         run: npx --yes @redocly/cli lint docs/openapi-external.yaml
+
+      - name: External spec occ gate
+        run: bash scripts/openapi-external-occ-gate.sh

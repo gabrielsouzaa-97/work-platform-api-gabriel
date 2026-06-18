@@ -33,7 +33,7 @@ Route::prefix('agent/v1')
             ->name('api.agent.events.receive');
     });
 
-Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->group(function (): void {
+Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1', 'api.legacy-deprecation'])->group(function (): void {
     Route::middleware('api.scope:farm-agents:read')->group(function (): void {
         Route::get('/farm-agents', [FarmAgentController::class, 'index'])->name('api.farm-agents.index');
         Route::get('/farm-agents/{id}', [FarmAgentController::class, 'show'])->name('api.farm-agents.show');

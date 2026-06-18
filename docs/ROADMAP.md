@@ -4751,7 +4751,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | N33.1 — Gate spec externo: auditar `/occ/*` ausente de `openapi-external.yaml`; `Deprecation`/`Sunset` nas rotas legadas com equivalente v1; `redocly lint` CI | `ci-automations` | — |
+| [x] | P | N33.1 — Gate spec externo: auditar `/occ/*` ausente de `openapi-external.yaml`; `Deprecation`/`Sunset` nas rotas legadas com equivalente v1; `redocly lint` CI | `ci-automations` | — |
 | [ ] | M | N33.2 — **CQ-N32-003**: exceções de domínio no `PlatformPort` (`UpstreamUnavailableException` etc.); adapters mapeiam SSH/Agent; interface **sem** `@throws` de transporte | `modular-architecture` | — |
 | [ ] | M | N33.3 — Migrar `RemoveCustomerAction` → `PlatformPort::removeTenant` + characterization test | `laravel-api` | N33.2 |
 | [ ] | M | N33.4 — Migrar `SyncWebhookSecretAction` + `AgentEventHandler` → métodos tipados no port/adapters | `laravel-api` | N33.2 |
