@@ -43,7 +43,7 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
         return [30, 60, 120, 300];
     }
 
-    public function handle(CustomerReadinessProbe $probe, OnboardingSaga $onboardingSaga): void
+    public function handle(CustomerReadinessProbe $probe): void
     {
         $customer = Customer::find($this->customerSlug);
 
@@ -72,7 +72,7 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
                 'ip' => null,
             ]);
 
-            $onboardingSaga->advanceAfterProvisionForSlug($customer->slug);
+            app(OnboardingSaga::class)->advanceAfterProvisionForSlug($customer->slug);
 
             return;
         }
