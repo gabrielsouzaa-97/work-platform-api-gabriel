@@ -123,6 +123,12 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --force --no-interaction
 
+      - name: Characterization integration gate (N33)
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan test tests/Characterization/Integration/
+
       - name: Run tests
         env:
           DB_CONNECTION: sqlite
