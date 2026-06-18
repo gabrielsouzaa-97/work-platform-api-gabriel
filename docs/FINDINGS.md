@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
 synced_at: 2026-06-18
 open_critical: 0
-open_high: 10
+open_high: 9
 open_medium: 44
 open_low: 33
 sprints_with_open_blockers: F10
-notes: N32 validacao R2 APROVADA (2026-06-18) — CQ-N32-001/002/004/005/006/007 validados (PR #117); CQ-N32-003 parked N33. N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
+notes: N33 validacao R1 APROVADA (2026-06-18) — CQ-N32-003 validado (PR #117). N32 validacao R2 APROVADA (2026-06-18) — CQ-N32-001/002/004/005/006/007 validados (PR #117). N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
 FINDINGS-INDEX -->
 
 
@@ -2348,18 +2348,18 @@ Nenhum finding registrado para D1 na validação atual.
 
 ### CQ-N32-003 — HIGH — `PlatformPort` vaza exceções de transporte SSH
 
-- **Sprint**: N32 → **N33** (parked)
+- **Sprint**: N32 → N33
 - **Severidade**: HIGH
 - **Tipo**: product_bug / architectural
-- **Status**: parked
+- **Status**: Validado
 - **parked_since**: N33
-- **resolved_by**: Sprint N33 (planejado)
+- **resolved_by**: Sprint N33 (N33.2)
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — auditor-senior R1
 - **Arquivo**: `app/Modules/Integration/Contracts/PlatformPort.php`
 - **Descrição**: Interface declara `@throws SshClientException` etc.; consumidores ainda acoplam ao transporte.
-- **Correção sugerida**: Exceções de port (`UpstreamUnavailableException`); mapear SSH/Agent só nos adapters.
-- **Validação** (N32 R2, 2026-06-18): deferido arquiteturalmente — não bloqueia gate Fase 2 (grep gate + ondas + observabilidade entregues); carry-over explícito para N33.
+- **Correção** (Sprint N33, PR #117, N33.2): exceções de domínio no port (`UpstreamUnavailableException`, `CapabilityBlockedException`, `PortStateConflictException`, `PortIdempotencyConflictException`); adapters SSH/Agent mapeiam transporte; interface sem `@throws` de transporte.
+- **Validação** (N33 R1, 2026-06-18): `PlatformPortContractTest` + characterization suite verdes; auditor-senior R1 PASS (0 HIGH/CRITICAL no delta); grep em `Customers`/`Jobs` não importa `SshClientException`.
 
 ### CQ-N32-004 — HIGH — `correlation_id` incompleto em remove/cancel/poll
 

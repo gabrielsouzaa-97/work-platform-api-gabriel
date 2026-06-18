@@ -6,6 +6,7 @@
 | D1 | infra, database | scaffold, docker, migrations, models, pest | 14-80 |
 | N30 | Core, Auth, Customers, Jobs | api/v1, DomainError, openapi-external, scopes | 57-98 |
 | N32 | Integration, Jobs, Customers, Core | PlatformPort ondas, correlation_id, grep gate, observabilidade | 99-145 |
+| N33 | Integration, Customers, Core, ClusterServers | occ spec gate, mutação via port, grep estrito, CQ-N32-003 | 146-192 |
 <!-- /DIARY-INDEX -->
 
 ---
@@ -149,4 +150,48 @@
 - Despublicar rotas `/occ/*` do spec externo (`openapi-external.yaml`)
 - Capabilities de mutação via port (carry-over grep gate residual: `RemoveCustomerAction`, `SyncWebhookSecretAction`, `AgentEventHandler`)
 - Resolver `CQ-N32-003`: exceções de port sem vazamento de transporte SSH/Agent
+
+---
+
+## Sprint N33 — ISSUE-038 Fase 3: Despublicar `/occ/*` + capabilities de mutação via port
+
+**Data**: 2026-06-18
+**Status**: CONCLUÍDA
+**Tasks**: 8/8
+**PR**: #117 (branch `campanha/n32-issue038` — campanha N32+N33; commits `b85d4bc`..`ef9547f`)
+
+### Entregas
+
+- Gate spec externo: `/occ/*` ausente de `openapi-external.yaml`; rotas legadas com headers `Deprecation`/`Sunset`; `redocly lint` CI verde
+- **CQ-N32-003** resolvido: exceções de domínio no `PlatformPort` (`UpstreamUnavailableException`, `CapabilityBlockedException`, etc.); adapters mapeiam SSH/Agent; interface sem `@throws` de transporte
+- Migração mutações via port: `RemoveCustomerAction` → `removeTenant`; `SyncWebhookSecretAction` + `AgentEventHandler` → métodos tipados; SFTP staging/inbox de `ProvisionCustomerAction` → adapter
+- Quota v1: `PUT /v1/tenants/{slug}/users/{username}/quota` documentado; D-02 → `capability_not_available` sem vazamento NC
+- `OccController` rebaixado a admin-only (passthrough via adapter de Integração direto, fora do spec externo)
+- Grep gate **estrito**: WARN residual removido; hits fora de `Integration/Adapters/*` falham CI; characterization suite N33 no CI
+- DomainError rendering wired em controllers API e `OccPanel`
+
+### Decisões Técnicas
+
+1. **Transport boundary no port (N33.2)**: consumidores de domínio lançam/capturam exceções de integração (`UpstreamUnavailableException`); mapeamento SSH/Agent isolado nos adapters — fecha ADR Fase 3 fronteira.
+2. **D-02 honesto na quota v1**: endpoint v1 existe no spec externo; upstream bloqueado retorna `404 capability_not_available` — não expandir allowlist OCC nesta sprint.
+3. **OccController admin-only**: passthrough OCC permanece operacional internamente; spec externo expõe apenas capabilities v1 tipadas.
+4. **Grep gate FAIL (não WARN)**: residual N32 (`RemoveCustomerAction`, `SyncWebhookSecretAction`, `AgentEventHandler`, SFTP em `ProvisionCustomerAction`) migrado antes de remover allowlist.
+
+### Problemas Encontrados (QA R1)
+
+- Nenhum HIGH/CRITICAL no delta R1 — carry-over **CQ-N32-003** validado in-sprint (N33.2).
+
+### Gate da Sprint
+
+- [x] `/occ/*` ausente de `openapi-external.yaml`; `redocly lint` CI verde
+- [x] Mutações tenant (remove, webhook sync, SFTP staging, agent events) via `PlatformPort` only
+- [x] Grep gate estrito sem WARN — CI falha em transporte fora de adapters
+- [x] Characterization suite N33 verde
+- [x] 563 tests passed Docker (suite completa local)
+- [x] validation_gate_qa: **APROVADA R1** (auditor-senior PASS; 0 HIGH/CRITICAL)
+
+### Próximos Passos (N34)
+
+- Saga `POST /v1/onboarding` idempotente + runbook (Fase 4 ADR ISSUE-038)
+- Depende D-02 upstream para quota/branding/maintenance em produção
 

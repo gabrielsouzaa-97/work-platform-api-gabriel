@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **docs(sprint-N33)**: Sprint N33 concluída — ISSUE-038 Fase 3 (despublicar `/occ/*` + mutação via port + grep gate estrito + CQ-N32-003); PR #117; validation R1 APROVADA (auditor-senior PASS, 0 HIGH/CRITICAL); 563 tests Docker; version 0.1.4.
 - **docs(N30.2)**: Congelamento de specs OpenAPI — `openapi.yaml` marcado internal/legacy; `openapi-external.yaml` como contrato externo v1 (ref. DOC-001 / ISSUE-021).
 
 - **2026-05-24** `main` — fix(sprint-F11): ISSUE-018 slug reuse + limpeza MEDIUM F5 — F11.1: `WebhookHandler` soft-deleta Customer em provision failed/cancelled; `ProvisionCustomerRequest` `unique` ignora soft-deleted (`whereNull deleted_at`); `ProvisionCustomerAction` forceDelete ghost antes de `Customer::create`; F11.2: 7 entradas YAGNI customer-level removidas de `CMD_TO_CLI_ARGV` (ProvisionCustomerAction e RemoveCustomerAction constroem argv diretamente); F11.3: `mapLifecycleException()` privado extraído em `CustomerLifecycleController` (elimina 3×2 catch duplicados); F11.4: `RUN_UPSTREAM_CONTRACT=0 force=true` em `phpunit.xml` (defense-in-depth); F11.5: assertions `--idempotency-key=` e `--callback=` em 3 testes representativos de LifecycleTest (users/groups/apps); F11.6: política de hash CSV apps documentada + testada (Policy A — preserva ordem de input). **Resultado**: 383 passed (+60 vs F5.11), 7 skipped (Contract opt-in), 7 failed (pré-existentes `ssh_private_key` locked Livewire — não tocados em F11), 994 assertions.

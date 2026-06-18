@@ -88,7 +88,7 @@
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
-| N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | planejada | 8 | Integration, Customers, Core, ClusterServers, Agents | Depende N32 ✓; carry-over CQ-N32-003; D-02 para quota | 4740+ |
+| N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | **concluída** | 8 | Integration, Customers, Core, ClusterServers, Agents | PR #117; validation R1 APROVADA; CQ-N32-003 validado | 4740+ |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | planejada | — | TenantLifecycle | Depende N33 + D-02 resolvido | — |
 
 ---
@@ -4741,7 +4741,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 ## Sprint N33 — ISSUE-038 Fase 3: Despublicar `/occ/*` + capabilities de mutação via port
 
 > Categoria: N
-> Status: **planejada**
+> Status: **concluída**
 > Gate: `/occ/*` **ausente** de `docs/openapi-external.yaml`; mutações de tenant (remove, webhook sync, SFTP staging, agent events) via **`PlatformPort` only**; residual grep gate (`RemoveCustomerAction`, `SyncWebhookSecretAction`, `AgentEventHandler`, `ProvisionCustomerAction` SFTP) migrado ou allowlist **estrita** (WARN → FAIL); `OccController` rebaixado a **admin/interno** (adapter de Integração direto, fora do spec externo); rotas legadas equivalentes com `Deprecation`/`Sunset`; characterization tests verdes; capability bloqueada por D-02 retorna `404 capability_not_available` sem `subcmd`/`exit_code`
 > Fonte: **ISSUE-038** Fase 3 + ADR `.arch-panel/panel/final.md` §4 (Fase 3) + carry-over **CQ-N32-003**
 > review: **senior+qa** (fronteira contrato externo + residual transport + exceções de port)
@@ -4797,14 +4797,17 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 **Estado desejado**: após N33.3–N33.5, residual removido da allowlist WARN; qualquer hit fora de `Integration/Adapters` **falha** CI; suite characterization N33 verde.
 **Critério de pronto**: CI grep gate sem WARN; `php artisan test tests/Characterization/Integration/` verde.
 
-### Quality Brief (Sprint N33 — planner)
+### Quality Brief (Sprint N33)
 
-> PATTERN-001 (Decision #187): auditoria R1+R2 **senior+qa**; fronteira contrato externo + residual transport.
+> PATTERN-001 (Decision #187): auditoria R1 senior+qa; fronteira contrato externo + residual transport + exceções de port.
 
 - **Review**: senior+qa (despublicação `/occ/*`, mutação via port, CQ-N32-003)
-- **Gate ADR Fase 3**: `/occ/*` fora do spec externo; onboarding-api path v1 (smoke); D-02 honesto; grep gate estrito
-- **Carry-over**: CQ-N32-003 (HIGH parked N32 → N33.2)
-- **Bloqueio externo**: quota/branding/maintenance na v1 estável depende D-02 upstream — N33 entrega wiring + `capability_not_available`, não garantir OCC em produção
+- **PR**: #117 (branch `campanha/n32-issue038` — campanha N32+N33); commits `b85d4bc`..`ef9547f`
+- **Gate ADR Fase 3**: ✓ `/occ/*` ausente de `openapi-external.yaml`; mutações via `PlatformPort`; grep gate estrito sem WARN; `OccController` admin-only; quota v1 com D-02 honesto (`capability_not_available`)
+- **Carry-over resolvido**: **CQ-N32-003** validado in-sprint (N33.2 — exceções de domínio no `PlatformPort`; adapters mapeiam SSH/Agent)
+- **CI**: Lint, Test/Pest, grep gate, redocly lint — verde
+- **Testes**: 563 passed Docker (suite completa local)
+- **Resultado**: **APROVADA R1** (auditor-senior PASS; 0 HIGH/CRITICAL no delta)
 
 ---
 
@@ -4816,13 +4819,14 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 |--------|----------|---------------|----------|
 | **N31** | Fase 1 — PlatformPort mínimo | `PUT /v1/tenants/{slug}/branding` 100% via port | ✅ concluída |
 | **N32** | Fase 2 — Ondas + observabilidade | grep gate; `correlation_id`; alertas | ✅ concluída |
-| **N33** | Fase 3 — Despublicar `/occ/*` | `/occ/*` fora do spec externo; mutação via port; grep gate estrito | planejada (8 tasks) — detalhe acima |
+| **N33** | Fase 3 — Despublicar `/occ/*` | `/occ/*` fora do spec externo; mutação via port; grep gate estrito | ✅ concluída |
 | **N34** | Fase 4 — Saga onboarding | `POST /v1/onboarding` idempotente + runbook | N33 + D-02 |
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-18 | 0.31   | Sprint N33 concluída — ISSUE-038 Fase 3 (despublicar `/occ/*` + mutação via port + grep gate estrito); PR #117; validation R1 APROVADA; CQ-N32-003 validado. | sprint-finalizer |
 | 2026-06-18 | 0.30   | Sprint N33 planejada — ISSUE-038 Fase 3 (8 tasks: despublicar `/occ/*` + mutação via port + residual grep gate + CQ-N32-003). | `/pmo plan` |
 | 2026-06-18 | 0.29   | Sprint N32 concluída — ISSUE-038 Fase 2 (ondas PlatformPort + observabilidade + grep gate CI); PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33. | sprint-finalizer |
 | 2026-06-18 | 0.28   | Sprint N32 planejada — ISSUE-038 Fase 2 (8 tasks: ondas migração PlatformPort + observabilidade + grep gate CI). | `/pmo plan` |
