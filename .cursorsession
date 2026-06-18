@@ -201,16 +201,25 @@
     "last_completed_task": "N32.8",
     "sprint": "N32",
     "validation_gate": {
-      "produced_by": "validation-stamp.py",
-      "result": "BLOQUEADA_ARVORE_SUJA",
-      "validation_mode": "blocked",
-      "gates": [],
-      "dirty_production_paths": [
-        ".context-snapshot.md"
+      "sprint": "N32",
+      "produced_by": "/qa validar N32 R2 via /rock",
+      "validation_round": 2,
+      "validation_mode": "revalidation",
+      "findings_found": 0,
+      "findings_validated": [
+        "CQ-N32-001",
+        "CQ-N32-002",
+        "CQ-N32-004",
+        "CQ-N32-005",
+        "CQ-N32-006",
+        "CQ-N32-007"
       ],
-      "missing_backends": [],
-      "last_validated_sha": "db21720e86c389dd3740c52fdd0c14903df2d218",
-      "stamped_at": "2026-06-18T14:59:03Z"
+      "findings_parked": ["CQ-N32-003"],
+      "senior_review_status": "PASS",
+      "tests_evidence": "Docker: 82 passed, 380 assertions",
+      "result": "APROVADA",
+      "last_validated_sha": "2e78ee78e7616bec45df254556e7cf17acff4b5a",
+      "stamped_at": "2026-06-18T16:05:00Z"
     },
     "validation_gate_qa": {
       "sprint": "N32",
