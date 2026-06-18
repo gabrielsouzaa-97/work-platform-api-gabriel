@@ -33,16 +33,16 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N31 validada",
-  "sprint_atual": "N32",
-  "previous_sprint": "N31",
+  "fase_nome": "N32 validada",
+  "sprint_atual": null,
+  "previous_sprint": "N32",
   "sprint_branch": null,
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-18T14:47:53Z",
+  "ultimo_update": "2026-06-18T15:15:14Z",
   "next_sprint_planned": "N32",
   "modulos": [
     "Core",
@@ -196,164 +196,11 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "phase": "auditing",
+    "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N32.8",
-    "sprint": "N32",
-    "validation_gate": {
-      "sprint": "N32",
-      "produced_by": "/qa validar N32 R2 via /rock",
-      "validation_round": 2,
-      "validation_mode": "revalidation",
-      "findings_found": 0,
-      "findings_validated": [
-        "CQ-N32-001",
-        "CQ-N32-002",
-        "CQ-N32-004",
-        "CQ-N32-005",
-        "CQ-N32-006",
-        "CQ-N32-007"
-      ],
-      "findings_parked": ["CQ-N32-003"],
-      "senior_review_status": "PASS",
-      "tests_evidence": "Docker: 82 passed, 380 assertions",
-      "result": "APROVADA",
-      "last_validated_sha": "2e78ee78e7616bec45df254556e7cf17acff4b5a",
-      "stamped_at": "2026-06-18T16:05:00Z"
-    },
-    "validation_gate_qa": {
-      "sprint": "N32",
-      "produced_by": "/qa validar N32 R2 via /rock",
-      "validation_round": 2,
-      "validation_mode": "revalidation",
-      "findings_found": 0,
-      "findings_registered": [],
-      "findings_validated": [
-        "CQ-N32-001",
-        "CQ-N32-002",
-        "CQ-N32-004",
-        "CQ-N32-005",
-        "CQ-N32-006",
-        "CQ-N32-007"
-      ],
-      "findings_parked": [
-        "CQ-N32-003"
-      ],
-      "files_modified_outside_findings": 0,
-      "askquestion_shown": false,
-      "senior_review_status": "PASS",
-      "tests_evidence": "Docker: 82 passed (Characterization+Jobs+DomainErrorSanitization), 380 assertions",
-      "contract_source": "roadmap",
-      "in_contract": [
-        {
-          "id": "n32-grep-gate",
-          "check": "bash scripts/grep-gate-adapters.sh",
-          "pass": true
-        },
-        {
-          "id": "n32-correlation-id",
-          "check": "CorrelationIdEndToEndTest",
-          "pass": true
-        },
-        {
-          "id": "n32-observability-schedule",
-          "check": "routes/console.php imports",
-          "pass": true
-        },
-        {
-          "id": "n32-characterization",
-          "check": "tests/Characterization/Integration/",
-          "pass": true
-        }
-      ],
-      "result": "APROVADA_COM_RESSALVAS",
-      "ressalvas": [
-        "CQ-N32-003 parked for N33 — port-level exceptions refactor"
-      ],
-      "stamped_at": "2026-06-18T16:00:00Z"
-    }
+    "last_completed_task": "N32.8"
   },
-  "sprint_tasks": [
-    {
-      "id": "N32.1",
-      "status": "completed",
-      "size": "M",
-      "title": "Extend PlatformPort + DTOs",
-      "file": "app/Modules/Integration/Contracts/PlatformPort.php"
-    },
-    {
-      "id": "N32.2",
-      "status": "completed",
-      "size": "M",
-      "title": "Characterization tests waves (a)+(b)",
-      "file": "tests/Characterization/Integration/"
-    },
-    {
-      "id": "N32.3",
-      "status": "completed",
-      "size": "M",
-      "title": "Wave (a) OccPassthrough + ReadinessProbe",
-      "file": "app/Modules/Customers/Services/OccPassthroughService.php",
-      "depends": [
-        "N32.1",
-        "N32.2"
-      ]
-    },
-    {
-      "id": "N32.4",
-      "status": "completed",
-      "size": "M",
-      "title": "Wave (b) JobLogFetcher + Cancel + Sync",
-      "file": "app/Modules/Jobs/Services/JobLogFetcher.php",
-      "depends": [
-        "N32.1",
-        "N32.2"
-      ]
-    },
-    {
-      "id": "N32.5",
-      "status": "completed",
-      "size": "M",
-      "title": "Wave (c) Artisan + Livewire",
-      "file": "app/Console/Commands/JobsPollStuckCommand.php",
-      "depends": [
-        "N32.1",
-        "N32.3"
-      ]
-    },
-    {
-      "id": "N32.6",
-      "status": "completed",
-      "size": "M",
-      "title": "correlation_id end-to-end",
-      "file": "app/Modules/Jobs/",
-      "depends": [
-        "N32.4"
-      ]
-    },
-    {
-      "id": "N32.7",
-      "status": "completed",
-      "size": "M",
-      "title": "Operational observability alerts",
-      "file": "app/Modules/Jobs/",
-      "depends": [
-        "N32.6"
-      ]
-    },
-    {
-      "id": "N32.8",
-      "status": "completed",
-      "size": "P",
-      "title": "CI grep gate + SEC-N30 fast-track",
-      "file": ".github/workflows/ci.yml",
-      "depends": [
-        "N32.3",
-        "N32.4",
-        "N32.5"
-      ]
-    }
-  ],
+  "sprint_tasks": [],
   "validation_gate": {
     "sprint": "F15",
     "produced_by": "/qa validar F15 R2 via /rock",
@@ -829,7 +676,7 @@
       ]
     }
   ],
-  "sprint_pr": 116,
+  "sprint_pr": 117,
   "checkpoint_n31_archived": {
     "phase": "auditing",
     "sprint": "N31",
@@ -902,5 +749,130 @@
     "skipped": [],
     "git_head": "49be7e785fe582a055521406d2c0f3198cfc261c",
     "branch": "campanha/n32-issue038"
-  }
+  },
+  "checkpoint_n32_archived": {
+    "phase": "auditing",
+    "current_task": null,
+    "last_completed_task": "N32.8",
+    "sprint": "N32",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test tests/Characterization/Integration/ tests/Feature/Jobs/ tests/Feature/Api/V1/DomainErrorSanitizationTest.php",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "f061d6fa9f9ad4d7614c18bc340d75ce6ad9c560",
+      "stamped_at": "2026-06-18T14:59:49Z"
+    },
+    "validation_gate_qa": {
+      "sprint": "N32",
+      "produced_by": "/qa validar N32 R2 via /rock",
+      "validation_round": 2,
+      "validation_mode": "revalidation",
+      "findings_found": 0,
+      "findings_validated": [
+        "CQ-N32-001",
+        "CQ-N32-002",
+        "CQ-N32-004",
+        "CQ-N32-005",
+        "CQ-N32-006",
+        "CQ-N32-007"
+      ],
+      "findings_parked": [
+        "CQ-N32-003"
+      ],
+      "senior_review_status": "PASS",
+      "tests_evidence": "Docker: 82 passed, 380 assertions",
+      "result": "APROVADA",
+      "last_validated_sha": "2e78ee78e7616bec45df254556e7cf17acff4b5a",
+      "stamped_at": "2026-06-18T16:05:00Z"
+    }
+  },
+  "sprint_tasks_n32_archived": [
+    {
+      "id": "N32.1",
+      "status": "completed",
+      "size": "M",
+      "title": "Extend PlatformPort + DTOs",
+      "file": "app/Modules/Integration/Contracts/PlatformPort.php"
+    },
+    {
+      "id": "N32.2",
+      "status": "completed",
+      "size": "M",
+      "title": "Characterization tests waves (a)+(b)",
+      "file": "tests/Characterization/Integration/"
+    },
+    {
+      "id": "N32.3",
+      "status": "completed",
+      "size": "M",
+      "title": "Wave (a) OccPassthrough + ReadinessProbe",
+      "file": "app/Modules/Customers/Services/OccPassthroughService.php",
+      "depends": [
+        "N32.1",
+        "N32.2"
+      ]
+    },
+    {
+      "id": "N32.4",
+      "status": "completed",
+      "size": "M",
+      "title": "Wave (b) JobLogFetcher + Cancel + Sync",
+      "file": "app/Modules/Jobs/Services/JobLogFetcher.php",
+      "depends": [
+        "N32.1",
+        "N32.2"
+      ]
+    },
+    {
+      "id": "N32.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Wave (c) Artisan + Livewire",
+      "file": "app/Console/Commands/JobsPollStuckCommand.php",
+      "depends": [
+        "N32.1",
+        "N32.3"
+      ]
+    },
+    {
+      "id": "N32.6",
+      "status": "completed",
+      "size": "M",
+      "title": "correlation_id end-to-end",
+      "file": "app/Modules/Jobs/",
+      "depends": [
+        "N32.4"
+      ]
+    },
+    {
+      "id": "N32.7",
+      "status": "completed",
+      "size": "M",
+      "title": "Operational observability alerts",
+      "file": "app/Modules/Jobs/",
+      "depends": [
+        "N32.6"
+      ]
+    },
+    {
+      "id": "N32.8",
+      "status": "completed",
+      "size": "P",
+      "title": "CI grep gate + SEC-N30 fast-track",
+      "file": ".github/workflows/ci.yml",
+      "depends": [
+        "N32.3",
+        "N32.4",
+        "N32.5"
+      ]
+    }
+  ]
 }

@@ -43,7 +43,7 @@
 | ISSUE-035 | investigacao | Tabela `personal_access_tokens` ausente no banco do deployer prod — API Bearer (Sanctum) não pode funcionar; verificar migrations pendentes em prod | Core, DevOps | HIGH | **closed (2026-06-10)** — premissa incorreta: projeto não usa Sanctum; auth Bearer usa `api_keys` (existe em prod); `failed_jobs` segue em OPS-001/ISSUE-023 |
 | ISSUE-036 | bug | Containers `*-push` (notify_push) em `Restarting (127)` em 4 tenants do SaaS-02 | Cross-repo (deploy-scripts) | MEDIUM | open |
 | ISSUE-037 | security | `ApiKey.scopes` nunca aplicado + sem autorização por tenant — qualquer chave age sobre qualquer customer (IDOR latente; vira CRITICAL ao abrir `/v1` a terceiros) | Core (Auth/api-key), Customers | HIGH | **corrigido local** — Sprint F15 (2026-06-16) |
-| ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | **in_progress** — Sprint 0 concluída (N30, PR #115); Fases 1–4 → N31–N34 |
+| ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | **in_progress** — Sprint 0 concluída (N30, PR #115); Fase 1 concluída (N31, PR #116); Fase 2 concluída (N32, PR #117); Fases 3–4 → N33–N34 |
 | ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | **closed (2026-06-16)** — Sprint F14 merge PR #112; CI verde |
 
 ---
@@ -87,7 +87,7 @@ Verificado no código durante a triagem:
 
 - **Tipo**: change_request (iniciativa arquitetural)
 - **Prioridade**: HIGH
-- **Status**: **in_progress** — Sprint 0 concluída (**N30**, PR #115 mergeada 2026-06-17; validation R1 APROVADA); Fases 1–4 ADR → sprints **N31–N34**; pré-req ISSUE-037/F15 ✓
+- **Status**: **in_progress** — Sprint 0 concluída (**N30**, PR #115 mergeada 2026-06-17; validation R1 APROVADA); Fase 1 concluída (**N31**, PR #116; validation R1 APROVADA); Fase 2 concluída (**N32**, PR #117; validation R2 APROVADA 2026-06-18); Fases 3–4 ADR → sprints **N33–N34**; pré-req ISSUE-037/F15 ✓
 - **Registrado em**: 2026-06-16
 - **Solicitante**: discussão de produto + painel de arquitetura adversarial (`/arquiteto`, protocolo `tests/arch-panel.md`)
 - **Módulos afetados**: Core (HTTP/Auth), Customers, Occ, Agents, docs (openapi)
@@ -112,7 +112,7 @@ Decisão do painel (resumo — detalhe no ADR):
 
 ### Próximo passo
 
-Sprint 0 (N30) e Fase 1 (N31) entregues — PlatformPort mínimo + branding via port (PR #116). **Próximo**: `/pmo sprint iniciar N32` (Fase 2 — ondas migração + observabilidade). Fases 3–4 → N33–N34.
+Sprint 0 (N30), Fase 1 (N31) e Fase 2 (N32) entregues — ondas migração PlatformPort + observabilidade transporte + grep gate CI (PR #117; 82 tests Docker; CI run `27768621255` verde). **Próximo**: `/pmo sprint iniciar N33` (Fase 3 — despublicar `/occ/*` + capabilities mutação). Fase 4 → N34. Carry-over arquitetural: `CQ-N32-003` (exceções de transporte na interface `PlatformPort`).
 
 ## ISSUE-039 — CI vermelho no `main` (regressão N19 + phpseclib)
 

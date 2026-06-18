@@ -5,6 +5,7 @@
 |--------|---------|-------|--------|
 | D1 | infra, database | scaffold, docker, migrations, models, pest | 14-80 |
 | N30 | Core, Auth, Customers, Jobs | api/v1, DomainError, openapi-external, scopes | 57-98 |
+| N32 | Integration, Jobs, Customers, Core | PlatformPort ondas, correlation_id, grep gate, observabilidade | 99-145 |
 <!-- /DIARY-INDEX -->
 
 ---
@@ -96,3 +97,56 @@
 - Extrair `PlatformPort` mínimo (Fase 1 ADR ISSUE-038)
 - `PUT /v1/tenants/{slug}/branding` 100% via port (gate D-02 parcial)
 - Characterization tests antes de trocar transporte
+
+---
+
+## Sprint N32 — ISSUE-038 Fase 2: Ondas migração + observabilidade transporte
+
+**Data**: 2026-06-18
+**Status**: CONCLUÍDA
+**Tasks**: 8/8
+**PR**: #117 (commits `491f5d9`..`db21720`)
+
+### Entregas
+
+- `PlatformPort` estendido + DTOs tipados (`fetchJobLogs`, `cancelJob`, `pollJobStatus`, `syncTenant`, `runOccPassthrough`, `probeClusterHealth`)
+- Ondas (a)(b)(c): migração de `OccPassthroughService`, `CustomerReadinessProbe`, `JobLogFetcher`, `CancelJobAction`, `CustomerSyncService`, `JobsPollStuckCommand`, `ClusterHealthCheckCommand`, Livewire `OccPanel` + `ClusterServers\Index` → `PlatformPort`
+- `correlation_id` ponta-a-ponta: migration + propagação em dispatch, webhook, `AuditLog`, eventos Agent
+- Observabilidade operacional: `TransportObservability`, `JobsObservabilityCheckCommand`, schedule em `routes/console.php`
+- CI grep gate: `scripts/grep-gate-adapters.sh` — transporte direto restrito a `Integration/Adapters/*`
+- Characterization tests para todas as ondas + `CorrelationIdEndToEndTest` + `TransportObservabilityTest`
+- Fast-track SEC-N30-003/004: erros `DELETE /v1/tenants` legados sanitizados
+
+### Decisões Técnicas
+
+1. **Ondas com characterization first**: tests RED→GREEN antes de cada migração; paridade SSH/Agent preservada via adapters.
+2. **`correlation_id` como campo persistido**: migration `add_correlation_id_to_jobs_table`; ligamento dispatch→webhook→audit para rastreio cross-boundary.
+3. **Grep gate mecânico no CI**: enforcement de ADR Fase 2 — consumidores de domínio não referenciam `SshClientInterface`/`AgentUpstreamGateway` diretamente (allowlist explícita para testes).
+4. **`CQ-N32-003` deferred N33**: exceções de transporte (`SshClientException`) na interface `PlatformPort` exigem refactor arquitetural (`UpstreamUnavailableException`) — parked, não bloqueia gate Fase 2.
+
+### Problemas Encontrados (QA R1 → R2)
+
+- **CQ-N32-001 (HIGH)**: schedule observability sem `use` imports em `routes/console.php` — scheduler não executava checks. Corrigido in-sprint.
+- **CQ-N32-002 (HIGH)**: lógica de persistência (`Customer::create/update`) dentro de `SshPlatformAdapter::syncTenant`. Corrigido: réplica movida para `CustomerSyncService`.
+- **CQ-N32-004 (HIGH)**: `correlation_id` omitido em remove/cancel/poll. Corrigido in-sprint.
+- **CQ-N32-005 (HIGH)**: `CancelJobAction` gravava `previous_state` errado (`getOriginal` pós-update). Corrigido: captura antes do `update()`.
+- **CQ-N32-006 (HIGH)**: `dispatchManageAsync` ignorava transporte Agent. Corrigido via `PlatformPort` + factory.
+- **CQ-N32-007 (HIGH)**: artefatos críticos não commitados (preflight PROC-025). Corrigido antes de PR/CI.
+- **CQ-N32-003 (HIGH, parked N33)**: interface `PlatformPort` ainda declara `@throws SshClientException` — refactor para exceções de port na Fase 3.
+
+### Gate da Sprint
+
+- [x] Grep gate CI verde — transporte somente em `Integration/Adapters/*`
+- [x] Characterization tests ondas (a)(b)(c) verdes
+- [x] `correlation_id` provado em `CorrelationIdEndToEndTest`
+- [x] Observabilidade: `TransportObservabilityTest` + schedule `jobs:observability-check`
+- [x] 82 tests passed Docker (Characterization + Jobs + DomainErrorSanitization)
+- [x] CI verde: run `27768621255`
+- [x] validation_gate_qa: **APROVADA R2** (auditor-senior R2 PASS)
+
+### Próximos Passos (N33)
+
+- Despublicar rotas `/occ/*` do spec externo (`openapi-external.yaml`)
+- Capabilities de mutação via port (carry-over grep gate residual: `RemoveCustomerAction`, `SyncWebhookSecretAction`, `AgentEventHandler`)
+- Resolver `CQ-N32-003`: exceções de port sem vazamento de transporte SSH/Agent
+

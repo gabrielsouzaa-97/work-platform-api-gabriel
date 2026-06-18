@@ -87,7 +87,7 @@
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
-| N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **planejada** | 8 | Integration, Jobs, Customers, Core | ISSUE-038 Fase 2; grep gate + `correlation_id` | 4682+ |
+| N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | planejada | — | Customers, Core | Depende N32 + D-02 | — |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | planejada | — | TenantLifecycle | Depende N33 + D-02 resolvido | — |
 
@@ -4671,12 +4671,12 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 ## Sprint N32 — ISSUE-038 Fase 2: Ondas de migração + observabilidade transporte
 
 > Categoria: N
-> Status: **planejada** (gerada via `/pmo plan` 2026-06-18)
+> Status: **concluída** (PR #117; validation R2 APROVADA 2026-06-18; CI run 27768621255)
 > Gate: **grep gate** no CI — `SshClientInterface` / `AgentUpstreamGateway` usados **somente** em `app/Modules/Integration/Adapters/*`; characterization tests verdes para ondas (a)(b)(c); `correlation_id` propagado `dispatch → webhook → audit`; alerta/métrica de job não-terminal > SLA (60s staging) e hook de paridade SSH vs Agent; **sem regressão** em suite Pest existente
 > Fonte: **ISSUE-038** Fase 2 + ADR `.arch-panel/panel/final.md` §4 (Fase 2) + carry-over SEC-N30-003/004
 > review: **senior+qa** (migração cross-module + observabilidade operacional)
 > Pré-requisito: **N31** ✓ (PR #116, validation R1 APROVADA)
-> Bloqueia: Sprint **N33** (despublicar `/occ/*`)
+> Desbloqueia: Sprint **N33** (despublicar `/occ/*`)
 > Fora de escopo N32: saga `/v1/onboarding` (N34); expandir allowlist D-02 (ISSUE-016); `RemoveCustomerAction` / `SyncWebhookSecretAction` / `AgentEventHandler` (grep gate residual → fast-track pós-N32 ou N33); despublicar rotas `/occ/*` do spec externo
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
@@ -4724,6 +4724,18 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 **Estado desejado**: script CI falha se `SshClientInterface` ou `AgentUpstreamGateway` aparecer fora de `app/Modules/Integration/Adapters/` (allowlist explícita para testes/mocks).
 **Critério de pronto**: job CI verde após ondas (a–c); lista allowlist documentada no script.
 
+### Quality Brief (Sprint N32)
+
+> PATTERN-001 (Decision #187): auditoria R1+R2 senior+qa; migração cross-module + observabilidade operacional.
+
+- **Review**: senior+qa (ondas PlatformPort + `correlation_id` + grep gate CI)
+- **PR**: #117; commits `491f5d9`..`db21720`
+- **Gate ADR Fase 2**: ✓ ondas (a)(b)(c) via `PlatformPort`; grep gate adapters no CI; `correlation_id` ponta-a-ponta; observabilidade transporte (`TransportObservability`, `JobsObservabilityCheckCommand`)
+- **Findings R1**: 7 HIGH — 6 validados in-sprint (`CQ-N32-001`, `002`, `004`, `005`, `006`, `007`); `CQ-N32-003` parked **N33** (exceções de transporte na interface — refactor arquitetural)
+- **CI** (run `27768621255`): Lint, Test/Pest, grep gate, composer audit — verde
+- **Testes**: 82 passed Docker (Characterization + Jobs + DomainErrorSanitization)
+- **Resultado**: **APROVADA R2** (auditor-senior R2 PASS; 0 HIGH no delta)
+
 ---
 
 ## Roadmap ISSUE-038 — Fases posteriores (stubs)
@@ -4733,7 +4745,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 | Sprint | Fase ADR | Gate resumido | Bloqueio |
 |--------|----------|---------------|----------|
 | **N31** | Fase 1 — PlatformPort mínimo | `PUT /v1/tenants/{slug}/branding` 100% via port | ✅ concluída |
-| **N32** | Fase 2 — Ondas + observabilidade | grep gate; `correlation_id`; alertas | N31 ✅ |
+| **N32** | Fase 2 — Ondas + observabilidade | grep gate; `correlation_id`; alertas | ✅ concluída |
 | **N33** | Fase 3 — Despublicar `/occ/*` | `/occ/*` fora do spec externo; mutação via port | N32 + D-02 |
 | **N34** | Fase 4 — Saga onboarding | `POST /v1/onboarding` idempotente + runbook | N33 + D-02 |
 
@@ -4741,6 +4753,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-18 | 0.29   | Sprint N32 concluída — ISSUE-038 Fase 2 (ondas PlatformPort + observabilidade + grep gate CI); PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33. | sprint-finalizer |
 | 2026-06-18 | 0.28   | Sprint N32 planejada — ISSUE-038 Fase 2 (8 tasks: ondas migração PlatformPort + observabilidade + grep gate CI). | `/pmo plan` |
 | 2026-06-17 | 0.27   | Sprint N30 concluída — ISSUE-038 Sprint 0 (`/api/v1` + DomainError + openapi-external); PR #115; 2 HIGH R1 corrigidos (`CQ-N30-001`, `SEC-N30-001`). | sprint-finalizer |
 | 2026-06-17 | 0.26   | Sprint N30 planejada — ISSUE-038 Sprint 0 (`/api/v1` aliases + DomainError + spec externo); stubs N31–N34; F15 índice → concluída. | `/pmo plan` |
