@@ -63,9 +63,9 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1', 'api
         ->middleware(['api.tenant', 'can:provision-customers', 'api.scope:customers:write'])
         ->name('api.customers.destroy');
 
-    // OCC sync passthrough (F6 — Feature P) — timeout 60s, resposta direta upstream
+    // OCC sync passthrough — admin/interno only (fora do spec externo; consumidores usam /api/v1)
     Route::prefix('customers/{customer}/occ')
-        ->middleware(['api.tenant', 'api.scope:occ:write'])
+        ->middleware(['can:manage-operators', 'api.tenant', 'api.scope:occ:write'])
         ->group(function (): void {
             Route::put('quota/default', [OccController::class, 'setQuotaDefault'])->name('api.occ.quota.default');
             Route::put('quota/all', [OccController::class, 'setQuotaAll'])->name('api.occ.quota.all');

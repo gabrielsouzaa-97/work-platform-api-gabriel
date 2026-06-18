@@ -12,11 +12,11 @@ use App\Http\Requests\Occ\ToggleMaintenanceRequest;
 use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Models\Operator;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Services\OccPassthroughService;
 use App\Modules\Customers\Support\OccQuotaValue;
+use App\Modules\Integration\Exceptions\CapabilityBlockedException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -185,31 +185,29 @@ final class OccController extends Controller
         } catch (ClusterUnreachableException) {
             return response()->json(['error' => 'cluster_unreachable'], 503)
                 ->header('Retry-After', '60');
-        } catch (SshTimeoutException) {
-            return response()->json(['error' => 'occ_timeout'], 504);
-        } catch (SshRemoteException $e) {
-            if ($e->remoteExitCode === 1) {
-                return response()->json(['error' => 'not_found'], 404);
+        } catch (CapabilityBlockedException $e) {
+            return response()->json([
+                'error' => 'occ_subcmd_not_allowed',
+                'detail' => 'Subcmd "'.$subcmd.'" não está na allowlist do nextcloud-saas-manager occ-exec. Ver docs/ISSUES.md ISSUE-011.',
+                'subcmd' => $subcmd,
+                'exit_code' => $e->remoteExitCode,
+            ], 403);
+        } catch (UpstreamUnavailableException $e) {
+            $cause = $e->transportCause();
+
+            if ($cause instanceof SshTimeoutException
+                || str_contains(strtolower($e->getMessage()), 'timeout')) {
+                return response()->json(['error' => 'occ_timeout'], 504);
             }
 
-            // ISSUE-011: exit 16 do `nextcloud-manage <slug> occ-exec` indica que o subcmd
-            // OCC requisitado está fora da allowlist do wrapper upstream (refutado o
-            // diagnóstico antigo de "flag stripping" — argv positional puro também falha).
-            // Devolvemos 403 com erro explícito para não confundir com falha transitória
-            // de upstream (502). Subcmds atualmente bloqueados: user:setting, config:app:set,
-            // theming:config, maintenance:mode. Ver docs/ISSUES.md ISSUE-011 e P-15.
-            if ($e->remoteExitCode === 16) {
-                return response()->json([
-                    'error' => 'occ_subcmd_not_allowed',
-                    'detail' => 'Subcmd "'.$subcmd.'" não está na allowlist do nextcloud-saas-manager occ-exec (exit 16). Ver docs/ISSUES.md ISSUE-011.',
-                    'subcmd' => $subcmd,
-                    'exit_code' => 16,
-                ], 403);
+            if (($cause instanceof SshRemoteException && $cause->remoteExitCode === 1)
+                || str_contains(strtolower($e->getMessage()), 'not found')) {
+                return response()->json(['error' => 'not_found'], 404);
             }
 
             return response()->json([
                 'error' => 'upstream_error',
-                'exit_code' => $e->remoteExitCode,
+                'message' => $e->getMessage(),
             ], 502);
         } catch (\RuntimeException $e) {
             return response()->json(['error' => 'invalid_upstream_response', 'message' => $e->getMessage()], 502);
