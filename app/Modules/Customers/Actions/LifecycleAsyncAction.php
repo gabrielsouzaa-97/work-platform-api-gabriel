@@ -19,6 +19,7 @@ use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Integration\Dto\AsyncJobRef;
+use App\Modules\Integration\Dto\ManageAsyncCommand;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
