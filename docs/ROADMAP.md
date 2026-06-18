@@ -4753,7 +4753,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 |--------|---------|--------|---------------|------------|
 | [x] | P | N33.1 — Gate spec externo: auditar `/occ/*` ausente de `openapi-external.yaml`; `Deprecation`/`Sunset` nas rotas legadas com equivalente v1; `redocly lint` CI | `ci-automations` | — |
 | [x] | M | N33.2 — **CQ-N32-003**: exceções de domínio no `PlatformPort` (`UpstreamUnavailableException` etc.); adapters mapeiam SSH/Agent; interface **sem** `@throws` de transporte | `modular-architecture` | — |
-| [ ] | M | N33.3 — Migrar `RemoveCustomerAction` → `PlatformPort::removeTenant` + characterization test | `laravel-api` | N33.2 |
+| [x] | M | N33.3 — Migrar `RemoveCustomerAction` → `PlatformPort::removeTenant` + characterization test | `laravel-api` | N33.2 |
 | [ ] | M | N33.4 — Migrar `SyncWebhookSecretAction` + `AgentEventHandler` → métodos tipados no port/adapters | `laravel-api` | N33.2 |
 | [ ] | M | N33.5 — Migrar SFTP staging/inbox de `ProvisionCustomerAction` → adapter (`createTenant` path completo) | `laravel-api` | N33.2 |
 | [ ] | M | N33.6 — v1 quota/users/apps: garantir mutações 100% via port; `PUT /v1/tenants/{slug}/users/{username}/quota` (D-02 → `capability_not_available`); testes v1 | `api-rest-patterns` | N33.2, N33.5 |

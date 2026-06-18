@@ -9,17 +9,15 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Modules\Agents\Exceptions\AgentTransportException;
-use App\Modules\Agents\Services\AgentTransportResolver;
-use App\Modules\Agents\Services\AgentUpstreamGateway;
-use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Integration\Dto\RemoveTenantCommand;
+use App\Modules\Integration\Exceptions\PortStateConflictException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -27,10 +25,8 @@ use Illuminate\Support\Str;
 final class RemoveCustomerAction
 {
     public function __construct(
-        private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
-        private readonly AgentTransportResolver $transportResolver,
-        private readonly AgentUpstreamGateway $agentGateway,
+        private readonly PlatformPortFactory $platformPortFactory,
     ) {}
 
     /**
@@ -38,7 +34,7 @@ final class RemoveCustomerAction
      * @throws ConfirmationMismatchException
      * @throws RemoveInProgressException
      * @throws StateConflictException
-     * @throws SshRemoteException
+     * @throws UpstreamUnavailableException
      */
     public function execute(
         string $slug,
@@ -62,9 +58,7 @@ final class RemoveCustomerAction
         Log::withContext(['correlation_id' => $correlationId]);
         $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
-        // [E1,E4] nextcloud-manage <client> _ remove --force [--backup-first] --async --json
-        // runAsync appends --async --json automatically
-        $args = array_filter([
+        $args = array_values(array_filter([
             $slug,
             '_',
             'remove',
@@ -72,31 +66,19 @@ final class RemoveCustomerAction
             $backupFirst ? '--backup-first' : null,
             "--idempotency-key={$idempotencyKey}",
             "--callback={$callbackUrl}",
-        ]);
+        ]));
 
         try {
-            if ($this->transportResolver->shouldUseAgentTransport($cluster)) {
-                $resp = $this->agentGateway->runAsync(
-                    $cluster,
-                    'nextcloud-manage',
-                    array_values($args),
-                );
-            } else {
-                $resp = $this->ssh->runAsync($cluster, 'nextcloud-manage', array_values($args));
-            }
-        } catch (AgentTransportException) {
+            $jobRef = $this->platformPortFactory
+                ->for($cluster)
+                ->removeTenant(new RemoveTenantCommand($cluster, $args));
+        } catch (ClusterUnreachableException) {
             throw new ClusterUnreachableException;
-        } catch (SshConnectionException) {
-            throw new ClusterUnreachableException;
-        } catch (SshRemoteException $e) {
-            if ($e->stateConflict) {
-                throw new StateConflictException($e->parsedJson['diff'] ?? []);
-            }
-            throw $e;
+        } catch (PortStateConflictException $e) {
+            throw new StateConflictException($e->diff);
         }
 
-        $jobId = $resp->parsedJson['job_id']
-            ?? throw new \RuntimeException('SSH did not return job_id in response');
+        $jobId = $jobRef->jobId;
 
         return DB::transaction(function () use ($customer, $cluster, $jobId, $idempotencyKey, $correlationId, $actor, $backupFirst): Job {
             $customer->update(['status' => 'removing']);
