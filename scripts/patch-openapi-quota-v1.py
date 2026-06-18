@@ -42,7 +42,7 @@ BLOCK = """  /tenants/{slug}/users/{username}/quota:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SyncEnvelope"
+                $ref: "#/components/schemas/Envelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
