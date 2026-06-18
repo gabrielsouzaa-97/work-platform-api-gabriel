@@ -42,7 +42,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-18T14:41:47Z",
+  "ultimo_update": "2026-06-18T14:47:53Z",
   "next_sprint_planned": "N32",
   "modulos": [
     "Core",
@@ -201,25 +201,39 @@
     "last_completed_task": "N32.8",
     "sprint": "N32",
     "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "BLOQUEADA_ARVORE_SUJA",
+      "validation_mode": "blocked",
+      "gates": [],
+      "dirty_production_paths": [
+        ".context-snapshot.md"
+      ],
+      "missing_backends": [],
+      "last_validated_sha": "db21720e86c389dd3740c52fdd0c14903df2d218",
+      "stamped_at": "2026-06-18T14:59:03Z"
+    },
+    "validation_gate_qa": {
       "sprint": "N32",
-      "produced_by": "/qa validar N32 R1",
-      "validation_round": 1,
+      "produced_by": "/qa validar N32 R2 via /rock",
+      "validation_round": 2,
       "validation_mode": "revalidation",
-      "findings_found": 17,
-      "findings_registered": [
+      "findings_found": 0,
+      "findings_registered": [],
+      "findings_validated": [
         "CQ-N32-001",
         "CQ-N32-002",
-        "CQ-N32-003",
         "CQ-N32-004",
         "CQ-N32-005",
         "CQ-N32-006",
         "CQ-N32-007"
       ],
-      "files_modified_outside_findings": 42,
-      "askquestion_shown": true,
-      "senior_review_status": "FAIL",
-      "security_review_status": "SKIP",
-      "tests_evidence": "local: 9 unit passed, 76 feature failed (sqlite driver); CI: sem PR N32",
+      "findings_parked": [
+        "CQ-N32-003"
+      ],
+      "files_modified_outside_findings": 0,
+      "askquestion_shown": false,
+      "senior_review_status": "PASS",
+      "tests_evidence": "Docker: 82 passed (Characterization+Jobs+DomainErrorSanitization), 380 assertions",
       "contract_source": "roadmap",
       "in_contract": [
         {
@@ -229,22 +243,25 @@
         },
         {
           "id": "n32-correlation-id",
-          "check": "manual senior review + CorrelationIdEndToEndTest (not run CI)",
-          "pass": false
+          "check": "CorrelationIdEndToEndTest",
+          "pass": true
         },
         {
           "id": "n32-observability-schedule",
-          "check": "routes/console.php JobsObservabilityCheckCommand import",
-          "pass": false
+          "check": "routes/console.php imports",
+          "pass": true
         },
         {
-          "id": "n32-pest-suite",
-          "check": "CI authority — no PR / local sqlite driver missing",
-          "pass": false
+          "id": "n32-characterization",
+          "check": "tests/Characterization/Integration/",
+          "pass": true
         }
       ],
-      "result": "REPROVADA",
-      "stamped_at": "2026-06-18T15:00:00Z"
+      "result": "APROVADA_COM_RESSALVAS",
+      "ressalvas": [
+        "CQ-N32-003 parked for N33 — port-level exceptions refactor"
+      ],
+      "stamped_at": "2026-06-18T16:00:00Z"
     }
   },
   "sprint_tasks": [

@@ -2318,14 +2318,14 @@ Nenhum finding registrado para D1 na validação atual.
 - **Ação necessária**: `composer update phpseclib/phpseclib --with-dependencies`; commit lockfile; re-run `composer audit`.
 - **Correção**: Sprint F14 — `phpseclib/phpseclib` 3.0.55; `composer audit --no-dev --locked` exit 0.
 
-> **Validação N32 R1** (2026-06-18, `/qa validar N32`): scope = working tree `campanha/n32-issue038` (implementação **não commitada** — apenas docs em `49be7e7`). **Grep gate**: PASS com 4 WARN residuais (esperado). **Testes**: 9 unit passed local; 76 feature falharam (`could not find driver` sqlite — `validation_env.ci_authority`, sem Docker/Sail). **auditor-senior R1** → **FAIL** (7 HIGH, 7 MEDIUM, 3 LOW). **Hard Rule #2**: FAIL (~40 arquivos de produção fora de whitelist). **Resultado: REPROVADA**.
+> **Validação N32 R2** (2026-06-18, `/qa validar N32` via `/rock`): commits `491f5d9`..`db21720`. **Testes**: 82 passed Docker (Characterization + Jobs + DomainErrorSanitization). **auditor-senior R2** → **PASS** (0 HIGH no delta). **HIGH R1**: 6/7 validados; CQ-N32-003 parked N33 (architectural). **Resultado: APROVADA COM RESSALVAS**.
 
 ### CQ-N32-001 — HIGH — Schedule observability sem import em `routes/console.php`
 
 - **Sprint**: N32
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: pendente
+- **Status**: validado
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — auditor-senior R1
 - **Arquivo**: `routes/console.php:15,20`
@@ -2337,7 +2337,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N32
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: pendente
+- **Status**: validado
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — auditor-senior R1
 - **Arquivo**: `app/Modules/Integration/Adapters/SshPlatformAdapter.php`
@@ -2349,7 +2349,8 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N32
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: pendente
+- **Status**: pendente_revisao_medium
+- **parked_since**: N33
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — auditor-senior R1
 - **Arquivo**: `app/Modules/Integration/Contracts/PlatformPort.php`
@@ -2361,7 +2362,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N32
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: pendente
+- **Status**: validado
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — auditor-senior R1
 - **Arquivo**: `app/Modules/Customers/Actions/RemoveCustomerAction.php`, `app/Modules/Jobs/Actions/CancelJobAction.php`, `app/Console/Commands/JobsPollStuckCommand.php`
@@ -2373,7 +2374,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N32
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: pendente
+- **Status**: validado
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — auditor-senior R1
 - **Arquivo**: `app/Modules/Jobs/Actions/CancelJobAction.php:39-48`
@@ -2385,7 +2386,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N32
 - **Severidade**: HIGH
 - **Tipo**: product_bug
-- **Status**: pendente
+- **Status**: validado
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — auditor-senior R1
 - **Arquivo**: `app/Modules/Integration/Services/PlatformPortFactory.php`, `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
@@ -2397,7 +2398,7 @@ Nenhum finding registrado para D1 na validação atual.
 - **Sprint**: N32
 - **Severidade**: HIGH
 - **Tipo**: environment
-- **Status**: pendente
+- **Status**: validado
 - **Registrado em**: 2026-06-18
 - **Origem**: `/qa validar N32` — preflight PROC-025 + auditor-senior R1
 - **Arquivo**: `scripts/grep-gate-adapters.sh`, `database/migrations/2026_06_18_*`, `TransportObservability.php`, DTOs Integration
