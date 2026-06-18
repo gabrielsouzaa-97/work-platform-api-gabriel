@@ -198,7 +198,34 @@
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N33.8"
+    "last_completed_task": "N33.8",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "./vendor/bin/pint --test",
+          "exit_code": 0
+        },
+        {
+          "cmd": "bash scripts/grep-gate-adapters.sh",
+          "exit_code": 0
+        },
+        {
+          "cmd": "bash scripts/openapi-external-occ-gate.sh",
+          "exit_code": 0
+        },
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "f563b62ce0e28f79c45d860cf7b60d49b22f5685",
+      "stamped_at": "2026-06-18T17:05:54Z"
+    }
   },
   "sprint_tasks": [],
   "validation_gate": {
