@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
+use App\Modules\Agents\Services\AgentTransportResolver;
 use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
@@ -210,6 +211,7 @@ it('agent adapter records agent transport on createTenant dispatch', function ()
     $sshFallback = app(SshPlatformAdapter::class);
     $adapter = new AgentPlatformAdapter(
         $gateway,
+        app(AgentTransportResolver::class),
         $sshFallback,
         app(TransportObservability::class),
     );

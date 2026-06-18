@@ -14,8 +14,6 @@ use App\Http\Requests\Lifecycle\EnableAppsRequest;
 use App\Http\Requests\Lifecycle\RemoveUserFromGroupRequest;
 use App\Models\Customer;
 use App\Models\Operator;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
@@ -155,9 +153,10 @@ final class CustomerLifecycleController extends Controller
                 'reason' => 'upstream group membership pending mework360-deployer-scripts D3/D4',
                 'cmd' => $e->cmd,
             ], 501);
-        } catch (SshRemoteException $e) {
-            return RenderDomainError::mapSshRemoteException($e, $request);
         } catch (\Throwable $e) {
+            if ($r = RenderDomainError::mapPortTransportException($e, $request, timeoutError: 'lifecycle_timeout')) {
+                return $r;
+            }
             if ($r = $this->mapLifecycleException($e, $request)) {
                 return $r;
             }
@@ -190,9 +189,15 @@ final class CustomerLifecycleController extends Controller
 
         try {
             $job = $this->action->execute($customer, $cmd, [$appsCsv], null, $actor);
-        } catch (SshRemoteException $e) {
-            return RenderDomainError::mapSshRemoteException($e, $request, ['apps_csv' => $appsCsv]);
         } catch (\Throwable $e) {
+            if ($r = RenderDomainError::mapPortTransportException(
+                $e,
+                $request,
+                ['apps_csv' => $appsCsv],
+                'lifecycle_timeout',
+            )) {
+                return $r;
+            }
             if ($r = $this->mapLifecycleException($e, $request)) {
                 return $r;
             }
@@ -213,7 +218,6 @@ final class CustomerLifecycleController extends Controller
     {
         return match (true) {
             $e instanceof ClusterUnreachableException => RenderDomainError::clusterUnreachableResponse($request),
-            $e instanceof SshTimeoutException => response()->json(['error' => 'lifecycle_timeout'], 504),
             $e instanceof IdempotencyConflictException => RenderDomainError::idempotencyConflictResponse($request, $e),
             default => null,
         };

@@ -6,8 +6,11 @@ namespace App\Http\Exceptions;
 
 use App\Modules\Core\Domain\DomainError;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
+use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
+use App\Modules\Integration\Exceptions\CapabilityBlockedException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -212,5 +215,57 @@ final class RenderDomainError
             'error' => 'idempotency_conflict',
             'existing_job_id' => $e->getExistingJobId(),
         ], 409);
+    }
+
+    public static function unwrapTransport(\Throwable $e): \Throwable
+    {
+        if ($e instanceof UpstreamUnavailableException) {
+            return $e->transportCause() ?? $e;
+        }
+
+        return $e;
+    }
+
+    /**
+     * Maps PlatformPort transport/domain failures to JSON. Returns null if unhandled.
+     *
+     * @param  array<string, mixed>  $legacyExtra
+     */
+    public static function mapPortTransportException(
+        \Throwable $e,
+        Request $request,
+        array $legacyExtra = [],
+        ?string $timeoutError = null,
+    ): ?JsonResponse {
+        if ($e instanceof CapabilityBlockedException) {
+            if (self::isV1($request)) {
+                return self::response(DomainError::CapabilityNotAvailable);
+            }
+
+            return response()->json(['error' => 'capability_blocked'], 403);
+        }
+
+        $root = self::unwrapTransport($e);
+
+        if ($root instanceof SshTimeoutException && $timeoutError !== null) {
+            return response()->json(['error' => $timeoutError], 504);
+        }
+
+        if ($root instanceof SshRemoteException) {
+            return self::mapSshRemoteException($root, $request, $legacyExtra);
+        }
+
+        if ($e instanceof UpstreamUnavailableException) {
+            if (self::isV1($request)) {
+                return self::response(DomainError::UpstreamUnavailable);
+            }
+
+            return response()->json(array_merge([
+                'error' => 'upstream_error',
+                'message' => $e->getMessage(),
+            ], $legacyExtra), 502);
+        }
+
+        return null;
     }
 }

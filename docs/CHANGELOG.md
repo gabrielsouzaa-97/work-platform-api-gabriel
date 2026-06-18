@@ -325,3 +325,8 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-06-18 11:28** `49be7e7` — docs(sprint-N32): planning output + session stamps
 - **2026-06-18 11:41** `49be7e7` — docs(sprint-N32): planning output + session stamps
 - **2026-06-18 11:47** `491f5d9` — feat(sprint-N32): PlatformPort migration waves + transport observability
+- **2026-06-18 12:03** `f061d6f` — chore(sprint-N32): stamp validation_gate APROVADA R2
+- **2026-06-18 12:11** `f061d6f` — chore(sprint-N32): stamp validation_gate APROVADA R2
+- **2026-06-18 12:15** `f061d6f` — chore(sprint-N32): stamp validation_gate APROVADA R2
+- **2026-06-18 12:39** `682eff4` — feat(sprint-N33): task N33.1 — external spec occ gate + legacy Deprecation headers
+- **2026-06-18 12:59** `682eff4` — feat(sprint-N33): task N33.1 — external spec occ gate + legacy Deprecation headers
