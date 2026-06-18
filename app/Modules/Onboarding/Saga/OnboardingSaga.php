@@ -20,9 +20,13 @@ final class OnboardingSaga
         private readonly ProvisionsCustomer $provisionCustomerAction,
     ) {}
 
-    public function start(OnboardingSpec $spec, Operator $actor): Onboarding
-    {
-        $onboarding = $this->createOnboarding($spec);
+    public function start(
+        OnboardingSpec $spec,
+        Operator $actor,
+        ?string $idempotencyKey = null,
+        ?string $apiKeyId = null,
+    ): Onboarding {
+        $onboarding = $this->createOnboarding($spec, $idempotencyKey, $apiKeyId);
         $result = $this->provisionCustomerAction->execute(
             $this->toProvisionPayload($spec),
             $actor,
@@ -34,8 +38,11 @@ final class OnboardingSaga
         return $onboarding->fresh();
     }
 
-    private function createOnboarding(OnboardingSpec $spec): Onboarding
-    {
+    private function createOnboarding(
+        OnboardingSpec $spec,
+        ?string $idempotencyKey,
+        ?string $apiKeyId,
+    ): Onboarding {
         $onboardingId = Str::uuid()->toString();
 
         return Onboarding::create([
@@ -45,8 +52,8 @@ final class OnboardingSaga
             'state' => OnboardingState::Running,
             'current_step' => OnboardingStep::ProvisionTenant,
             'steps' => [],
-            'idempotency_key' => hash('sha256', Str::uuid()->toString()),
-            'api_key_id' => null,
+            'idempotency_key' => $idempotencyKey ?? hash('sha256', Str::uuid()->toString()),
+            'api_key_id' => $apiKeyId,
         ]);
     }
 
