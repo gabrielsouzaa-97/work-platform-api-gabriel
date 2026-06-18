@@ -33,9 +33,9 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N34 planejada",
-  "sprint_atual": "N34",
-  "previous_sprint": "N33",
+  "fase_nome": "N34 validada",
+  "sprint_atual": null,
+  "previous_sprint": "N34",
   "sprint_branch": null,
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
@@ -197,94 +197,11 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "phase": "prerequisites",
+    "phase": "validated",
     "current_task": null,
-    "last_completed_task": null,
-    "sprint": "N34"
+    "last_completed_task": "N34.8"
   },
-  "sprint_tasks": [
-    {
-      "id": "N34.1",
-      "status": "pending",
-      "size": "M",
-      "title": "Onboarding model + migration + state/step enums",
-      "file": "app/Models/Onboarding.php"
-    },
-    {
-      "id": "N34.2",
-      "status": "pending",
-      "size": "M",
-      "title": "OnboardingSaga orchestrator via PlatformPort + Actions",
-      "file": "app/Modules/Onboarding/Saga/OnboardingSaga.php",
-      "depends": [
-        "N34.1"
-      ]
-    },
-    {
-      "id": "N34.3",
-      "status": "pending",
-      "size": "M",
-      "title": "POST /v1/onboarding + FormRequest + idempotency",
-      "file": "app/Http/Controllers/Api/V1/OnboardingV1Controller.php",
-      "depends": [
-        "N34.1",
-        "N34.2"
-      ]
-    },
-    {
-      "id": "N34.4",
-      "status": "pending",
-      "size": "M",
-      "title": "GET /v1/onboarding/{id} status endpoint",
-      "file": "routes/api_v1.php",
-      "depends": [
-        "N34.1"
-      ]
-    },
-    {
-      "id": "N34.5",
-      "status": "pending",
-      "size": "M",
-      "title": "Readiness gate integration between saga steps",
-      "file": "app/Modules/Customers/Services/CustomerReadinessProbe.php",
-      "depends": [
-        "N34.2"
-      ]
-    },
-    {
-      "id": "N34.6",
-      "status": "pending",
-      "size": "P",
-      "title": "OpenAPI external + CONTRACTS-V1 onboarding schemas",
-      "file": "docs/openapi-external.yaml",
-      "depends": [
-        "N34.3",
-        "N34.4"
-      ]
-    },
-    {
-      "id": "N34.7",
-      "status": "pending",
-      "size": "M",
-      "title": "Feature tests + characterization suite",
-      "file": "tests/Feature/Api/V1/OnboardingSagaTest.php",
-      "depends": [
-        "N34.3",
-        "N34.4",
-        "N34.5"
-      ]
-    },
-    {
-      "id": "N34.8",
-      "status": "pending",
-      "size": "P",
-      "title": "Runbook docs/runbooks/onboarding-saga.md",
-      "file": "docs/runbooks/onboarding-saga.md",
-      "depends": [
-        "N34.2"
-      ]
-    }
-  ],
+  "sprint_tasks": [],
   "validation_gate": {
     "sprint": "F15",
     "produced_by": "/qa validar F15 R2 via /rock",
@@ -324,6 +241,9 @@
       "gate": "POST 202 idempotente; GET step-by-step; D-02 branding skip honesto; runbook saga parcial",
       "brief_path": "docs/.briefs/N34.brief.md"
     },
+    {
+      "timestamp": "2026-06-18T16:30:00Z",
+      "action": "/pmo plan — ISSUE-038 Fase 3",
       "sprints_generated": [
         "N33"
       ],
@@ -1085,6 +1005,105 @@
         "N33.4",
         "N33.5",
         "N33.7"
+      ]
+    }
+  ],
+  "checkpoint_n34_archived": {
+    "phase": "prerequisites",
+    "current_task": null,
+    "last_completed_task": null,
+    "sprint": "N34",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "5bd745613663c201fc3e922a661f0604913ff4d8",
+      "stamped_at": "2026-06-18T18:12:23Z"
+    }
+  },
+  "sprint_tasks_n34_archived": [
+    {
+      "id": "N34.1",
+      "status": "pending",
+      "size": "M",
+      "title": "Onboarding model + migration + state/step enums",
+      "file": "app/Models/Onboarding.php"
+    },
+    {
+      "id": "N34.2",
+      "status": "pending",
+      "size": "M",
+      "title": "OnboardingSaga orchestrator via PlatformPort + Actions",
+      "file": "app/Modules/Onboarding/Saga/OnboardingSaga.php",
+      "depends": [
+        "N34.1"
+      ]
+    },
+    {
+      "id": "N34.3",
+      "status": "pending",
+      "size": "M",
+      "title": "POST /v1/onboarding + FormRequest + idempotency",
+      "file": "app/Http/Controllers/Api/V1/OnboardingV1Controller.php",
+      "depends": [
+        "N34.1",
+        "N34.2"
+      ]
+    },
+    {
+      "id": "N34.4",
+      "status": "pending",
+      "size": "M",
+      "title": "GET /v1/onboarding/{id} status endpoint",
+      "file": "routes/api_v1.php",
+      "depends": [
+        "N34.1"
+      ]
+    },
+    {
+      "id": "N34.5",
+      "status": "pending",
+      "size": "M",
+      "title": "Readiness gate integration between saga steps",
+      "file": "app/Modules/Customers/Services/CustomerReadinessProbe.php",
+      "depends": [
+        "N34.2"
+      ]
+    },
+    {
+      "id": "N34.6",
+      "status": "pending",
+      "size": "P",
+      "title": "OpenAPI external + CONTRACTS-V1 onboarding schemas",
+      "file": "docs/openapi-external.yaml",
+      "depends": [
+        "N34.3",
+        "N34.4"
+      ]
+    },
+    {
+      "id": "N34.7",
+      "status": "pending",
+      "size": "M",
+      "title": "Feature tests + characterization suite",
+      "file": "tests/Feature/Api/V1/OnboardingSagaTest.php",
+      "depends": [
+        "N34.3",
+        "N34.4",
+        "N34.5"
+      ]
+    },
+    {
+      "id": "N34.8",
+      "status": "pending",
+      "size": "P",
+      "title": "Runbook docs/runbooks/onboarding-saga.md",
+      "file": "docs/runbooks/onboarding-saga.md",
+      "depends": [
+        "N34.2"
       ]
     }
   ]
