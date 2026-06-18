@@ -33,9 +33,9 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N33 planejada",
-  "sprint_atual": "N33",
-  "previous_sprint": "N32",
+  "fase_nome": "N33 validada",
+  "sprint_atual": null,
+  "previous_sprint": "N33",
   "sprint_branch": null,
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
@@ -196,74 +196,11 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "phase": "ready",
+    "phase": "validated",
     "current_task": null,
-    "last_completed_task": null
+    "last_completed_task": "N33.8"
   },
-  "sprint_tasks": [
-    {
-      "id": "N33.1",
-      "status": "pending",
-      "size": "P",
-      "title": "OpenAPI gate + Deprecation/Sunset legacy",
-      "file": "docs/openapi-external.yaml"
-    },
-    {
-      "id": "N33.2",
-      "status": "pending",
-      "size": "M",
-      "title": "CQ-N32-003 domain exceptions on PlatformPort",
-      "file": "app/Modules/Integration/Contracts/PlatformPort.php"
-    },
-    {
-      "id": "N33.3",
-      "status": "pending",
-      "size": "M",
-      "title": "Migrate RemoveCustomerAction → port",
-      "file": "app/Modules/Customers/Actions/RemoveCustomerAction.php",
-      "depends": ["N33.2"]
-    },
-    {
-      "id": "N33.4",
-      "status": "pending",
-      "size": "M",
-      "title": "Migrate SyncWebhookSecret + AgentEventHandler",
-      "file": "app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php",
-      "depends": ["N33.2"]
-    },
-    {
-      "id": "N33.5",
-      "status": "pending",
-      "size": "M",
-      "title": "Migrate ProvisionCustomerAction SFTP → adapter",
-      "file": "app/Modules/Customers/Actions/ProvisionCustomerAction.php",
-      "depends": ["N33.2"]
-    },
-    {
-      "id": "N33.6",
-      "status": "pending",
-      "size": "M",
-      "title": "v1 quota capability + apps/users via port",
-      "file": "routes/api_v1.php",
-      "depends": ["N33.2", "N33.5"]
-    },
-    {
-      "id": "N33.7",
-      "status": "pending",
-      "size": "M",
-      "title": "OccController admin-only via Integration adapter",
-      "file": "app/Http/Controllers/Api/OccController.php",
-      "depends": ["N33.6"]
-    },
-    {
-      "id": "N33.8",
-      "status": "pending",
-      "size": "P",
-      "title": "Strict grep gate + characterization CI",
-      "file": "scripts/grep-gate-adapters.sh",
-      "depends": ["N33.3", "N33.4", "N33.5", "N33.7"]
-    }
-  ],
+  "sprint_tasks": [],
   "validation_gate": {
     "sprint": "F15",
     "produced_by": "/qa validar F15 R2 via /rock",
@@ -285,12 +222,24 @@
     {
       "timestamp": "2026-06-18T16:30:00Z",
       "action": "/pmo plan — ISSUE-038 Fase 3",
-      "sprints_generated": ["N33"],
-      "sprint_stubs": ["N34"],
-      "issues_in_scope": ["ISSUE-038"],
-      "findings_in_scope": ["CQ-N32-003"],
+      "sprints_generated": [
+        "N33"
+      ],
+      "sprint_stubs": [
+        "N34"
+      ],
+      "issues_in_scope": [
+        "ISSUE-038"
+      ],
+      "findings_in_scope": [
+        "CQ-N32-003"
+      ],
       "split_strategy": "ADR Fase 3 → N33 (8 tasks: 2P + 6M); residual grep gate + CQ-N32-003",
-      "tasks_count": { "P": 2, "M": 6, "total": 8 },
+      "tasks_count": {
+        "P": 2,
+        "M": 6,
+        "total": 8
+      },
       "review_level": "senior+qa",
       "gate": "/occ/* fora openapi-external; mutação via PlatformPort; grep gate estrito; D-02 capability_not_available"
     },
@@ -947,6 +896,91 @@
         "N32.3",
         "N32.4",
         "N32.5"
+      ]
+    }
+  ],
+  "checkpoint_n33_archived": {
+    "phase": "ready",
+    "current_task": null,
+    "last_completed_task": null
+  },
+  "sprint_tasks_n33_archived": [
+    {
+      "id": "N33.1",
+      "status": "pending",
+      "size": "P",
+      "title": "OpenAPI gate + Deprecation/Sunset legacy",
+      "file": "docs/openapi-external.yaml"
+    },
+    {
+      "id": "N33.2",
+      "status": "pending",
+      "size": "M",
+      "title": "CQ-N32-003 domain exceptions on PlatformPort",
+      "file": "app/Modules/Integration/Contracts/PlatformPort.php"
+    },
+    {
+      "id": "N33.3",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate RemoveCustomerAction → port",
+      "file": "app/Modules/Customers/Actions/RemoveCustomerAction.php",
+      "depends": [
+        "N33.2"
+      ]
+    },
+    {
+      "id": "N33.4",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate SyncWebhookSecret + AgentEventHandler",
+      "file": "app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php",
+      "depends": [
+        "N33.2"
+      ]
+    },
+    {
+      "id": "N33.5",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate ProvisionCustomerAction SFTP → adapter",
+      "file": "app/Modules/Customers/Actions/ProvisionCustomerAction.php",
+      "depends": [
+        "N33.2"
+      ]
+    },
+    {
+      "id": "N33.6",
+      "status": "pending",
+      "size": "M",
+      "title": "v1 quota capability + apps/users via port",
+      "file": "routes/api_v1.php",
+      "depends": [
+        "N33.2",
+        "N33.5"
+      ]
+    },
+    {
+      "id": "N33.7",
+      "status": "pending",
+      "size": "M",
+      "title": "OccController admin-only via Integration adapter",
+      "file": "app/Http/Controllers/Api/OccController.php",
+      "depends": [
+        "N33.6"
+      ]
+    },
+    {
+      "id": "N33.8",
+      "status": "pending",
+      "size": "P",
+      "title": "Strict grep gate + characterization CI",
+      "file": "scripts/grep-gate-adapters.sh",
+      "depends": [
+        "N33.3",
+        "N33.4",
+        "N33.5",
+        "N33.7"
       ]
     }
   ]
