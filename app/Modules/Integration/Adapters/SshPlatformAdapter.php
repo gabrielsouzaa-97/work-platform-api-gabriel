@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Integration\Adapters;
 
-use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
@@ -15,7 +14,6 @@ use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
-use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Integration\Contracts\PlatformPort;
 use App\Modules\Integration\Dto\AsyncJobRef;
 use App\Modules\Integration\Dto\BrandingResult;
@@ -40,7 +38,6 @@ use App\Modules\Integration\Dto\SyncTenantCommand;
 use App\Modules\Integration\Dto\SyncTenantResult;
 use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 final class SshPlatformAdapter implements PlatformPort
 {
@@ -223,7 +220,7 @@ final class SshPlatformAdapter implements PlatformPort
             return new SyncTenantResult;
         }
 
-        return new SyncTenantResult(...$this->applyTenantSync($cluster, $instances));
+        return new SyncTenantResult(instances: $instances);
     }
 
     public function runOccPassthrough(OccPassthroughCommand $command): OccPassthroughResult
@@ -359,116 +356,6 @@ final class SshPlatformAdapter implements PlatformPort
         $this->observability->recordDispatch(TransportObservability::TRANSPORT_SSH, $jobId);
 
         return new AsyncJobRef($jobId);
-    }
-
-    /**
-     * @return array{0: int, 1: int, 2: int}
-     */
-    private function applyTenantSync(ClusterServer $cluster, array $instances): array
-    {
-        $upstream = $this->parseUpstreamInstances($instances);
-        $upstreamSlugs = array_column($upstream, 'slug');
-        $inserted = 0;
-        $updated = 0;
-        $deleted = 0;
-
-        $existing = Customer::where('cluster_server_id', $cluster->id)
-            ->get()
-            ->keyBy('slug');
-
-        foreach ($upstream as $u) {
-            $local = $existing->get($u['slug']);
-            if (! $local) {
-                Customer::create([
-                    'slug' => $u['slug'],
-                    'cluster_server_id' => $cluster->id,
-                    'domain' => $u['domain'],
-                    'status' => $u['status'],
-                    'last_sync_at' => now(),
-                ]);
-                $inserted++;
-                $this->auditTenantSync('customer_sync_inserted', $u['slug'], $u, $cluster->id);
-            } elseif ($local->status !== $u['status'] || $local->domain !== $u['domain']) {
-                $updates = [
-                    'domain' => $u['domain'],
-                    'last_sync_at' => now(),
-                ];
-
-                if (! in_array($local->status, CustomerLifecycleStatus::USER_OPS_BLOCKED, true)) {
-                    $updates['status'] = $u['status'];
-                }
-
-                $local->update($updates);
-                $updated++;
-                $this->auditTenantSync('customer_sync_updated', $u['slug'], [
-                    'new_status' => $u['status'],
-                    'new_domain' => $u['domain'],
-                ], $cluster->id);
-            } else {
-                $local->update(['last_sync_at' => now()]);
-            }
-        }
-
-        Customer::where('cluster_server_id', $cluster->id)
-            ->whereNotIn('slug', $upstreamSlugs)
-            ->whereNull('deleted_at')
-            ->each(function (Customer $c) use (&$deleted, $cluster): void {
-                $previousStatus = $c->status;
-                $c->update(['status' => 'removed']);
-                $c->delete();
-                $deleted++;
-                $this->auditTenantSync('customer_sync_removed', $c->slug, [
-                    'previous_status' => $previousStatus,
-                ], $cluster->id);
-            });
-
-        return [$inserted, $updated, $deleted];
-    }
-
-    /**
-     * @return list<array{slug: string, domain: string, status: string}>
-     */
-    private function parseUpstreamInstances(array $instances): array
-    {
-        $upstream = [];
-        foreach ($instances as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-            $slug = (string) ($entry['name'] ?? '');
-            if (! preg_match('/^[a-z0-9][a-z0-9_-]*$/', $slug)) {
-                continue;
-            }
-            $upstream[] = [
-                'slug' => $slug,
-                'domain' => (string) ($entry['domain'] ?? ''),
-                'status' => $this->translateInstanceStatus((string) ($entry['status'] ?? '')),
-            ];
-        }
-
-        return $upstream;
-    }
-
-    private function translateInstanceStatus(string $upstreamStatus): string
-    {
-        return match ($upstreamStatus) {
-            'running' => 'active',
-            'stopped' => 'removed',
-            default => $upstreamStatus,
-        };
-    }
-
-    private function auditTenantSync(string $action, string $slug, array $payload, string $clusterId): void
-    {
-        AuditLog::create([
-            'id' => Str::uuid()->toString(),
-            'actor_id' => null,
-            'action' => $action,
-            'resource_type' => 'customer',
-            'resource_id' => $slug,
-            'payload' => $payload,
-            'cluster_server_id' => $clusterId,
-        ]);
     }
 
     /**

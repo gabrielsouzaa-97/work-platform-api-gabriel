@@ -21,6 +21,7 @@ use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class RemoveCustomerAction
@@ -97,7 +98,7 @@ final class RemoveCustomerAction
         $jobId = $resp->parsedJson['job_id']
             ?? throw new \RuntimeException('SSH did not return job_id in response');
 
-        return DB::transaction(function () use ($customer, $cluster, $jobId, $idempotencyKey, $actor, $backupFirst): Job {
+        return DB::transaction(function () use ($customer, $cluster, $jobId, $idempotencyKey, $correlationId, $actor, $backupFirst): Job {
             $customer->update(['status' => 'removing']);
 
             $job = Job::create([

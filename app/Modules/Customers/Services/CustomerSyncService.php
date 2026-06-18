@@ -11,7 +11,10 @@ use App\Modules\Integration\Services\PlatformPortFactory;
 
 final class CustomerSyncService
 {
-    public function __construct(private readonly PlatformPortFactory $factory) {}
+    public function __construct(
+        private readonly PlatformPortFactory $factory,
+        private readonly TenantReplicaSynchronizer $synchronizer,
+    ) {}
 
     /**
      * Syncs the local customer replica for a given cluster against the upstream.
@@ -31,9 +34,13 @@ final class CustomerSyncService
         $result = $this->factory->for($cluster)->syncTenant(new SyncTenantCommand($cluster));
 
         $report = new SyncReport;
-        $report->inserted = $result->inserted;
-        $report->updated = $result->updated;
-        $report->deleted = $result->deleted;
+
+        if ($result->instances !== null) {
+            $counts = $this->synchronizer->apply($cluster, $result->instances);
+            $report->inserted = $counts['inserted'];
+            $report->updated = $counts['updated'];
+            $report->deleted = $counts['deleted'];
+        }
 
         return $report;
     }

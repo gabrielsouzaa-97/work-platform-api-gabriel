@@ -324,3 +324,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-06-18 11:27** `49be7e7` — docs(sprint-N32): planning output + session stamps
 - **2026-06-18 11:28** `49be7e7` — docs(sprint-N32): planning output + session stamps
 - **2026-06-18 11:41** `49be7e7` — docs(sprint-N32): planning output + session stamps
+- **2026-06-18 11:47** `491f5d9` — feat(sprint-N32): PlatformPort migration waves + transport observability
