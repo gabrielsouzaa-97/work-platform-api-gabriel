@@ -5,13 +5,17 @@ declare(strict_types=1);
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Onboarding;
+use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Contracts\ProvisionsCustomer;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
+use Illuminate\Support\Str;
 
 beforeEach(function (): void {
     if (config('app.key') === '' || config('app.key') === null) {
@@ -35,6 +39,12 @@ function readinessGateOnboarding(string $slug = 'readiness-gate-acme'): Onboardi
                 'job_id' => 'job-provision-1',
             ],
         ],
+        'admin_payload' => [
+            'username' => 'admin-user',
+            'password' => 'Secret123!',
+            'email' => "admin@{$slug}.example.com",
+        ],
+        'apps_enabled' => ['calendar'],
     ]);
 }
 
@@ -55,7 +65,12 @@ function readinessGateSaga(): OnboardingSaga
     $provision = Mockery::mock(ProvisionsCustomer::class);
     $provision->shouldIgnoreMissing();
 
-    return new OnboardingSaga($provision, app(CustomerReadinessProbe::class));
+    return new OnboardingSaga(
+        $provision,
+        app(CustomerReadinessProbe::class),
+        app(LifecycleAsyncAction::class),
+        app(PlatformPortFactory::class),
+    );
 }
 
 function mockReadinessProbeSsh(int $exitCode): void
@@ -91,14 +106,29 @@ it('advanceAfterProvision advances to create_admin when tenant is ready', functi
     $slug = 'readiness-ready';
     $onboarding = readinessGateOnboarding($slug);
     readinessGateCustomer($slug, 'active');
-    mockReadinessProbeSsh(0);
+    Operator::factory()->create();
+    $adminJobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []));
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['job_id' => $adminJobId]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['job_id' => $adminJobId],
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
 
     readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
 
     $onboarding->refresh();
     expect($onboarding->current_step)->toBe(OnboardingStep::CreateAdmin)
         ->and($onboarding->steps['wait_readiness']['status'])->toBe('completed')
-        ->and($onboarding->steps['create_admin']['status'])->toBe('pending');
+        ->and($onboarding->steps['create_admin']['status'])->toBe('running');
 });
 
 it('advanceAfterProvision ignores onboarding not at wait_readiness step', function (): void {

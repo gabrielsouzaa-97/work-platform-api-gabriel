@@ -9,6 +9,7 @@ use App\Models\Onboarding;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Jobs\Services\WebhookHandler;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
@@ -245,4 +246,34 @@ it('GET /api/v1/onboarding/{id} exposes skipped branding step in step list', fun
     $brandingStep = collect($steps)->firstWhere('name', 'set_branding');
     expect($brandingStep)->not->toBeNull()
         ->and($brandingStep['status'])->toBe('skipped');
+});
+
+it('provision job failure marks onboarding state failed', function (): void {
+    $cluster = makeOnboardingSagaCluster();
+    $slug = 'onboard-fail-'.substr(uniqid(), -6);
+    $provisionJobId = Str::uuid()->toString();
+    mockOnboardingSagaSshAsync($provisionJobId);
+    $rawToken = createOnboardingSagaApiKey(scopes: ['onboarding:run'], allowedTenantSlugs: [$slug]);
+
+    $create = $this->postJson(
+        '/api/v1/onboarding',
+        validOnboardingSagaPayload($cluster, $slug),
+        onboardingSagaBearer($rawToken),
+    );
+    $onboardingId = assertOnboardingSagaAsyncEnvelope($create);
+
+    $noop = Mockery::mock(SshClientInterface::class);
+    $noop->shouldReceive('run')->andReturn(new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []));
+    app()->instance(SshClientInterface::class, $noop);
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $provisionJobId,
+        'state' => 'failed',
+        'exit_code' => 1,
+    ]);
+
+    $onboarding = Onboarding::query()->findOrFail($onboardingId);
+    expect($onboarding->state)->toBe(OnboardingState::Failed)
+        ->and($onboarding->steps['provision_tenant']['status'])->toBe('failed');
 });

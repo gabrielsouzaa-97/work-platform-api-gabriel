@@ -7,9 +7,13 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Onboarding;
 use App\Models\Operator;
+use App\Modules\Core\Ssh\Dto\SshResponse;
+use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Contracts\ProvisionsCustomer;
 use App\Modules\Customers\Dto\ProvisionPayload;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Modules\Onboarding\Dto\OnboardingSpec;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
@@ -30,6 +34,8 @@ function sagaSpec(ClusterServer $cluster): OnboardingSpec
         clusterServerId: $cluster->id,
         apps: ['files'],
         fullApps: false,
+        adminUsername: 'saga-admin',
+        adminPassword: 'Secret123!',
         adminEmail: 'admin@saga-tenant.example.com',
         adminDisplayName: 'Saga Admin',
     );
@@ -66,7 +72,12 @@ function mockProvisionReturns(string $jobId, string $slug, ClusterServer $cluste
 
 function sagaWithMockedProbe(ProvisionsCustomer $provision): OnboardingSaga
 {
-    return new OnboardingSaga($provision, app(CustomerReadinessProbe::class));
+    return new OnboardingSaga(
+        $provision,
+        app(CustomerReadinessProbe::class),
+        app(LifecycleAsyncAction::class),
+        app(PlatformPortFactory::class),
+    );
 }
 
 it('starts onboarding pending or running with first step provision_tenant', function (): void {
@@ -102,6 +113,19 @@ it('advances to wait_readiness after provision dispatch', function (): void {
     expect($onboarding->current_step)->toBe(OnboardingStep::WaitReadiness);
 });
 
+it('persists encrypted admin_payload on start', function (): void {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $operator = Operator::factory()->create();
+    $provision = mockProvisionReturns(Str::uuid()->toString(), 'saga-tenant', $cluster);
+
+    $onboarding = sagaWithMockedProbe($provision)->start(sagaSpec($cluster), $operator);
+
+    expect($onboarding->admin_payload)->toBeArray()
+        ->and($onboarding->admin_payload['username'])->toBe('saga-admin')
+        ->and($onboarding->admin_payload['email'])->toBe('admin@saga-tenant.example.com')
+        ->and($onboarding->apps_enabled)->toBe(['files']);
+});
+
 it('sets correlation_id equal to onboarding uuid', function (): void {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
     $operator = Operator::factory()->create();
@@ -112,4 +136,62 @@ it('sets correlation_id equal to onboarding uuid', function (): void {
 
     expect($onboarding->correlation_id)->toBe($onboarding->id)
         ->and(Job::find($jobId)?->correlation_id)->toBe($onboarding->id);
+});
+
+it('dispatches users:create after readiness gate passes', function (): void {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $slug = 'admin-dispatch-'.substr(uniqid(), -6);
+    $adminJobId = Str::uuid()->toString();
+
+    $onboarding = Onboarding::factory()->create([
+        'tenant_slug' => $slug,
+        'state' => OnboardingState::Running,
+        'current_step' => OnboardingStep::WaitReadiness,
+        'steps' => ['provision_tenant' => ['job_id' => Str::uuid()->toString()]],
+        'admin_payload' => [
+            'username' => 'admin-user',
+            'password' => 'Secret123!',
+            'email' => "admin@{$slug}.example.com",
+        ],
+        'apps_enabled' => ['calendar'],
+    ]);
+
+    Customer::create([
+        'slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'domain' => "{$slug}.example.com",
+        'status' => 'active',
+    ]);
+
+    Operator::factory()->create();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []));
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($c, $cmd, $args, $stdin) use ($slug): bool {
+            return $cmd === 'nextcloud-manage'
+                && $args[0] === $slug
+                && $args[1] === 'user'
+                && $args[2] === 'create'
+                && in_array('admin-user', $args, true)
+                && str_contains((string) $stdin, 'Secret123!');
+        })
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['job_id' => $adminJobId]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['job_id' => $adminJobId],
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    app(OnboardingSaga::class)->advanceAfterProvision($onboarding->fresh());
+
+    $onboarding->refresh();
+    expect($onboarding->current_step)->toBe(OnboardingStep::CreateAdmin)
+        ->and($onboarding->steps['create_admin']['job_id'] ?? null)->toBe($adminJobId)
+        ->and($onboarding->steps['create_admin']['status'] ?? null)->toBe('running')
+        ->and(Job::find($adminJobId)?->correlation_id)->toBe($onboarding->correlation_id);
 });

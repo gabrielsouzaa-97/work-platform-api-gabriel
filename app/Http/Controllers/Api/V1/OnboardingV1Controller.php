@@ -91,9 +91,27 @@ final class OnboardingV1Controller extends Controller
             clusterServerId: $request->string('tenant.cluster_server_id')->toString(),
             apps: $request->input('apps_enabled', []),
             fullApps: false,
+            adminUsername: $request->string('admin.username')->toString(),
+            adminPassword: $request->string('admin.password')->toString(),
             adminEmail: $request->string('admin.email')->toString(),
             adminDisplayName: $request->string('admin.username')->toString(),
+            brandingFields: $this->brandingFieldsFrom($request),
         );
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    private function brandingFieldsFrom(CreateOnboardingRequest $request): ?array
+    {
+        $fields = [];
+        foreach (['name', 'color', 'url'] as $field) {
+            if ($request->filled("branding.{$field}")) {
+                $fields[$field] = $request->string("branding.{$field}")->toString();
+            }
+        }
+
+        return $fields === [] ? null : $fields;
     }
 
     private function resolveIdempotencyKey(CreateOnboardingRequest $request): string

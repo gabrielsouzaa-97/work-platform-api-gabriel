@@ -54,7 +54,7 @@ it('persists onboarding row with enum casts and steps json', function (): void {
 it('creates onboardings table with saga persistence columns', function (): void {
     expect(Schema::hasTable('onboardings'))->toBeTrue();
     $columns = Schema::getColumnListing('onboardings');
-    foreach (['id', 'tenant_slug', 'correlation_id', 'state', 'current_step', 'steps', 'idempotency_key', 'api_key_id', 'created_at', 'updated_at'] as $column) {
+    foreach (['id', 'tenant_slug', 'correlation_id', 'state', 'current_step', 'steps', 'idempotency_key', 'api_key_id', 'admin_payload', 'apps_enabled', 'branding_fields', 'created_at', 'updated_at'] as $column) {
         expect($columns)->toContain($column);
     }
 });

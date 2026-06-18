@@ -42,6 +42,13 @@ class Onboarding extends Model
         'steps',
         'idempotency_key',
         'api_key_id',
+        'admin_payload',
+        'apps_enabled',
+        'branding_fields',
+    ];
+
+    protected $hidden = [
+        'admin_payload',
     ];
 
     protected function casts(): array
@@ -50,6 +57,9 @@ class Onboarding extends Model
             'state' => OnboardingState::class,
             'current_step' => OnboardingStep::class,
             'steps' => 'array',
+            'admin_payload' => 'encrypted:array',
+            'apps_enabled' => 'array',
+            'branding_fields' => 'array',
         ];
     }
 

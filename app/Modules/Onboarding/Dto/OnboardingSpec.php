@@ -12,8 +12,11 @@ final readonly class OnboardingSpec
         public string $clusterServerId,
         public array $apps,
         public bool $fullApps,
+        public string $adminUsername,
+        public string $adminPassword,
         public string $adminEmail,
         public string $adminDisplayName,
+        public ?array $brandingFields = null,
         public ?string $logoPath = null,
         public ?string $backgroundPath = null,
     ) {}

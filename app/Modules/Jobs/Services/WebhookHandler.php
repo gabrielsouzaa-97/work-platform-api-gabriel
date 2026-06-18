@@ -13,6 +13,7 @@ use App\Models\Onboarding;
 use App\Modules\Core\Translators\StateTranslator;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Jobs\Dto\WebhookPayload;
+use App\Modules\Onboarding\Enums\OnboardingStep;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -225,11 +226,14 @@ final class WebhookHandler
 
         if ($probeCustomerSlug !== null) {
             ProbeCustomerReadinessJob::dispatch($probeCustomerSlug);
-            $this->advanceOnboardingReadinessGate($job);
+        }
+
+        if (! $isSummaryRecoveryRetry) {
+            $this->handleOnboardingTerminalJob($job->fresh(), $canonical);
         }
     }
 
-    private function advanceOnboardingReadinessGate(Job $job): void
+    private function handleOnboardingTerminalJob(Job $job, string $canonical): void
     {
         if ($job->correlation_id === null) {
             return;
@@ -241,6 +245,24 @@ final class WebhookHandler
             return;
         }
 
-        $this->onboardingSaga->advanceAfterProvision($onboarding);
+        if ($job->job_type === 'provision') {
+            if (in_array($canonical, ['failed', 'cancelled'], true)) {
+                $this->onboardingSaga->markStepFailed(
+                    $onboarding,
+                    OnboardingStep::ProvisionTenant,
+                    $canonical,
+                );
+
+                return;
+            }
+
+            if ($canonical === 'success') {
+                $this->onboardingSaga->advanceAfterProvision($onboarding);
+            }
+
+            return;
+        }
+
+        $this->onboardingSaga->handleTerminalJob($job, $canonical);
     }
 }
