@@ -86,6 +86,8 @@ final class CustomerController extends Controller
             }
 
             return response()->json(['error' => 'state_conflict'], 409);
+        } catch (ClusterUnreachableException) {
+            return RenderDomainError::clusterUnreachableResponse($request);
         } catch (SshRemoteException $e) {
             return RenderDomainError::mapSshRemoteException($e, $request);
         }

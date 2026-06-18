@@ -125,7 +125,8 @@ it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', fu
         exitCode: 0,
         parsedJson: [],
     ));
-    $probe = new CustomerReadinessProbe($ssh);
+    app()->instance(SshClientInterface::class, $ssh);
+    $probe = app(CustomerReadinessProbe::class);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE)
@@ -148,7 +149,8 @@ it('ProbeCustomerReadinessJob keeps finishing when probe returns non-zero exit',
         exitCode: 1,
         parsedJson: null,
     ));
-    $probe = new CustomerReadinessProbe($ssh);
+    app()->instance(SshClientInterface::class, $ssh);
+    $probe = app(CustomerReadinessProbe::class);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -166,7 +168,8 @@ it('ProbeCustomerReadinessJob marks failed when deadline exceeded', function () 
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('run');
-    $probe = new CustomerReadinessProbe($ssh);
+    app()->instance(SshClientInterface::class, $ssh);
+    $probe = app(CustomerReadinessProbe::class);
     (new ProbeCustomerReadinessJob($customer->slug, now()->subSecond()->timestamp))->handle($probe);
 
     expect($customer->fresh()->status)->toBe('failed')
@@ -210,7 +213,9 @@ it('CustomerSyncService does not overwrite provisioning_finishing with active fr
         parsedJson: $payload,
     ));
 
-    $report = (new CustomerSyncService($ssh))->sync($cluster);
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $report = app(CustomerSyncService::class)->sync($cluster);
 
     expect($report->updated)->toBe(1)
         ->and(Customer::find('finishing-co')->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
@@ -242,7 +247,9 @@ it('CustomerSyncService does not overwrite provisioning with active from upstrea
         parsedJson: $payload,
     ));
 
-    (new CustomerSyncService($ssh))->sync($cluster);
+    app()->instance(SshClientInterface::class, $ssh);
+
+    app(CustomerSyncService::class)->sync($cluster);
 
     expect(Customer::find('still-provisioning')->status)->toBe(CustomerLifecycleStatus::PROVISIONING);
 });

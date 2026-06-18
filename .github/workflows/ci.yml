@@ -43,6 +43,9 @@ jobs:
       - name: Pint (code style)
         run: ./vendor/bin/pint --test
 
+      - name: Grep gate (platform adapters)
+        run: bash scripts/grep-gate-adapters.sh
+
   test:
     name: Test (Pest/PHPUnit)
     runs-on: ubuntu-latest

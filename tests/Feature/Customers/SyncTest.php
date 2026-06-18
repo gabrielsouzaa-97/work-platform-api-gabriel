@@ -31,7 +31,7 @@ function upstreamInstance(string $name, string $domain, string $status = 'runnin
     return ['name' => $name, 'domain' => $domain, 'status' => $status];
 }
 
-function makeSyncSshMock(array $parsedJson, int $exitCode = 0): SshClientInterface
+function makeSyncSshMock(array $parsedJson, int $exitCode = 0): CustomerSyncService
 {
     $mock = Mockery::mock(SshClientInterface::class);
     $mock->shouldReceive('run')
@@ -44,7 +44,9 @@ function makeSyncSshMock(array $parsedJson, int $exitCode = 0): SshClientInterfa
             parsedJson: $parsedJson,
         ));
 
-    return $mock;
+    app()->instance(SshClientInterface::class, $mock);
+
+    return app(CustomerSyncService::class);
 }
 
 it('cron sync insere customer upstream não presente local', function () {
@@ -54,7 +56,7 @@ it('cron sync insere customer upstream não presente local', function () {
         upstreamInstance('acme-new', 'acme-new.example.com'),
     ]);
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $report = $svc->sync($cluster);
 
     expect($report->inserted)->toBe(1)
@@ -74,7 +76,7 @@ it('status running do upstream é traduzido para active local', function () {
         upstreamInstance('my-org', 'my-org.example.com', 'running'),
     ]);
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $svc->sync($cluster);
 
     expect(Customer::find('my-org')->status)->toBe('active');
@@ -94,7 +96,7 @@ it('status stopped do upstream é traduzido para removed local', function () {
         upstreamInstance('paused-org', 'paused.example.com', 'stopped'),
     ]);
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $report = $svc->sync($cluster);
 
     expect($report->updated)->toBe(1);
@@ -112,7 +114,7 @@ it('shared_services são ignorados e não inserem customers', function () {
         ]
     );
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $report = $svc->sync($cluster);
 
     expect($report->inserted)->toBe(1);
@@ -133,7 +135,7 @@ it('cron sync soft-deleta customer presente local mas não no upstream', functio
 
     $payload = upstreamJson([]);
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $report = $svc->sync($cluster);
 
     expect($report->deleted)->toBe(1);
@@ -146,8 +148,9 @@ it('cluster offline → CustomerSyncService lança SshConnectionException', func
 
     $sshMock = Mockery::mock(SshClientInterface::class);
     $sshMock->shouldReceive('run')->andThrow(new SshConnectionException('Connection refused'));
+    app()->instance(SshClientInterface::class, $sshMock);
 
-    $svc = new CustomerSyncService($sshMock);
+    $svc = app(CustomerSyncService::class);
 
     expect(fn () => $svc->sync($cluster))->toThrow(SshConnectionException::class);
 });
@@ -174,7 +177,7 @@ it('instâncias com name inválido no JSON são ignoradas', function () {
         ['domain' => 'no-name.example.com', 'status' => 'running'],
     ]);
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $report = $svc->sync($cluster);
 
     expect($report->inserted)->toBe(1);
@@ -191,7 +194,7 @@ it('name com dígitos e hífens é aceito pelo parser JSON', function () {
         upstreamInstance('acme-corp-2', 'acme-corp-2.example.com'),
     ]);
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $report = $svc->sync($cluster);
 
     expect($report->inserted)->toBe(2);
@@ -211,7 +214,7 @@ it('resposta sem chave instances aborta sync sem alterar dados locais', function
 
     $payload = ['schema_version' => '1', 'unexpected_key' => []];
 
-    $svc = new CustomerSyncService(makeSyncSshMock($payload));
+    $svc = makeSyncSshMock($payload);
     $report = $svc->sync($cluster);
 
     expect($report->inserted)->toBe(0)
@@ -240,8 +243,9 @@ it('resposta não-JSON (parsedJson null) aborta sync sem alterar dados locais', 
             exitCode: 0,
             parsedJson: null,
         ));
+    app()->instance(SshClientInterface::class, $sshMock);
 
-    $svc = new CustomerSyncService($sshMock);
+    $svc = app(CustomerSyncService::class);
     $report = $svc->sync($cluster);
 
     expect($report->inserted)->toBe(0)

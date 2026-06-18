@@ -12,6 +12,7 @@ use App\Models\Operator;
 use App\Modules\Agents\Exceptions\AgentTransportException;
 use App\Modules\Agents\Services\AgentTransportResolver;
 use App\Modules\Agents\Services\AgentUpstreamGateway;
+use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\JobTypeTranslator;
@@ -56,6 +57,8 @@ final class RemoveCustomerAction
 
         $cluster = $customer->clusterServer;
         $idempotencyKey = (string) Str::uuid();
+        $correlationId = (string) Str::uuid();
+        Log::withContext(['correlation_id' => $correlationId]);
         $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
         // [E1,E4] nextcloud-manage <client> _ remove --force [--backup-first] --async --json
@@ -82,6 +85,8 @@ final class RemoveCustomerAction
             }
         } catch (AgentTransportException) {
             throw new ClusterUnreachableException;
+        } catch (SshConnectionException) {
+            throw new ClusterUnreachableException;
         } catch (SshRemoteException $e) {
             if ($e->stateConflict) {
                 throw new StateConflictException($e->parsedJson['diff'] ?? []);
@@ -103,6 +108,7 @@ final class RemoveCustomerAction
                 'job_type' => $this->translator->cmdToJobType('remove'),
                 'state' => 'queued',
                 'idempotency_key' => $idempotencyKey,
+                'correlation_id' => $correlationId,
                 'payload_sanitized' => ['backup_first' => $backupFirst],
                 'queued_at' => now(),
             ]);
@@ -122,7 +128,11 @@ final class RemoveCustomerAction
                 'action' => 'remove_initiated',
                 'resource_type' => 'customer',
                 'resource_id' => $customer->slug,
-                'payload' => ['backup_first' => $backupFirst, 'severity' => 'high'],
+                'payload' => [
+                    'backup_first' => $backupFirst,
+                    'severity' => 'high',
+                    'correlation_id' => $correlationId,
+                ],
                 'cluster_server_id' => $cluster->id,
                 'job_id' => $jobId,
             ]);

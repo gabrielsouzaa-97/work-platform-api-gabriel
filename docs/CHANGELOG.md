@@ -315,3 +315,12 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-05-28 23:59** `1437314` — chore(session): clear sprint F12 after merge
 - **2026-05-29 00:01** `1437314` — chore(session): clear sprint F12 after merge
 - **2026-05-29 14:41** `e2f5c16` — chore(config): update Dockerfile, session and context snapshot files
+- **2026-06-18 01:37** `a882a57` — chore(sprint-N31): close sprint after QA validation and PR #116 merge
+- **2026-06-18 01:38** `a882a57` — chore(sprint-N31): close sprint after QA validation and PR #116 merge
+- **2026-06-18 03:09** `a882a57` — chore(sprint-N31): close sprint after QA validation and PR #116 merge
+- **2026-06-18 05:28** `a882a57` — chore(sprint-N31): close sprint after QA validation and PR #116 merge
+- **2026-06-18 10:26** `49be7e7` — docs(sprint-N32): planning output + session stamps
+- **2026-06-18 11:21** `49be7e7` — docs(sprint-N32): planning output + session stamps
+- **2026-06-18 11:27** `49be7e7` — docs(sprint-N32): planning output + session stamps
+- **2026-06-18 11:28** `49be7e7` — docs(sprint-N32): planning output + session stamps
+- **2026-06-18 11:41** `49be7e7` — docs(sprint-N32): planning output + session stamps

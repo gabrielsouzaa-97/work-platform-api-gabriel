@@ -26,6 +26,7 @@ class Job extends Model
         'job_type',
         'state',
         'idempotency_key',
+        'correlation_id',
         'payload_sanitized',
         'summary',
         'exit_code',

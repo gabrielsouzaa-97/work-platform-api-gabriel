@@ -6,7 +6,8 @@ namespace App\Console\Commands;
 
 use App\Models\ClusterServer;
 use App\Modules\Core\Ssh\Exceptions\SshClientException;
-use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Integration\Dto\ProbeClusterHealthCommand;
+use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Console\Command;
 
 class ClusterHealthCheckCommand extends Command
@@ -15,7 +16,7 @@ class ClusterHealthCheckCommand extends Command
 
     protected $description = 'Run SSH health check on all active cluster servers and update status + last_health_at';
 
-    public function __construct(private readonly SshClientInterface $ssh)
+    public function __construct(private readonly PlatformPortFactory $factory)
     {
         parent::__construct();
     }
@@ -26,8 +27,10 @@ class ClusterHealthCheckCommand extends Command
 
         foreach ($clusters as $cluster) {
             try {
-                $resp = $this->ssh->ping($cluster, 10);
-                $status = $resp->exitCode === 0 ? 'active' : 'unreachable';
+                $report = $this->factory->for($cluster)->probeClusterHealth(
+                    new ProbeClusterHealthCommand($cluster, 10),
+                );
+                $status = $report->exitCode === 0 ? 'active' : 'unreachable';
             } catch (SshClientException) {
                 $status = 'unreachable';
             }

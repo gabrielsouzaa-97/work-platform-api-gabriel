@@ -34,7 +34,7 @@ final class PlatformPortFactory
         array $manageArgs,
         ?string $stdinJson,
     ): AsyncJobRef {
-        return $this->sshAdapter->dispatchManageAsync(
+        return $this->for($cluster)->dispatchManageAsync(
             new ManageAsyncCommand($cluster, $manageArgs, $stdinJson),
         );
     }

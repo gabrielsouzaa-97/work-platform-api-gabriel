@@ -52,6 +52,8 @@ final class ProvisionCustomerAction
         }
 
         $idempotencyKey = (string) Str::uuid();
+        $correlationId = (string) Str::uuid();
+        Log::withContext(['correlation_id' => $correlationId]);
         $callbackUrl = config('app.url').'/api/jobs/hook?cluster='.$cluster->id;
 
         $args = [
@@ -159,7 +161,7 @@ final class ProvisionCustomerAction
 
         $jobId = $jobRef->jobId;
 
-        return DB::transaction(function () use ($payload, $cluster, $jobId, $idempotencyKey, $actor): array {
+        return DB::transaction(function () use ($payload, $cluster, $jobId, $idempotencyKey, $correlationId, $actor): array {
             // If a ghost (soft-deleted) Customer exists from a previous failed provisioning,
             // restore it and update its fields instead of forceDelete + re-create.
             // forceDelete would violate jobs.customer_slug FK RESTRICT (jobs from the
@@ -198,6 +200,7 @@ final class ProvisionCustomerAction
                 'job_type' => $this->translator->cmdToJobType('create'),
                 'state' => 'queued',
                 'idempotency_key' => $idempotencyKey,
+                'correlation_id' => $correlationId,
                 'payload_sanitized' => [
                     'slug' => $payload->slug,
                     'domain' => $payload->domain,
@@ -219,7 +222,9 @@ final class ProvisionCustomerAction
                 'action' => 'provision_initiated',
                 'resource_type' => 'customer',
                 'resource_id' => $payload->slug,
-                'payload' => $job->payload_sanitized,
+                'payload' => array_merge($job->payload_sanitized ?? [], [
+                    'correlation_id' => $correlationId,
+                ]),
                 'cluster_server_id' => $cluster->id,
                 'job_id' => $jobId,
             ]);
