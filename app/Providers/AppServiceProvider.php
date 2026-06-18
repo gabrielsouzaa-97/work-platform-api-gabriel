@@ -10,6 +10,8 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Ssh\SshConnectionPool;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Core\Translators\StateTranslator;
+use App\Modules\Customers\Actions\ProvisionCustomerAction;
+use App\Modules\Customers\Contracts\ProvisionsCustomer;
 use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
@@ -35,6 +37,8 @@ class AppServiceProvider extends ServiceProvider
                 connectTimeoutSeconds: config('services.ssh.connect_timeout_seconds', 30),
             );
         });
+
+        $this->app->bind(ProvisionsCustomer::class, ProvisionCustomerAction::class);
 
         $this->app->bind(SshClientInterface::class, SshClient::class);
 

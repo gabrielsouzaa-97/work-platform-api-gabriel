@@ -11,6 +11,7 @@ use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
 use App\Modules\Core\Translators\JobTypeTranslator;
+use App\Modules\Customers\Contracts\ProvisionsCustomer;
 use App\Modules\Customers\Dto\ProvisionPayload;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
@@ -26,7 +27,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-final class ProvisionCustomerAction
+final class ProvisionCustomerAction implements ProvisionsCustomer
 {
     private const MAX_PAYLOAD_STDIN_BYTES = 262144;
 
