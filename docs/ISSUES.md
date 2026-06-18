@@ -112,7 +112,7 @@ Decisão do painel (resumo — detalhe no ADR):
 
 ### Próximo passo
 
-Sprint 0 (N30) entregue — aliases `/v1` + DomainError + `openapi-external.yaml`. **Próximo**: `/pmo sprint iniciar N31` (PlatformPort mínimo + branding via port). Fases 2–4 → N32–N34 (stubs no ROADMAP).
+Sprint 0 (N30) e Fase 1 (N31) entregues — PlatformPort mínimo + branding via port (PR #116). **Próximo**: `/pmo sprint iniciar N32` (Fase 2 — ondas migração + observabilidade). Fases 3–4 → N33–N34.
 
 ## ISSUE-039 — CI vermelho no `main` (regressão N19 + phpseclib)
 

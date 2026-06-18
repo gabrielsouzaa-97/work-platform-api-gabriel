@@ -87,7 +87,7 @@
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
-| N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | planejada | — | Integration, Jobs, Core | Depende N31 | — |
+| N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **planejada** | 8 | Integration, Jobs, Customers, Core | ISSUE-038 Fase 2; grep gate + `correlation_id` | 4682+ |
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | planejada | — | Customers, Core | Depende N32 + D-02 | — |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | planejada | — | TenantLifecycle | Depende N33 + D-02 resolvido | — |
 
@@ -4668,21 +4668,80 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 
 ---
 
+## Sprint N32 — ISSUE-038 Fase 2: Ondas de migração + observabilidade transporte
+
+> Categoria: N
+> Status: **planejada** (gerada via `/pmo plan` 2026-06-18)
+> Gate: **grep gate** no CI — `SshClientInterface` / `AgentUpstreamGateway` usados **somente** em `app/Modules/Integration/Adapters/*`; characterization tests verdes para ondas (a)(b)(c); `correlation_id` propagado `dispatch → webhook → audit`; alerta/métrica de job não-terminal > SLA (60s staging) e hook de paridade SSH vs Agent; **sem regressão** em suite Pest existente
+> Fonte: **ISSUE-038** Fase 2 + ADR `.arch-panel/panel/final.md` §4 (Fase 2) + carry-over SEC-N30-003/004
+> review: **senior+qa** (migração cross-module + observabilidade operacional)
+> Pré-requisito: **N31** ✓ (PR #116, validation R1 APROVADA)
+> Bloqueia: Sprint **N33** (despublicar `/occ/*`)
+> Fora de escopo N32: saga `/v1/onboarding` (N34); expandir allowlist D-02 (ISSUE-016); `RemoveCustomerAction` / `SyncWebhookSecretAction` / `AgentEventHandler` (grep gate residual → fast-track pós-N32 ou N33); despublicar rotas `/occ/*` do spec externo
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | N32.1 — Estender `PlatformPort` + DTOs (`fetchJobLogs`, `cancelJob`, `pollJobStatus`, `syncTenant`, `runOccPassthrough` tipado) — **sem** `execOcc` genérico na interface | `modular-architecture` | — |
+| [ ] | M | N32.2 — Characterization tests ondas (a)+(b): `OccPassthroughService`, `CustomerReadinessProbe`, `JobLogFetcher`, `CancelJobAction`, `CustomerSyncService` | `laravel-testing` | — |
+| [ ] | M | N32.3 — Onda (a): migrar `OccPassthroughService` + `CustomerReadinessProbe` → `PlatformPort` | `laravel-api` | N32.1, N32.2 |
+| [ ] | M | N32.4 — Onda (b): migrar `JobLogFetcher` + `CancelJobAction` + `CustomerSyncService` → `PlatformPort` | `laravel-api` | N32.1, N32.2 |
+| [ ] | M | N32.5 — Onda (c): characterization + migrar `JobsPollStuckCommand`, `ClusterHealthCheckCommand`, Livewire `OccPanel` + `ClusterServers\Index` | `laravel-livewire` | N32.1, N32.3 |
+| [ ] | M | N32.6 — `correlation_id` ponta-a-ponta (`onboarding_id` → `job_id` → `operation_id`) em dispatch, webhook, `AuditLog`, eventos Agent | `laravel-api` | N32.4 |
+| [ ] | M | N32.7 — Observabilidade operacional: métrica/alerta job preso > SLA; webhook ausente pós-dispatch; hook comparação outcome SSH vs Agent por `job_type` | `laravel-api` | N32.6 |
+| [ ] | P | N32.8 — CI grep gate adapters + fast-track SEC-N30-003/004 (erros `DELETE /v1/tenants` legados sanitizados) | `ci-automations` | N32.3–N32.5 |
+
+### Ondas ADR (referência)
+
+| Onda | Superfícies | Critério |
+|------|-------------|----------|
+| (a) | `OccPassthroughService`, `CustomerReadinessProbe` | sync OCC + readiness via port; characterization verde |
+| (b) | `JobLogFetcher`, `CancelJobAction`, `CustomerSyncService` | polling/cancel/sync via port; paridade F10 logs |
+| (c) | `JobsPollStuckCommand`, `ClusterHealthCheckCommand`, `OccPanel`, `ClusterServers\Index` | console/Livewire sem `SshClient` direto |
+
+### Residual grep gate (pós-N32 ou fast-track)
+
+| Arquivo | Decisão |
+|---------|---------|
+| `RemoveCustomerAction` | N33 ou fast-track se bloquear grep |
+| `SyncWebhookSecretAction` | idem |
+| `AgentEventHandler` | idem — eventos Agent podem usar port dedicado |
+
+### Task N32.1 — Estender contrato PlatformPort
+
+**Estado atual**: port com 4 métodos (`createTenant`, `enableApps`, `setBranding`, `probeReadiness`); ondas (a–c) ainda injetam `SshClientInterface` / `AgentUpstreamGateway` diretamente.
+**Estado desejado**: métodos tipados para logs/cancel/sync/passthrough OCC; adapters delegam ao código existente; interface **sem** `execOcc(OccCommand)`.
+**Critério de pronto**: DTOs + interface compilam; adapters retornam mesmo comportamento que hoje (stubs OK até N32.3–N32.5).
+
+### Task N32.6 — correlation_id
+
+**Estado atual**: IDs existem em modelos/jobs mas não propagam consistentemente em logs e audit cross-boundary.
+**Estado desejado**: header/context `X-Correlation-Id` ou campo estruturado em `Log::withContext`; webhook e `AuditLog` persistem `correlation_id` ligando dispatch upstream.
+**Critério de pronto**: teste feature prova mesma `correlation_id` em `Job` criado, log de webhook e entrada `audit_logs` para um provisionamento.
+
+### Task N32.8 — Grep gate CI
+
+**Estado atual**: sem enforcement mecânico; ~10 arquivos fora de `Integration/Adapters` referenciam transporte direto.
+**Estado desejado**: script CI falha se `SshClientInterface` ou `AgentUpstreamGateway` aparecer fora de `app/Modules/Integration/Adapters/` (allowlist explícita para testes/mocks).
+**Critério de pronto**: job CI verde após ondas (a–c); lista allowlist documentada no script.
+
+---
+
 ## Roadmap ISSUE-038 — Fases posteriores (stubs)
 
-> Detalhamento completo via `/pmo plan` quando N30 estiver validada. Fonte: ADR `final.md` §4.
+> Fonte: ADR `final.md` §4. N32 detalhada acima.
 
 | Sprint | Fase ADR | Gate resumido | Bloqueio |
 |--------|----------|---------------|----------|
-| **N31** | Fase 1 — PlatformPort mínimo | `PUT /v1/tenants/{slug}/branding` 100% via port; characterization tests | N30 + D-02 (branding) |
-| **N32** | Fase 2 — Ondas + observabilidade | grep gate adapters; `correlation_id`; alertas job preso | N31 |
-| **N33** | Fase 3 — Despublicar `/occ/*` | `/occ/*` fora do spec externo; capabilities mutação via port | N32 + D-02 |
-| **N34** | Fase 4 — Saga onboarding | `POST /v1/onboarding` idempotente + runbook parcial | N33 + D-02 resolvido |
+| **N31** | Fase 1 — PlatformPort mínimo | `PUT /v1/tenants/{slug}/branding` 100% via port | ✅ concluída |
+| **N32** | Fase 2 — Ondas + observabilidade | grep gate; `correlation_id`; alertas | N31 ✅ |
+| **N33** | Fase 3 — Despublicar `/occ/*` | `/occ/*` fora do spec externo; mutação via port | N32 + D-02 |
+| **N34** | Fase 4 — Saga onboarding | `POST /v1/onboarding` idempotente + runbook | N33 + D-02 |
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-18 | 0.28   | Sprint N32 planejada — ISSUE-038 Fase 2 (8 tasks: ondas migração PlatformPort + observabilidade + grep gate CI). | `/pmo plan` |
 | 2026-06-17 | 0.27   | Sprint N30 concluída — ISSUE-038 Sprint 0 (`/api/v1` + DomainError + openapi-external); PR #115; 2 HIGH R1 corrigidos (`CQ-N30-001`, `SEC-N30-001`). | sprint-finalizer |
 | 2026-06-17 | 0.26   | Sprint N30 planejada — ISSUE-038 Sprint 0 (`/api/v1` aliases + DomainError + spec externo); stubs N31–N34; F15 índice → concluída. | `/pmo plan` |
 | 2026-06-02 | 0.24   | Sync FINDINGS + ROADMAP: F5.11 `[x]`, F5/F11 no índice; F9 APROVADA R1; F10/F12 notas; F5 `/qa validar R3` pendente. | /pmo sync |
