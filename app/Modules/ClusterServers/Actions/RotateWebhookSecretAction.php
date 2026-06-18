@@ -9,6 +9,7 @@ use App\Models\ClusterServer;
 use App\Models\WebhookSecretHistory;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use App\Modules\Core\Ssh\Exceptions\SshClientException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -69,6 +70,7 @@ final class RotateWebhookSecretAction
         try {
             $this->syncAction->execute($cluster, $cluster->webhook_secret_encrypted);
         } catch (\Throwable $e) {
+            $reportable = $e instanceof UpstreamUnavailableException ? ($e->getPrevious() ?? $e) : $e;
             AuditLog::create([
                 'id' => Str::uuid()->toString(),
                 'actor_id' => $actorId,
@@ -76,7 +78,7 @@ final class RotateWebhookSecretAction
                 'resource_type' => 'cluster_server',
                 'resource_id' => $cluster->id,
                 'payload' => [
-                    'error_category' => SshClientException::auditCategoryFor($e),
+                    'error_category' => SshClientException::auditCategoryFor($reportable),
                     'version' => $new->version,
                 ],
             ]);

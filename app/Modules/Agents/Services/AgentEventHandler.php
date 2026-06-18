@@ -66,7 +66,7 @@ final class AgentEventHandler
             $error = $this->resolveFailureMessage($event, $data);
             if ($error !== null) {
                 Cache::put(
-                    AgentUpstreamGateway::resultCacheKey($operationId),
+                    AgentOperationResultCache::key($operationId),
                     ['error' => $error],
                     120,
                 );
@@ -90,7 +90,7 @@ final class AgentEventHandler
         }
 
         Cache::put(
-            AgentUpstreamGateway::resultCacheKey($operationId),
+            AgentOperationResultCache::key($operationId),
             ['job_id' => $data['job_id']],
             120,
         );

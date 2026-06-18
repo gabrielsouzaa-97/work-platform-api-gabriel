@@ -28,6 +28,7 @@ abstract class TestCase extends BaseTestCase
         parent::refreshApplication();
 
         $this->app->make('config')->set([
+            'app.env' => 'testing',
             'database.default' => 'sqlite',
             'database.connections.sqlite.database' => ':memory:',
         ]);

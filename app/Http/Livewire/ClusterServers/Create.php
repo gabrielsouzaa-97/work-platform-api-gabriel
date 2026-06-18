@@ -10,6 +10,7 @@ use App\Models\WebhookSecretHistory;
 use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use App\Modules\Core\Ssh\Exceptions\SshClientException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +40,12 @@ class Create extends Component
     /** @var string PEM — Canal B (ncsaas-sftp). Optional at creation; required when branding upload is needed. */
     public string $sftp_private_key = '';
 
+    /** @internal PHPUnit/Livewire tests only — never set in production UI */
+    public ?string $testPemOverride = null;
+
+    /** @internal Base64 PEM for Livewire test transport (avoids newline snapshot issues) */
+    public ?string $testPemOverrideBase64 = null;
+
     protected array $rules = [
         'name' => ['required', 'string', 'min:3', 'max:255'],
         'ssh_host' => ['required', 'string', 'max:255'],
@@ -50,13 +57,20 @@ class Create extends Component
     public function save(
         WebhookSecretGenerator $secretGen,
         SyncWebhookSecretAction $syncAction,
-        ?string $testPemOverride = null,
     ): mixed {
         Gate::authorize('manage-cluster-servers');
         $this->validate();
 
-        // PEM: form POST (name= in blade). testPemOverride is accepted only under PHPUnit.
-        $pemOverride = app()->runningUnitTests() ? $testPemOverride : null;
+        // PEM: form POST (name= in blade) or Livewire test helpers (testing env only).
+        $pemOverride = null;
+        if (config('app.env') === 'testing') {
+            if (is_string($this->testPemOverrideBase64) && $this->testPemOverrideBase64 !== '') {
+                $decoded = base64_decode($this->testPemOverrideBase64, true);
+                $pemOverride = is_string($decoded) && $decoded !== '' ? $decoded : null;
+            } else {
+                $pemOverride = $this->testPemOverride;
+            }
+        }
         $pem = trim((string) ($pemOverride ?? request()->input('ssh_private_key', '')));
         if ($pem === '' && $this->ssh_private_key !== '') {
             $pem = $this->ssh_private_key;
@@ -114,6 +128,7 @@ class Create extends Component
             $syncAction->execute($cluster, $plainSecret);
         } catch (\Throwable $e) {
             $cluster->update(['status' => 'error']);
+            $reportable = $e instanceof UpstreamUnavailableException ? ($e->getPrevious() ?? $e) : $e;
             Log::channel('security')->warning('cluster_server.secret_sync_failed', [
                 'cluster_id' => $cluster->id,
                 'error' => $e->getMessage(),
@@ -124,11 +139,11 @@ class Create extends Component
                 'action' => 'cluster_server.secret_sync_failed',
                 'resource_type' => 'cluster_server',
                 'resource_id' => $cluster->id,
-                'payload' => ['error_category' => SshClientException::auditCategoryFor($e)],
+                'payload' => ['error_category' => SshClientException::auditCategoryFor($reportable)],
             ]);
             $this->addError(
                 'ssh_private_key',
-                'Cluster salvo mas falha ao sincronizar webhook secret: '.SshClientException::userMessageFor($e),
+                'Cluster salvo mas falha ao sincronizar webhook secret: '.SshClientException::userMessageFor($reportable),
             );
 
             return null;
