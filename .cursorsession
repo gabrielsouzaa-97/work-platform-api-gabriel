@@ -33,8 +33,8 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N32 validada",
-  "sprint_atual": null,
+  "fase_nome": "N33 planejada",
+  "sprint_atual": "N33",
   "previous_sprint": "N32",
   "sprint_branch": null,
   "beesy_version": "4.55.1",
@@ -43,7 +43,7 @@
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
   "ultimo_update": "2026-06-18T15:15:14Z",
-  "next_sprint_planned": "N32",
+  "next_sprint_planned": "N34",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -56,7 +56,7 @@
     "VERIFY — CI verde no PR sprint/N30",
     "Pós-merge: smoke opcional no lab deployer.mework360.com.br"
   ],
-  "contexto_rapido": "Sprint N32 planejada (ISSUE-038 Fase 2: ondas PlatformPort + observabilidade). N31 validada. F10.3 deploy pendente (ISSUE-023). Framework 4.55.1.",
+  "contexto_rapido": "Sprint N33 planejada (ISSUE-038 Fase 3: despublicar /occ/* + mutação via port + grep gate estrito). N32 validada PR #117. Carry-over CQ-N32-003 → N33.2.",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
@@ -196,11 +196,74 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "phase": "validated",
+    "phase": "ready",
     "current_task": null,
-    "last_completed_task": "N32.8"
+    "last_completed_task": null
   },
-  "sprint_tasks": [],
+  "sprint_tasks": [
+    {
+      "id": "N33.1",
+      "status": "pending",
+      "size": "P",
+      "title": "OpenAPI gate + Deprecation/Sunset legacy",
+      "file": "docs/openapi-external.yaml"
+    },
+    {
+      "id": "N33.2",
+      "status": "pending",
+      "size": "M",
+      "title": "CQ-N32-003 domain exceptions on PlatformPort",
+      "file": "app/Modules/Integration/Contracts/PlatformPort.php"
+    },
+    {
+      "id": "N33.3",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate RemoveCustomerAction → port",
+      "file": "app/Modules/Customers/Actions/RemoveCustomerAction.php",
+      "depends": ["N33.2"]
+    },
+    {
+      "id": "N33.4",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate SyncWebhookSecret + AgentEventHandler",
+      "file": "app/Modules/ClusterServers/Actions/SyncWebhookSecretAction.php",
+      "depends": ["N33.2"]
+    },
+    {
+      "id": "N33.5",
+      "status": "pending",
+      "size": "M",
+      "title": "Migrate ProvisionCustomerAction SFTP → adapter",
+      "file": "app/Modules/Customers/Actions/ProvisionCustomerAction.php",
+      "depends": ["N33.2"]
+    },
+    {
+      "id": "N33.6",
+      "status": "pending",
+      "size": "M",
+      "title": "v1 quota capability + apps/users via port",
+      "file": "routes/api_v1.php",
+      "depends": ["N33.2", "N33.5"]
+    },
+    {
+      "id": "N33.7",
+      "status": "pending",
+      "size": "M",
+      "title": "OccController admin-only via Integration adapter",
+      "file": "app/Http/Controllers/Api/OccController.php",
+      "depends": ["N33.6"]
+    },
+    {
+      "id": "N33.8",
+      "status": "pending",
+      "size": "P",
+      "title": "Strict grep gate + characterization CI",
+      "file": "scripts/grep-gate-adapters.sh",
+      "depends": ["N33.3", "N33.4", "N33.5", "N33.7"]
+    }
+  ],
   "validation_gate": {
     "sprint": "F15",
     "produced_by": "/qa validar F15 R2 via /rock",
@@ -219,6 +282,18 @@
     "stamped_at": "2026-06-17T01:30:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-06-18T16:30:00Z",
+      "action": "/pmo plan — ISSUE-038 Fase 3",
+      "sprints_generated": ["N33"],
+      "sprint_stubs": ["N34"],
+      "issues_in_scope": ["ISSUE-038"],
+      "findings_in_scope": ["CQ-N32-003"],
+      "split_strategy": "ADR Fase 3 → N33 (8 tasks: 2P + 6M); residual grep gate + CQ-N32-003",
+      "tasks_count": { "P": 2, "M": 6, "total": 8 },
+      "review_level": "senior+qa",
+      "gate": "/occ/* fora openapi-external; mutação via PlatformPort; grep gate estrito; D-02 capability_not_available"
+    },
     {
       "timestamp": "2026-06-17T12:00:00Z",
       "action": "/pmo plan — ISSUE-038",
@@ -744,7 +819,7 @@
     }
   ],
   "funnel_state": {
-    "current_sprint": "N32",
+    "current_sprint": "N33",
     "completed_sprints": [],
     "skipped": [],
     "git_head": "49be7e785fe582a055521406d2c0f3198cfc261c",

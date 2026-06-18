@@ -112,7 +112,7 @@ Decisão do painel (resumo — detalhe no ADR):
 
 ### Próximo passo
 
-Sprint 0 (N30), Fase 1 (N31) e Fase 2 (N32) entregues — ondas migração PlatformPort + observabilidade transporte + grep gate CI (PR #117; 82 tests Docker; CI run `27768621255` verde). **Próximo**: `/pmo sprint iniciar N33` (Fase 3 — despublicar `/occ/*` + capabilities mutação). Fase 4 → N34. Carry-over arquitetural: `CQ-N32-003` (exceções de transporte na interface `PlatformPort`).
+Sprint 0 (N30), Fase 1 (N31) e Fase 2 (N32) entregues — ondas migração PlatformPort + observabilidade transporte + grep gate CI (PR #117; 82 tests Docker; CI run `27768621255` verde). **Próximo**: `/pmo sprint iniciar N33` (Fase 3 — despublicar `/occ/*` + capabilities mutação via port; 8 tasks planejadas em ROADMAP §N33). Fase 4 → N34. Carry-over: **CQ-N32-003** (exceções transporte na interface `PlatformPort` → N33.2).
 
 ## ISSUE-039 — CI vermelho no `main` (regressão N19 + phpseclib)
 
