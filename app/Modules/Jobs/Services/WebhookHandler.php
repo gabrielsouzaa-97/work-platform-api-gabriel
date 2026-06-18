@@ -9,9 +9,11 @@ use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
+use App\Models\Onboarding;
 use App\Modules\Core\Translators\StateTranslator;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Jobs\Dto\WebhookPayload;
+use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +28,7 @@ final class WebhookHandler
         private readonly StateTranslator $stateTranslator,
         private readonly JobLogFetcher $jobLogFetcher,
         private readonly TransportObservability $observability,
+        private readonly OnboardingSaga $onboardingSaga,
     ) {}
 
     public function handle(ClusterServer $cluster, array $rawPayload): void
@@ -222,6 +225,22 @@ final class WebhookHandler
 
         if ($probeCustomerSlug !== null) {
             ProbeCustomerReadinessJob::dispatch($probeCustomerSlug);
+            $this->advanceOnboardingReadinessGate($job);
         }
+    }
+
+    private function advanceOnboardingReadinessGate(Job $job): void
+    {
+        if ($job->correlation_id === null) {
+            return;
+        }
+
+        $onboarding = Onboarding::query()->find($job->correlation_id);
+
+        if ($onboarding === null) {
+            return;
+        }
+
+        $this->onboardingSaga->advanceAfterProvision($onboarding);
     }
 }

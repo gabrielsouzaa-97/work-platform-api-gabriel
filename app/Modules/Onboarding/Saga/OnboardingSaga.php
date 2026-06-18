@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Onboarding\Saga;
 
+use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Onboarding;
 use App\Models\Operator;
 use App\Modules\Customers\Contracts\ProvisionsCustomer;
 use App\Modules\Customers\Dto\ProvisionPayload;
+use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Onboarding\Dto\OnboardingSpec;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
@@ -16,8 +18,13 @@ use Illuminate\Support\Str;
 
 final class OnboardingSaga
 {
+    private const TENANT_NOT_READY_REASON = 'tenant_not_ready';
+
+    private const CAPABILITY_NOT_AVAILABLE = 'capability_not_available';
+
     public function __construct(
         private readonly ProvisionsCustomer $provisionCustomerAction,
+        private readonly CustomerReadinessProbe $readinessProbe,
     ) {}
 
     public function start(
@@ -36,6 +43,60 @@ final class OnboardingSaga
         $this->recordProvisionStep($onboarding, $result['job']->job_id);
 
         return $onboarding->fresh();
+    }
+
+    public function advanceAfterProvision(Onboarding $onboarding): void
+    {
+        if ($onboarding->current_step !== OnboardingStep::WaitReadiness) {
+            return;
+        }
+
+        $customer = Customer::query()->find($onboarding->tenant_slug);
+
+        if ($customer === null) {
+            return;
+        }
+
+        if (! $this->readinessProbe->isReady($customer)) {
+            $this->markWaitReadinessPending($onboarding);
+
+            return;
+        }
+
+        $this->advanceToCreateAdmin($onboarding);
+    }
+
+    public function advanceAfterProvisionForSlug(string $tenantSlug): void
+    {
+        $onboarding = Onboarding::query()
+            ->where('tenant_slug', $tenantSlug)
+            ->where('current_step', OnboardingStep::WaitReadiness)
+            ->whereIn('state', [OnboardingState::Running, OnboardingState::Pending])
+            ->first();
+
+        if ($onboarding === null) {
+            return;
+        }
+
+        $this->advanceAfterProvision($onboarding);
+    }
+
+    public function skipBrandingWhenBlocked(Onboarding $onboarding): void
+    {
+        if ($onboarding->current_step !== OnboardingStep::SetBranding) {
+            return;
+        }
+
+        $steps = $this->stepsFor($onboarding);
+        $steps['set_branding'] = [
+            'status' => 'skipped',
+            'reason' => self::CAPABILITY_NOT_AVAILABLE,
+        ];
+
+        $onboarding->update([
+            'state' => OnboardingState::Partial,
+            'steps' => $steps,
+        ]);
     }
 
     private function createOnboarding(
@@ -85,5 +146,63 @@ final class OnboardingSaga
                 ],
             ],
         ]);
+    }
+
+    private function markWaitReadinessPending(Onboarding $onboarding): void
+    {
+        $steps = $this->stepsFor($onboarding);
+        $steps['provision_tenant'] = $this->mergeStepMeta(
+            $steps['provision_tenant'] ?? [],
+            ['status' => 'completed'],
+        );
+        $steps['wait_readiness'] = [
+            'status' => 'pending',
+            'reason' => self::TENANT_NOT_READY_REASON,
+            'retry_after' => $this->readinessRetryAfterSeconds(),
+        ];
+
+        $onboarding->update([
+            'current_step' => OnboardingStep::WaitReadiness,
+            'steps' => $steps,
+        ]);
+    }
+
+    private function advanceToCreateAdmin(Onboarding $onboarding): void
+    {
+        $steps = $this->stepsFor($onboarding);
+        $steps['provision_tenant'] = $this->mergeStepMeta(
+            $steps['provision_tenant'] ?? [],
+            ['status' => 'completed'],
+        );
+        $steps['wait_readiness'] = ['status' => 'completed'];
+        $steps['create_admin'] = ['status' => 'pending'];
+
+        $onboarding->update([
+            'current_step' => OnboardingStep::CreateAdmin,
+            'steps' => $steps,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function stepsFor(Onboarding $onboarding): array
+    {
+        return is_array($onboarding->steps) ? $onboarding->steps : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    private function mergeStepMeta(array $existing, array $meta): array
+    {
+        return array_merge($existing, $meta);
+    }
+
+    private function readinessRetryAfterSeconds(): int
+    {
+        return (int) config('services.customer_readiness.retry_after_seconds', 60);
     }
 }

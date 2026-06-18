@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Models\ClusterServer;
+use App\Models\Customer;
+use App\Models\Onboarding;
+use App\Modules\Core\Ssh\Dto\SshResponse;
+use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Contracts\ProvisionsCustomer;
+use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Onboarding\Enums\OnboardingState;
+use App\Modules\Onboarding\Enums\OnboardingStep;
+use App\Modules\Onboarding\Saga\OnboardingSaga;
+
+beforeEach(function (): void {
+    if (config('app.key') === '' || config('app.key') === null) {
+        config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
+    }
+
+    config([
+        'services.customer_readiness.retry_after_seconds' => 60,
+        'services.customer_readiness.probe_timeout_seconds' => 25,
+    ]);
+});
+
+function readinessGateOnboarding(string $slug = 'readiness-gate-acme'): Onboarding
+{
+    return Onboarding::factory()->create([
+        'tenant_slug' => $slug,
+        'state' => OnboardingState::Running,
+        'current_step' => OnboardingStep::WaitReadiness,
+        'steps' => [
+            'provision_tenant' => [
+                'job_id' => 'job-provision-1',
+            ],
+        ],
+    ]);
+}
+
+function readinessGateCustomer(string $slug, string $status = 'provisioning_finishing'): Customer
+{
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+
+    return Customer::create([
+        'slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'domain' => "{$slug}.example.com",
+        'status' => $status,
+    ]);
+}
+
+function readinessGateSaga(): OnboardingSaga
+{
+    $provision = Mockery::mock(ProvisionsCustomer::class);
+    $provision->shouldIgnoreMissing();
+
+    return new OnboardingSaga($provision, app(CustomerReadinessProbe::class));
+}
+
+function mockReadinessProbeSsh(int $exitCode): void
+{
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: $exitCode === 0 ? '[]' : '',
+            stderr: $exitCode === 0 ? '' : 'not ready',
+            exitCode: $exitCode,
+            parsedJson: $exitCode === 0 ? [] : null,
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+}
+
+it('advanceAfterProvision marks wait_readiness pending when tenant is not ready', function (): void {
+    $slug = 'readiness-not-ready';
+    $onboarding = readinessGateOnboarding($slug);
+    readinessGateCustomer($slug);
+    mockReadinessProbeSsh(1);
+
+    readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
+
+    $onboarding->refresh();
+    expect($onboarding->current_step)->toBe(OnboardingStep::WaitReadiness)
+        ->and($onboarding->steps['wait_readiness']['status'])->toBe('pending')
+        ->and($onboarding->steps['wait_readiness']['reason'])->toBe('tenant_not_ready')
+        ->and($onboarding->steps['wait_readiness']['retry_after'])->toBe(60);
+});
+
+it('advanceAfterProvision advances to create_admin when tenant is ready', function (): void {
+    $slug = 'readiness-ready';
+    $onboarding = readinessGateOnboarding($slug);
+    readinessGateCustomer($slug, 'active');
+    mockReadinessProbeSsh(0);
+
+    readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
+
+    $onboarding->refresh();
+    expect($onboarding->current_step)->toBe(OnboardingStep::CreateAdmin)
+        ->and($onboarding->steps['wait_readiness']['status'])->toBe('completed')
+        ->and($onboarding->steps['create_admin']['status'])->toBe('pending');
+});
+
+it('advanceAfterProvision ignores onboarding not at wait_readiness step', function (): void {
+    $onboarding = Onboarding::factory()->create([
+        'current_step' => OnboardingStep::CreateAdmin,
+        'steps' => ['create_admin' => ['status' => 'pending']],
+    ]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
+
+    $onboarding->refresh();
+    expect($onboarding->current_step)->toBe(OnboardingStep::CreateAdmin);
+});

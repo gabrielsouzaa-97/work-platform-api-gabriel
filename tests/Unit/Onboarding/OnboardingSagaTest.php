@@ -9,6 +9,7 @@ use App\Models\Onboarding;
 use App\Models\Operator;
 use App\Modules\Customers\Contracts\ProvisionsCustomer;
 use App\Modules\Customers\Dto\ProvisionPayload;
+use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Onboarding\Dto\OnboardingSpec;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
@@ -63,12 +64,17 @@ function mockProvisionReturns(string $jobId, string $slug, ClusterServer $cluste
     return $mock;
 }
 
+function sagaWithMockedProbe(ProvisionsCustomer $provision): OnboardingSaga
+{
+    return new OnboardingSaga($provision, app(CustomerReadinessProbe::class));
+}
+
 it('starts onboarding pending or running with first step provision_tenant', function (): void {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
     $operator = Operator::factory()->create();
     $provision = mockProvisionReturns(Str::uuid()->toString(), 'saga-tenant', $cluster);
 
-    $onboarding = (new OnboardingSaga($provision))->start(sagaSpec($cluster), $operator);
+    $onboarding = sagaWithMockedProbe($provision)->start(sagaSpec($cluster), $operator);
 
     expect($onboarding)->toBeInstanceOf(Onboarding::class)
         ->and(in_array($onboarding->state, [OnboardingState::Pending, OnboardingState::Running], true))->toBeTrue()
@@ -81,7 +87,7 @@ it('records job_id per step in steps JSON', function (): void {
     $jobId = Str::uuid()->toString();
     $provision = mockProvisionReturns($jobId, 'saga-tenant', $cluster);
 
-    $onboarding = (new OnboardingSaga($provision))->start(sagaSpec($cluster), $operator);
+    $onboarding = sagaWithMockedProbe($provision)->start(sagaSpec($cluster), $operator);
 
     expect($onboarding->steps['provision_tenant']['job_id'] ?? null)->toBe($jobId);
 });
@@ -91,7 +97,7 @@ it('advances to wait_readiness after provision dispatch', function (): void {
     $operator = Operator::factory()->create();
     $provision = mockProvisionReturns(Str::uuid()->toString(), 'saga-tenant', $cluster);
 
-    $onboarding = (new OnboardingSaga($provision))->start(sagaSpec($cluster), $operator);
+    $onboarding = sagaWithMockedProbe($provision)->start(sagaSpec($cluster), $operator);
 
     expect($onboarding->current_step)->toBe(OnboardingStep::WaitReadiness);
 });
@@ -102,7 +108,7 @@ it('sets correlation_id equal to onboarding uuid', function (): void {
     $jobId = Str::uuid()->toString();
     $provision = mockProvisionReturns($jobId, 'saga-tenant', $cluster);
 
-    $onboarding = (new OnboardingSaga($provision))->start(sagaSpec($cluster), $operator);
+    $onboarding = sagaWithMockedProbe($provision)->start(sagaSpec($cluster), $operator);
 
     expect($onboarding->correlation_id)->toBe($onboarding->id)
         ->and(Job::find($jobId)?->correlation_id)->toBe($onboarding->id);

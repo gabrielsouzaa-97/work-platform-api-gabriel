@@ -5,9 +5,13 @@ declare(strict_types=1);
 use App\Models\ApiKey;
 use App\Models\ClusterServer;
 use App\Models\Customer;
+use App\Models\Onboarding;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Onboarding\Enums\OnboardingState;
+use App\Modules\Onboarding\Enums\OnboardingStep;
+use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -193,4 +197,52 @@ it('POST /api/v1/onboarding replay with same Idempotency-Key returns same onboar
 
     expect($secondId)->toBe($firstId);
     expect(Customer::where('slug', $slug)->count())->toBe(1);
+});
+
+it('skipBrandingWhenBlocked marks set_branding step skipped with capability_not_available', function (): void {
+    $onboarding = Onboarding::factory()->create([
+        'state' => OnboardingState::Running,
+        'current_step' => OnboardingStep::SetBranding,
+        'steps' => [
+            'provision_tenant' => ['status' => 'completed'],
+            'set_branding' => ['status' => 'running'],
+        ],
+    ]);
+
+    app(OnboardingSaga::class)->skipBrandingWhenBlocked($onboarding->fresh());
+
+    $onboarding->refresh();
+    expect($onboarding->state)->toBe(OnboardingState::Partial)
+        ->and($onboarding->steps['set_branding']['status'])->toBe('skipped')
+        ->and($onboarding->steps['set_branding']['reason'])->toBe('capability_not_available');
+});
+
+it('GET /api/v1/onboarding/{id} exposes skipped branding step in step list', function (): void {
+    $onboarding = Onboarding::factory()->create([
+        'state' => OnboardingState::Partial,
+        'current_step' => OnboardingStep::SetBranding,
+        'tenant_slug' => 'brand-skip-'.substr(uniqid(), -6),
+        'steps' => [
+            'set_branding' => [
+                'status' => 'skipped',
+                'reason' => 'capability_not_available',
+            ],
+        ],
+    ]);
+    $rawToken = createOnboardingSagaApiKey(
+        scopes: ['onboarding:run'],
+        allowedTenantSlugs: [$onboarding->tenant_slug],
+    );
+
+    $response = $this->getJson(
+        "/api/v1/onboarding/{$onboarding->id}",
+        onboardingSagaBearer($rawToken),
+    );
+
+    $response->assertOk();
+    $response->assertJsonPath('data.status', 'partial');
+    $steps = $response->json('data.steps');
+    $brandingStep = collect($steps)->firstWhere('name', 'set_branding');
+    expect($brandingStep)->not->toBeNull()
+        ->and($brandingStep['status'])->toBe('skipped');
 });

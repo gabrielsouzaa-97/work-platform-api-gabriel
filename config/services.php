@@ -53,6 +53,7 @@ return [
         'probe_timeout_seconds' => env('CUSTOMER_READINESS_PROBE_TIMEOUT', 30),
         'max_attempts' => env('CUSTOMER_READINESS_MAX_ATTEMPTS', 10),
         'max_wait_seconds' => env('CUSTOMER_READINESS_MAX_WAIT_SECONDS', 1200),
+        'retry_after_seconds' => env('CUSTOMER_READINESS_RETRY_AFTER_SECONDS', 60),
     ],
 
     'agent' => [
