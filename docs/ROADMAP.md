@@ -4755,7 +4755,7 @@ Critério de pronto: `php artisan test tests/Feature/Api/V1` verde; gate ADR rep
 | [x] | M | N33.2 — **CQ-N32-003**: exceções de domínio no `PlatformPort` (`UpstreamUnavailableException` etc.); adapters mapeiam SSH/Agent; interface **sem** `@throws` de transporte | `modular-architecture` | — |
 | [x] | M | N33.3 — Migrar `RemoveCustomerAction` → `PlatformPort::removeTenant` + characterization test | `laravel-api` | N33.2 |
 | [x] | M | N33.4 — Migrar `SyncWebhookSecretAction` + `AgentEventHandler` → métodos tipados no port/adapters | `laravel-api` | N33.2 |
-| [ ] | M | N33.5 — Migrar SFTP staging/inbox de `ProvisionCustomerAction` → adapter (`createTenant` path completo) | `laravel-api` | N33.2 |
+| [x] | M | N33.5 — Migrar SFTP staging/inbox de `ProvisionCustomerAction` → adapter (`createTenant` path completo) | `laravel-api` | N33.2 |
 | [ ] | M | N33.6 — v1 quota/users/apps: garantir mutações 100% via port; `PUT /v1/tenants/{slug}/users/{username}/quota` (D-02 → `capability_not_available`); testes v1 | `api-rest-patterns` | N33.2, N33.5 |
 | [ ] | M | N33.7 — `OccController` admin-only: passthrough via adapter de Integração **direto** (fora do spec externo); characterization + regressão DomainError | `laravel-api` | N33.6 |
 | [ ] | P | N33.8 — Grep gate **estrito**: remover WARN residual ou migrar; characterization suite N33 no CI; gate ADR Fase 3 fechado | `ci-automations` | N33.3–N33.7 |

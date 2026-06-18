@@ -10,15 +10,16 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
-use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
-use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
-use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Customers\Dto\ProvisionPayload;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Integration\Dto\BrandingStagingFiles;
 use App\Modules\Integration\Dto\CreateTenantCommand;
+use App\Modules\Integration\Exceptions\PortIdempotencyConflictException;
+use App\Modules\Integration\Exceptions\PortStateConflictException;
+use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -30,7 +31,6 @@ final class ProvisionCustomerAction
     private const MAX_PAYLOAD_STDIN_BYTES = 262144;
 
     public function __construct(
-        private readonly SshClientInterface $ssh,
         private readonly JobTypeTranslator $translator,
         private readonly PlatformPortFactory $platformPortFactory,
     ) {}
@@ -41,7 +41,7 @@ final class ProvisionCustomerAction
      * @throws ClusterUnreachableException
      * @throws IdempotencyConflictException
      * @throws StateConflictException
-     * @throws SshRemoteException
+     * @throws UpstreamUnavailableException
      */
     public function execute(ProvisionPayload $payload, Operator $actor): array
     {
@@ -75,44 +75,28 @@ final class ProvisionCustomerAction
         // Annexes: payloads that exceed SSH stdin cap go through SFTP staging (Canal B).
         $stdin = [];
         $stagingId = null;
+        $brandingStaging = null;
 
-        try {
-            if ($payload->logoPath || $payload->backgroundPath) {
-                $inlineStdin = ['branding' => $this->brandingPayloadFor($payload)];
+        if ($payload->logoPath || $payload->backgroundPath) {
+            $inlineStdin = ['branding' => $this->brandingPayloadFor($payload)];
 
-                if ($this->requiresSftp($payload, $inlineStdin)) {
-                    $stagingId = (string) Str::uuid();
-
-                    // Step 1 — init staging dir via Canal A
-                    $this->ssh->inboxInit($cluster, $stagingId);
-
-                    // Step 2 — upload files via Canal B (chroot-relative paths)
-                    if ($payload->logoPath) {
-                        $ext = $this->imageMimeFor($payload->logoPath) === 'image/jpeg' ? 'jpg' : 'png';
-                        $this->ssh->sftpUpload(
-                            $cluster,
-                            $payload->logoPath,
-                            $stagingId,
-                            "logo.{$ext}"
-                        );
-                    }
-                    if ($payload->backgroundPath) {
-                        $ext = $this->imageMimeFor($payload->backgroundPath) === 'image/jpeg' ? 'jpg' : 'png';
-                        $this->ssh->sftpUpload(
-                            $cluster,
-                            $payload->backgroundPath,
-                            $stagingId,
-                            "background.{$ext}"
-                        );
-                    }
-                    $args[] = "--staging-id={$stagingId}";
-                } else {
-                    $stdin = $inlineStdin;
-                    $args[] = '--payload-stdin';
-                }
+            if ($this->requiresSftp($payload, $inlineStdin)) {
+                $stagingId = (string) Str::uuid();
+                $brandingStaging = new BrandingStagingFiles(
+                    logoPath: $payload->logoPath,
+                    backgroundPath: $payload->backgroundPath,
+                    logoExtension: $payload->logoPath
+                        ? ($this->imageMimeFor($payload->logoPath) === 'image/jpeg' ? 'jpg' : 'png')
+                        : 'png',
+                    backgroundExtension: $payload->backgroundPath
+                        ? ($this->imageMimeFor($payload->backgroundPath) === 'image/jpeg' ? 'jpg' : 'png')
+                        : 'png',
+                );
+                $args[] = "--staging-id={$stagingId}";
+            } else {
+                $stdin = $inlineStdin;
+                $args[] = '--payload-stdin';
             }
-        } catch (SshConnectionException) {
-            throw new ClusterUnreachableException;
         }
 
         // Persist idempotency key BEFORE SSH call to prevent duplicate submissions.
@@ -147,15 +131,13 @@ final class ProvisionCustomerAction
                 manageArgs: $args,
                 stdinJson: $stdinJson,
                 stagingId: $stagingId,
+                brandingStaging: $brandingStaging,
             ));
-        } catch (SshRemoteException $e) {
-            if ($e->idempotencyConflict) {
-                $existingJobId = $e->parsedJson['existing_job_id'] ?? null;
-                throw new IdempotencyConflictException($existingJobId);
-            }
-            if ($e->stateConflict) {
-                throw new StateConflictException($e->parsedJson['diff'] ?? []);
-            }
+        } catch (PortIdempotencyConflictException $e) {
+            throw new IdempotencyConflictException($e->existingJobId);
+        } catch (PortStateConflictException $e) {
+            throw new StateConflictException($e->diff);
+        } catch (UpstreamUnavailableException $e) {
             throw $e;
         }
 
