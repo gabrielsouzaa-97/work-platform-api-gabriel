@@ -79,7 +79,7 @@
 | F7     | F         | Create cluster atômico; actor_id no AuditLog de rotate; teste erro "sem secret atual" | concluida | 3     | ClusterServers | CQ-N1-001/002 + QA-N1-001 — Rock 2026-06-09 | 3805+    |
 | F8     | F         | Provision success não marca tenant `active` antes de probe; `users:*` retorna 503 até readiness confirmada | **concluída** | 10    | Jobs, Customers, Webhook | ISSUE-010 — validada APROVADA R1 | 3865+    |
 | F9     | F         | 404 sob `/api/*` retorna JSON (sem depender de `Accept: application/json`) | **concluída** | 2     | Core (HTTP layer) | ISSUE-012 — validação APROVADA R1 (2026-05-24) | 4003+    |
-| F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **ativa** | 3     | Jobs, Core/Ssh | ISSUE-014 — F10.1–F10.2 done; **F10.3 deploy/ISSUE-023 pendente** | 4055+    |
+| F10    | F         | `JobLogFetcher` usa argv introspection `job <id> logs`; `/queue/{jobId}` exibe logs pós-deploy | **concluída** | 3     | Jobs, Core/Ssh | F10.3 validado LAB N35 (2026-06-19) | 4055+    |
 | F11    | F         | Slug reuse pós `provision.failed` + cleanup MEDIUM F5 | **concluída** | 6     | Customers, Core | ISSUE-018 — validação APROVADA R1 (2026-05-24) | 4082+    |
 | F12    | F         | `SshClient` normaliza exceções de transporte phpseclib durante `exec()` e reaplica retry | **concluída** | 1 | Core/Ssh, Customers | ISSUE-020 — código done; auditoria formal não registrada | 4227+    |
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
@@ -90,6 +90,7 @@
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | **concluída** | 8 | Integration, Customers, Core, ClusterServers, Agents | PR #117; validation R1 APROVADA; CQ-N32-003 validado | 4740+ |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | **concluída** | 8 | TenantLifecycle, Integration | branch `sprint/N34`; validation R2 APROVADA; CQ-N34-001/002/003 corrigidos | 4854+ |
+| N35    | N         | ISSUE-023 F10.3: validação LAB (`api.lab`) + migração deployer | **concluída** | 8 | Jobs, DevOps, Core | smoke E2E OK; ISSUE-023 closed (2026-06-19) | 4902+ |
 
 ---
 
@@ -4105,7 +4106,7 @@ Cenários obrigatórios:
 |--------|---------|--------|---------------|------------|
 | [x] | P | F10.1 — [ISSUE-014] Corrigir argv em `JobLogFetcher` (`['job', $id, 'logs', '--json']`) + `fetchViaStatus` idem + catch `SshRemoteException(notImplemented)` | `ssh-orchestrator` | — |
 | [x] | P | F10.2 — [ISSUE-014] Testes: assert argv sem client slug; fallback via `SshRemoteException(99)`; contract comment fix | `laravel-testing` | F10.1 |
-| [ ] | P | F10.3 — Push `main` + deploy remoto + validar job novo em produção (`summary` populado, UI com logs) — **bloqueado: execução ops**; runbook [F10.3-prod-validation.md](runbooks/F10.3-prod-validation.md) | `70-devops` | F10.2 |
+| [x] | P | F10.3 — Smoke LAB: job async + `jobs.summary` + UI `/queue/{id}` — validado N35.6 (2026-06-19) | `me360-deployer` | F10.2, N35.6 |
 
 ### Contexto F10
 
@@ -4117,7 +4118,7 @@ Durante triagem de `/queue/{jobId}` vazio (2026-05-24), confirmado em produção
 
 Fix implementado em `197ff46` (merged local em `main`). Sprint F10 formaliza gate de deploy.
 
-**F10.3 (2026-06-12):** código F10.1–F10.2 concluído; deploy + smoke prod **pendente execução humana** (ISSUE-023 `ready_for_ops`). Runbook: `docs/runbooks/F10.3-prod-validation.md`. Agente não faz SSH em `deployer.mework360.com.br`.
+**F10.3 (2026-06-18):** código F10.1–F10.2 concluído. **Deployer (`deployer.mework360.com.br`) descontinuado** — validação migrada para **LAB** (`api.lab.mework360.com.br`). Sprint **N35** planejada; runbook LAB substitui prod. Pré-requisito: [`LAB-PROVISION-PLAN.md`](LAB-PROVISION-PLAN.md) Fase 3+ (control plane no ar).
 
 ---
 
@@ -4888,6 +4889,56 @@ Critério de pronto: characterization prova sequência mínima provision→readi
 
 ---
 
+## Sprint N35 — ISSUE-023 / F10.3: validação LAB + migração deployer
+
+> Categoria: N
+> Status: **concluída** (2026-06-19)
+> Gate: runbook `docs/runbooks/F10.3-lab-validation.md` publicado; `validation_env.cloud_lab_host` = `api.lab.mework360.com.br`; deploy API no LAB (Traefik) com SHA `main`; smoke async (`users:create` via **LifecycleAsyncAction** — job persistido no MariaDB) → callback webhook **204** → `jobs.summary` **POPULATED**; `/queue/{job_id}` exibe logs; decisão OPS-001 (`failed_jobs`) registrada; F10.3 `[x]`; ISSUE-023 fechada com evidência
+> Fonte: **ISSUE-023** + carry-over **F10.3** + decisão operacional 2026-06-18 (deployer descontinuado; testes de API somente no LAB)
+> review: **senior+qa** (smoke integração SSH/webhook + contrato JobLogFetcher)
+> Pré-requisito: [`LAB-PROVISION-PLAN.md`](LAB-PROVISION-PLAN.md) — mínimo Fase 3 (host + Traefik + worker) e Fase 5.3 (`cluster_servers` LAB registrado). DNS `lab.mework360.com.br` resolve; `GET https://api.lab.mework360.com.br/up` → 200
+> Desbloqueia: fechar ISSUE-009/014 (evidência LAB); encerrar sprint F10; smoke v1/onboarding no LAB (pós-N34)
+> Fora de escopo N35: reprovisionar LAB inteiro (→ `/cloud-ops` + ISSUE-040); fix upstream ISSUE-013; backport UP-A/UP-B no repo `nextcloud-saas-manager`; E2E onboarding-api/WHMCS (N22)
+> **Nota operacional (2026-06-19):** hotfix UP-A aplicado no LAB em `lib/job_queue.sh::_redis_resolve_conn` (suporte `REDIS_PASSWORD_FILE` pós-bl07). Backup: `*.bak-issue041-*`. Dispatch async retorna `job_id` real; worker processa. Smoke de debug que chamou `PlatformPort` direto (sem persistir `Job`) gerou callback 404 esperado — **não é bug de rota**.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | N35.1 — Atualizar **ISSUE-023**: escopo deployer → LAB; checklist URLs `api.lab` / tenant `qa-platform-lab` | `/dev doc` | — |
+| [x] | P | N35.2 — Criar runbook `docs/runbooks/F10.3-lab-validation.md` (adaptar fases deploy/smoke/OPS-001 para LAB) | `/dev doc` | N35.1 |
+| [x] | P | N35.3 — Atualizar `validation_env` (`.cursorsession`) + banner deprecação em `F10.3-prod-validation.md` | `/dev doc` | N35.2 |
+| [x] | M | N35.4 — Alinhar refs obsoletas: ROADMAP F10, `me360-deployer` skill, `CI-CD.md` (host LAB como autoridade de smoke) | `/dev doc` | N35.2 |
+| [x] | M | N35.5 — Deploy API no LAB: `api.lab.mework360.com.br` @ SHA `07f827c`; migrations; `cluster_servers` lab-cluster wired | `me360-deployer` + `laravel-docker` | LAB-PROVISION Fase 3+ |
+| [x] | M | N35.6 — Smoke E2E LAB: `LifecycleAsyncAction` → callback 204 → `summary` POPULATED — job `1e036c43-23f7-4dfa-8d8b-f9a028b2c5b6` | `me360-deployer` | N35.5 |
+| [x] | P | N35.7 — OPS-001: `failed_jobs` **MISSING** no LAB — decisão B documentada (fila local e-mail; logs em laravel.log) | `laravel-migration` | N35.5 |
+| [x] | P | N35.8 — Gate fechado: F10.3, ISSUE-023, ISSUE-041 (evidência LAB) | `/dev doc` | N35.6, N35.7 |
+
+### Task N35.5 — Deploy API no LAB
+
+**Estado atual (2026-06-19):** ✅ concluído — `api.lab/up` 200; stack @ `/opt/mework360-deployer` SHA `07f827c`; `docker-compose.lab.yml`; cluster `dcaa93e2-…` wired (SSH ed25519 + webhook secret); customer `lab` synced.
+**Critério de pronto:** atendido.
+
+### Task N35.6 — Smoke JobLogFetcher no LAB
+
+**Estado atual:** dispatch async funciona pós-fix UP-A upstream; worker dequeue/processa; callback 404 observado **apenas** quando smoke bypassa `LifecycleAsyncAction` (job não existe no MariaDB → `WebhookController` 404 por design).
+**Estado desejado:** 1 job async terminal via caminho produção (`LifecycleAsyncAction` ou painel/API) com: row em `jobs`; callback webhook **204**; `jobs.summary` JSON populado; `/queue/{job_id}` renderiza linhas de log.
+**Critério de pronto:** checklist ISSUE-023 100% marcado; evidência (job_id + screenshot/log) anexada.
+
+**executor_prompt:**
+Feature: Smoke F10.3 no LAB — validar fluxo completo dispatch → webhook → summary → UI.
+Contexto: ISSUE-041 corrigido no LAB (Redis UP-A); NÃO usar `PlatformPort::dispatchManageAsync` direto em tinker — usar `LifecycleAsyncAction::execute` ou endpoint painel/API para persistir `Job`.
+Objetivo: Disparar `users:create` em tenant `lab`; aguardar terminal; assert: callback 204 no journal worker; `jobs.state` atualizado; `summary` POPULATED; UI `/queue/{id}` com logs.
+Arquivos: nenhum código se smoke passar; registrar evidência em ISSUE-023.
+Critério de pronto: `summary` POPULATED; UI não exibe "Nenhum log disponível"; ISSUE-009 pode fechar.
+
+### Quality Brief (Sprint N35)
+
+- **Review**: senior+qa (deploy LAB + smoke SSH/webhook + regressão JobLogFetcherTest)
+- **Gate F10.3**: fecha sprint F10 residual; FINDINGS-INDEX `sprints_with_open_blockers: F10` → zerar após N35.8
+- **Dependência externa**: hotfix UP-A no LAB é ad-hoc — backport ao repo-fonte upstream antes do próximo deploy de scripts
+- **Brief path**: `docs/.briefs/N35.brief.md` (gerar no sprint-init)
+
+---
+
 ## Roadmap ISSUE-038 — Fases posteriores (stubs)
 
 > Fonte: ADR `final.md` §4. N34 detalhada acima.
@@ -4903,6 +4954,8 @@ Critério de pronto: characterization prova sequência mínima provision→readi
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-06-19 | 0.35   | N35 em andamento — N35.5 done; ISSUE-041 fix LAB (UP-A); N35.6 replanejado (smoke E2E via LifecycleAsyncAction); callback 404 re-diagnosticado (falso positivo smoke bypass). | `/pmo plan` via `/rock` |
+| 2026-06-18 | 0.34   | Sprint N35 planejada — ISSUE-023/F10.3 migração deployer → LAB (`api.lab`); 8 tasks (5P+3M); F10.3 delegada a N35. | `/pmo plan` |
 | 2026-06-18 | 0.33   | Sprint N34 concluída — ISSUE-038 Fase 4 (saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook); validation R2 APROVADA; CQ-N34-001/002/003 corrigidos; 582 tests; version 0.1.5. | sprint-finalizer |
 | 2026-06-18 | 0.32   | Sprint N34 planejada — ISSUE-038 Fase 4 (8 tasks: saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook). | `/pmo plan` |
 | 2026-06-18 | 0.31   | Sprint N33 concluída — ISSUE-038 Fase 3 (despublicar `/occ/*` + mutação via port + grep gate estrito); PR #117; validation R1 APROVADA; CQ-N32-003 validado. | sprint-finalizer |

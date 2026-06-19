@@ -14,7 +14,7 @@
 | ISSUE-006 | postmortem | Lifecycle async envia vocabulário canônico-API ao upstream (`users:create` em vez de `user-create`) + duplica `--async --json` | Customers, Core/Ssh | HIGH | open (Fix Brief aprovado) |
 | ISSUE-007 | change_request | E2E browser coverage via Dusk/Playwright para Livewire (cobre wire:submit/click real, MeRC ribbon do bug QA-F5-019) | DevOps, Livewire | MEDIUM | open (backlog — sprint N-UI dedicada) |
 | ISSUE-008 | change_request | Fluxo de "Esqueci a senha" para operadores (broker nativo Laravel) | Auth | MEDIUM | open |
-| ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | mitigated (ISSUE-014 código OK; **ISSUE-023** validação prod) |
+| ISSUE-009 | change_request | Logs de Job ausentes na tela `queue/{jobId}` — popular `jobs.summary` via SSH pull pós-`job.finished` | Jobs, Core/Ssh, Webhook | HIGH | **closed (2026-06-19)** — evidência LAB N35.6 (job `1e036c43-…`, summary POPULATED) |
 | ISSUE-010 | postmortem | Callback `provision success` prematuro — tenant não ready para `users:*` (~10 min pós-callback) | Jobs, Customers, Webhook | CRITICAL | closed (F8) |
 | ISSUE-011 | postmortem | Diagnóstico errado em comentários do `OccController`: causa real é allowlist de subcmd no `occ-exec` upstream, não "flag stripping" | Occ, Core/Ssh | CRITICAL | implemented — **validação APROVADA (R1)** |
 | ISSUE-012 | bug | 404 em rotas inexistentes sob `/api/*` retorna HTML completo do Laravel (~30 KB) quando o cliente não envia `Accept: application/json` — info leak + DX ruim | Core (HTTP layer) | HIGH | closed (F9 — validação APROVADA R1) |
@@ -28,7 +28,7 @@
 | ISSUE-020 | bug | Readiness probe vaza `phpseclib` `ConnectionClosedException` quando conexão SSH pooled fecha antes de `exec()` | Core/Ssh, Customers | MEDIUM | fixed (Sprint F12) |
 | ISSUE-021 | change_request | OpenAPI global desalinhado do formato real (`{ error }` + JsonResource vs envelope `{ success, message, data }`) | Core, docs | MEDIUM | open |
 | ISSUE-022 | change_request | Cross-repo: fechar contrato API ↔ `mework360-deploy-scripts` (webhook payload, branding stdin, OCC allowlist) | Core, Jobs, Customers, Occ | HIGH | open (coordenação) |
-| ISSUE-023 | change_request | Validação produção pós-F10: deploy + smoke `/queue/{id}` + schema ops (`failed_jobs`) | Jobs, DevOps | MEDIUM | ready_for_ops |
+| ISSUE-023 | change_request | Validação LAB pós-F10: deploy `api.lab` + smoke `/queue/{id}` + schema ops (`failed_jobs`) | Jobs, DevOps | MEDIUM | **closed (2026-06-19)** — Sprint N35; job `1e036c43-23f7-4dfa-8d8b-f9a028b2c5b6`; OPS-001 decisão B |
 | ISSUE-024 | change_request | Automatizar config meMail no `create` (externalLocation, forceSSO, emailAddressChoice, disable `mail`) — eliminar runbook manual pós-create | Cross-repo (deploy-scripts), Customers, Webhook | HIGH | open |
 | ISSUE-025 | change_request | Evoluir `mework360-roundcube` para distribuição: Dockerfile pinado + camada B migrada + deploy por tag (dev = baseline; replica prod) | Cross-repo (mework360-roundcube, memail, deploy-scripts) | HIGH | open |
 | ISSUE-026 | bug | RC prod desalinhado do dev: cookie `domain=.mework360.com.br` (SEC-002 vivo) + `frame-ancestors *` (clickjacking) + imagem `:latest` sem pin nos 2 hosts | Cross-repo (infra SaaS-01/SaaS-02) | HIGH | open |
@@ -45,6 +45,154 @@
 | ISSUE-037 | security | `ApiKey.scopes` nunca aplicado + sem autorização por tenant — qualquer chave age sobre qualquer customer (IDOR latente; vira CRITICAL ao abrir `/v1` a terceiros) | Core (Auth/api-key), Customers | HIGH | **corrigido local** — Sprint F15 (2026-06-16) |
 | ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | **Fases 0–4 concluídas** (N30–N34, branch `sprint/N34`; validation R2 APROVADA) — adoção N22 pendente |
 | ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | **closed (2026-06-16)** — Sprint F14 merge PR #112; CI verde |
+| ISSUE-040 | change_request | LAB mirror de prod: VM dedicada para o control plane (`api.lab`) separada do upstream — SSH/webhook cross-host real | DevOps, Infra | MEDIUM | **in_progress** — VM-A provisionada WHMCS sid=64 @ `128.201.61.109` (2026-06-19); DNS/migrate pendente |
+| ISSUE-041 | bug | ~~Dispatch lifecycle async via `PlatformPort` trava em `--payload-stdin`~~ **Root cause**: `manage` não lia `REDIS_PASSWORD_FILE` pós-bl07 → NOAUTH → `idem_check` mascarava como `conflict` | Customers, Integration, Core/Ssh | HIGH | **closed (2026-06-19)** — UP-A/UP-B aplicados LAB + backport `work-platform-scripts` |
+
+---
+
+## ISSUE-041 — Dispatch lifecycle async trava em `--payload-stdin` (PlatformPort SSH adapter)
+
+- **Tipo**: bug (integração SSH async)
+- **Prioridade**: HIGH (bloqueia toda operação lifecycle async com payload: `users:create`, etc.)
+- **Status**: open — descoberto no smoke F10.3 (N35.6) no LAB 2026-06-18; **rotear `/qa debug` → `/pmo fix`** (não corrigido inline)
+- **Módulos afetados**: `app/Modules/Integration/` (`SshPlatformAdapter`), `app/Modules/Core/Ssh/` (`SshClient::runAsync`), `app/Modules/Customers/Actions/LifecycleAsyncAction.php`
+- **Relacionado**: ISSUE-023 / F10.3 (bloqueia o gate); migração PlatformPort N31–N33
+
+### Sintoma
+
+`users:create` disparado via deployer (`LifecycleAsyncAction` → `PlatformPort::dispatchManageAsync`) **trava indefinidamente** (>9 min observado) no dispatch SSH. O processo PHP fica preso; nenhum `job_id` é retornado; `jobs`/`idempotency_keys` permanecem sem registro persistido após kill.
+
+### Root cause (evidência LAB)
+
+O adapter SSH do `PlatformPort` envia o comando `nextcloud-manage … --payload-stdin --async` mas **não escreve o JSON do payload no stdin do canal SSH e/ou não sinaliza EOF**. O `manage.sh` upstream bloqueia no read do stdin (espera o payload que nunca chega/fecha).
+
+| Evidência | Resultado |
+|-----------|-----------|
+| Shim audit (`ncsaas-api-ssh`) | `invoke` + `accept` do comando registrados (auth/allowlist OK) |
+| Worker journal upstream | **sem entrada** — job nunca enfileirado |
+| Dispatch via deployer (PlatformPort) | trava >9 min, sem `job_id` |
+| **CLI equivalente** (`printf '{…}' \| ssh … --payload-stdin --async`) | **retorna em 0 s** (stdin fechado pelo pipe) |
+
+A diferença CLI (stdin fechado) × deployer (trava) isola o defeito no **envio/fechamento do stdin pelo adapter**, não no upstream nem na rede.
+
+### Suspeita
+
+Regressão da migração para `PlatformPort` (N31–N33): o caminho async com `--payload-stdin` não é exercitado por testes reais (apenas mocks), então a falha de stdin passou pelo CI. Em produção (deployer descontinuado) o caminho legado dispatchava jobs (ISSUE-013: "1/5 jobs 7d"), o que reforça regressão pós-migração.
+
+### Impacto no gate F10.3
+
+Bloqueia N35.6 (smoke `users:create`) e, por consequência, a validação de `jobs.summary` / UI `/queue/{id}`. O **deploy** (N35.5) está validado; o gate funcional de F10.3 fica **parcial** até este bug ser corrigido.
+
+---
+
+### 🔁 RE-DIAGNÓSTICO — `/qa debug` runtime (2026-06-18, sessão `02e90f`)
+
+A root cause original (acima) está **INCORRETA**. Debug com instrumentação runtime (NDJSON, `SshClient::execWithStdin`) no LAB **rejeitou todas as hipóteses do lado deployer** e isolou a falha no upstream.
+
+**Lado deployer — PROVADO CORRETO (log runtime):**
+
+| Etapa (`execWithStdin`) | Evidência | Veredito |
+|---|---|---|
+| `exec($command, false)` | retorna `true` em **246ms** | não bloqueia |
+| `write($payload)` | instantâneo (payloadLen=31) | entrega stdin |
+| `sendEOF()` | instantâneo | sinaliza EOF |
+| read loop | fecha canal na 1ª iteração (`chunk===true`, `isTimeout=false`) em **677ms** | sem hang |
+
+→ O caminho `exec(cmd,false)→write→sendEOF→read` do `SshClient` funciona. O "hang de 9min" **não foi reproduzível** (ambiente mudou: bl07 quebrou o Redis do `manage` *após* o smoke original).
+
+**Causa raiz REAL (upstream `nextcloud-saas-manager`, evidência runtime):**
+
+1. Dispatch retorna **exit 3** (stdout vazio) → deployer mapeia p/ `idempotencyConflict` (`SshClient::buildRemoteException` case 3). Correto dado o exit code.
+2. `lib/job_queue.sh::idem_check` faz `EVAL … 2>/dev/null`; em falha de Redis `result=""` → não é `"new"` → `existing_hash="" ≠ args_hash` → retorna **`conflict`** (exit 3). **Falha de Redis mascarada como conflito de idempotência** (com `idempotency-key` novo!).
+3. `_redis_resolve_conn` (invocado via shim SSH, sem env systemd) só lê `^REDIS_PASSWORD=` texto-plano de `/opt/shared-services/.env`. A migração **bl07 (2026-06-18 19:48)** trocou para `REDIS_PASSWORD_FILE=/opt/shared-services/secrets/redis_password` e removeu `REDIS_PASSWORD=` → `manage` resolve senha **vazia** → `redis-cli` retorna `NOAUTH/WRONGPASS`.
+4. Assimetria comprovada: **worker** (systemd, `WORKER_REDIS_PASS` ✅) funciona; **manage-via-SSH** (sem env, lê shared `.env` plaintext) quebra. Senha real (`requirepass 226ead…`) bate com o secrets-file e com `WORKER_REDIS_PASS`.
+
+**Findings de upstream/infra (precisam de triagem — repo `nextcloud-saas-manager` + infra LAB, fora deste deployer):**
+
+- **UP-A (infra/config)**: `_redis_resolve_conn` deve suportar `REDIS_PASSWORD_FILE` e/ou ler `WORKER_REDIS_PASS` do `.env` do worker — quebrou após a migração secrets-file (bl07).
+- **UP-B (bug latente)**: `idem_check` deve distinguir falha de Redis de conflito real — hoje mascara `NOAUTH`/erro como `conflict` (exit 3), escondendo falha de infra como conflito de negócio.
+
+**Pendente**: o hang original de 9min só pode ser debugado após UP-A destravar o Redis do `manage` (para alcançar o caminho `enqueue` real).
+
+**Estado do ambiente pós-debug**: instrumentação revertida (container LAB e arquivo local restaurados ao original; artefatos `/tmp` removidos). Nenhuma alteração de código no deployer.
+
+### ✅ FIX APLICADO — UP-A (2026-06-19, LAB)
+
+O `manage` roda como **root** via shim (`exec sudo -n nextcloud-manage`), então tem permissão para ler o secrets-file root-only. Correção aplicada (aditiva) em `lib/job_queue.sh::_redis_resolve_conn` nas 2 cópias deployadas (`/opt/nextcloud-customers/lib/` + `/opt/work-platform-scripts/scripts/lib/`; backup `*.bak-issue041-*`):
+
+```bash
+# quando REDIS_PASSWORD plaintext ausente (pós-bl07):
+#  1) ler REDIS_PASSWORD_FILE → conteúdo do secrets-file
+#  2) fallback: WORKER_REDIS_PASS do .env do worker
+```
+
+**Verificação runtime (antes/depois, sessão `02e90f`):**
+
+| Run | idem_check EVAL | Dispatch | Worker |
+|-----|-----------------|----------|--------|
+| run1 (antes) | vazio (NOAUTH) → `conflict` | exit 3 / `PortIdempotencyConflictException` (851ms) | — |
+| post-fix | `empty:false head:"new"` | **`JOBID` real** (1142ms) | **dequeue + processa** o job |
+| clean (sem instrum.) | — | `JOBID=02170d18…` (1172ms) | — |
+
+**Não aplicado (precisam de backport/triagem no repo-fonte upstream — LAB sem VCS):**
+
+- **UP-B (bug latente)**: `idem_check` ainda mascara falha de Redis como `conflict` (exit 3). Hardening: distinguir erro de transporte (`EVAL` vazio) e emitir `redis_unavailable` (exit retryable). Não aplicado ad-hoc (muda contrato + exige editar `dispatch.sh`).
+- **Backport UP-A**: portar a correção de `_redis_resolve_conn` para o source do `nextcloud-saas-manager` (a LAB só tem cópias deployadas, sobrescritas no próximo deploy).
+
+### ⚠️ Callback worker→deployer 404 — RE-DIAGNOSTICADO (não é bug de rota)
+
+Pós-fix ISSUE-041, o worker processa o job mas o journal registrou **HTTP 404** no callback. Investigação PMO (2026-06-19):
+
+| Evidência | Resultado |
+|-----------|-----------|
+| `curl -X POST https://api.lab.../api/jobs/hook` (sem HMAC) | **400** — rota existe |
+| `php artisan route:list --path=jobs/hook` | `POST api/jobs/hook` registrada |
+| `WebhookController::receive` | retorna **404** quando `Job::find($job_id)` falha (`ModelNotFoundException`) |
+| Smoke de debug (`PlatformPort::dispatchManageAsync` direto) | **não persiste** row em `jobs` → callback 404 **esperado** |
+
+**Conclusão:** não abrir Sprint F separada. N35.6 deve usar **`LifecycleAsyncAction::execute`** (ou painel/API) para persistir o job antes do callback. Se 404 persistir com job persistido → investigar HMAC/IP allowlist (401/403, não 404).
+
+---
+
+## ISSUE-040 — LAB mirror de prod: VM dedicada para o control plane (`api.lab`)
+
+- **Tipo**: change_request (infra / fidelidade de ambiente)
+- **Prioridade**: MEDIUM
+- **Status**: **in_progress** — VM-A provisionada via `/cloud-ops` (2026-06-19)
+- **Registrado em**: 2026-06-18 (`/devops` — decisão do usuário durante N35)
+- **Módulos afetados**: topologia LAB, `docs/INFRASTRUCTURE.md`, `docs/LAB-PROVISION-PLAN.md`, `cluster_servers`
+- **Solicitante**: usuário (objetivo: LAB como espelho fiel de produção)
+
+### Contexto
+
+N35.5 deployou o control plane (`mework360-deployer`) **co-locado** na mesma VM LAB (sid=58, `128.201.61.108`) que já hospeda o upstream (`nextcloud-saas-manager`) + shared-services. Funciona para o gate F10.3 (valida `JobLogFetcher`/`summary`/UI), mas **não exercita o caminho de rede real**: o SSH control plane→upstream vira loopback no setup co-locado.
+
+Em **produção** ([`INFRASTRUCTURE.md`](INFRASTRUCTURE.md)) o deployer é **VM dedicada** que faz SSH/webhook **pela rede** até o upstream em outro host.
+
+### Objetivo
+
+Provisionar VM-A dedicada para o control plane, deixando a VM-B atual (sid=58) como upstream:
+
+```
+VM-A (nova)  ──SSH/webhook (rede real)──▶  VM-B (sid=58, atual)
+api.lab                                    cloud.lab / *.lab
+mework360-deployer                         nextcloud-saas-manager
+```
+
+Assim valida SSH cross-host, firewall, egress IP whitelist e HMAC pela rede — fidelidade real com prod.
+
+### Pré-requisitos / roteamento
+
+- [x] **Decisão de arquitetura** (`/arquiteto`): topologia 2-VM confirmada (2026-06-18)
+- [x] **Provisionamento** (`/cloud-ops` PROVISIONAR): WHMCS cliente `me360-work` (id=11), pid=6, **order=63, sid=64**, IP **`128.201.61.109`**, specs 4 vCPU / 8 GB / 80 GB Debian 13 (2026-06-19)
+- [ ] Specs sugeridas (prod): 4 vCPU / 8 GB / 80 GB SSD — **atendido na VM-A**
+- [ ] DNS `api.lab` → IP da VM-A (hoje aponta para VM-B `128.201.61.108`)
+- [ ] Migrar stack deployer de VM-B → VM-A; registrar `cluster_servers` apontando para VM-B
+- [ ] Staging SSH key (`PROVISION_VM_SSH_PUBLIC_KEY`) — não aplicado no provisionamento inicial
+
+### Não-bloqueante
+
+F10.3 / ISSUE-023 **não depende** desta issue — fecha no setup co-locado atual. Esta é melhoria de fidelidade de ambiente para sprint de infra futura.
 
 ---
 
@@ -1931,41 +2079,46 @@ Abrir/atualizar issues espelho no repo `mework360-deploy-scripts`; reunião téc
 
 ---
 
-## ISSUE-023 — Validação produção pós-F10 + débitos ops schema
+## ISSUE-023 — Validação LAB pós-F10 + débitos ops schema
 
 - **Tipo**: change_request (validação / DevOps)
 - **Prioridade**: MEDIUM
-- **Status**: ready_for_ops
-- **Runbook**: [docs/runbooks/F10.3-prod-validation.md](runbooks/F10.3-prod-validation.md)
+- **Status**: **closed (2026-06-19)** — Sprint **N35** concluída
+- **Runbook (LAB):** [F10.3-lab-validation.md](runbooks/F10.3-lab-validation.md) — host `api.lab.mework360.com.br`; tenant canário `qa-platform-lab.lab.mework360.com.br`
+- **Runbook legado (deprecado):** [F10.3-prod-validation.md](runbooks/F10.3-prod-validation.md) — host `deployer.mework360.com.br` **descontinuado**
 - **Registrado em**: 2026-06-02
-- **Solicitante**: `/pmo` (SSH read-only `deployer.mework360.com.br`)
-- **Módulos afetados**: deploy produção, `Jobs`, fila Laravel, migrations
-- **Sprint ROADMAP**: **F10.3** (pendente), relacionado **F6**, **F7**
+- **Atualizado em**: 2026-06-18 — migração deployer → LAB
+- **Solicitante**: `/pmo` (validação ops; antes SSH read-only deployer)
+- **Módulos afetados**: deploy LAB, `Jobs`, fila Laravel, migrations
+- **Sprint ROADMAP**: **F10.3** + **N35**; relacionado **F6**, **F7**
 - **Findings relacionados**: `OPS-001` (`failed_jobs`), F7 (`CQ-N1-001/002`, `QA-N1-001`)
 
 ### Contexto
 
-Código em `main` (`cf773dc`) já inclui F13 (branding payload), F12 (SSH retry), F10.1–F10.2 (`JobLogFetcher` argv). Produção (`deployer.mework360.com.br`) reportou:
+Código em `main` (`07f827c`) inclui F10.1–F10.2 (`JobLogFetcher` argv). **Deployer prod descontinuado (2026-06-18).** Autoridade de smoke integração = **LAB** (`api.lab.mework360.com.br`), conforme [`LAB-PROVISION-PLAN.md`](LAB-PROVISION-PLAN.md).
 
-| Check | Resultado 2026-06-02 |
-|-------|----------------------|
-| `GET https://deployer.mework360.com.br/up` | 200 OK |
-| Migrations pendentes | Nenhuma (todas Ran) |
-| Tabela `failed_jobs` | **Ausente** (`OPS-001`) |
-| Jobs 7d / summary null | 1 de 5 |
+| Check | Resultado histórico (deployer 2026-06-02) | Alvo LAB (N35) |
+|-------|-------------------------------------------|----------------|
+| `GET …/up` | 200 OK (deployer) | `api.lab.mework360.com.br/up` → 200 |
+| Migrations | Todas Ran | Sem Pending pós-deploy LAB |
+| Tabela `failed_jobs` | **Ausente** (`OPS-001`) | **Decisão B** — documentado ausência; fila local e-mail; logs em `laravel.log` |
+| Job async / `summary` | 1/5 null (7d) | Smoke N35.6 → **POPULATED** (job `1e036c43-…`) |
 
-### Checklist de validação (humano + operador)
+### Checklist de validação (LAB)
 
-- [ ] **F10.3:** Deploy imagem/commit atual em produção (se ainda não refletido além do SHA).
-- [ ] Disparar 1 job async (ex.: `users:create` ou provision teste) → aguardar `job.finished`.
-- [ ] Confirmar `jobs.summary` JSON populado no MariaDB.
-- [ ] Abrir `/queue/{job_id}` no painel → logs visíveis (não “Nenhum log disponível”).
-- [ ] Se webhook ainda vier sem `exit_code`, confirmar que `JobLogFetcher` preencheu `summary` (mitigação ISSUE-014).
-- [ ] **OPS-001:** Avaliar migration `failed_jobs` (Laravel queue) ou documentar que falhas de queue local não usam essa tabela.
-- [ ] **F7 (opcional na mesma janela):** smoke criar cluster de homolog + rotate secret → audit com `actor_id` + transação Create.
+- [x] **N35.5:** Deploy API @ SHA `07f827c` no LAB (`api.lab.mework360.com.br`).
+- [x] `cluster_servers` LAB registrado (SSH + webhook secret).
+- [x] Disparar 1 job async via **`LifecycleAsyncAction`** (customer `lab`) → terminal `success`.
+- [x] Confirmar `jobs.summary` JSON populado no MariaDB LAB.
+- [x] Abrir `/queue/{job_id}` no painel LAB → logs visíveis.
+- [x] `JobLogFetcher` preencheu `summary` (ISSUE-014).
+- [x] **OPS-001:** Decisão B — `failed_jobs` ausente documentado (sem migration no LAB).
+- [ ] **F7 (opcional):** smoke cluster LAB + rotate secret.
 
-### Próximo passo
+### Evidência (2026-06-19)
 
-**Operador com SSH:** executar [runbook F10.3](runbooks/F10.3-prod-validation.md) fase a fase; marcar checklist abaixo; atualizar ISSUE-009/013/014 com resultado; fechar F10.3 no ROADMAP quando UI OK.
+- Job ID: `1e036c43-23f7-4dfa-8d8b-f9a028b2c5b6`
+- `FINAL_STATE=success`, `EXIT_CODE=0`, callback webhook 204
+- Worker journal: `callback_attempt` success
 
-> Agente **não** executa deploy prod autonomamente — gate bloqueado em credenciais ops (Rock Rodada 2).
+> Smoke integração exige LAB Fase 3+; agente não faz SSH sem credenciais ops.

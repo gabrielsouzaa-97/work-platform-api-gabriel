@@ -33,16 +33,16 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N34 validada",
+  "fase_nome": "Sprint N35 — concluída",
   "sprint_atual": null,
-  "previous_sprint": "N34",
+  "previous_sprint": "N35",
   "sprint_branch": null,
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-18T18:30:00Z",
+  "ultimo_update": "2026-06-19T02:30:00Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -53,17 +53,18 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/pmo sprint iniciar N34",
-    "Branch sprint/N34 — parent cria branch",
-    "Gate: saga POST/GET onboarding + runbook + spec externo"
+    "ISSUE-040: DNS api.lab → 128.201.61.109 + bootstrap VM-A + migrar deployer",
+    "/git: commit sprint/N35 + PR quando solicitado"
   ],
-  "contexto_rapido": "Sprint N34 planejada (ISSUE-038 Fase 4: saga POST /v1/onboarding idempotente + GET status + readiness gate + runbook). N33 validada PR #117 v0.1.4 main.",
+  "contexto_rapido": "N35 concluída: F10.3 validado LAB; ISSUE-023/041 closed; UP-A/UP-B backport work-platform-scripts; ISSUE-040 VM-A sid=64 @ 128.201.61.109 provisionada.",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
     "local_env": false,
-    "cloud_lab_host": "deployer.mework360.com.br",
-    "note": "Usuário 2026-06-17: não existe ambiente local de teste; CI do PR é autoridade; lab nuvem para smoke pós-deploy opcional"
+    "cloud_lab_host": "api.lab.mework360.com.br",
+    "lab_dns_root": "lab.mework360.com.br",
+    "deployer_prod": "deprecated",
+    "note": "2026-06-18: deployer.mework360.com.br descontinuado; CI = autoridade código; smoke integração API = LAB (N35 / ISSUE-023)"
   },
   "artefatos_atualizados_2026_05_07": [
     "docs/REQUIREMENTS.md v0.1 -> v0.2 (pivot arquitetural)",
@@ -197,38 +198,44 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "phase": "validated",
+    "phase": "done",
+    "sprint": "N35",
+    "branch": "sprint/N35",
     "current_task": null,
-    "last_completed_task": "N34.8",
-    "validation_gate": {
-      "produced_by": "validation-stamp.py",
-      "result": "APROVADA",
-      "validation_mode": "full",
-      "gates": [
-        {
-          "cmd": "./vendor/bin/pint --test",
-          "exit_code": 0
-        },
-        {
-          "cmd": "bash scripts/grep-gate-adapters.sh",
-          "exit_code": 0
-        },
-        {
-          "cmd": "bash scripts/openapi-external-occ-gate.sh",
-          "exit_code": 0
-        },
-        {
-          "cmd": "docker compose run --rm --no-TTY app php artisan test",
-          "exit_code": 0
-        }
-      ],
-      "dirty_production_paths": [],
-      "missing_backends": [],
-      "last_validated_sha": "55c7398397fca0c0db111d325782080e8fc7889c",
-      "stamped_at": "2026-06-18T18:15:03Z"
-    }
+    "last_completed_task": "N35.8",
+    "prerequisite_blockers": [],
+    "lab_status": "N35 gate closed: smoke job 1e036c43-… success; F10.3/ISSUE-023 closed; ISSUE-040 VM-A sid=64 @ 128.201.61.109",
+    "lab_deploy": {
+      "host": "128.201.61.108",
+      "sid": 58,
+      "sha": "07f827ca56f4475d4b48926651828adcf5b81980",
+      "path": "/opt/mework360-deployer",
+      "up_http": 200,
+      "cluster_id": "dcaa93e2-18f2-4769-ab5f-73e723947111",
+      "ssh_user": "ncsaas-api",
+      "ssh_key_comment": "deployer-lab-n35",
+      "customer_synced": "lab",
+      "upstream_hotfix": "job_queue.sh UP-A+UP-B backport work-platform-scripts"
+    },
+    "issue040_vm_a": {
+      "sid": 64,
+      "ip": "128.201.61.109",
+      "order_id": 63,
+      "whmcs_client_id": 11,
+      "status": "Active"
+    },
+    "timestamp": "2026-06-19T02:30:00Z"
   },
-  "sprint_tasks": [],
+  "sprint_tasks": [
+    {"id": "N35.1", "status": "completed", "size": "P", "title": "ISSUE-023 escopo LAB", "file": "docs/ISSUES.md"},
+    {"id": "N35.2", "status": "completed", "size": "P", "title": "Runbook F10.3-lab-validation.md", "file": "docs/runbooks/F10.3-lab-validation.md", "depends": ["N35.1"]},
+    {"id": "N35.3", "status": "completed", "size": "P", "title": "validation_env + deprecar runbook prod", "file": "docs/runbooks/F10.3-prod-validation.md", "depends": ["N35.2"]},
+    {"id": "N35.4", "status": "completed", "size": "M", "title": "Alinhar refs obsoletas deployer→LAB", "file": "docs/CI-CD.md", "depends": ["N35.2"]},
+    {"id": "N35.5", "status": "completed", "size": "M", "title": "Deploy API no LAB", "file": "docs/LAB-PROVISION-PLAN.md", "depends": ["N35.4"]},
+    {"id": "N35.6", "status": "completed", "size": "M", "title": "Smoke E2E LAB (LifecycleAsyncAction → webhook 204 → summary → UI)", "depends": ["N35.5"]},
+    {"id": "N35.7", "status": "completed", "size": "P", "title": "OPS-001 failed_jobs LAB", "depends": ["N35.5"]},
+    {"id": "N35.8", "status": "completed", "size": "P", "title": "Fechar F10.3 + ISSUE-023", "depends": ["N35.6", "N35.7"]}
+  ],
   "validation_gate": {
     "sprint": "F15",
     "produced_by": "/qa validar F15 R2 via /rock",
@@ -248,8 +255,36 @@
   },
   "planning_history": [
     {
-      "timestamp": "2026-06-18T18:30:00Z",
-      "action": "/pmo plan — ISSUE-038 Fase 4",
+      "timestamp": "2026-06-19T01:15:00Z",
+      "action": "/pmo plan via /rock — retomar N35 pós-debug ISSUE-041",
+      "sprints_generated": [],
+      "issues_in_scope": ["ISSUE-023", "ISSUE-041"],
+      "split_strategy": "N35 continuação (sem Sprint F nova): N35.5 done; ISSUE-041 fix LAB upstream; N35.6 replanejado smoke E2E via LifecycleAsyncAction; callback 404 = falso positivo (PlatformPort bypass)",
+      "tasks_remaining": ["N35.6", "N35.7", "N35.8"],
+      "gate": "LifecycleAsyncAction smoke → callback 204 → summary POPULATED → F10.3 closed"
+    },
+    {
+      "timestamp": "2026-06-18T20:00:00Z",
+      "action": "/pmo plan — ISSUE-023 F10.3 LAB migration",
+      "sprints_generated": [
+        "N35"
+      ],
+      "sprint_stubs": [],
+      "issues_in_scope": [
+        "ISSUE-023"
+      ],
+      "findings_in_scope": [],
+      "split_strategy": "deployer descontinuado → N35 (8 tasks: 5P+3M); docs/runbook LAB + deploy api.lab + smoke JobLogFetcher; F10.3 delegada",
+      "tasks_count": {
+        "P": 5,
+        "M": 3,
+        "total": 8
+      },
+      "review_level": "senior+qa",
+      "gate": "api.lab /up 200; jobs.summary POPULATED; queue UI logs; F10.3 closed",
+      "prerequisite": "LAB-PROVISION-PLAN Fase 3+",
+      "brief_path": "docs/.briefs/N35.brief.md"
+    },
       "sprints_generated": [
         "N34"
       ],

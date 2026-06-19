@@ -1,0 +1,43 @@
+# LAB overlay — Traefik + production images (api.lab.mework360.com.br)
+# Usage on LAB host:
+#   docker compose -f docker-compose.yml -f docker-compose.lab.yml build
+#   docker compose -f docker-compose.yml -f docker-compose.lab.yml up -d
+
+services:
+  app:
+    build:
+      target: production
+    env_file:
+      - .env
+    volumes: !override []
+    entrypoint: ["/sbin/tini", "--", "php-fpm"]
+
+  worker:
+    build:
+      target: production
+    env_file:
+      - .env
+    volumes: !override []
+    entrypoint: ["/sbin/tini", "--", "php", "artisan", "queue:work", "redis", "--tries=3", "--timeout=90", "--sleep=3"]
+
+  nginx:
+    ports: !override []
+    networks:
+      - mework360
+      - proxy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.deployer-api.rule: Host(`api.lab.mework360.com.br`)
+      traefik.http.routers.deployer-api.entrypoints: websecure
+      traefik.http.routers.deployer-api.tls: "true"
+      traefik.http.routers.deployer-api.tls.certresolver: letsencrypt
+      traefik.http.services.deployer-api.loadbalancer.server.port: "80"
+
+  mailpit:
+    profiles:
+      - dev
+
+networks:
+  proxy:
+    external: true

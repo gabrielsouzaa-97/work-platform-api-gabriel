@@ -1,8 +1,20 @@
 # CI/CD — mework360-deployer
 
-> Atualizado em: 2026-05-14 (Sprint D8)
+> Atualizado em: 2026-06-18 (Sprint N35)
 > Gerado em: 2026-05-07 (`/devops planejar`)
 > Escopo atual: **CI apenas** (deploy manual no MVP — ver `docs/RUNBOOK.md §1`)
+
+---
+
+## 0. Autoridade de validação (2026-06-18)
+
+| Camada | Autoridade | Host / artefato |
+|--------|------------|-----------------|
+| **Código** | GitHub Actions `ci.yml` (`lint` + `test` + `security`) | Runner efêmero — sem dependência de VM |
+| **Smoke integração API** | **LAB** — Sprint N35 / ISSUE-023 / F10.3 | `api.lab.mework360.com.br` — runbook [`F10.3-lab-validation.md`](runbooks/F10.3-lab-validation.md) |
+| **Deployer prod** | **Descontinuado** | `deployer.mework360.com.br` — não usar como gate de smoke |
+
+Provisionamento LAB: [`LAB-PROVISION-PLAN.md`](LAB-PROVISION-PLAN.md). Metadados em `.cursorsession` → `validation_env` (`cloud_lab_host`, `deployer_prod: deprecated`).
 
 ---
 
@@ -145,3 +157,4 @@ Regras absolutas:
 |---|---|---|
 | 2026-05-07 | 0.1 | Versão inicial — CI-only, Docker dev, hooks Cursor (`/devops planejar`). |
 | 2026-05-14 | 0.2 | Sprint D8: atualizar cobertura de testes (190+), links para RUNBOOK.md, próximos passos CD. |
+| 2026-06-18 | 0.3 | Sprint N35: smoke integração = LAB (`api.lab`); deployer prod deprecado; §0 autoridade validação. |

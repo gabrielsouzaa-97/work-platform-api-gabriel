@@ -2,6 +2,8 @@
 
 Source of truth: `docs/RUNBOOK.md §1`, `docs/CI-CD.md`. CD is **manual** (no GitHub Actions deploy job).
 
+> **Deployer prod deprecated (2026-06-18):** `deployer.mework360.com.br` is **no longer** the integration smoke target. Post-deploy validation (ISSUE-023 / F10.3) runs on **LAB** — see [`docs/runbooks/F10.3-lab-validation.md`](../../../docs/runbooks/F10.3-lab-validation.md) (`api.lab.mework360.com.br`, canary tenant `qa-platform-lab.lab.mework360.com.br`). LAB provisioning: [`docs/LAB-PROVISION-PLAN.md`](../../../docs/LAB-PROVISION-PLAN.md). CI remains code authority (`ci.yml`).
+
 ## Preconditions
 
 - [ ] CI green on `main` (or release tag)
@@ -57,8 +59,10 @@ docker compose exec app php artisan migrate:rollback --step=1   # only if last m
 
 ## After deploy — mandatory smoke (ISSUE-023)
 
+> **LAB is the validation target** (not deployer prod). Full checklist: [`docs/runbooks/F10.3-lab-validation.md`](../../../docs/runbooks/F10.3-lab-validation.md).
+
 ```bash
-curl -sf https://deployer.mework360.com.br/up
+curl -sf https://api.lab.mework360.com.br/up
 
 docker compose exec app php artisan migrate:status
 
@@ -69,7 +73,7 @@ docker compose exec app php artisan tinker --execute="
 "
 ```
 
-Panel: open `/queue/{job_id}` — logs must not show "Nenhum log disponível" if ISSUE-014 fix is deployed.
+Panel (LAB): open `https://api.lab.mework360.com.br/queue/{job_id}` — logs must not show "Nenhum log disponível" if ISSUE-014 fix is deployed.
 
 ## Webhook secret rotation (during or after deploy)
 
@@ -86,7 +90,7 @@ When releasing a coordinated version:
 
 | Change type | Deploy order | Validation |
 |-------------|--------------|------------|
-| Webhook fields (`exit_code`, `event`) | Upstream → API | ISSUE-023 + webhook audit |
+| Webhook fields (`exit_code`, `event`) | Upstream → API | ISSUE-023 + webhook audit (LAB smoke) |
 | New CLI verb / argv | Upstream → API | `UpstreamContractTest` |
 | Branding stdin shape | Upstream → API | provision with logo e2e |
 | API-only (UI, DB index) | API only | CI + smoke `/up` |
