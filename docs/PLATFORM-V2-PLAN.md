@@ -3,7 +3,8 @@
 > Gerado em: 2026-06-12  
 > Repositório âncora: `work-platform-api` (control plane Laravel)  
 > Execução: operador autônomo `/rock` (framework Beesy)  
-> Status: **planejado** — aguardando revisão do dono (sem commit)
+> Status: **em execução parcial** — reconciliado com ROADMAP API + scripts em 2026-06-19 (`/rock` priorização §9)  
+> **Nota de numeração:** sprints `N25`/`N31`/`N17` no repo `work-platform-scripts` têm escopo diferente das homônimas V2 — ver §18 e índice §6.
 
 ---
 
@@ -443,11 +444,11 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 | Status | Tam | Tarefa | Depende |
 |--------|-----|--------|---------|
-| [ ] | M | N17.1 — Scaffold repo Go/Rust (escolha: Go 1.22+) + CI | — |
-| [ ] | M | N17.2 — mTLS client + token por `farm_id` | N17.1 |
-| [ ] | M | N17.3 — Long-poll `GET /api/agent/v1/commands` | N17.2 |
-| [ ] | P | N17.4 — `POST /api/agent/v1/events` heartbeat + progress | N17.3 |
-| [ ] | P | N17.5 — Unit tests + `docs/AGENT-SETUP.md` | N17.4 |
+| [x] | M | N17.1 — Scaffold repo Go/Rust (escolha: Go 1.22+) + CI | — |
+| [x] | M | N17.2 — mTLS client + token por `farm_id` | N17.1 |
+| [x] | M | N17.3 — Long-poll `GET /api/agent/v1/commands` | N17.2 |
+| [x] | P | N17.4 — `POST /api/agent/v1/events` heartbeat + progress | N17.3 |
+| [x] | P | N17.5 — Unit tests + `docs/AGENT-SETUP.md` | N17.4 |
 
 ### Task N17.3 — Long-poll
 
@@ -465,11 +466,11 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 | Status | Tam | Tarefa | Depende |
 |--------|-----|--------|---------|
-| [ ] | M | N18.1 — Migration `farm_agents` (farm_id, mTLS cert fingerprint, status) | — |
-| [ ] | M | N18.2 — `AgentGatewayController` poll + ack comandos | N18.1 |
-| [ ] | P | N18.3 — Vincular `farm_agents` ↔ `cluster_servers` (1:1 MVP) | N18.1 |
-| [ ] | M | N18.4 — Feature flag: rotear jobs para agente vs SSH | N18.2, N17 |
-| [ ] | P | N18.5 — Feature tests AgentGateway + OpenAPI stub | N18.4 |
+| [x] | M | N18.1 — Migration `farm_agents` (farm_id, mTLS cert fingerprint, status) | — |
+| [x] | M | N18.2 — `AgentGatewayController` poll + ack comandos | N18.1 |
+| [x] | P | N18.3 — Vincular `farm_agents` ↔ `cluster_servers` (1:1 MVP) | N18.1 |
+| [x] | M | N18.4 — Feature flag: rotear jobs para agente vs SSH | N18.2, N17 |
+| [x] | P | N18.5 — Feature tests AgentGateway + OpenAPI stub | N18.4 |
 
 ### Task N18.1 — Migration
 
@@ -481,6 +482,7 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 > **repo de execução:** `work-platform-agent` + `work-platform-api`  
 > Categoria: N  
+> Status: **concluida** (código + testes closeout 2026-06-19; cutover piloto 1 fazenda deferido pós-LAB)
 > Gate: 1 fazenda piloto: create + remove via agente; SSH desabilitado no piloto; callbacks HMAC preservados  
 > review: senior+qa
 
@@ -617,6 +619,7 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 ## 18. Sprint N25 — LAB greenfield + BOM
 
+> **Reconciliação 2026-06-19:** sprint homônima em `work-platform-scripts` (pin 5 imagens HPB, PR #73) ≠ escopo V2 abaixo. Tasks N25.1–N25.5 **deste plano** permanecem abertas.  
 > **repo de execução:** `work-platform` *(meta-repo)* + `work-platform-scripts`  
 > Categoria: N  
 > Gate: cluster `lab` no painel; tenant canário `qa-platform-lab-001` readiness R8; BOM `requires_lab_signoff`  
@@ -748,9 +751,9 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 | Status | Tam | Tarefa | Depende |
 |--------|-----|--------|---------|
-| [ ] | P | N30.1 — Gate de OS do `deploy-server.sh` (linhas ~85–87): allowlist `ID` (`ubuntu` ou `debian`) em `/etc/os-release`; mensagem de erro atualizada ("Debian 13 / Ubuntu 24.04") | — |
-| [ ] | P | N30.2 — Repo Docker por distro (linhas ~230–235): URL GPG e apt line derivadas do `ID` (`linux/debian` ou `linux/ubuntu`) + codename via `VERSION_CODENAME` | N30.1 |
-| [ ] | P | N30.3 — Adicionar `git`, `dnsutils`, `uuid-runtime`, `sudo` ao apt install + preseed `iptables-persistent` (finding CQ-003 da auditoria) | N30.1 |
+| [x] | P | N30.1 — Gate de OS do `deploy-server.sh` (linhas ~85–87): allowlist `ID` (`ubuntu` ou `debian`) em `/etc/os-release`; mensagem de erro atualizada ("Debian 13 / Ubuntu 24.04") | — |
+| [x] | P | N30.2 — Repo Docker por distro (linhas ~230–235): URL GPG e apt line derivadas do `ID` (`linux/debian` ou `linux/ubuntu`) + codename via `VERSION_CODENAME` | N30.1 |
+| [x] | P | N30.3 — Adicionar `git`, `dnsutils`, `uuid-runtime`, `sudo` ao apt install + preseed `iptables-persistent` (finding CQ-003 da auditoria) | N30.1 |
 | [ ] | P | N30.4 — Atualizar docs do repo (`README.md`, `docs/INFRASTRUCTURE.md`, `docs/REQUIREMENTS.md`, skill `host-provision.md`): "Debian 13 (preferido) ou Ubuntu 24.04" | N30.1–N30.3 |
 | [ ] | P | N30.5 — *(opcional)* `local-vm`: cloud image Debian 13 para paridade do dev local (`scripts/local-vm/lib/common.sh`, `create-vm.sh`) | N30.2 |
 
@@ -839,6 +842,7 @@ Cada sprint ao concluir:
 
 | Data | Versão | Alteração |
 |------|--------|-----------|
+| 2026-06-19 | 1.6 | Reconciliação `/rock` priorização §9: status parcial; N17/N18/N30.1–3 `[x]`; N19 parcial; nota colisão N25 scripts vs V2 |
 | 2026-06-12 | 1.5 | N15/N16 fechados (tasks `[x]`); índice §6 N14–N16 ✅; refs PR #45 work-platform-scripts |
 | 2026-06-12 | 1.4 | Decisão SO LAB: Debian 13 (auditoria de portabilidade Composer 2.5 — ~5 linhas no `deploy-server.sh`); sprint N30 criada (port Debian + CQ-003); N25 depende de N30; `LAB-PROVISION-PLAN.md` atualizado |
 | 2026-06-12 | 1.3 | `LAB-PROVISION-PLAN.md` criado (provisionamento via `/cloud-ops`: cliente `me360-work`, VM pid=6, DNS `lab.mework360.com.br` no PowerDNS) |

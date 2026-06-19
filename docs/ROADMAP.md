@@ -106,7 +106,7 @@
 | N16 | `work-platform-scripts` | Canary/ring em `custom-apps update` | concluida | N14 |
 | N17 | `work-platform-agent` | Daemon outbound mTLS + poll comandos | concluida | — |
 | N18 | `work-platform-api` | FarmRegistry + AgentGateway + feature flag | concluida | N17 |
-| N19 | agent + api | Cutover SSH → agente (create/remove) | planejada | N17, N18 |
+| N19 | agent + api | Cutover SSH → agente (create/remove) | **concluida** | N17, N18 |
 | N20 | agent + scripts | `tenant.create` + `memail.configure` tipados | planejada | N19 |
 | N21 | api + `meApiMail` | Integração mail no pipeline create | planejada | N20 |
 | N22 | onboarding-api + api + WHMCS | Signup/trial/billing WHMCS+Vindi | planejada | N21; N29 *(opcional)* |
@@ -4886,6 +4886,42 @@ Critério de pronto: characterization prova sequência mínima provision→readi
 - **Testes**: 582 passed Docker (suite completa local); 7 skipped
 - **Version**: 0.1.5
 - **Resultado**: **APROVADA R2** (auditor-senior PASS após `5bd7456`; 0 HIGH/CRITICAL no delta)
+
+---
+
+---
+
+## Sprint N19 — Cutover transporte SSH → agente (Fase 1)
+
+> Categoria: N  
+> Status: **concluida** (código + testes closeout 2026-06-19; cutover piloto 1 fazenda **deferido** pós-LAB — runbook `docs/runbooks/N19-agent-cutover.md`)  
+> Gate: `ProvisionCustomerAction` / `RemoveCustomerAction` roteiam via `PlatformPortFactory` → `AgentPlatformAdapter` quando `AGENT_TRANSPORT_ENABLED=true` + agent online; SFTP staging >256KB permanece SSH; `tests/Feature/Customers/AgentTransportCutoverTest.php` + `AgentUpstreamGatewayTest` verdes; CI verde  
+> Gerado via `/pmo plan N19` closeout 2026-06-19. Implementação core mergeada em `main` @ `4e2d1e9` (2026-06-12); validação R2 APROVADA (CQ-N19-001, QA-N19-001).  
+> review: senior+qa  
+> Depende de: N17, N18
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | N19.1 — Handler `manage.sh` adapter no agente | `work-platform-agent` | N17 |
+| [x] | M | N19.2 — `tenant.create` → `manage.sh create --async` | agent | N19.1 |
+| [x] | P | N19.3 — `tenant.remove` → agent gateway | agent | N19.1 |
+| [x] | M | N19.4 — `PlatformPortFactory` + flag `AGENT_TRANSPORT_ENABLED` | `laravel-module` | N18 |
+| [x] | P | N19.5 — Runbook cutover + rollback SSH | `/dev doc` | N19.4 |
+| [x] | P | N19.6 — ROADMAP índice V2 + seção formal N19 | `/pmo plan` | — |
+| [x] | M | N19.7 — Testes fallback SSH remove (flag off) + provision (agent offline) | `laravel-testing` | N19.4 |
+| [x] | M | N19.8 — `AgentUpstreamGatewayTest` (job_id cache + erro estruturado) | `laravel-testing` | N19.4 |
+
+### Task N19.7 — Fallback SSH simétrico (QA-N19-002, QA-N19-003)
+
+- **Arquivo(s)**: `tests/Feature/Customers/AgentTransportCutoverTest.php`
+- **Critério**: remove com flag off usa `SshClient`; provision com flag on + agent offline usa `SshClient` (não gateway)
+
+### Task N19.8 — AgentUpstreamGateway dedicado (QA-N19-004)
+
+- **Arquivo(s)**: `tests/Unit/Modules/Agents/AgentUpstreamGatewayTest.php`
+- **Critério**: `runAsync` retorna `job_id` do cache; `error` no cache lança `AgentTransportException`
+
+**Limitação operacional (fora de escopo código):** cutover piloto com `AGENT_TRANSPORT_ENABLED=true` em 1 fazenda requer LAB + agent systemd — ver runbook §Habilitar piloto.
 
 ---
 

@@ -33,17 +33,38 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N35 validada",
+  "fase_nome": "Sprint N19 closeout — concluída",
   "sprint_atual": null,
-  "previous_sprint": "N35",
-  "sprint_branch": null,
+  "previous_sprint": "N19",
+  "sprint_branch": "main",
+  "campaign": {
+    "slug": "v2-platform",
+    "branch": "campanha/v2-platform",
+    "rodada_atual": 2,
+    "rodadas_total": 11,
+    "sprints": [
+      "N19",
+      "N20",
+      "N21",
+      "N23",
+      "N29",
+      "N22",
+      "N25",
+      "N26",
+      "N27",
+      "N24",
+      "N28"
+    ],
+    "lab_deferred": true,
+    "pr": null
+  },
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-19T02:30:00Z",
-  "next_sprint_planned": null,
+  "ultimo_update": "2026-06-19T04:05:57Z",
+  "next_sprint_planned": "N20",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -53,10 +74,11 @@
     "Customers"
   ],
   "proximos_passos": [
-    "ISSUE-040: DNS api.lab → 128.201.61.109 + bootstrap VM-A + migrar deployer",
-    "/git: commit sprint/N35 + PR quando solicitado"
+    "Rodada 2/N20: /pmo plan N20 (tenant.create tipado + memail.configure)",
+    "Cutover piloto N19: AGENT_TRANSPORT_ENABLED em 1 fazenda — deferido pós-LAB (runbook N19)",
+    "LAB + ISSUE-040: análise manual depois (fora da campanha autônoma)"
   ],
-  "contexto_rapido": "N35 concluída: F10.3 validado LAB; ISSUE-023/041 closed; UP-A/UP-B backport work-platform-scripts; ISSUE-040 VM-A sid=64 @ 128.201.61.109 provisionada.",
+  "contexto_rapido": "Sprint N19 closeout merged main. ROADMAP+testes QA-N19-002/003/004. Próximo N20. Campanha v2 rodada 2.",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
