@@ -56,6 +56,23 @@ final class MailApiClient
         return $response->successful();
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function fetchDkim(string $domain): array
+    {
+        $response = $this->request()->get($this->endpoint("/v1/domains/{$domain}/dkim"));
+
+        if (! $response->successful()) {
+            throw MailApiException::fromResponse($response, 'fetchDkim');
+        }
+
+        /** @var array<string, mixed> $payload */
+        $payload = $response->json();
+
+        return $payload;
+    }
+
     private function request(): PendingRequest
     {
         return Http::withToken($this->apiKey())

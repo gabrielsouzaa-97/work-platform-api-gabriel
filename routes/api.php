@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AgentGatewayController;
 use App\Http\Controllers\Api\AgentInventoryController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerLifecycleController;
+use App\Http\Controllers\Api\DomainVerifyController;
 use App\Http\Controllers\Api\FarmAgentController;
 use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\OccController;
@@ -65,6 +66,10 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1', 'api
     Route::delete('/customers/{slug}', [CustomerController::class, 'destroy'])
         ->middleware(['api.tenant', 'can:provision-customers', 'api.scope:customers:write'])
         ->name('api.customers.destroy');
+
+    Route::post('/customers/{customer}/domain/verify', [DomainVerifyController::class, 'verify'])
+        ->middleware(['api.tenant', 'api.scope:customers:read'])
+        ->name('api.customers.domain.verify');
 
     // OCC sync passthrough — admin/interno only (fora do spec externo; consumidores usam /api/v1)
     Route::prefix('customers/{customer}/occ')

@@ -63,4 +63,13 @@ return [
         'online_threshold_seconds' => env('AGENT_ONLINE_THRESHOLD_SEC', 120),
     ],
 
+    'pdns' => [
+        'api_url' => env('PDNS_API_URL', ''),
+        'api_key' => env('PDNS_API_KEY', ''),
+    ],
+
+    'dns' => [
+        'platform_version' => env('DNS_PLATFORM_VERSION', '1.0.0-rc.3'),
+    ],
+
 ];
