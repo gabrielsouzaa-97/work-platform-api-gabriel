@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AgentGatewayController;
+use App\Http\Controllers\Api\AgentInventoryController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerLifecycleController;
 use App\Http\Controllers\Api\FarmAgentController;
@@ -31,6 +32,8 @@ Route::prefix('agent/v1')
             ->name('api.agent.commands.poll');
         Route::post('/events', [AgentGatewayController::class, 'receiveEvents'])
             ->name('api.agent.events.receive');
+        Route::post('/inventory', [AgentInventoryController::class, 'store'])
+            ->name('api.agent.inventory.store');
     });
 
 Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1', 'api.legacy-deprecation'])->group(function (): void {

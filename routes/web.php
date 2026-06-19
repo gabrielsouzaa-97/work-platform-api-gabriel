@@ -13,6 +13,7 @@ use App\Http\Livewire\Customers\Create as CustomerCreate;
 use App\Http\Livewire\Customers\Index as CustomerIndex;
 use App\Http\Livewire\Customers\OccPanel as CustomerOccPanel;
 use App\Http\Livewire\Customers\Show as CustomerShow;
+use App\Http\Livewire\Farms\Index as FarmsIndex;
 use App\Http\Livewire\Jobs\Index as JobsIndex;
 use App\Http\Livewire\Jobs\Show as JobsShow;
 use App\Http\Livewire\Operators\Create;
@@ -141,6 +142,10 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
 
     Route::get('/customers/{slug}', CustomerShow::class)->name('customers.show');
     Route::get('/customers/{slug}/occ', CustomerOccPanel::class)->name('customers.occ');
+
+    Route::get('/farms', FarmsIndex::class)
+        ->middleware('can:manage-operators')
+        ->name('farms.index');
 });
 
 Route::get('/operators/{operator}/accept-invite', AcceptInvite::class)
