@@ -87,12 +87,33 @@ it('[Marina] provisiona customer via API → webhook done → customer.status=ac
             parsedJson: ['job_id' => $jobId],
         ));
     $ssh->shouldReceive('run')
-        ->andReturn(new SshResponse(
-            stdout: '[]',
-            stderr: '',
-            exitCode: 0,
-            parsedJson: [],
-        ));
+        ->andReturnUsing(function (ClusterServer $clusterArg, string $cmd, array $argv): SshResponse {
+            $occ = $argv[2] ?? '';
+
+            if ($occ === 'app:list') {
+                return new SshResponse(
+                    stdout: json_encode(['enabled' => ['mework360_memail' => true, 'me360_theme' => true]]),
+                    stderr: '',
+                    exitCode: 0,
+                    parsedJson: ['enabled' => ['mework360_memail' => true, 'me360_theme' => true]],
+                );
+            }
+
+            if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'externalLocation') {
+                return new SshResponse(
+                    stdout: 'https://cloud.example/roundcube',
+                    stderr: '',
+                    exitCode: 0,
+                    parsedJson: ['value' => 'https://cloud.example/roundcube'],
+                );
+            }
+
+            if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'forceSSO') {
+                return new SshResponse(stdout: 'yes', stderr: '', exitCode: 0, parsedJson: ['value' => 'yes']);
+            }
+
+            return new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []);
+        });
     $this->app->instance(SshClientInterface::class, $ssh);
 
     // 2. Marina chama POST /api/customers → provisioning

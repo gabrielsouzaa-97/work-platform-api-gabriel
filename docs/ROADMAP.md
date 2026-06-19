@@ -107,7 +107,7 @@
 | N17 | `work-platform-agent` | Daemon outbound mTLS + poll comandos | concluida | — |
 | N18 | `work-platform-api` | FarmRegistry + AgentGateway + feature flag | concluida | N17 |
 | N19 | agent + api | Cutover SSH → agente (create/remove) | **concluida** | N17, N18 |
-| N20 | agent + scripts | `tenant.create` + `memail.configure` tipados | planejada | N19 |
+| N20 | agent + scripts | `tenant.create` + `memail.configure` tipados | **concluida** | N19 |
 | N21 | api + `meApiMail` | Integração mail no pipeline create | planejada | N20 |
 | N22 | onboarding-api + api + WHMCS | Signup/trial/billing WHMCS+Vindi | planejada | N21; N29 *(opcional)* |
 | N23 | `work-platform-api` | Inventário + placement automático | planejada | N19 |

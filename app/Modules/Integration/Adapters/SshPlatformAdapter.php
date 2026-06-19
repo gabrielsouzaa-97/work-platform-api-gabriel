@@ -38,6 +38,7 @@ use App\Modules\Integration\Dto\SetBrandingCommand;
 use App\Modules\Integration\Dto\SyncTenantCommand;
 use App\Modules\Integration\Dto\SyncTenantResult;
 use App\Modules\Integration\Dto\SyncWebhookSecretCommand;
+use App\Modules\Integration\Support\TenantReadinessGateChecker;
 use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Support\Facades\Log;
 
@@ -115,16 +116,11 @@ final class SshPlatformAdapter implements PlatformPort
             return new ReadinessReport(false);
         }
 
-        try {
-            $resp = $this->ssh->run(
-                $cluster,
-                'nextcloud-manage',
-                [$customer->slug, 'occ-exec', 'user:list', '--json'],
-                null,
-                (int) config('services.customer_readiness.probe_timeout_seconds', 30),
-            );
+        $timeoutSec = (int) config('services.customer_readiness.probe_timeout_seconds', 30);
+        $checker = new TenantReadinessGateChecker($this->ssh);
 
-            return new ReadinessReport($resp->exitCode === 0);
+        try {
+            return new ReadinessReport($checker->passesAll($customer, $cluster, $timeoutSec));
         } catch (SshConnectionException|SshTimeoutException) {
             return new ReadinessReport(false);
         }
