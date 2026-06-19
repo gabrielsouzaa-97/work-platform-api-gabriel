@@ -33,7 +33,7 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N35 — concluída",
+  "fase_nome": "N35 validada",
   "sprint_atual": null,
   "previous_sprint": "N35",
   "sprint_branch": null,
@@ -198,44 +198,11 @@
   },
   "compact_count": 2,
   "checkpoint": {
-    "phase": "done",
-    "sprint": "N35",
-    "branch": "sprint/N35",
+    "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N35.8",
-    "prerequisite_blockers": [],
-    "lab_status": "N35 gate closed: smoke job 1e036c43-… success; F10.3/ISSUE-023 closed; ISSUE-040 VM-A sid=64 @ 128.201.61.109",
-    "lab_deploy": {
-      "host": "128.201.61.108",
-      "sid": 58,
-      "sha": "07f827ca56f4475d4b48926651828adcf5b81980",
-      "path": "/opt/mework360-deployer",
-      "up_http": 200,
-      "cluster_id": "dcaa93e2-18f2-4769-ab5f-73e723947111",
-      "ssh_user": "ncsaas-api",
-      "ssh_key_comment": "deployer-lab-n35",
-      "customer_synced": "lab",
-      "upstream_hotfix": "job_queue.sh UP-A+UP-B backport work-platform-scripts"
-    },
-    "issue040_vm_a": {
-      "sid": 64,
-      "ip": "128.201.61.109",
-      "order_id": 63,
-      "whmcs_client_id": 11,
-      "status": "Active"
-    },
-    "timestamp": "2026-06-19T02:30:00Z"
+    "last_completed_task": "N35.8"
   },
-  "sprint_tasks": [
-    {"id": "N35.1", "status": "completed", "size": "P", "title": "ISSUE-023 escopo LAB", "file": "docs/ISSUES.md"},
-    {"id": "N35.2", "status": "completed", "size": "P", "title": "Runbook F10.3-lab-validation.md", "file": "docs/runbooks/F10.3-lab-validation.md", "depends": ["N35.1"]},
-    {"id": "N35.3", "status": "completed", "size": "P", "title": "validation_env + deprecar runbook prod", "file": "docs/runbooks/F10.3-prod-validation.md", "depends": ["N35.2"]},
-    {"id": "N35.4", "status": "completed", "size": "M", "title": "Alinhar refs obsoletas deployer→LAB", "file": "docs/CI-CD.md", "depends": ["N35.2"]},
-    {"id": "N35.5", "status": "completed", "size": "M", "title": "Deploy API no LAB", "file": "docs/LAB-PROVISION-PLAN.md", "depends": ["N35.4"]},
-    {"id": "N35.6", "status": "completed", "size": "M", "title": "Smoke E2E LAB (LifecycleAsyncAction → webhook 204 → summary → UI)", "depends": ["N35.5"]},
-    {"id": "N35.7", "status": "completed", "size": "P", "title": "OPS-001 failed_jobs LAB", "depends": ["N35.5"]},
-    {"id": "N35.8", "status": "completed", "size": "P", "title": "Fechar F10.3 + ISSUE-023", "depends": ["N35.6", "N35.7"]}
-  ],
+  "sprint_tasks": [],
   "validation_gate": {
     "sprint": "F15",
     "produced_by": "/qa validar F15 R2 via /rock",
@@ -258,9 +225,16 @@
       "timestamp": "2026-06-19T01:15:00Z",
       "action": "/pmo plan via /rock — retomar N35 pós-debug ISSUE-041",
       "sprints_generated": [],
-      "issues_in_scope": ["ISSUE-023", "ISSUE-041"],
+      "issues_in_scope": [
+        "ISSUE-023",
+        "ISSUE-041"
+      ],
       "split_strategy": "N35 continuação (sem Sprint F nova): N35.5 done; ISSUE-041 fix LAB upstream; N35.6 replanejado smoke E2E via LifecycleAsyncAction; callback 404 = falso positivo (PlatformPort bypass)",
-      "tasks_remaining": ["N35.6", "N35.7", "N35.8"],
+      "tasks_remaining": [
+        "N35.6",
+        "N35.7",
+        "N35.8"
+      ],
       "gate": "LifecycleAsyncAction smoke → callback 204 → summary POPULATED → F10.3 closed"
     },
     {
@@ -285,6 +259,9 @@
       "prerequisite": "LAB-PROVISION-PLAN Fase 3+",
       "brief_path": "docs/.briefs/N35.brief.md"
     },
+    {
+      "timestamp": "2026-06-18T17:00:00Z",
+      "action": "/pmo plan — ISSUE-038 Fase 4",
       "sprints_generated": [
         "N34"
       ],
@@ -784,7 +761,7 @@
       ]
     }
   ],
-  "sprint_pr": 117,
+  "sprint_pr": 119,
   "checkpoint_n31_archived": {
     "phase": "auditing",
     "sprint": "N31",
@@ -1166,6 +1143,112 @@
       "file": "docs/runbooks/onboarding-saga.md",
       "depends": [
         "N34.2"
+      ]
+    }
+  ],
+  "checkpoint_n35_archived": {
+    "phase": "done",
+    "sprint": "N35",
+    "branch": "sprint/N35",
+    "current_task": null,
+    "last_completed_task": "N35.8",
+    "prerequisite_blockers": [],
+    "lab_status": "N35 gate closed: smoke job 1e036c43-… success; F10.3/ISSUE-023 closed; ISSUE-040 VM-A sid=64 @ 128.201.61.109",
+    "lab_deploy": {
+      "host": "128.201.61.108",
+      "sid": 58,
+      "sha": "07f827ca56f4475d4b48926651828adcf5b81980",
+      "path": "/opt/mework360-deployer",
+      "up_http": 200,
+      "cluster_id": "dcaa93e2-18f2-4769-ab5f-73e723947111",
+      "ssh_user": "ncsaas-api",
+      "ssh_key_comment": "deployer-lab-n35",
+      "customer_synced": "lab",
+      "upstream_hotfix": "job_queue.sh UP-A+UP-B backport work-platform-scripts"
+    },
+    "issue040_vm_a": {
+      "sid": 64,
+      "ip": "128.201.61.109",
+      "order_id": 63,
+      "whmcs_client_id": 11,
+      "status": "Active"
+    },
+    "timestamp": "2026-06-19T02:30:00Z"
+  },
+  "sprint_tasks_n35_archived": [
+    {
+      "id": "N35.1",
+      "status": "completed",
+      "size": "P",
+      "title": "ISSUE-023 escopo LAB",
+      "file": "docs/ISSUES.md"
+    },
+    {
+      "id": "N35.2",
+      "status": "completed",
+      "size": "P",
+      "title": "Runbook F10.3-lab-validation.md",
+      "file": "docs/runbooks/F10.3-lab-validation.md",
+      "depends": [
+        "N35.1"
+      ]
+    },
+    {
+      "id": "N35.3",
+      "status": "completed",
+      "size": "P",
+      "title": "validation_env + deprecar runbook prod",
+      "file": "docs/runbooks/F10.3-prod-validation.md",
+      "depends": [
+        "N35.2"
+      ]
+    },
+    {
+      "id": "N35.4",
+      "status": "completed",
+      "size": "M",
+      "title": "Alinhar refs obsoletas deployer→LAB",
+      "file": "docs/CI-CD.md",
+      "depends": [
+        "N35.2"
+      ]
+    },
+    {
+      "id": "N35.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Deploy API no LAB",
+      "file": "docs/LAB-PROVISION-PLAN.md",
+      "depends": [
+        "N35.4"
+      ]
+    },
+    {
+      "id": "N35.6",
+      "status": "completed",
+      "size": "M",
+      "title": "Smoke E2E LAB (LifecycleAsyncAction → webhook 204 → summary → UI)",
+      "depends": [
+        "N35.5"
+      ]
+    },
+    {
+      "id": "N35.7",
+      "status": "completed",
+      "size": "P",
+      "title": "OPS-001 failed_jobs LAB",
+      "depends": [
+        "N35.5"
+      ]
+    },
+    {
+      "id": "N35.8",
+      "status": "completed",
+      "size": "P",
+      "title": "Fechar F10.3 + ISSUE-023",
+      "depends": [
+        "N35.6",
+        "N35.7"
       ]
     }
   ]

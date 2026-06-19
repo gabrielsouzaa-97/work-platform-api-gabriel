@@ -45,7 +45,7 @@
 | ISSUE-037 | security | `ApiKey.scopes` nunca aplicado + sem autorização por tenant — qualquer chave age sobre qualquer customer (IDOR latente; vira CRITICAL ao abrir `/v1` a terceiros) | Core (Auth/api-key), Customers | HIGH | **corrigido local** — Sprint F15 (2026-06-16) |
 | ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | **Fases 0–4 concluídas** (N30–N34, branch `sprint/N34`; validation R2 APROVADA) — adoção N22 pendente |
 | ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | **closed (2026-06-16)** — Sprint F14 merge PR #112; CI verde |
-| ISSUE-040 | change_request | LAB mirror de prod: VM dedicada para o control plane (`api.lab`) separada do upstream — SSH/webhook cross-host real | DevOps, Infra | MEDIUM | **in_progress** — VM-A provisionada WHMCS sid=64 @ `128.201.61.109` (2026-06-19); DNS/migrate pendente |
+| ISSUE-040 | change_request | LAB mirror de prod: VM dedicada para o control plane (`api.lab`) separada do upstream — SSH/webhook cross-host real | DevOps, Infra | MEDIUM | **in_progress** — sid=65 @ `128.201.61.110` (SSH key OK); DNS `api.lab` → `.110`; sid=64 orphan `.109`; bootstrap aguarda SSH:22 |
 | ISSUE-041 | bug | ~~Dispatch lifecycle async via `PlatformPort` trava em `--payload-stdin`~~ **Root cause**: `manage` não lia `REDIS_PASSWORD_FILE` pós-bl07 → NOAUTH → `idem_check` mascarava como `conflict` | Customers, Integration, Core/Ssh | HIGH | **closed (2026-06-19)** — UP-A/UP-B aplicados LAB + backport `work-platform-scripts` |
 
 ---
@@ -184,11 +184,10 @@ Assim valida SSH cross-host, firewall, egress IP whitelist e HMAC pela rede — 
 ### Pré-requisitos / roteamento
 
 - [x] **Decisão de arquitetura** (`/arquiteto`): topologia 2-VM confirmada (2026-06-18)
-- [x] **Provisionamento** (`/cloud-ops` PROVISIONAR): WHMCS cliente `me360-work` (id=11), pid=6, **order=63, sid=64**, IP **`128.201.61.109`**, specs 4 vCPU / 8 GB / 80 GB Debian 13 (2026-06-19)
-- [ ] Specs sugeridas (prod): 4 vCPU / 8 GB / 80 GB SSD — **atendido na VM-A**
-- [ ] DNS `api.lab` → IP da VM-A (hoje aponta para VM-B `128.201.61.108`)
-- [ ] Migrar stack deployer de VM-B → VM-A; registrar `cluster_servers` apontando para VM-B
-- [ ] Staging SSH key (`PROVISION_VM_SSH_PUBLIC_KEY`) — não aplicado no provisionamento inicial
+- [x] **Provisionamento** (`/cloud-ops` PROVISIONAR): sid=**65** @ **`128.201.61.110`** (order 64, SSH CF18 staged antes AcceptOrder — 2026-06-19)
+- [ ] **sid=64 orphan** @ `128.201.61.109` — provisionado sem CF18; SSH inacessível; cancelar via WHMCS quando aprovado
+- [x] DNS `api.lab` → **`128.201.61.110`** (PowerDNS PATCH 204)
+- [ ] Bootstrap VM-A: aguarda **TCP/22** + `deploy-server.sh` / migrar stack de VM-B
 
 ### Não-bloqueante
 
