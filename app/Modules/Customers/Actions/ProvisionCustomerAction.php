@@ -160,6 +160,7 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'cluster_server_id' => $cluster->id,
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
+                    'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),
                 ]);
                 $customer = $ghost;
@@ -169,6 +170,7 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'cluster_server_id' => $cluster->id,
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
+                    'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),
                 ]);
             }

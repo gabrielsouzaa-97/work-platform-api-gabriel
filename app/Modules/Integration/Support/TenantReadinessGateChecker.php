@@ -8,6 +8,7 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use Illuminate\Support\Facades\Http;
 
 final class TenantReadinessGateChecker
 {
@@ -29,7 +30,11 @@ final class TenantReadinessGateChecker
             return false;
         }
 
-        return $this->passesForceSso($customer, $cluster, $timeoutSec);
+        if (! $this->passesForceSso($customer, $cluster, $timeoutSec)) {
+            return false;
+        }
+
+        return $this->passesMeMailHttp($customer, $timeoutSec);
     }
 
     /**
@@ -106,5 +111,18 @@ final class TenantReadinessGateChecker
         $value = $response->parsedJson['value'] ?? trim($response->stdout);
 
         return is_string($value) && strcasecmp($value, 'yes') === 0;
+    }
+
+    private function passesMeMailHttp(Customer $customer, int $timeoutSec): bool
+    {
+        $url = sprintf('https://%s/apps/mework360_memail/', $customer->domain);
+
+        try {
+            $response = Http::timeout($timeoutSec)->get($url);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $response->status() === 200;
     }
 }

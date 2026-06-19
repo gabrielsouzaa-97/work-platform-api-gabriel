@@ -63,6 +63,7 @@ final class AgentGatewayController extends Controller
             'event_type' => ['sometimes', 'string'],
             'data' => ['sometimes', 'array'],
             'data.job_id' => ['sometimes', 'string'],
+            'data.error' => ['sometimes', 'string'],
         ]);
 
         $this->eventHandler->handle($agent, $validated);

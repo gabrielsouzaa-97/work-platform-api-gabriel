@@ -27,6 +27,9 @@ class ProvisionCustomerRequest extends FormRequest
             'full_apps' => ['nullable', 'boolean'],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],
             'background' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],
+            'mail' => ['nullable', 'array'],
+            'mail.provision_domain' => ['nullable', 'boolean'],
+            'mail.default_mailbox' => ['nullable', 'string', 'email', 'max:255'],
         ];
     }
 

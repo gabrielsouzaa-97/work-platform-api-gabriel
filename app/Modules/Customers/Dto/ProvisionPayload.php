@@ -18,6 +18,7 @@ final readonly class ProvisionPayload
         public bool $fullApps,
         public ?string $logoPath,
         public ?string $backgroundPath,
+        public ?array $mail = null,
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -35,7 +36,21 @@ final readonly class ProvisionPayload
             fullApps: $request->boolean('full_apps', false),
             logoPath: self::resolveBrandingPath($request, 'logo', $customer, 'logo_path'),
             backgroundPath: self::resolveBrandingPath($request, 'background', $customer, 'background_path'),
+            mail: self::resolveMailPayload($request),
         );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function resolveMailPayload(Request $request): ?array
+    {
+        $mail = $request->input('mail');
+        if (! is_array($mail) || $mail === []) {
+            return null;
+        }
+
+        return $mail;
     }
 
     private static function resolveBrandingPath(

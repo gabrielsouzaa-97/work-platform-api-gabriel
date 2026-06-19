@@ -10,6 +10,14 @@
 
 ---
 
+## 0. Modelo de execução (obrigatório)
+
+- **Somente `composer-2.5`** — **proibido** `composer-2.5-fast`, alias `fast`, ou qualquer variante `-fast` (F132.7, Decision #225).
+- Custom agents (`test-writer`, `implementer`, `integrator`, `verifier`, `rock`) já declaram `model: composer-2.5` no YAML — **mesmo assim**, todo spawn via `Task` deve passar **`model: composer-2.5` explicitamente** (GAP-10: Cursor pode ignorar o YAML e cair em Fast).
+- Se a UI mostrar "Composer 2.5 Fast" → **interromper imediatamente** e relançar com `model: composer-2.5`.
+
+---
+
 ## 1. Princípio de operação
 
 | Camada | Onde acontece |
@@ -112,7 +120,7 @@ Onda C: não executar — listar destravas e aguardar decisão humana/ops
 | Sprint | Repo | Status | SHA / PR | Validação |
 |--------|------|--------|----------|-----------|
 | N14–N20 | múltiplos | ✅ concluídas | — | (campanha anterior) |
-| api:N21 | work-platform-api | ⏳ pendente | — | — |
+| api:N21 | work-platform-api | ✅ concluída | push pendente | CI local green (610 passed) |
 | api:N23 | work-platform-api | ⏳ pendente | — | — |
 | api:N29 | work-platform-api | ⏳ pendente | — | — |
 | scripts:N27 | work-platform-scripts | ⏳ pendente | — | — |

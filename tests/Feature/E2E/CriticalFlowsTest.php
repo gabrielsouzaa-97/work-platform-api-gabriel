@@ -24,6 +24,7 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -147,6 +148,8 @@ it('[Marina] provisiona customer via API → webhook done → customer.status=ac
 
     $customer->refresh();
     expect($customer->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
+
+    fakeReadinessGateR6Http($customer->domain);
 
     Queue::assertPushed(ProbeCustomerReadinessJob::class);
 

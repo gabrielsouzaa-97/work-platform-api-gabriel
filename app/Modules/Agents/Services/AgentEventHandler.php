@@ -6,7 +6,10 @@ namespace App\Modules\Agents\Services;
 
 use App\Models\AgentCommand;
 use App\Models\AuditLog;
+use App\Models\Customer;
 use App\Models\FarmAgent;
+use App\Models\Job;
+use App\Modules\Mail\Actions\ProvisionTenantMailAction;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -14,6 +17,7 @@ final class AgentEventHandler
 {
     public function __construct(
         private readonly AgentCommandQueue $commandQueue,
+        private readonly ProvisionTenantMailAction $provisionTenantMailAction,
     ) {}
 
     /**
@@ -29,6 +33,7 @@ final class AgentEventHandler
         if ($operationId !== '' && $state !== '' && $this->commandBelongsToAgent($operationId, $agent)) {
             $this->commandQueue->ack($agent, $operationId, $state);
             $this->storeOperationResult($operationId, $event, $state);
+            $this->maybeProvisionMailAfterContainersUp($agent, $event, $operationId);
         }
 
         AuditLog::create([
@@ -129,5 +134,81 @@ final class AgentEventHandler
         }
 
         return 'Agent operation failed';
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    private function maybeProvisionMailAfterContainersUp(FarmAgent $agent, array $event, string $operationId): void
+    {
+        if (($event['step'] ?? '') !== 'containers_up') {
+            return;
+        }
+
+        $command = AgentCommand::query()
+            ->where('operation_id', $operationId)
+            ->where('farm_agent_id', $agent->id)
+            ->first();
+
+        if ($command === null || $command->operation !== 'tenant.create') {
+            return;
+        }
+
+        $mailPayload = $this->resolveMailPayload($command);
+        if ($mailPayload === null) {
+            return;
+        }
+
+        $customer = $this->resolveCustomerFromEvent($event);
+        if ($customer === null) {
+            return;
+        }
+
+        $mailbox = $mailPayload['default_mailbox'] ?? null;
+        if (! is_string($mailbox) || $mailbox === '') {
+            return;
+        }
+
+        $password = is_string($mailPayload['admin_password'] ?? null) && $mailPayload['admin_password'] !== ''
+            ? $mailPayload['admin_password']
+            : Str::password(16);
+
+        $this->provisionTenantMailAction->execute($customer, $mailbox, $password);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveMailPayload(AgentCommand $command): ?array
+    {
+        $payload = $command->payload['mail'] ?? null;
+        if (! is_array($payload) || ($payload['provision_domain'] ?? false) !== true) {
+            return null;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    private function resolveCustomerFromEvent(array $event): ?Customer
+    {
+        $data = $event['data'] ?? null;
+        if (! is_array($data)) {
+            return null;
+        }
+
+        $jobId = $data['job_id'] ?? null;
+        if (! is_string($jobId) || $jobId === '') {
+            return null;
+        }
+
+        $job = Job::query()->where('job_id', $jobId)->first();
+        if ($job === null || $job->customer_slug === null) {
+            return null;
+        }
+
+        return Customer::find($job->customer_slug);
     }
 }

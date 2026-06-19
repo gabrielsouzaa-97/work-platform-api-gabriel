@@ -82,6 +82,7 @@ it('characterizes readiness gates include app:list, user:list, and memail config
     $customer = characterizationProbeCustomer();
 
     app()->instance(SshClientInterface::class, characterizationReadinessGateMock());
+    fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
 });
@@ -90,6 +91,7 @@ it('characterizes all gates passing returns true', function (): void {
     $customer = characterizationProbeCustomer('char-probe-ok');
 
     app()->instance(SshClientInterface::class, characterizationReadinessGateMock());
+    fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
 });
