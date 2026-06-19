@@ -190,3 +190,73 @@ it('provision uses ssh for large logo staging when agent transport enabled', fun
 
     expect($result['job']->job_id)->toBe($jobId);
 });
+
+it('remove falls back to ssh when agent transport flag is off', function (): void {
+    Config::set('services.agent.transport_enabled', false);
+
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    FarmAgent::factory()->create([
+        'cluster_server_id' => $cluster->id,
+        'last_seen_at' => now(),
+    ]);
+    $operator = Operator::factory()->admin()->create();
+    $jobId = Str::uuid()->toString();
+
+    $customer = Customer::create([
+        'slug' => 'remove-ssh-fallback',
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'remove-ssh-fallback.example.com',
+        'status' => 'active',
+    ]);
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('runAsync')->once()->andReturn(agentTransportJobResponse($jobId));
+    app()->instance(SshClientInterface::class, $sshMock);
+
+    $gatewayMock = Mockery::mock(AgentUpstreamGateway::class);
+    $gatewayMock->shouldNotReceive('runAsync');
+    app()->instance(AgentUpstreamGateway::class, $gatewayMock);
+
+    $job = app(RemoveCustomerAction::class)->execute(
+        slug: $customer->slug,
+        confirmSlug: $customer->slug,
+        backupFirst: false,
+        actor: $operator,
+    );
+
+    expect($job->job_id)->toBe($jobId);
+});
+
+it('provision falls back to ssh when agent transport enabled but farm offline', function (): void {
+    Config::set('services.agent.transport_enabled', true);
+
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    FarmAgent::factory()->offline()->create([
+        'cluster_server_id' => $cluster->id,
+    ]);
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $jobId = Str::uuid()->toString();
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('runAsync')->once()->andReturn(agentTransportJobResponse($jobId));
+    app()->instance(SshClientInterface::class, $sshMock);
+
+    $gatewayMock = Mockery::mock(AgentUpstreamGateway::class);
+    $gatewayMock->shouldNotReceive('runAsync');
+    app()->instance(AgentUpstreamGateway::class, $gatewayMock);
+
+    $result = app(ProvisionCustomerAction::class)->execute(
+        new ProvisionPayload(
+            slug: 'offline-agent-fallback',
+            clusterServerId: $cluster->id,
+            domain: 'offline-agent-fallback.example.com',
+            apps: [],
+            fullApps: false,
+            logoPath: null,
+            backgroundPath: null,
+        ),
+        $operator,
+    );
+
+    expect($result['job']->job_id)->toBe($jobId);
+});

@@ -107,3 +107,50 @@ it('receiveEvents ignores operation_id owned by another farm agent', function ()
     expect($command->status)->toBe('pending');
     expect(Cache::get(AgentUpstreamGateway::resultCacheKey($command->operation_id)))->toBeNull();
 });
+
+it('stores job_id in operation cache when event includes data.job_id', function (): void {
+    $agent = FarmAgent::factory()->create();
+    $command = AgentCommand::create([
+        'farm_agent_id' => $agent->id,
+        'operation_id' => '880e8400-e29b-41d4-a716-446655440003',
+        'operation' => 'tenant.create',
+        'status' => 'pending',
+        'requested_at' => now(),
+    ]);
+    $jobId = '990e8400-e29b-41d4-a716-446655440004';
+
+    $this->postJson('/api/agent/v1/events', [
+        'schema_version' => 1,
+        'operation_id' => $command->operation_id,
+        'farm_id' => $agent->farm_id,
+        'state' => 'running',
+        'data' => ['job_id' => $jobId],
+        'ts' => now()->toIso8601String(),
+    ], agentAuthHeaders($agent))->assertAccepted();
+
+    expect(Cache::get(AgentUpstreamGateway::resultCacheKey($command->operation_id)))
+        ->toBe(['job_id' => $jobId]);
+});
+
+it('stores structured error in cache when agent reports failed with data.error', function (): void {
+    $agent = FarmAgent::factory()->create();
+    $command = AgentCommand::create([
+        'farm_agent_id' => $agent->id,
+        'operation_id' => 'aa0e8400-e29b-41d4-a716-446655440005',
+        'operation' => 'tenant.create',
+        'status' => 'pending',
+        'requested_at' => now(),
+    ]);
+
+    $this->postJson('/api/agent/v1/events', [
+        'schema_version' => 1,
+        'operation_id' => $command->operation_id,
+        'farm_id' => $agent->farm_id,
+        'state' => 'failed',
+        'data' => ['error' => 'manage exited with code 3'],
+        'ts' => now()->toIso8601String(),
+    ], agentAuthHeaders($agent))->assertAccepted();
+
+    expect(Cache::get(AgentUpstreamGateway::resultCacheKey($command->operation_id)))
+        ->toBe(['error' => 'manage exited with code 3']);
+});
