@@ -332,3 +332,9 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-06-18 12:15** `f061d6f` — chore(sprint-N32): stamp validation_gate APROVADA R2
 - **2026-06-18 12:39** `682eff4` — feat(sprint-N33): task N33.1 — external spec occ gate + legacy Deprecation headers
 - **2026-06-18 12:59** `682eff4` — feat(sprint-N33): task N33.1 — external spec occ gate + legacy Deprecation headers
+- **2026-06-18 15:39** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
+- **2026-06-18 15:55** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
+- **2026-06-18 16:28** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
+- **2026-06-18 16:48** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
+- **2026-06-18 16:49** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
+- **2026-06-18 17:18** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
