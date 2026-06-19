@@ -42,6 +42,13 @@ pest()->extend(TestCase::class)
 pest()->extend(TestCase::class)
     ->in('Unit/Mail');
 
+pest()->extend(TestCase::class)
+    ->in('Unit/Dns');
+
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->in('Unit/Farms');
+
 // Contract tests run against REAL upstream — opt-in via RUN_UPSTREAM_CONTRACT=1.
 // They MUST NOT use RefreshDatabase (the operator seeds cluster/customer rows
 // before invocation; wiping them would render the suite non-functional). The

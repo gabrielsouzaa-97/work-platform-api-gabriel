@@ -91,3 +91,30 @@ it('isHealthy returns false when mail API health endpoint is unreachable', funct
 
     expect(mailApiClient()->isHealthy())->toBeFalse();
 });
+
+it('fetches DKIM public key via GET /v1/domains/{domain}/dkim', function (): void {
+    Http::fake([
+        'https://mail-api.test/v1/domains/acme.example.com/dkim' => Http::response([
+            'selector' => 'default',
+            'public_key' => 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtest',
+            'record_name' => 'default._domainkey.acme.example.com',
+        ], 200),
+    ]);
+
+    $result = mailApiClient()->fetchDkim('acme.example.com');
+
+    expect($result['selector'])->toBe('default')
+        ->and($result['record_name'])->toBe('default._domainkey.acme.example.com');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://mail-api.test/v1/domains/acme.example.com/dkim'
+        && $request->method() === 'GET'
+        && $request->hasHeader('Authorization', mailApiAuthHeader()));
+});
+
+it('throws MailApiException when DKIM fetch fails', function (): void {
+    Http::fake([
+        'https://mail-api.test/v1/domains/missing.example.com/dkim' => Http::response(['error' => 'not_found'], 404),
+    ]);
+
+    mailApiClient()->fetchDkim('missing.example.com');
+})->throws(MailApiException::class);

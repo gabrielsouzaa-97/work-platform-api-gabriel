@@ -121,8 +121,8 @@ Onda C: não executar — listar destravas e aguardar decisão humana/ops
 |--------|------|--------|----------|-----------|
 | N14–N20 | múltiplos | ✅ concluídas | — | (campanha anterior) |
 | api:N21 | work-platform-api | ✅ concluída | `7dffff7` → `sprint/N21-mail-pipeline` | 610 passed local |
-| api:N23 | work-platform-api | 🔴 RED | `sprint/N23-farm-placement` | 12 tests aguardando GREEN |
-| api:N29 | work-platform-api | ⏳ pendente | — | — |
+| api:N23 | work-platform-api | ✅ concluída | `60da4d4` → `sprint/N23-farm-placement` | 622 passed local |
+| api:N29 | work-platform-api | 🔴 RED | `sprint/N29-dns-powerdns` | 22 tests aguardando GREEN |
 | scripts:N27 | work-platform-scripts | ⏳ pendente | — | — |
 | scripts:N26 | work-platform-scripts | ⏳ pendente | — | — |
 | N24 | agent+api+scripts | ⏳ pendente | — | — |
