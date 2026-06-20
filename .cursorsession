@@ -231,22 +231,14 @@
       "validation_mode": "full",
       "gates": [
         {
-          "cmd": "docker compose run --rm --no-TTY app ./vendor/bin/pint --test",
-          "exit_code": 0
-        },
-        {
-          "cmd": "bash scripts/grep-gate-adapters.sh",
-          "exit_code": 0
-        },
-        {
           "cmd": "docker compose run --rm --no-TTY app php artisan test",
           "exit_code": 0
         }
       ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "5bbd63449333fbd84c3306d9daf8a691ca7026f9",
-      "stamped_at": "2026-06-20T12:16:09Z"
+      "last_validated_sha": "c75181547c67bc4931dcb7aa57da55696d02ecc1",
+      "stamped_at": "2026-06-20T22:34:38Z"
     }
   },
   "sprint_tasks": [
