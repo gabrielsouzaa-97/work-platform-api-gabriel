@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Campanha V2 Platform — rodada 1 (N19)",
-  "sprint_atual": null,
+  "fase_nome": "Campanha V2 Platform — Onda A (N21+N23+N29)",
+  "sprint_atual": "N29",
   "previous_sprint": "N35",
-  "sprint_branch": "campanha/v2-platform",
+  "sprint_branch": "sprint/N29-dns-powerdns",
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -44,12 +44,12 @@
     "rodadas_total": 11,
     "sprints_done": [
       "N19",
-      "N20"
-    ],
-    "sprints_pending": [
+      "N20",
       "N21",
       "N23",
-      "N29",
+      "N29"
+    ],
+    "sprints_pending": [
       "N22",
       "N25",
       "N26",
@@ -65,7 +65,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-20T06:13:59Z",
+  "ultimo_update": "2026-06-20T08:30:00Z",
   "next_sprint_planned": "V2-N19",
   "modulos": [
     "Core",
@@ -224,9 +224,61 @@
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N35.8"
+    "last_completed_task": "N29.5",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose run --rm --no-TTY app ./vendor/bin/pint --test",
+          "exit_code": 0
+        },
+        {
+          "cmd": "bash scripts/grep-gate-adapters.sh",
+          "exit_code": 0
+        },
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "5bbd63449333fbd84c3306d9daf8a691ca7026f9",
+      "stamped_at": "2026-06-20T12:16:09Z"
+    }
   },
-  "sprint_tasks": [],
+  "sprint_tasks": [
+    {
+      "id": "N29.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Onda A QA hardening (CQ-N21-001..005, CQ-N29-001..003)",
+      "file": "app/Modules/Agents/Services/AgentEventHandler.php"
+    },
+    {
+      "id": "N29.4",
+      "status": "completed",
+      "size": "P",
+      "title": "domain/verify + DNS tests",
+      "file": "tests/Feature/Mail/MailProvisionPipelineTest.php"
+    },
+    {
+      "id": "N23.4",
+      "status": "completed",
+      "size": "P",
+      "title": "Farm inventory + placement",
+      "file": "app/Modules/Farms/Services/PlacementService.php"
+    },
+    {
+      "id": "N21.5",
+      "status": "completed",
+      "size": "P",
+      "title": "Mail pipeline integration",
+      "file": "app/Modules/Mail/Actions/ProvisionTenantMailAction.php"
+    }
+  ],
   "validation_gate": {
     "sprint": "Onda-A (N21+N23+N29)",
     "produced_by": "/qa validar Onda A R3 via /rock",
