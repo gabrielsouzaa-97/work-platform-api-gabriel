@@ -18,6 +18,10 @@ final class MailApiClient
         $response = $this->request()
             ->post($this->endpoint('/v1/domains'), ['domain' => $domain]);
 
+        if ($response->status() === 409) {
+            return [];
+        }
+
         if (! $response->successful()) {
             throw MailApiException::fromResponse($response, 'createDomain');
         }
@@ -38,6 +42,10 @@ final class MailApiClient
             'local_part' => $localPart,
             'password' => $password,
         ]);
+
+        if ($response->status() === 409) {
+            return [];
+        }
 
         if (! $response->successful()) {
             throw MailApiException::fromResponse($response, 'createMailbox');

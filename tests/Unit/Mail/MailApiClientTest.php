@@ -60,9 +60,29 @@ it('creates admin mailbox via POST /v1/mailboxes', function (): void {
         && $request->hasHeader('Authorization', mailApiAuthHeader()));
 });
 
-it('throws MailApiException when domain creation fails', function (): void {
+it('treats HTTP 409 on domain creation as idempotent success', function (): void {
     Http::fake([
         'https://mail-api.test/v1/domains' => Http::response(['error' => 'domain_exists'], 409),
+    ]);
+
+    $result = mailApiClient()->createDomain('taken.example.com');
+
+    expect($result)->toBe([]);
+});
+
+it('treats HTTP 409 on mailbox creation as idempotent success', function (): void {
+    Http::fake([
+        'https://mail-api.test/v1/mailboxes' => Http::response(['error' => 'mailbox_exists'], 409),
+    ]);
+
+    $result = mailApiClient()->createMailbox('acme.example.com', 'admin', 'Secret123!');
+
+    expect($result)->toBe([]);
+});
+
+it('throws MailApiException when domain creation fails with non-conflict status', function (): void {
+    Http::fake([
+        'https://mail-api.test/v1/domains' => Http::response(['error' => 'upstream'], 502),
     ]);
 
     mailApiClient()->createDomain('taken.example.com');

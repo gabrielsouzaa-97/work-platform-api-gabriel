@@ -29,7 +29,7 @@ final class ProvisionDnsZoneAction
             return;
         }
 
-        $this->pdnsClient->createZone($domain);
+        $this->pdnsClient->ensureZoneExists($domain);
         $this->publishRecords($domain, $this->resolveFarmTargetIp($customer));
         $this->markProvisioned($customer);
     }

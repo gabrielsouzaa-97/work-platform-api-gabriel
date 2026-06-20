@@ -38,6 +38,21 @@ final class PdnsClient
         return $payload;
     }
 
+    public function ensureZoneExists(string $zone): void
+    {
+        if ($this->zoneExists($zone)) {
+            return;
+        }
+
+        try {
+            $this->createZone($zone);
+        } catch (PdnsException $exception) {
+            if (! $this->isConflict($exception)) {
+                throw $exception;
+            }
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -128,5 +143,21 @@ final class PdnsClient
     private function apiKey(): string
     {
         return (string) config('services.pdns.api_key');
+    }
+
+    private function zoneExists(string $zone): bool
+    {
+        try {
+            $this->getZone($zone);
+
+            return true;
+        } catch (PdnsException) {
+            return false;
+        }
+    }
+
+    private function isConflict(PdnsException $exception): bool
+    {
+        return str_contains($exception->getMessage(), 'HTTP 409');
     }
 }

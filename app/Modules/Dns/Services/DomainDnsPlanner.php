@@ -41,6 +41,22 @@ final class DomainDnsPlanner
         return 'v=DMARC1; p=none';
     }
 
+    public function defaultDkimHost(string $domain): string
+    {
+        return "default._domainkey.{$domain}";
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function dkimLookupHosts(string $domain): array
+    {
+        return [
+            $this->defaultDkimHost($domain),
+            "mail-api._domainkey.{$domain}",
+        ];
+    }
+
     /**
      * @return array<int, array{type: string, name: string, content: string}>
      */

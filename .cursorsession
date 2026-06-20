@@ -40,18 +40,32 @@
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
-    "rodada_atual": 1,
+    "rodada_atual": 3,
     "rodadas_total": 11,
-    "sprints": ["N19", "N20", "N21", "N23", "N29", "N22", "N25", "N26", "N27", "N24", "N28"],
+    "sprints_done": [
+      "N19",
+      "N20"
+    ],
+    "sprints_pending": [
+      "N21",
+      "N23",
+      "N29",
+      "N22",
+      "N25",
+      "N26",
+      "N27",
+      "N24",
+      "N28"
+    ],
     "lab_deferred": true,
-    "pr": null
+    "pr": 122
   },
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-19T03:03:40Z",
+  "ultimo_update": "2026-06-20T06:13:59Z",
   "next_sprint_planned": "V2-N19",
   "modulos": [
     "Core",
@@ -202,11 +216,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-16T19:42:58Z",
-    "usage_percent": 93.60033333333332,
-    "messages_lost": 270
+    "compacted_at": "2026-06-19T15:56:16Z",
+    "usage_percent": 94.20766666666667,
+    "messages_lost": 154
   },
-  "compact_count": 2,
+  "compact_count": 4,
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
@@ -214,21 +228,24 @@
   },
   "sprint_tasks": [],
   "validation_gate": {
-    "sprint": "F15",
-    "produced_by": "/qa validar F15 R2 via /rock",
+    "sprint": "Onda-A (N21+N23+N29)",
+    "produced_by": "/qa validar Onda A R3 via /rock",
     "result": "APROVADA",
     "validation_mode": "revalidation",
-    "validation_round": 2,
+    "validation_round": 3,
+    "findings_found": 0,
+    "findings_registered": [],
     "findings_validated": [
-      "CQ-F15-001",
-      "CQ-F15-002",
-      "CQ-F15-003",
-      "CQ-F15-005",
-      "SEC-V1-001"
+      "CQ-N21-004",
+      "CQ-N21-005"
     ],
-    "tests_evidence": "ApiKeyAuthorizationTest 9 passed + CancelJobTest 4 passed, 29 assertions",
+    "files_modified_outside_findings": 0,
+    "askquestion_shown": false,
     "senior_review_status": "PASS",
-    "stamped_at": "2026-06-17T01:30:00Z"
+    "contract_source": "bootstrap",
+    "in_contract": [],
+    "tests_evidence": "Docker app: 656 passed, 7 skipped, 2171 assertions (2026-06-20)",
+    "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
     {

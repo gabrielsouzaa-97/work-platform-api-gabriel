@@ -76,19 +76,8 @@ final class DnsLookupService implements DnsLookupServiceInterface
      */
     private function lookupDkim(string $domain): array
     {
-        $records = @dns_get_record($domain, DNS_NS);
-
-        if (! is_array($records)) {
-            return [];
-        }
-
         $matches = [];
-        foreach ($records as $record) {
-            $host = $record['host'] ?? null;
-            if (! is_string($host) || ! str_contains($host, '_domainkey')) {
-                continue;
-            }
-
+        foreach ($this->planner->dkimLookupHosts($domain) as $host) {
             $matches = array_merge($matches, $this->lookupTxtMatching($host, 'v=DKIM1'));
         }
 

@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-06-18
+synced_at: 2026-06-20
 open_critical: 0
 open_high: 9
 open_medium: 44
 open_low: 33
-sprints_with_open_blockers: F10
-notes: N34 validacao R2 APROVADA (2026-06-18) — CQ-N34-001/002/003 corrigidos in-sprint (5bd7456). N33 validacao R1 APROVADA (2026-06-18) — CQ-N32-003 validado (PR #117). N32 validacao R2 APROVADA (2026-06-18) — CQ-N32-001/002/004/005/006/007 validados (PR #117). N30 validacao R1 APROVADA (2026-06-17) — CQ-N30-001/SEC-N30-001 corrigidos in-sprint (837173c). F15 validacao R2 APROVADA (2026-06-17) — CQ-F15-001/002/003/005 validados; SEC-V1-001 validado; 2 LOW backlog (CQ-F15-007/008). N19 validacao R2 APROVADA (2026-06-12)
+sprints_with_open_blockers:
+notes: Onda A R3 APROVADA (2026-06-20) — CQ-N21-004/005 validados; 656 passed Docker. Blockers N21/N29 zerados.
 FINDINGS-INDEX -->
 
 
@@ -40,6 +40,8 @@ FINDINGS-INDEX -->
 | N32 | 0 | 7 | 0 | 0 | 1 | 6 | 6 |
 | N34 | 0 | 3 | 0 | 0 | 0 | 3 | 3 |
 | N19 | 0 | 2 | 9 | 6 | 15 | 0 | 2 |
+| N21 | 0 | 5 | 0 | 0 | 0 | 0 | 5 |
+| N29 | 0 | 3 | 0 | 0 | 0 | 0 | 3 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 
 > **Validação F15 R2** (2026-06-17, `/qa validar F15` via `/rock`): scope = follow-up `ce86325` (campanha `f15-authz-followup`). **Testes**: `ApiKeyAuthorizationTest` 9 passed + `CancelJobTest` 4 passed, 29 assertions (SQLite local). **auditor-senior R2** → **PASS** (0 HIGH). **Findings validados**: `CQ-F15-001`, `CQ-F15-002`, `CQ-F15-003`, `CQ-F15-005`, `SEC-V1-001`. **Backlog non-blocking**: `CQ-F15-007`, `CQ-F15-008` (LOW). **Hard Rule #2**: OK (0 arquivos fora whitelist). **Resultado: APROVADA**.
@@ -2460,5 +2462,121 @@ Nenhum finding registrado para D1 na validação atual.
 - **Descrição**: Job `provision` terminal `failed`/`cancelled` atualizava `Customer` mas não `Onboarding`. Poll GET retornava `running` indefinidamente; runbook documentava `state=failed` mas código nunca setava.
 - **Correção** (Sprint N34, commit `5bd7456`): `markStepFailed()` seta `OnboardingState::Failed`; webhook cobre provision `failed`/`cancelled` e steps assíncronos subsequentes via `handleTerminalJob`.
 - **Validação** (N34 R2, 2026-06-18): `OnboardingReadinessGateTest` + feature tests de step failure verdes; auditor-senior R2 PASS.
+
+---
+
+## Sprint Onda A — N21 + N23 + N29 (branch `sprint/N29-dns-powerdns`)
+
+> **Validação Onda A R1** (2026-06-20, `/qa validar`): scope = delta `main...HEAD` (N19–N29 commits; foco N21 mail, N23 placement, N29 DNS). **Testes**: 644 passed, 7 skipped, 2143 assertions (Docker `app`). **auditor-senior R1** → **FAIL** (6 HIGH). **N23**: 0 HIGH no delta. **Resultado: REPROVADA** — PROC-012 exige corrigir HIGH in-sprint antes de merge da Onda A.
+
+> **Validação Onda A R2** (2026-06-20, `/qa validar`): follow-up correções `/rock`. **Testes**: 654 passed, 7 skipped, 2161 assertions (Docker). **auditor-senior R2** → **FAIL** (2 HIGH novos). **R1**: 6/6 HIGH **Validado** in-code. **Resultado: REPROVADA** — CQ-N21-004, CQ-N21-005 pendentes.
+
+### CQ-N21-001 — HIGH — Mail hook lê payload do AgentCommand, mas enqueue não popula `mail`
+
+- **Sprint**: N21
+- **Severidade**: HIGH
+- **Tipo**: product_bug / architectural
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R1 — auditor-senior
+- **Arquivo**: `app/Modules/Agents/Services/AgentEventHandler.php:182-189`, `app/Modules/Agents/Services/AgentUpstreamGateway.php:44-48`
+- **Descrição**: `maybeProvisionMailAfterContainersUp()` resolve mail via `$command->payload['mail']`, mas `AgentUpstreamGateway::enqueue()` só grava `cmd`, `args` e `stdin_json`. Mail fica em `Customer.mail_provision_payload` (gravado por `ProvisionCustomerAction`) e nunca é copiado para o comando. Com agent transport ativo, hook de mail nunca dispara.
+- **Correção**: `resolveMailPayload` prioriza `$customer->mail_provision_payload` com fallback ao payload do comando; customer resolvido antes do mail payload; teste atualizado.
+- **Validação** (Onda A R2, 2026-06-20): auditor-senior R2 PASS no item; `MailProvisionPipelineTest` verde.
+
+### CQ-N21-002 — HIGH — Senha admin gerada é descartada quando `admin_password` ausente
+
+- **Sprint**: N21
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R1 — auditor-senior
+- **Arquivo**: `app/Modules/Agents/Services/AgentEventHandler.php:172-176`
+- **Descrição**: Quando `mail.admin_password` está ausente, usa `Str::password(16)` e chama `ProvisionTenantMailAction`, mas a senha não é persistida. Mailbox criado com credencial irrecuperável.
+- **Correção**: Senha gerada ou fornecida persistida criptografada em `branding_meta['mail_admin_password_encrypted']` antes da chamada mail-api.
+- **Validação** (Onda A R2, 2026-06-20): core fix validado; ressalva CQ-N21-005 em retry duplicado.
+
+### CQ-N21-003 — HIGH — Provisioning de mail sem idempotência; exceção derruba handler de eventos
+
+- **Sprint**: N21
+- **Severidade**: HIGH
+- **Tipo**: product_bug / resilience
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R1 — auditor-senior
+- **Arquivo**: `app/Modules/Mail/Actions/ProvisionTenantMailAction.php:18-24`, `app/Modules/Agents/Services/AgentEventHandler.php:176`
+- **Descrição**: Sem flag/idempotency guard (`mail_provisioned`). Reenvio de `containers_up` reexecuta `createDomain`/`createMailbox`. Falha 409/422 do mail-api propaga `MailApiException` sem try/catch no `AgentEventHandler`, quebrando `POST /api/agent/v1/events`.
+- **Correção**: Flag `mail_provisioned` + audit guard; HTTP 409 idempotente no MailApiClient; try/catch com AuditLog em AgentEventHandler.
+- **Validação** (Onda A R2, 2026-06-20): mail path validado; ressalva DNS fora do catch (CQ-N21-004).
+
+### CQ-N29-001 — HIGH — Lookup DKIM usa `DNS_NS` e nunca encontra registros TXT
+
+- **Sprint**: N29
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R1 — auditor-senior
+- **Arquivo**: `app/Modules/Dns/Services/DnsLookupService.php:77-95`
+- **Descrição**: `lookupDkim()` consulta `dns_get_record($domain, DNS_NS)` e filtra `host` por `_domainkey`. DKIM vive em TXT de `selector._domainkey.<domain>`. Retorna `[]` sempre em produção; testes passam porque mockam `DnsLookupServiceInterface`.
+- **Correção**: `lookupDkim` consulta TXT em hosts do `DomainDnsPlanner` (`default._domainkey` + padrão mail-api).
+- **Validação** (Onda A R2, 2026-06-20): auditor-senior R2 PASS.
+
+### CQ-N29-002 — HIGH — `dns.zone.provision` e DKIM publish órfãos (sem integração ao pipeline)
+
+- **Sprint**: N29
+- **Severidade**: HIGH
+- **Tipo**: architectural / incomplete deliverable
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R1 — auditor-senior
+- **Arquivo**: `app/Modules/Dns/Actions/ProvisionDnsZoneAction.php`, `app/Modules/Dns/Actions/PublishDkimRecordAction.php`
+- **Descrição**: Actions implementadas e testadas via `app(...)` direto, porém nenhum handler de provision/onboarding/agent/mail as invoca. Zonas PowerDNS e DKIM nunca são criadas no fluxo comercial.
+- **Correção**: `AgentEventHandler` encadeia `ProvisionDnsZoneAction` + `PublishDkimRecordAction` após mail provision bem-sucedido (DI no construtor).
+- **Validação** (Onda A R2, 2026-06-20): pipeline wired; ressalva resiliência PdnsException (CQ-N21-004).
+
+### CQ-N29-003 — HIGH — Provisionamento DNS não-atômico quebra idempotência em retry
+
+- **Sprint**: N29
+- **Severidade**: HIGH
+- **Tipo**: architectural / saga consistency
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R1 — auditor-senior
+- **Arquivo**: `app/Modules/Dns/Actions/ProvisionDnsZoneAction.php:32-34`, `app/Modules/Dns/Services/PdnsClient.php:21-32`
+- **Descrição**: `createZone()` + 6× `upsertRecord()` sem transação/compensação. Falha parcial deixa zona criada mas `dns_zone_provisioned` não marcado. Retry chama `createZone()` → HTTP 409 → `PdnsException`; tenant preso sem flag e sem records completos.
+- **Correção**: `PdnsClient::ensureZoneExists` trata 409/getZone; `ProvisionDnsZoneAction` usa ensure; teste de retry após falha parcial.
+- **Validação** (Onda A R2, 2026-06-20): auditor-senior R2 PASS; `DnsZoneProvisionTest` retry verde.
+
+> **Validação Onda A R3** (2026-06-20, `/qa validar` via `/rock`): follow-up CQ-N21-004/005. **Testes**: 656 passed, 7 skipped, 2171 assertions (Docker). **auditor-senior R3** → **PASS** (0 HIGH). **Resultado: APROVADA** — Onda A pronta para PR.
+
+### CQ-N21-004 — HIGH — `PdnsException` no pipeline DNS derruba `POST /api/agent/v1/events`
+
+- **Sprint**: N21
+- **Severidade**: HIGH
+- **Tipo**: product_bug / resilience
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R2 — auditor-senior
+- **Arquivo**: `app/Modules/Agents/Services/AgentEventHandler.php:176-230`
+- **Descrição**: try/catch captura apenas `MailApiException`. `provisionDnsAfterMail()` propaga `PdnsException` em falhas PowerDNS após mail OK — agent perde ack 202 (mesma classe de bug que CQ-N21-003).
+- **Ação necessária**: try/catch dedicado para `PdnsException` + audit `dns_provision_failed`, espelhando `logMailProvisionFailure`.
+- **Correção**: try/catch aninhado para `PdnsException` + `logDnsProvisionFailure`; teste PDNS failure após mail OK retorna 202.
+- **Validação** (Onda A R3, 2026-06-20): auditor-senior R3 PASS.
+
+### CQ-N21-005 — HIGH — Reenvio de `containers_up` rotaciona senha após mail já provisionado
+
+- **Sprint**: N21
+- **Severidade**: HIGH
+- **Tipo**: product_bug / idempotency
+- **Status**: Validado
+- **Registrado em**: 2026-06-20
+- **Origem**: `/qa validar` Onda A R2 — auditor-senior
+- **Arquivo**: `app/Modules/Agents/Services/AgentEventHandler.php:176-211`
+- **Descrição**: `resolveAndPersistMailPassword()` roda antes do guard `mail_provisioned` em `ProvisionTenantMailAction`. Retry de `containers_up` gera nova senha e sobrescreve `mail_admin_password_encrypted` enquanto mailbox no mail-api mantém senha antiga.
+- **Ação necessária**: Checar `mail_provisioned` antes de gerar/persistir senha; reutilizar senha criptografada existente em retry.
+- **Correção**: `isMailProvisioned()` antes de gerar senha; reutiliza decrypt existente; skip total se provisionado sem senha criptografada; teste retry idempotente.
+- **Validação** (Onda A R3, 2026-06-20): auditor-senior R3 PASS.
 
 ---

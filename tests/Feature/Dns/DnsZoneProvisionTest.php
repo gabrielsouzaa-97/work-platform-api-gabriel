@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\FarmAgent;
 use App\Models\FarmInventory;
 use App\Modules\Dns\Actions\ProvisionDnsZoneAction;
+use App\Modules\Dns\Exceptions\PdnsException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
@@ -57,9 +58,17 @@ function dnsProvisionCustomer(ClusterServer $cluster, string $domain): Customer
 function fakePdnsZoneProvision(string $domain): void
 {
     $base = 'https://pdns.test/api/v1/servers/localhost/zones';
+    $zoneUrl = "{$base}/{$domain}.";
     Http::fake([
         $base => Http::response(['id' => "{$domain}."], 201),
-        "{$base}/{$domain}." => Http::response(['rrsets' => []], 204),
+        $zoneUrl => Http::sequence()
+            ->push(['error' => 'not_found'], 404)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204),
     ]);
 }
 
@@ -128,4 +137,44 @@ it('dns.zone.provision publishes SPF and DMARC TXT records', function (): void {
 
     expect($payload)->toContain('v=spf1')
         ->and($payload)->toContain('v=DMARC1');
+});
+
+it('dns.zone.provision completes records after partial failure on retry', function (): void {
+    $cluster = dnsProvisionCluster();
+    seedDnsFarmInventory($cluster);
+    $domain = 'partial-retry.example.com';
+    $zoneUrl = 'https://pdns.test/api/v1/servers/localhost/zones/'.$domain.'.';
+    $base = 'https://pdns.test/api/v1/servers/localhost/zones';
+
+    Http::fake([
+        $base => Http::response(['id' => "{$domain}."], 201),
+        $zoneUrl => Http::sequence()
+            ->push(['error' => 'not_found'], 404)
+            ->push(['rrsets' => []], 204)
+            ->push(['error' => 'validation'], 422)
+            ->push(['id' => "{$domain}."], 200)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204)
+            ->push(['rrsets' => []], 204),
+    ]);
+
+    $customer = dnsProvisionCustomer($cluster, $domain);
+    $action = app(ProvisionDnsZoneAction::class);
+
+    try {
+        $action->execute($customer);
+    } catch (PdnsException) {
+        // partial failure before markProvisioned
+    }
+
+    $customer->refresh();
+    expect($customer->branding_meta['dns_zone_provisioned'] ?? false)->toBeFalse();
+
+    $action->execute($customer);
+
+    $customer->refresh();
+    expect($customer->branding_meta['dns_zone_provisioned'] ?? false)->toBeTrue();
 });

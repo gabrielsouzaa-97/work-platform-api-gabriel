@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "work-platform-agent typed operations v1",
+  "definitions": {
+    "tenant_create_payload": {
+      "type": "object",
+      "required": ["tenant_slug", "domain"],
+      "properties": {
+        "tenant_slug": { "type": "string", "minLength": 1 },
+        "domain": { "type": "string", "minLength": 1 },
+        "idempotency_key": { "type": "string" },
+        "callback_url": { "type": "string", "format": "uri" },
+        "full_apps": { "type": "boolean" },
+        "apps": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "staging_id": { "type": "string" },
+        "stdin_json": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "memail_configure_payload": {
+      "type": "object",
+      "required": ["tenant_slug", "external_location"],
+      "properties": {
+        "tenant_slug": { "type": "string", "minLength": 1 },
+        "external_location": { "type": "string", "minLength": 1 },
+        "force_sso": { "type": "boolean" },
+        "email_address_choice": { "type": "string" },
+        "disable_core_mail_app": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "operation_envelope": {
+      "type": "object",
+      "required": ["schema_version", "operation_id", "operation", "farm_id", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "operation_id": { "type": "string", "minLength": 1 },
+        "operation": { "type": "string", "minLength": 1 },
+        "farm_id": { "type": "string", "minLength": 1 },
+        "idempotency_key": { "type": "string" },
+        "payload": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

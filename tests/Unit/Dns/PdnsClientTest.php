@@ -129,3 +129,27 @@ it('retries transient 503 responses before succeeding', function (): void {
     expect($result['id'])->toBe('retry.example.com.');
     Http::assertSentCount(2);
 });
+
+it('ensureZoneExists skips create when zone already exists', function (): void {
+    $zoneUrl = pdnsZonesUrl().'/existing.example.com.';
+    Http::fake([
+        $zoneUrl => Http::response(['id' => 'existing.example.com.'], 200),
+    ]);
+
+    pdnsClient()->ensureZoneExists('existing.example.com');
+
+    Http::assertSent(fn ($request) => $request->method() === 'GET');
+    Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+});
+
+it('ensureZoneExists treats createZone 409 as success and continues', function (): void {
+    Http::fake([
+        pdnsZonesUrl().'/conflict.example.com.' => Http::response(['error' => 'not_found'], 404),
+        pdnsZonesUrl() => Http::response(['error' => 'zone_exists'], 409),
+    ]);
+
+    pdnsClient()->ensureZoneExists('conflict.example.com');
+
+    Http::assertSent(fn ($request) => $request->method() === 'GET');
+    Http::assertSent(fn ($request) => $request->method() === 'POST');
+});
