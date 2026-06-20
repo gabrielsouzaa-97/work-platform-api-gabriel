@@ -13,6 +13,17 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 
+function gatewayWithMockedQueue(AgentCommand $command): AgentUpstreamGateway
+{
+    $queue = Mockery::mock(AgentCommandQueue::class);
+    $queue->shouldReceive('enqueue')->once()->andReturn($command);
+
+    return new AgentUpstreamGateway(
+        app(AgentTransportResolver::class),
+        $queue,
+    );
+}
+
 it('returns job_id from operation cache after enqueue', function (): void {
     Config::set('services.agent.transport_enabled', true);
     Cache::flush();

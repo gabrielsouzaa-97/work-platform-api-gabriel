@@ -108,15 +108,15 @@
 | N18 | `work-platform-api` | FarmRegistry + AgentGateway + feature flag | concluida | N17 |
 | N19 | agent + api | Cutover SSH → agente (create/remove) | **concluida** | N17, N18 |
 | N20 | agent + scripts | `tenant.create` + `memail.configure` tipados | **concluida** | N19 |
-| N21 | api + `meApiMail` | Integração mail no pipeline create | planejada | N20 |
+| N21 | api + `meApiMail` | Integração mail no pipeline create | **concluida** | N20 |
 | N22 | onboarding-api + api + WHMCS | Signup/trial/billing WHMCS+Vindi | planejada | N21; N29 *(opcional)* |
-| N23 | `work-platform-api` | Inventário + placement automático | planejada | N19 |
+| N23 | `work-platform-api` | Inventário + placement automático | **concluida** | N19 |
 | N24 | multi-repo | Rollout por ring no agente | planejada | N16, N23 |
 | N25 | `work-platform` + scripts | LAB greenfield + BOM promote | planejada | N14, N20 |
 | N26 | `work-platform-scripts` | Restore drill mensal automatizado | planejada | — |
 | N27 | `work-platform-scripts` | Observabilidade default em deploy-server | planejada | — |
 | N28 | api + WHMCS + Proxmox | Tier Dedicated (VPS via WHMCS/`IDC-EVEO`) | planejada | N15, N23 |
-| N29 | api + `meApiMail` | DNS & deliverability (PowerDNS) | planejada | N21, N23 |
+| N29 | api + `meApiMail` | DNS & deliverability (PowerDNS) | **concluida** | N21, N23 |
 
 **Ordem recomendada (`/rock`):** F3/F10.3 → N14 → N15 → N16 → [N17 ∥ N18] → N19 → N20 → N21 → N23 → **N29** → N22 → N25 → [N26 ∥ N27] → N24 → N28
 

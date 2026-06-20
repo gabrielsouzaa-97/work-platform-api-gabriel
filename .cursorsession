@@ -58,15 +58,15 @@
       "N28"
     ],
     "lab_deferred": true,
-    "pr": 122
+    "pr": 123
   },
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-20T08:30:00Z",
-  "next_sprint_planned": "V2-N19",
+  "ultimo_update": "2026-06-20T12:30:00Z",
+  "next_sprint_planned": "N22",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -76,11 +76,11 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Rodada 1/N19: fechar FINDINGS QA-N19-* (tests) — gate piloto agente adiado pós-LAB",
-    "Rodada 2/N20: /pmo sprint plan (tenant.create tipado + memail.configure)",
+    "Onda A PR #123 — CI verde e merge main",
+    "Onda B: N27 (scripts) ou N26 restore-drill",
     "LAB + ISSUE-040: análise manual depois (fora da campanha autônoma)"
   ],
-  "contexto_rapido": "Campanha V2 aprovada (N19→N29). N35 merged main @ 5806edb. Branch campanha/v2-platform. N19 código done; cutover piloto aguarda LAB.",
+  "contexto_rapido": "Onda A (N21+N23+N29) validation R3 APROVADA. PR #123. N19 merged main (#120). Merge main rebased.",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
@@ -216,11 +216,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-19T15:56:16Z",
-    "usage_percent": 94.20766666666667,
-    "messages_lost": 154
+    "compacted_at": "2026-06-20T22:30:26Z",
+    "usage_percent": 93.28699999999999,
+    "messages_lost": 270
   },
-  "compact_count": 4,
+  "compact_count": 1,
   "checkpoint": {
     "phase": "validated",
     "current_task": null,

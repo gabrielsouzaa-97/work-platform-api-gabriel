@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **test(sprint-N19)**: Sprint N19 closeout — ROADMAP formalizado (concluída); testes fallback SSH remove/offline-agent + `AgentUpstreamGatewayTest` (QA-N19-002/003/004); cutover piloto deferido pós-LAB.
 - **docs(sprint-N34)**: Sprint N34 concluída — ISSUE-038 Fase 4 (saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook); validation R2 APROVADA (auditor-senior PASS após `5bd7456`; CQ-N34-001/002/003 corrigidos); 582 tests Docker; version 0.1.5.
 - **docs(sprint-N33)**: Sprint N33 concluída — ISSUE-038 Fase 3 (despublicar `/occ/*` + mutação via port + grep gate estrito + CQ-N32-003); PR #117; validation R1 APROVADA (auditor-senior PASS, 0 HIGH/CRITICAL); 563 tests Docker; version 0.1.4.
 - **docs(N30.2)**: Congelamento de specs OpenAPI — `openapi.yaml` marcado internal/legacy; `openapi-external.yaml` como contrato externo v1 (ref. DOC-001 / ISSUE-021).
@@ -338,3 +339,5 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-06-18 16:48** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
 - **2026-06-18 16:49** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
 - **2026-06-18 17:18** `07f827c` — feat(sprint-N34): ISSUE-038 Fase 4 onboarding saga
+- **2026-06-19 00:03** `d129c62` — chore(sprint-N35): bump version to 0.1.6 via sprint-finalize
+- **2026-06-19 01:05** `093ddaa` — chore(campanha): kickoff V2 platform campaign (N19→N29, lab deferred)
