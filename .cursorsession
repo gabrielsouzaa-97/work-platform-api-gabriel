@@ -33,21 +33,23 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N19 closeout — concluída",
-  "sprint_atual": null,
-  "previous_sprint": "N19",
-  "sprint_branch": "main",
+  "fase_nome": "Campanha V2 Platform — Onda A (N21+N23+N29)",
+  "sprint_atual": "N29",
+  "previous_sprint": "N35",
+  "sprint_branch": "sprint/N29-dns-powerdns",
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
-    "rodada_atual": 2,
+    "rodada_atual": 3,
     "rodadas_total": 11,
-    "sprints": [
+    "sprints_done": [
       "N19",
       "N20",
       "N21",
       "N23",
-      "N29",
+      "N29"
+    ],
+    "sprints_pending": [
       "N22",
       "N25",
       "N26",
@@ -56,15 +58,15 @@
       "N28"
     ],
     "lab_deferred": true,
-    "pr": null
+    "pr": 123
   },
   "beesy_version": "4.55.1",
   "decisions_applied_until": 239,
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-19T04:05:57Z",
-  "next_sprint_planned": "N20",
+  "ultimo_update": "2026-06-20T12:30:00Z",
+  "next_sprint_planned": "N22",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -74,11 +76,11 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Rodada 2/N20: /pmo plan N20 (tenant.create tipado + memail.configure)",
-    "Cutover piloto N19: AGENT_TRANSPORT_ENABLED em 1 fazenda — deferido pós-LAB (runbook N19)",
+    "Onda A PR #123 — CI verde e merge main",
+    "Onda B: N27 (scripts) ou N26 restore-drill",
     "LAB + ISSUE-040: análise manual depois (fora da campanha autônoma)"
   ],
-  "contexto_rapido": "Sprint N19 closeout merged main. ROADMAP+testes QA-N19-002/003/004. Próximo N20. Campanha v2 rodada 2.",
+  "contexto_rapido": "Onda A (N21+N23+N29) validation R3 APROVADA. PR #123. N19 merged main (#120). Merge main rebased.",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
@@ -214,33 +216,80 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-16T19:42:58Z",
-    "usage_percent": 93.60033333333332,
+    "compacted_at": "2026-06-20T22:30:26Z",
+    "usage_percent": 93.28699999999999,
     "messages_lost": 270
   },
-  "compact_count": 2,
+  "compact_count": 1,
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N35.8"
+    "last_completed_task": "N29.5",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "6c9591418bedc7ced7799f04d9e9a7bfde8c7311",
+      "stamped_at": "2026-06-20T23:56:22Z"
+    }
   },
-  "sprint_tasks": [],
+  "sprint_tasks": [
+    {
+      "id": "N29.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Onda A QA hardening (CQ-N21-001..005, CQ-N29-001..003)",
+      "file": "app/Modules/Agents/Services/AgentEventHandler.php"
+    },
+    {
+      "id": "N29.4",
+      "status": "completed",
+      "size": "P",
+      "title": "domain/verify + DNS tests",
+      "file": "tests/Feature/Mail/MailProvisionPipelineTest.php"
+    },
+    {
+      "id": "N23.4",
+      "status": "completed",
+      "size": "P",
+      "title": "Farm inventory + placement",
+      "file": "app/Modules/Farms/Services/PlacementService.php"
+    },
+    {
+      "id": "N21.5",
+      "status": "completed",
+      "size": "P",
+      "title": "Mail pipeline integration",
+      "file": "app/Modules/Mail/Actions/ProvisionTenantMailAction.php"
+    }
+  ],
   "validation_gate": {
-    "sprint": "F15",
-    "produced_by": "/qa validar F15 R2 via /rock",
+    "sprint": "Onda-A (N21+N23+N29)",
+    "produced_by": "/qa validar Onda A R3 via /rock",
     "result": "APROVADA",
     "validation_mode": "revalidation",
-    "validation_round": 2,
+    "validation_round": 3,
+    "findings_found": 0,
+    "findings_registered": [],
     "findings_validated": [
-      "CQ-F15-001",
-      "CQ-F15-002",
-      "CQ-F15-003",
-      "CQ-F15-005",
-      "SEC-V1-001"
+      "CQ-N21-004",
+      "CQ-N21-005"
     ],
-    "tests_evidence": "ApiKeyAuthorizationTest 9 passed + CancelJobTest 4 passed, 29 assertions",
+    "files_modified_outside_findings": 0,
+    "askquestion_shown": false,
     "senior_review_status": "PASS",
-    "stamped_at": "2026-06-17T01:30:00Z"
+    "contract_source": "bootstrap",
+    "in_contract": [],
+    "tests_evidence": "Docker app: 656 passed, 7 skipped, 2171 assertions (2026-06-20)",
+    "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
     {

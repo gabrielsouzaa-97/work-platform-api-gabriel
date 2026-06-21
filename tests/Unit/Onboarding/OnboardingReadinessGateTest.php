@@ -105,14 +105,13 @@ it('advanceAfterProvision marks wait_readiness pending when tenant is not ready'
 it('advanceAfterProvision advances to create_admin when tenant is ready', function (): void {
     $slug = 'readiness-ready';
     $onboarding = readinessGateOnboarding($slug);
-    readinessGateCustomer($slug, 'active');
+    $customer = readinessGateCustomer($slug, 'active');
     Operator::factory()->create();
     $adminJobId = Str::uuid()->toString();
 
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')
-        ->once()
-        ->andReturn(new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []));
+    bindReadinessGateMocks($customer);
+
+    $ssh = app(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
         ->andReturn(new SshResponse(
@@ -121,7 +120,6 @@ it('advanceAfterProvision advances to create_admin when tenant is ready', functi
             exitCode: 0,
             parsedJson: ['job_id' => $adminJobId],
         ));
-    app()->instance(SshClientInterface::class, $ssh);
 
     readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
 

@@ -8,7 +8,7 @@ use App\Models\AgentCommand;
 use App\Models\FarmAgent;
 use Illuminate\Support\Str;
 
-final class AgentCommandQueue
+class AgentCommandQueue
 {
     /**
      * @param  array<string, mixed>  $payload

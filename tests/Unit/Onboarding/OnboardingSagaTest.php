@@ -163,12 +163,11 @@ it('dispatches users:create after readiness gate passes', function (): void {
         'status' => 'active',
     ]);
 
+    bindReadinessGateMocks(Customer::find($slug));
+
     Operator::factory()->create();
 
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')
-        ->once()
-        ->andReturn(new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []));
+    $ssh = app(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
         ->withArgs(function ($c, $cmd, $args, $stdin) use ($slug): bool {

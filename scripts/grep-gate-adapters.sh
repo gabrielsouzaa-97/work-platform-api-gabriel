@@ -18,6 +18,7 @@ ALLOW_FILES=(
   'app/Modules/Core/Ssh/SshClientInterface.php'
   'app/Modules/Core/Ssh/SshClient.php'
   'app/Modules/Agents/Services/AgentUpstreamGateway.php'
+  'app/Modules/Integration/Support/TenantReadinessGateChecker.php'
 )
 
 is_allowed() {

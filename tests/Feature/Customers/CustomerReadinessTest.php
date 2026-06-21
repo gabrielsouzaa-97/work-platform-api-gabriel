@@ -14,6 +14,7 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 it('POST users on provisioning_finishing returns 503 tenant_not_ready', function () {
@@ -118,19 +119,147 @@ it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', fu
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
     ]);
 
+    Http::fake([
+        'https://probe-ok.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
+    ]);
+
     $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')->once()->andReturn(new SshResponse(
-        stdout: '[]',
-        stderr: '',
-        exitCode: 0,
-        parsedJson: [],
-    ));
+    $ssh->shouldReceive('run')->times(4)->andReturnUsing(function (
+        ClusterServer $clusterArg,
+        string $cmd,
+        array $argv,
+    ): SshResponse {
+        $occ = $argv[2] ?? '';
+
+        if ($occ === 'app:list') {
+            return new SshResponse(
+                stdout: json_encode(['enabled' => ['mework360_memail' => true, 'me360_theme' => true]]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['enabled' => ['mework360_memail' => true, 'me360_theme' => true]],
+            );
+        }
+
+        if ($occ === 'user:list') {
+            return new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []);
+        }
+
+        if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'externalLocation') {
+            return new SshResponse(
+                stdout: 'https://cloud.example/roundcube',
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['value' => 'https://cloud.example/roundcube'],
+            );
+        }
+
+        if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'forceSSO') {
+            return new SshResponse(
+                stdout: 'yes',
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['value' => 'yes'],
+            );
+        }
+
+        return new SshResponse(stdout: '', stderr: 'unexpected occ', exitCode: 1, parsedJson: null);
+    });
     app()->instance(SshClientInterface::class, $ssh);
     $probe = app(CustomerReadinessProbe::class);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE)
         ->and(AuditLog::where('action', 'customer_readiness_confirmed')->where('resource_id', $customer->slug)->exists())->toBeTrue();
+});
+
+it('ProbeCustomerReadinessJob keeps finishing when R6 meMail HTTP gate fails', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-r6-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-r6.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+
+    Http::fake([
+        'https://probe-r6.example.com/apps/mework360_memail/*' => Http::response('Service Unavailable', 503),
+    ]);
+
+    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
+    $probe = app(CustomerReadinessProbe::class);
+    $deadline = now()->addHour()->timestamp;
+    (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
+
+    expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
+});
+
+it('ProbeCustomerReadinessJob promotes to active when R6 meMail HTTP returns 200', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-r6-ok-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-r6-ok.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+
+    Http::fake([
+        'https://probe-r6-ok.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
+    ]);
+
+    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
+    $probe = app(CustomerReadinessProbe::class);
+    (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/apps/mework360_memail/'));
+    expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE);
+});
+
+it('ProbeCustomerReadinessJob keeps finishing when memail externalLocation gate fails', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-r4-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-r4.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->andReturnUsing(function (
+        ClusterServer $clusterArg,
+        string $cmd,
+        array $argv,
+    ): SshResponse {
+        $occ = $argv[2] ?? '';
+
+        if ($occ === 'app:list') {
+            return new SshResponse(
+                stdout: json_encode(['enabled' => ['mework360_memail' => true, 'me360_theme' => true]]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['enabled' => ['mework360_memail' => true, 'me360_theme' => true]],
+            );
+        }
+
+        if ($occ === 'user:list') {
+            return new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []);
+        }
+
+        if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'externalLocation') {
+            return new SshResponse(stdout: '', stderr: '', exitCode: 0, parsedJson: ['value' => '']);
+        }
+
+        if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'forceSSO') {
+            return new SshResponse(stdout: 'yes', stderr: '', exitCode: 0, parsedJson: ['value' => 'yes']);
+        }
+
+        return new SshResponse(stdout: '', stderr: 'unexpected', exitCode: 1, parsedJson: null);
+    });
+    app()->instance(SshClientInterface::class, $ssh);
+    $probe = app(CustomerReadinessProbe::class);
+    $deadline = now()->addHour()->timestamp;
+    (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
+
+    expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
 });
 
 it('ProbeCustomerReadinessJob keeps finishing when probe returns non-zero exit', function () {
