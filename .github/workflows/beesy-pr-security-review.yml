@@ -1,6 +1,6 @@
 # PR Security Review — Merlin AI (open source, MIT)
 # Scans PR diffs for security vulnerabilities and posts inline comments.
-# Requires: ANTHROPIC_API_KEY (or OPENAI_API_KEY) in GitHub Secrets.
+# Requires: ANTHROPIC_API_KEY in GitHub Secrets (skip gracefully when unset).
 # Docs: https://merlin-review.com/docs/quickstart
 
 name: PR Security Review
@@ -29,16 +29,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Merlin credentials
+        id: merlin-config
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ANTHROPIC_API_KEY not configured — skipping Merlin security review"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Merlin Security Review
+        if: steps.merlin-config.outputs.configured == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: merlin review --focus security
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: merlin run /security
 
   register-ci-issues:
     name: Register CI Issues
     needs: security-review
-    if: failure()
+    if: failure() && needs.security-review.result == 'failure'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
