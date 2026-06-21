@@ -45,6 +45,7 @@ class ClusterServer extends Model
         'nextcloud_version',
         'schema_version',
         'status',
+        'tier',
         'last_health_at',
     ];
 

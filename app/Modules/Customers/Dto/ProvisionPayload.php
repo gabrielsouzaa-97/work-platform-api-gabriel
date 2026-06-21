@@ -19,6 +19,7 @@ final readonly class ProvisionPayload
         public ?string $logoPath,
         public ?string $backgroundPath,
         public ?array $mail = null,
+        public string $tier = 'shared',
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -37,6 +38,7 @@ final readonly class ProvisionPayload
             logoPath: self::resolveBrandingPath($request, 'logo', $customer, 'logo_path'),
             backgroundPath: self::resolveBrandingPath($request, 'background', $customer, 'background_path'),
             mail: self::resolveMailPayload($request),
+            tier: $request->string('tier', 'shared')->toString(),
         );
     }
 

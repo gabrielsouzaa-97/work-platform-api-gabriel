@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\FarmAgentController;
 use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\OccController;
 use App\Http\Controllers\Api\WebhookController;
+use App\Http\Controllers\Api\WhmcsWebhookController;
 use App\Http\Middleware\VerifyWebhookHmac;
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +26,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('/jobs/hook', [WebhookController::class, 'receive'])
     ->middleware(VerifyWebhookHmac::class)
     ->name('jobs.hook');
+
+Route::post('/webhooks/whmcs', [WhmcsWebhookController::class, 'receive'])
+    ->name('webhooks.whmcs');
 
 Route::prefix('agent/v1')
     ->middleware(['verify.agent', 'throttle:120,1'])

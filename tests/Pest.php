@@ -43,6 +43,12 @@ pest()->extend(TestCase::class)
     ->in('Unit/Mail');
 
 pest()->extend(TestCase::class)
+    ->in('Unit/Billing');
+
+pest()->extend(TestCase::class)
+    ->in('Unit/Infrastructure');
+
+pest()->extend(TestCase::class)
     ->in('Unit/Dns');
 
 pest()->extend(TestCase::class)
