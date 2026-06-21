@@ -48,6 +48,8 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1', 'api
         Route::patch('/farm-agents/{id}', [FarmAgentController::class, 'update'])->name('api.farm-agents.update');
         Route::post('/farm-agents/{id}/ping', [FarmAgentController::class, 'enqueuePing'])
             ->name('api.farm-agents.ping');
+        Route::post('/farm-agents/{id}/custom-apps/update', [FarmAgentController::class, 'enqueueCustomAppsUpdate'])
+            ->name('api.farm-agents.custom-apps.update');
     });
 
     Route::middleware('api.scope:queue:read')->group(function (): void {

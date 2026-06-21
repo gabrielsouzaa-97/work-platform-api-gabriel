@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Campanha V2 Platform — Onda A (N21+N23+N29)",
-  "sprint_atual": "N29",
-  "previous_sprint": "N35",
-  "sprint_branch": "sprint/N29-dns-powerdns",
+  "fase_nome": "Campanha V2 Platform — Onda B (N26+N27+N24)",
+  "sprint_atual": "N24",
+  "previous_sprint": "N29",
+  "sprint_branch": "sprint/N24-ring-rollout",
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -47,13 +47,13 @@
       "N20",
       "N21",
       "N23",
-      "N29"
+      "N29",
+      "N26",
+      "N27"
     ],
     "sprints_pending": [
       "N22",
       "N25",
-      "N26",
-      "N27",
       "N24",
       "N28"
     ],
@@ -65,7 +65,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-21T05:38:23Z",
+  "ultimo_update": "2026-06-21T06:17:49Z",
   "next_sprint_planned": "N22",
   "modulos": [
     "Core",
@@ -227,18 +227,17 @@
     "last_completed_task": "N29.5",
     "validation_gate": {
       "produced_by": "validation-stamp.py",
-      "result": "APROVADA",
-      "validation_mode": "full",
-      "gates": [
-        {
-          "cmd": "docker compose run --rm --no-TTY app php artisan test",
-          "exit_code": 0
-        }
+      "result": "BLOQUEADA_ARVORE_SUJA",
+      "validation_mode": "blocked",
+      "gates": [],
+      "dirty_production_paths": [
+        "app/Http/Controllers/Api/FarmAgentController.php",
+        "routes/api.php",
+        "tests/Feature/Api/CustomAppsRingUpdateTest.php"
       ],
-      "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "6c9591418bedc7ced7799f04d9e9a7bfde8c7311",
-      "stamped_at": "2026-06-20T23:56:22Z"
+      "last_validated_sha": "74ac4e9a27725bf7e17b4d86760e8709f6c28488",
+      "stamped_at": "2026-06-21T06:45:16Z"
     }
   },
   "sprint_tasks": [
