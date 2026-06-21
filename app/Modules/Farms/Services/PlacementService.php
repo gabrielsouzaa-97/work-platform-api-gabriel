@@ -48,8 +48,10 @@ final class PlacementService
     {
         return FarmInventory::query()
             ->join('farm_agents', 'farm_inventories.farm_id', '=', 'farm_agents.farm_id')
+            ->join('cluster_servers', 'farm_agents.cluster_server_id', '=', 'cluster_servers.id')
             ->where('farm_agents.status', 'active')
             ->whereNull('farm_agents.deleted_at')
+            ->whereNull('cluster_servers.deleted_at')
             ->where('farm_inventories.available_slots', '>', 0)
             ->where('farm_inventories.reported_at', '>=', now()->subHours(self::FRESHNESS_WINDOW_HOURS))
             ->whereNotNull('farm_agents.cluster_server_id')
@@ -59,6 +61,7 @@ final class PlacementService
                 'farm_inventories.platform_version',
                 'farm_inventories.latency_ms',
                 'farm_agents.cluster_server_id',
+                'cluster_servers.tier',
             ])
             ->get();
     }
@@ -69,7 +72,12 @@ final class PlacementService
      */
     private function rankCandidates(Collection $candidates, PlacementCriteria $criteria): Collection
     {
-        return $candidates->sort(function (object $left, object $right) use ($criteria): int {
+        $tier = $criteria->tier ?? 'shared';
+        $filtered = $candidates->filter(
+            fn (object $candidate): bool => ($candidate->tier ?? 'shared') === $tier,
+        );
+
+        return $filtered->sort(function (object $left, object $right) use ($criteria): int {
             $slotCompare = $right->available_slots <=> $left->available_slots;
             if ($slotCompare !== 0) {
                 return $slotCompare;

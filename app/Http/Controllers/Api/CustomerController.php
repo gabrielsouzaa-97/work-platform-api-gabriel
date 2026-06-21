@@ -10,6 +10,8 @@ use App\Http\Requests\ProvisionCustomerRequest;
 use App\Http\Requests\RemoveCustomerRequest;
 use App\Http\Resources\CustomerResource;
 use App\Models\Customer;
+use App\Modules\Billing\Actions\ProvisionDedicatedTenantAction;
+use App\Modules\Billing\Exceptions\WhmcsApiException;
 use App\Modules\Core\Domain\DomainError;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Actions\RemoveCustomerAction;
@@ -19,20 +21,47 @@ use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Farms\Dto\PlacementCriteria;
+use App\Modules\Farms\Exceptions\NoFarmCapacityException;
+use App\Modules\Farms\Services\PlacementService;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use Illuminate\Http\JsonResponse;
 
 final class CustomerController extends Controller
 {
-    public function store(ProvisionCustomerRequest $request, ProvisionCustomerAction $action): CustomerResource|JsonResponse
-    {
+    public function store(
+        ProvisionCustomerRequest $request,
+        ProvisionCustomerAction $action,
+        ProvisionDedicatedTenantAction $dedicatedAction,
+        PlacementService $placementService,
+    ): CustomerResource|JsonResponse {
+        $tier = $request->string('tier', 'shared')->toString();
+
+        if ($request->boolean('auto_place')) {
+            try {
+                $placement = $placementService->select(
+                    new PlacementCriteria(
+                        requiredPlatformVersion: $this->platformVersion(),
+                        tier: $tier,
+                    ),
+                );
+                $request->merge(['cluster_server_id' => $placement->clusterServerId]);
+            } catch (NoFarmCapacityException) {
+                return response()->json(['error' => 'no_farm_capacity'], 503);
+            }
+        }
+
         $ghost = Customer::withTrashed()
             ->where('slug', $request->string('slug')->toString())
             ->whereNotNull('deleted_at')
             ->first();
 
         $payload = ProvisionPayload::fromRequestWithCustomer($request, $ghost);
+
+        if ($tier === 'dedicated') {
+            return $this->storeDedicated($request, $dedicatedAction, $payload);
+        }
 
         try {
             $result = $action->execute($payload, $request->user());
@@ -55,6 +84,20 @@ final class CustomerController extends Controller
             }
 
             throw $e;
+        }
+
+        return new CustomerResource($result['customer']);
+    }
+
+    private function storeDedicated(
+        ProvisionCustomerRequest $request,
+        ProvisionDedicatedTenantAction $dedicatedAction,
+        ProvisionPayload $payload,
+    ): CustomerResource|JsonResponse {
+        try {
+            $result = $dedicatedAction->execute($payload, $request->user());
+        } catch (WhmcsApiException $e) {
+            return response()->json(['error' => 'whmcs_unavailable', 'message' => $e->getMessage()], 502);
         }
 
         return new CustomerResource($result['customer']);
@@ -102,5 +145,10 @@ final class CustomerController extends Controller
         }
 
         return response()->json(['job_id' => $job->job_id], 202);
+    }
+
+    private function platformVersion(): string
+    {
+        return (string) config('services.dns.platform_version', '1.0.0-rc.3');
     }
 }

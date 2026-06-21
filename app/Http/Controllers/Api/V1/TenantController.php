@@ -13,9 +13,11 @@ use App\Http\Requests\V1\RemoveTenantRequest;
 use App\Http\Resources\CustomerResource;
 use App\Http\Resources\V1\TenantResource;
 use App\Models\Customer;
+use App\Modules\Billing\Actions\ProvisionDedicatedTenantAction;
 use App\Modules\Core\Domain\DomainError;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Actions\RemoveCustomerAction;
+use App\Modules\Farms\Services\PlacementService;
 use Illuminate\Http\JsonResponse;
 
 final class TenantController extends Controller
@@ -27,8 +29,15 @@ final class TenantController extends Controller
     public function store(
         ProvisionTenantRequest $request,
         ProvisionCustomerAction $action,
+        ProvisionDedicatedTenantAction $dedicatedAction,
+        PlacementService $placementService,
     ): JsonResponse {
-        $result = $this->customerController->store($request, $action);
+        $result = $this->customerController->store(
+            $request,
+            $action,
+            $dedicatedAction,
+            $placementService,
+        );
 
         if ($result instanceof CustomerResource) {
             return $this->wrapV1ProvisionResource($result);

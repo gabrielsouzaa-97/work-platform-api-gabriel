@@ -26,6 +26,7 @@ class Customer extends Model
         'cluster_server_id',
         'domain',
         'status',
+        'tier',
         'branding_meta',
         'mail_provision_payload',
         'last_sync_at',

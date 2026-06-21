@@ -8,5 +8,6 @@ final readonly class PlacementCriteria
 {
     public function __construct(
         public string $requiredPlatformVersion,
+        public ?string $tier = 'shared',
     ) {}
 }

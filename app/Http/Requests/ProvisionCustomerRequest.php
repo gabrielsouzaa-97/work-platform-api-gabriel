@@ -20,7 +20,9 @@ class ProvisionCustomerRequest extends FormRequest
     {
         return [
             'slug' => ['required', 'string', new Slug, Rule::unique('customers', 'slug')->whereNull('deleted_at')],
-            'cluster_server_id' => ['required', 'uuid', 'exists:cluster_servers,id'],
+            'cluster_server_id' => ['required_without:auto_place', 'uuid', 'exists:cluster_servers,id'],
+            'auto_place' => ['sometimes', 'boolean'],
+            'tier' => ['sometimes', 'string', 'in:shared,dedicated'],
             'domain' => ['required', 'string', 'max:253'],
             'apps' => ['nullable', 'array'],
             'apps.*' => ['string', 'max:100'],
