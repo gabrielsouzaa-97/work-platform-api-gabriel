@@ -227,17 +227,18 @@
     "last_completed_task": "N29.5",
     "validation_gate": {
       "produced_by": "validation-stamp.py",
-      "result": "BLOQUEADA_ARVORE_SUJA",
-      "validation_mode": "blocked",
-      "gates": [],
-      "dirty_production_paths": [
-        "app/Http/Controllers/Api/FarmAgentController.php",
-        "routes/api.php",
-        "tests/Feature/Api/CustomAppsRingUpdateTest.php"
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test",
+          "exit_code": 0
+        }
       ],
+      "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "74ac4e9a27725bf7e17b4d86760e8709f6c28488",
-      "stamped_at": "2026-06-21T06:45:16Z"
+      "last_validated_sha": "e328fc762619bfe3627f57a6e08feca6e627bcd3",
+      "stamped_at": "2026-06-21T06:48:03Z"
     }
   },
   "sprint_tasks": [
