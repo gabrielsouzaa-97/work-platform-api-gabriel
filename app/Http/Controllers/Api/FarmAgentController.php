@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\FarmAgent;
 use App\Models\Operator;
 use App\Modules\Agents\Services\AgentCommandQueue;
@@ -12,6 +13,8 @@ use App\Modules\Agents\Services\FarmAgentRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Operator CRUD for farm agent registry (Sprint N18).
@@ -105,6 +108,108 @@ final class FarmAgentController extends Controller
             'operation_id' => $command->operation_id,
             'operation' => $command->operation,
         ], 202);
+    }
+
+    public function enqueueCustomAppsUpdate(Request $request, string $id): JsonResponse
+    {
+        Gate::authorize('manage-cluster-servers');
+
+        $validated = $request->validate([
+            'ring' => ['nullable', 'in:canary,stable'],
+            'tenant' => ['nullable', 'regex:/^[a-z0-9-]+$/'],
+            'app_id' => ['sometimes', 'string'],
+            'json' => ['sometimes', 'boolean'],
+        ]);
+
+        $this->assertCustomAppsUpdateTarget($validated);
+
+        $agent = FarmAgent::query()->findOrFail($id);
+        $command = $this->commandQueue->enqueue(
+            $agent,
+            'custom-apps.update',
+            $this->customAppsUpdatePayload($validated),
+        );
+
+        /** @var Operator $actor */
+        $actor = $request->user();
+
+        AuditLog::create([
+            'id' => Str::uuid()->toString(),
+            'actor_id' => $actor->id,
+            'action' => 'farm_agent.custom_apps_update',
+            'resource_type' => 'farm_agent',
+            'resource_id' => $agent->id,
+            'payload' => $this->customAppsUpdateAuditPayload($validated, $agent, $command->operation_id),
+        ]);
+
+        return response()->json([
+            'operation_id' => $command->operation_id,
+            'operation' => $command->operation,
+        ], 202);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function assertCustomAppsUpdateTarget(array $validated): void
+    {
+        $hasRing = filled($validated['ring'] ?? null);
+        $hasTenant = filled($validated['tenant'] ?? null);
+
+        if ($hasRing === $hasTenant) {
+            throw ValidationException::withMessages([
+                'ring' => ['Exactly one of ring or tenant must be provided.'],
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function customAppsUpdatePayload(array $validated): array
+    {
+        $payload = [];
+
+        if (isset($validated['ring'])) {
+            $payload['ring'] = $validated['ring'];
+        }
+
+        if (isset($validated['tenant'])) {
+            $payload['tenant'] = $validated['tenant'];
+        }
+
+        if (isset($validated['app_id'])) {
+            $payload['app_id'] = $validated['app_id'];
+        }
+
+        if (array_key_exists('json', $validated)) {
+            $payload['json'] = $validated['json'];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function customAppsUpdateAuditPayload(array $validated, FarmAgent $agent, string $operationId): array
+    {
+        $payload = [
+            'operation_id' => $operationId,
+            'farm_id' => $agent->farm_id,
+        ];
+
+        if (isset($validated['ring'])) {
+            $payload['ring'] = $validated['ring'];
+        }
+
+        if (isset($validated['tenant'])) {
+            $payload['tenant'] = $validated['tenant'];
+        }
+
+        return $payload;
     }
 
     /**

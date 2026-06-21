@@ -343,3 +343,5 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-06-19 01:05** `093ddaa` — chore(campanha): kickoff V2 platform campaign (N19→N29, lab deferred)
 - **2026-06-20 21:01** `ce3054c` — feat(wave-a): Platform V2 Wave A — N21 mail, N23 placement, N29 DNS (#123)
 - **2026-06-21 02:38** `d584b8d` — Merge pull request #124 from SoftwareBeesy/fix/merlin-security-review-cli
+- **2026-06-21 06:00** `74ac4e9` — chore(campanha): sync session and changelog after Onda A merge
+- **2026-06-21 03:17** `74ac4e9` — chore(campanha): sync session and changelog after Onda A merge
