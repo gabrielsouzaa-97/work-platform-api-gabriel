@@ -20,7 +20,19 @@ final readonly class ProvisionPayload
         public ?string $backgroundPath,
         public ?array $mail = null,
         public string $tier = 'shared',
+        public bool $shell = true,
+        public bool $suiteCatalog = true,
+        public bool $legacyVendor = false,
     ) {}
+
+    public function usesSuiteCatalog(): bool
+    {
+        if ($this->legacyVendor || $this->fullApps) {
+            return false;
+        }
+
+        return $this->suiteCatalog;
+    }
 
     public static function fromRequest(Request $request): self
     {
@@ -29,6 +41,10 @@ final readonly class ProvisionPayload
 
     public static function fromRequestWithCustomer(Request $request, ?Customer $customer): self
     {
+        $suiteCatalog = $request->has('suite_catalog')
+            ? $request->boolean('suite_catalog')
+            : (bool) config('platform.suite_catalog.default_mode', true);
+
         return new self(
             slug: $request->string('slug')->toString(),
             domain: $request->string('domain')->toString(),
@@ -39,6 +55,9 @@ final readonly class ProvisionPayload
             backgroundPath: self::resolveBrandingPath($request, 'background', $customer, 'background_path'),
             mail: self::resolveMailPayload($request),
             tier: $request->string('tier', 'shared')->toString(),
+            shell: $request->has('shell') ? $request->boolean('shell') : true,
+            suiteCatalog: $suiteCatalog,
+            legacyVendor: $request->boolean('legacy_vendor', false),
         );
     }
 

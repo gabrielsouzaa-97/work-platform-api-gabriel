@@ -22,6 +22,7 @@ use App\Modules\Integration\Exceptions\PortIdempotencyConflictException;
 use App\Modules\Integration\Exceptions\PortStateConflictException;
 use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Integration\Services\SuiteCatalogValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -34,6 +35,7 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
     public function __construct(
         private readonly JobTypeTranslator $translator,
         private readonly PlatformPortFactory $platformPortFactory,
+        private readonly SuiteCatalogValidator $catalogValidator,
     ) {}
 
     /**
@@ -73,6 +75,11 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
             $args[] = '--apps='.implode(',', $payload->apps);
         }
 
+        if ($payload->usesSuiteCatalog()) {
+            $this->catalogValidator->validateAppIds($payload->apps);
+            $args[] = '--suite-catalog';
+        }
+
         // Annexes: payloads that exceed SSH stdin cap go through SFTP staging (Canal B).
         $stdin = [];
         $stagingId = null;
@@ -96,6 +103,18 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                 $args[] = "--staging-id={$stagingId}";
             } else {
                 $stdin = $inlineStdin;
+                $args[] = '--payload-stdin';
+            }
+        }
+
+        if ($payload->usesSuiteCatalog()) {
+            if ($stdin === []) {
+                $stdin = ['shell' => $payload->shell];
+            } else {
+                $stdin['shell'] = $payload->shell;
+            }
+
+            if ($stagingId === null && ! in_array('--payload-stdin', $args, true)) {
                 $args[] = '--payload-stdin';
             }
         }

@@ -1,0 +1,33 @@
+{
+  "schema_version": "1",
+  "apps": [
+    {
+      "app_id": "dashboard",
+      "status": "active"
+    },
+    {
+      "app_id": "mail",
+      "status": "active"
+    },
+    {
+      "app_id": "spreed",
+      "status": "active"
+    },
+    {
+      "app_id": "deck",
+      "status": "active"
+    },
+    {
+      "app_id": "richdocuments",
+      "status": "planned"
+    }
+  ],
+  "deploy_order": [
+    "shell",
+    "dashboard",
+    "mail",
+    "spreed",
+    "deck",
+    "richdocuments"
+  ]
+}

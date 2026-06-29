@@ -86,6 +86,15 @@ paths:
                   domain: acme.mework360.com.br
                   cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
                   apps: [files, calendar]
+              suite_catalog:
+                summary: Suite catalog create (shell + apps)
+                value:
+                  client: suite
+                  fqdn: cloud.labwork.mework360.com.br
+                  cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  shell: true
+                  suite_catalog: true
+                  apps: [mail, spreed, deck, dashboard]
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/CreateTenantRequestMultipart"
@@ -1004,15 +1013,29 @@ components:
     CreateTenantRequest:
       type: object
       required: [slug, domain, cluster_server_id]
+      description: |
+        Criação de tenant. Campos `client` e `fqdn` são aliases opcionais de `slug` e `domain`.
+        Com `suite_catalog` ativo (padrão), cada item de `apps` deve existir em
+        `releases/suite_catalog.json` com `status: active`.
       properties:
         slug:
           type: string
           pattern: "^[a-z0-9-]+$"
           minLength: 3
           maxLength: 64
+        client:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+          minLength: 3
+          maxLength: 64
+          description: Alias de `slug` quando `slug` ausente.
         domain:
           type: string
           maxLength: 253
+        fqdn:
+          type: string
+          maxLength: 253
+          description: Alias de `domain` quando `domain` ausente.
         cluster_server_id:
           type: string
           format: uuid
@@ -1021,11 +1044,24 @@ components:
           items:
             type: string
             maxLength: 100
-          description: App IDs a habilitar no provisionamento.
+          description: |
+            App IDs (`app_id`) validados contra o suite catalog quando `suite_catalog` está ativo.
         full_apps:
           type: boolean
           default: false
           description: Habilita conjunto completo de apps (mutuamente exclusivo com lista explícita).
+        shell:
+          type: boolean
+          default: true
+          description: Provisiona shell me360_theme via snapshot pin (modo suite catalog).
+        suite_catalog:
+          type: boolean
+          default: true
+          description: Usa `releases/suite_catalog.json` e flag `--suite-catalog` no upstream.
+        legacy_vendor:
+          type: boolean
+          default: false
+          description: Força caminho legado vendor-apps-bom (sem suite catalog).
 
     CreateTenantRequestMultipart:
       allOf:

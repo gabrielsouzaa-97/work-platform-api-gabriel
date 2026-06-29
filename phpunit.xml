@@ -45,5 +45,6 @@
              before putenv() values. The config() override in TestCase is authoritative. -->
         <!-- Defense-in-depth: force-disable Contract tests in all non-opt-in runs (QA-F5-010). -->
         <env name="RUN_UPSTREAM_CONTRACT" value="0" force="true"/>
+        <env name="NC_SUITE_CATALOG_JSON" value="tests/fixtures/suite_catalog.json"/>
     </php>
 </phpunit>
