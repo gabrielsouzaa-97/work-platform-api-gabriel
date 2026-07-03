@@ -91,6 +91,7 @@
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | **concluída** | 8 | Integration, Customers, Core, ClusterServers, Agents | PR #117; validation R1 APROVADA; CQ-N32-003 validado | 4740+ |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | **concluída** | 8 | TenantLifecycle, Integration | branch `sprint/N34`; validation R2 APROVADA; CQ-N34-001/002/003 corrigidos | 4854+ |
 | N35    | N         | ISSUE-023 F10.3: validação LAB (`api.lab`) + migração deployer | **concluída** | 8 | Jobs, DevOps, Core | smoke E2E OK; ISSUE-023 closed (2026-06-19) | 4902+ |
+| N36    | N         | Canário `POST /v1/tenants` no host image-pilot (`.120`) com `--image-mode --suite-catalog`: job success + readiness PASS + webhook 204 + TLS/DNS OK; CI verde | planejada | 5 | Customers, ClusterServers, Integration, Dns | ISSUE-043 fase inicial: apontar API para produção image-mode | 4990+ |
 
 ---
 
@@ -4988,8 +4989,98 @@ Critério de pronto: `summary` POPULATED; UI não exibe "Nenhum log disponível"
 
 ---
 
+## Sprint N36 — Apontar API para produção image-mode (ISSUE-043 fase inicial)
+
+> Categoria: N
+> Gate: tenant canário provisionado via `POST /api/v1/tenants` no cluster image-pilot (`128.201.61.120`) com `--image-mode --suite-catalog` → job `success` + readiness probe PASS (sem depender de `/status.php` nem `mework360_memail`) + webhook 204 + TLS válido; CI verde.
+> review: senior+qa
+> Gerado via /pmo plan em 2026-07-03. Fonte: ISSUE-043 (impact scan) + evidência canário manual `teste2` (OPERATIONS.md 2026-07-03, create 7m10s).
+> Fora de escopo: migração dos 11 tenants SaaS-02 legado; cutover de domínio final `<tenant>.mework360.com.br`; alinhamento BOM mw4→mw5 no host (upstream).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | P | N36.3 — Cadastro operacional `cluster_server` produção image-pilot (`.120`): chave SSH dedicada, sync webhook secret, Testar Conexão (R6); registrar em `docs/OPERATIONS.md` | me360-deployer | — |
+| [ ] | M | N36.1 — Flag `image_mode` no contrato de provisionamento (request → payload → argv `--image-mode`) + openapi-external + testes | api-rest-patterns | — |
+| [ ] | P | N36.2 — Alinhar spec/docs ao alvo de produção: exemplos openapi (fqdn prod), `docs/SUITE-ENV.md`, `.cursor/skills/me360-deployer/references/ecosystem-map.md` | — | N36.1 |
+| [ ] | M | N36.5 — Readiness compatível com image-mode: `TenantReadinessGateChecker` sem URL `mework360_memail`; probe sem `/status.php` | api-rest-patterns | N36.1 |
+| [ ] | M | N36.4 — Canário E2E via API contra `.120` (image-mode + suite-catalog): job success + webhook 204 + readiness PASS + evidência em OPERATIONS.md | me360-deployer | N36.1, N36.3, N36.5 |
+
+### Task N36.1 — Flag `image_mode` no contrato de provisionamento
+
+**Estado atual**: a API monta o argv do `create` em `ProvisionCustomerAction::buildArgs()` com `--full-apps`, `--apps=` e `--suite-catalog` (via `ProvisionPayload::usesSuiteCatalog()`), mas não conhece `--image-mode`. O host de produção (image-pilot) cria tenants com `create --image-mode --suite-catalog` (upstream N44/N45); canário manual `teste2` confirmou o contrato (2026-07-03).
+**Estado desejado**: `POST /api/v1/tenants` (e Livewire `Customers\Create`) aceita `image_mode` booleano; default por config `platform.image_mode.default_mode` (espelhando `platform.suite_catalog.default_mode`); quando true, argv inclui `--image-mode`; openapi-external documenta o campo; testes cobrem argv e default.
+**Fonte(s)**: ISSUE-043; OPERATIONS.md 2026-07-03 (canário teste2)
+**Módulo(s) afetado(s)**: `app/Http/Requests/ProvisionCustomerRequest.php`, `app/Modules/Customers/Dto/ProvisionPayload.php`, `app/Modules/Customers/Actions/ProvisionCustomerAction.php`, `config/platform.php`, `docs/openapi-external.yaml`, testes
+**Risco**: MEDIUM — toca o contrato de provisionamento compartilhado (SSH + agent path via PlatformPort)
+**Task size**: M (~6 arquivos)
+
+**executor_prompt**:
+Feature: suportar flag `image_mode` no provisionamento de tenant.
+Contexto: o cluster de produção (image-pilot, `.120`) provisiona via `manage.sh <client> <fqdn> create --image-mode --suite-catalog`; a API hoje só emite `--suite-catalog`. Sem a flag, tenants novos no cluster prod sairiam no modelo legado bind-mount (proibido — NC-ARCH-017).
+Objetivo: request `image_mode` (bool, opcional) → `ProvisionPayload::imageMode` com default `config('platform.image_mode.default_mode', false)` → `--image-mode` no argv quando true. Documentar em openapi-external. Não alterar o caminho legado por default.
+Arquivos: ProvisionCustomerRequest, ProvisionPayload (fromRequest/fromRequestWithCustomer), ProvisionCustomerAction::buildArgs, config/platform.php, docs/openapi-external.yaml, tests (ProvisionTest + SuiteCatalogProvisionV1Test).
+Critério de pronto: testes de argv passam (com/sem flag, default config); redocly lint 0 errors; CI verde.
+reuse_targets:
+  - component: app/Modules/Customers/Dto/ProvisionPayload.php (padrão suite_catalog/default_mode)
+    reuse_as: mirror_shape
+    convergence_check: rg "image_mode.default_mode" app/Modules/Customers/Dto/ProvisionPayload.php config/platform.php
+Cenários de teste:
+  1. Normal: request com `image_mode=true` → argv contém `--image-mode` (uma única vez).
+  2. Default: request sem o campo + config default false → argv sem `--image-mode`.
+  3. Config: default true por config → argv com a flag sem campo no request.
+  4. Regressão: `--suite-catalog`/`--apps`/`--full-apps` inalterados; testes existentes de Provision passam.
+
+### Task N36.5 — Readiness compatível com image-mode
+
+**Estado atual**: `TenantReadinessGateChecker` valida `https://<domain>/apps/mework360_memail/` — app inexistente em tenants image-mode (meMail é fork do Mail nativo; NC-SUITE-POLICY proíbe `mework360_memail` em novos tenants). Evidência canário `teste2`: `/status.php` → 404 permanente na plataforma image-mode; saúde verificável via `/login` (200) e OCS capabilities (200).
+**Estado desejado**: readiness de tenants image-mode passa sem `mework360_memail` e sem `/status.php`; tenants legados continuam com o gate atual (sem regressão).
+**Fonte(s)**: ISSUE-043; OPERATIONS.md 2026-07-03 (achado 1 do canário)
+**Módulo(s) afetado(s)**: `app/Modules/Integration/Support/TenantReadinessGateChecker.php`, `app/Modules/Customers/Services/CustomerReadinessProbe.php` (verificar), testes
+**Risco**: MEDIUM — gate errado bloqueia (`tenant_not_ready` 503) todo tenant novo do cluster prod
+**Task size**: M (2-4 arquivos)
+
+**executor_prompt**:
+Melhoria: adaptar readiness gate ao contrato image-mode.
+Contexto: em tenants image-mode o check HTTP `https://<domain>/apps/mework360_memail/` falha sempre (app não existe) e `/status.php` responde 404 — o tenant ficaria eternamente not-ready, bloqueando `users:*` (F8).
+Objetivo: quando o tenant é image-mode (flag do payload/customer ou capability do cluster — decisão de design a documentar), o gate usa check compatível (ex.: `/login` 200 ou OCS capabilities 200) e não referencia `mework360_memail`. Caminho legado inalterado.
+Arquivos: TenantReadinessGateChecker, CustomerReadinessProbe (se necessário), testes correspondentes.
+Critério de pronto: teste simulando tenant image-mode passa readiness; teste legado inalterado; CI verde.
+Cenários de teste:
+  1. Normal: tenant image-mode com `/login` 200 → ready.
+  2. Edge: tenant image-mode com HTTP indisponível → not ready (503 preservado).
+  3. Regressão: tenant legado continua validando pelo caminho atual.
+
+### Task N36.4 — Canário E2E via API contra o cluster image-pilot
+
+**Estado atual**: canário manual (SSH direto no host) validado em 2026-07-03: create 7m10s, TLS OK, NC 33.0.5.1. O caminho API completo (painel/`POST /v1/tenants` → PlatformPort → worker → webhook → probe → `active`) nunca foi exercitado contra `.120`.
+**Estado desejado**: tenant canário criado via API no cluster image-pilot com `image_mode=true`; job `success`; webhook 204; customer `active` após probe; evidência (job_id, tempos, URLs) registrada em `docs/OPERATIONS.md`; canário removido ou mantido por decisão do operador.
+**Fonte(s)**: ISSUE-043; guardrails me360-deployer (R6–R8)
+**Módulo(s) afetado(s)**: nenhum código se o fluxo passar — task operacional com evidência; findings → ISSUES/FINDINGS
+**Risco**: MEDIUM — depende de rede/webhook alcançável (R7) e cluster cadastrado (N36.3)
+**Task size**: M (0-2 arquivos)
+
+**executor_prompt**:
+Operação: canário E2E de provisionamento via API no cluster de produção image-pilot.
+Contexto: N36.1 adiciona `--image-mode`; N36.3 cadastra o cluster `.120`; N36.5 corrige readiness. Guardrails: pre-provision exige R6 (Testar Conexão) e R7 (APP_URL alcançável pelo upstream para webhook); nunca declarar pronto só pelo HTTP 202.
+Objetivo: `POST /api/v1/tenants` (slug canário, ex. `canario-n36`, fqdn coberto pelo wildcard `*.image-pilot.mework360.com.br`) com `image_mode=true, suite_catalog=true` → acompanhar job até terminal; assert webhook 204 + `jobs.summary` populado + customer `active` + HTTPS 200 no tenant.
+Critério de pronto: evidência completa em OPERATIONS.md (job_id, `time` fases, gates R6–R8); zero findings CRITICAL/HIGH abertos pelo canário.
+Cenários de teste:
+  1. Normal: create completo → active.
+  2. Edge: webhook indisponível → fallback polling (60s) ainda conclui estado.
+  3. Regressão: provisionamento LAB/labwork continua funcional (não alterar default de cluster).
+
+### Quality Brief (Sprint N36)
+
+- **Review**: senior+qa (contrato de provisionamento + gate de readiness + operação em host de produção futuro)
+- **Iron law**: nenhuma task declara "pronto" sem evidência R6–R8 (me360-deployer guardrails); canário N36.4 é o gate da sprint
+- **Dependência externa**: BOM do host `.120` em mw4 vs `imgpilot` mw5 — alinhamento é upstream (`work-platform-scripts`), fora da sprint; registrar como coordenação ISSUE-022-like
+- **Brief path**: `docs/.briefs/N36.brief.md` (gerar no sprint-init)
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-03 | 0.36   | Sprint N36 planejada — ISSUE-043 fase inicial (apontar API p/ produção image-mode): 5 tasks (2P+3M); canário manual `teste2` 7m10s como evidência; readiness image-mode (N36.5) originada do achado `/status.php` 404. | `/pmo plan` |
 | 2026-06-19 | 0.35   | N35 em andamento — N35.5 done; ISSUE-041 fix LAB (UP-A); N35.6 replanejado (smoke E2E via LifecycleAsyncAction); callback 404 re-diagnosticado (falso positivo smoke bypass). | `/pmo plan` via `/rock` |
 | 2026-06-18 | 0.34   | Sprint N35 planejada — ISSUE-023/F10.3 migração deployer → LAB (`api.lab`); 8 tasks (5P+3M); F10.3 delegada a N35. | `/pmo plan` |
 | 2026-06-18 | 0.33   | Sprint N34 concluída — ISSUE-038 Fase 4 (saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook); validation R2 APROVADA; CQ-N34-001/002/003 corrigidos; 582 tests; version 0.1.5. | sprint-finalizer |
