@@ -115,7 +115,8 @@ final class TenantReadinessGateChecker
 
     private function passesMeMailHttp(Customer $customer, int $timeoutSec): bool
     {
-        $url = sprintf('https://%s/apps/mework360_memail/', $customer->domain);
+        $path = $customer->image_mode ? '/login' : '/apps/mework360_memail/';
+        $url = sprintf('https://%s%s', $customer->domain, $path);
 
         try {
             $response = Http::timeout($timeoutSec)->get($url);

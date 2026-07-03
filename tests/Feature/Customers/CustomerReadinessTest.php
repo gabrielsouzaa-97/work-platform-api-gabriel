@@ -382,3 +382,74 @@ it('CustomerSyncService does not overwrite provisioning with active from upstrea
 
     expect(Customer::find('still-provisioning')->status)->toBe(CustomerLifecycleStatus::PROVISIONING);
 });
+
+// ── N36.5: readiness gate compatible with image-mode tenants ─────────────────
+
+it('ProbeCustomerReadinessJob promotes image-mode tenant when login HTTP gate returns 200', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-img-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-img.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => true,
+    ]);
+
+    Http::fake([
+        'https://probe-img.example.com/login' => Http::response('OK', 200),
+    ]);
+
+    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
+    $probe = app(CustomerReadinessProbe::class);
+    (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/login'));
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'mework360_memail'));
+    expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE);
+});
+
+it('ProbeCustomerReadinessJob keeps finishing when image-mode login HTTP gate fails', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-img-fail-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-img-fail.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => true,
+    ]);
+
+    Http::fake([
+        'https://probe-img-fail.example.com/login' => Http::response('Service Unavailable', 500),
+    ]);
+
+    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
+    $probe = app(CustomerReadinessProbe::class);
+    $deadline = now()->addHour()->timestamp;
+    (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'mework360_memail'));
+    expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
+});
+
+it('ProbeCustomerReadinessJob legacy tenant still probes mework360_memail HTTP gate', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-legacy-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-legacy.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
+    ]);
+
+    Http::fake([
+        'https://probe-legacy.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
+    ]);
+
+    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
+    $probe = app(CustomerReadinessProbe::class);
+    (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/apps/mework360_memail/'));
+    Http::assertNotSent(fn ($request) => str_ends_with(rtrim($request->url(), '/'), '/login'));
+    expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE);
+});
