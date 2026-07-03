@@ -95,6 +95,16 @@ paths:
                   shell: true
                   suite_catalog: true
                   apps: [mail, spreed, deck, dashboard]
+              image_pilot_production:
+                summary: Image-mode production pilot (suite catalog)
+                value:
+                  client: acme
+                  fqdn: acme.image-pilot.mework360.com.br
+                  cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  shell: true
+                  suite_catalog: true
+                  image_mode: true
+                  apps: [mail, spreed, deck, dashboard]
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/CreateTenantRequestMultipart"
@@ -1058,6 +1068,10 @@ components:
           type: boolean
           default: true
           description: Usa `releases/suite_catalog.json` e flag `--suite-catalog` no upstream.
+        image_mode:
+          type: boolean
+          default: false
+          description: Enables image-mode provisioning via upstream `--image-mode` flag.
         legacy_vendor:
           type: boolean
           default: false

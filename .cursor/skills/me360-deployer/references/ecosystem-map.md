@@ -91,6 +91,7 @@ Prod deployer VM SSH (`operador@deployer.mework360.com.br`): not verified this r
 |---------|------|-------------|------------|----------|
 | Homolog / SaaS-01 | `119d74df-9011-4c0f-a6bf-ad03f84af10d` | `homolog` (ref. docs/tests) | `dev.mework360.com.br` | Tier 2 / histórico — **não** está no DB do deployer prod (2026-06-10) |
 | Produção / SaaS-02 | `0e50e032-df0f-4387-aa00-43bae3672147` | `producao` | `cloud.mework360.com.br` | `deployer.mework360.com.br` (único cluster ativo no DB) |
+| Produção piloto image-mode / image-pilot | *(cadastro pendente — N36.3)* | `image-pilot` (ref. docs) | `cloud.image-pilot.mework360.com.br` (`128.201.61.120`) | Futuro alvo prod — `create --image-mode --suite-catalog`; tenants `*.image-pilot.mework360.com.br` (cutover futuro: `*.mework360.com.br`) |
 
 ## Dev = TN factory + runtime (same host)
 
