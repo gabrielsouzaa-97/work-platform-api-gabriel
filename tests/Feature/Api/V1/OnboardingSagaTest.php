@@ -21,6 +21,11 @@ beforeEach(function (): void {
     if (config('app.key') === '' || config('app.key') === null) {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
     }
+
+    config([
+        'platform.suite_catalog.path' => base_path('tests/fixtures/suite_catalog.json'),
+        'platform.suite_catalog.default_mode' => true,
+    ]);
 });
 
 function makeOnboardingSagaCluster(): ClusterServer
@@ -71,7 +76,7 @@ function validOnboardingSagaPayload(ClusterServer $cluster, string $slug): array
             'password' => 'Secret123!',
             'email' => "admin@{$slug}.example.com",
         ],
-        'apps_enabled' => ['calendar', 'deck'],
+        'apps_enabled' => ['mail', 'deck'],
     ];
 }
 

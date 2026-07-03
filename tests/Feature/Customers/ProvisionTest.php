@@ -205,7 +205,11 @@ it('logo > 256 KB → inboxInit + sftpUpload chamados + --staging-id repassado a
     $sshMock->shouldReceive('runAsync')
         ->once()
         ->withArgs(function ($c, $bin, $args, $stdin) {
-            return $stdin === null
+            $decoded = is_string($stdin) ? json_decode($stdin, true) : null;
+
+            return is_array($decoded)
+                && ($decoded['shell'] ?? null) === true
+                && in_array('--suite-catalog', $args, true)
                 && collect($args)->contains(fn ($a) => str_starts_with((string) $a, '--staging-id='))
                 && ! collect($args)->contains('--payload-stdin');
         })
@@ -248,7 +252,11 @@ it('logo ≤ 256 KB mas payload base64 > 256 KB → usa SFTP para respeitar limi
     $sshMock->shouldReceive('runAsync')
         ->once()
         ->withArgs(function ($c, $bin, $args, $stdin) {
-            return $stdin === null
+            $decoded = is_string($stdin) ? json_decode($stdin, true) : null;
+
+            return is_array($decoded)
+                && ($decoded['shell'] ?? null) === true
+                && in_array('--suite-catalog', $args, true)
                 && collect($args)->contains(fn ($a) => str_starts_with((string) $a, '--staging-id='))
                 && ! collect($args)->contains('--payload-stdin');
         })
