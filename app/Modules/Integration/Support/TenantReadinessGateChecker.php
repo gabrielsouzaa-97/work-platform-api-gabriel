@@ -18,6 +18,10 @@ final class TenantReadinessGateChecker
 
     public function passesAll(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
     {
+        if ($customer->image_mode) {
+            return $this->passesMeMailHttp($customer, $timeoutSec);
+        }
+
         if (! $this->passesAppList($customer, $cluster, $timeoutSec)) {
             return false;
         }

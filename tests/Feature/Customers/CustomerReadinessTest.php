@@ -399,7 +399,7 @@ it('ProbeCustomerReadinessJob promotes image-mode tenant when login HTTP gate re
         'https://probe-img.example.com/login' => Http::response('OK', 200),
     ]);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
+    app()->instance(SshClientInterface::class, readinessSshMockWithoutMemailApp());
     $probe = app(CustomerReadinessProbe::class);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
