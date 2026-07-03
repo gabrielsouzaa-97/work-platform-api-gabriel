@@ -1,5 +1,21 @@
 # Operations log
 
+## 2026-07-03T18:00:00Z — Sprint N36: cluster image-pilot + deploy LAB + canário API (ISSUE-043 / ISSUE-045)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — código `sprint/N36` SHA `80f3063` implantado (swap diretório preservando `.env`/`storage`; imagens app `1daeee78af66` / worker `2f7649b7412b`); migration `customers.image_mode` aplicada; `/up` 200. Rollback: `/opt/mework360-deployer-old-202607031556` + imagens `0b2e4175f754`/`bb7fd318215d`.
+- **N36.3 — cluster `image-pilot` (`.120`):** UUID `978d6dd4-33fa-48d6-8347-15da9d4aa672`; SSH `ncsaas-api@128.201.61.120`; tier shared; `webhook_allowed_ip` 128.201.61.120; `nextcloud_version` 33.0.5. Chave dedicada ed25519 `~/.ssh/ncsaas-api-imgpilot` (fingerprint `SHA256:PcgtysoDu17jy+uLHffY6ohorXThVf3Rhrh/rVHJPt4`, comment `api-lab-imgpilot-2026`).
+- **Bootstrap host `.120`:** usuário `ncsaas-api` + shim `/usr/local/bin/ncsaas-api-shim` + `nextcloud-manage` (bundle `746ecb81-a7e9-4ed6-b387-89dc502e709f` v12.5.0); sudoers `/etc/sudoers.d/ncsaas-api` (`visudo -c` OK); drop-in sshd `50-ncsaas-api.conf` (`sshd -t` OK). **Desvio:** shell `/bin/bash` (com `/usr/sbin/nologin` o OpenSSH não executava ForceCommand — "This account is currently not available"); acesso segue restrito ao shim.
+- **Webhook:** secret aplicado via `config set-webhook-secret --payload-stdin` (`{"secret":"..."}`) → success, `secret_file` `/opt/shared-services/secrets/worker_callback_secret`; registrado encrypted no cluster (`webhook_secret_version` 1).
+- **R6 Testar Conexão:** `probeClusterHealth` → exit 0, status active.
+- **Worker upstream:** `nextcloud-saas-worker` instalado via `setup-worker.sh` (bundle); corrigidos manualmente `worker_env_manifest.json` ausente + `WORKER_REDIS_PASS`; active/running.
+- **ISSUE-042 recorrência no deploy:** overlay compose sem `!override` na VM — patch manual + fix versionado (`d480080`).
+- **N36.4 canário API (BLOQUEADO — ISSUE-045):**
+  - Tentativa 1 — slug `canario-n36`: job `682f675e-9a1d-4b24-9f88-5db71aa4e7a2` FAILED ~2s exit 1 (`suite_catalog: no nc-suite-snapshot-*.yaml in /opt/releases`). Webhooks `job.started`/`job.finished` OK. Fix env worker: `SUITE_RELEASES_DIR`/`SUITE_CATALOG_JSON` → bundle `746ecb81`; `suite_catalog_snapshot_path` validado.
+  - Tentativa 2 — slug `canario-n36b`: job `8f15f56f-a119-4d19-9a31-546090f6fc76` (16:31:22Z→17:01:34Z) FAILED exit 124 (timeout 1800s) em docker pull `nextcloud:33-fpm`/`nginx:alpine` (modelo legado). **Causa raiz:** `dispatch.sh` D3.9b não propaga `--image-mode`/`--suite-catalog` ao Redis — ver ISSUE-045.
+  - Tenants `canario-n36` / `canario-n36b`: failed + soft-delete. Tenant manual `teste2` mantido.
+- **PR #128:** CI verde ao final (`sprint/N36` → `main`).
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-03T15:01:00Z — canário image-mode: tenant `teste2` no host image-pilot (ISSUE-043)
 
 - **Host:** `128.201.61.120` (`image-pilot`, futuro ambiente de produção) — SSH `mecloud360`, dispatcher `manage.sh` v12.5.0 (release 12.5.7; alias `nextcloud-manage` ausente no host)

@@ -46,9 +46,71 @@
 | ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | **Fases 0–4 concluídas** (N30–N34, branch `sprint/N34`; validation R2 APROVADA) — adoção N22 pendente |
 | ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | **closed (2026-06-16)** — Sprint F14 merge PR #112; CI verde |
 | ISSUE-040 | change_request | LAB mirror de prod: VM dedicada para o control plane (`api.lab`) separada do upstream — SSH/webhook cross-host real | DevOps, Infra | MEDIUM | **in_progress** — sid=65 @ `128.201.61.110`: bootstrap CONCLUÍDO 2026-06-22 (Docker 26.1.5 + Compose v5.1.4 + Traefik LE + control plane src@`83880bd` + migrations); `https://api.lab.mework360.com.br/up` → **200** TLS OK. Pendente: cadastro `cluster_servers` → `.108` (chave SSH `ncsaas-api`), gates R1–R8, orphan sid=64 `.109` |
-| ISSUE-042 | bug | `docker-compose.lab.yml` — overlay do `worker` define `entrypoint` com o comando completo (`php artisan queue:work redis …`), mas o `command:` do compose-base é **anexado** → "Too many arguments to queue:work command". Worker entra em CrashLoop. Fix: `command: !override []` no serviço `worker` (mesmo padrão de `volumes: !override []`). Descoberto no deploy greenfield LAB N25 (.110); mitigado só no artefato deployado da VM, repo ainda com bug | DevOps, Jobs | HIGH | open (triagem → /pmo fix) |
+| ISSUE-042 | bug | `docker-compose.lab.yml` — overlay do `worker` define `entrypoint` com o comando completo (`php artisan queue:work redis …`), mas o `command:` do compose-base é **anexado** → "Too many arguments to queue:work command". Worker entra em CrashLoop. Fix: `command: !override []` no serviço `worker` (mesmo padrão de `volumes: !override []`). Descoberto no deploy greenfield LAB N25 (.110); mitigado só no artefato deployado da VM até N36 | DevOps, Jobs | HIGH | **fixed no repo (2026-07-03, sprint/N36, commit `d480080`)** — `docker compose config` OK; histórico: mitigação manual na VM N25/N36 deploy |
 | ISSUE-041 | bug | ~~Dispatch lifecycle async via `PlatformPort` trava em `--payload-stdin`~~ **Root cause**: `manage` não lia `REDIS_PASSWORD_FILE` pós-bl07 → NOAUTH → `idem_check` mascarava como `conflict` | Customers, Integration, Core/Ssh | HIGH | **closed (2026-06-19)** — UP-A/UP-B aplicados LAB + backport `work-platform-scripts` |
 | ISSUE-043 | change_request | Apontar a API para o ambiente que será PRODUÇÃO: piloto image-mode `cloud.image-pilot.mework360.com.br` (`.120`); tenants prod = `<tenant>.mework360.com.br` | Customers, ClusterServers, Dns, Integration, Infra | HIGH | open (escopo esclarecido 2026-07-03 → /pmo plan) |
+| ISSUE-044 | bug | CI vermelho no `main` pós-F3 (`6b29717`): 7 testes falham — `OnboardingSagaTest` ×4 (`Unknown suite catalog app_id: calendar` → 422) + `AgentTransport`/`Provision` ×3 (mocks `runAsync` sem `--suite-catalog` no argv esperado) | Customers, Onboarding, QA/CI | HIGH | **fixed (2026-07-03, sprint/N36 PR #128)** — evidência pré-fix: run main 28349563271 |
+| ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | open — upstream; bloqueia gate N36.4; coordenação tipo ISSUE-022 |
+
+---
+
+## ISSUE-045 — Dispatch async perde flags `--image-mode` / `--suite-catalog` (upstream `dispatch.sh` D3.9b)
+
+- **Tipo**: bug (integração cross-repo — `work-platform-scripts`)
+- **Prioridade**: CRITICAL / BLOCKER (gate N36.4; violação silenciosa NC-ARCH-017)
+- **Sprint**: descoberto em N36.4; fix fora do escopo desta sprint
+- **Status**: open — upstream
+- **Reportado em**: 2026-07-03
+- **Módulos afetados**: upstream `dispatch.sh` (~407–417, bloco D3.9b); impacto em `Jobs`, `Customers` (provisionamento async via API)
+
+### Sintoma
+
+`POST /api/v1/tenants` com `image_mode=true` e `suite_catalog=true` retorna 202 e o host recebe argv completo via SSH, mas o worker executa `create` no **modelo legado** (pull `nextcloud:33-fpm`/`nginx:alpine`) — proibido para novos tenants image-mode.
+
+### Evidência
+
+| Fonte | Observação |
+|-------|------------|
+| sudo audit host `.120` (16:31:23Z) | argv recebido do LAB: `… create --idempotency-key=… --callback=… --suite-catalog --image-mode --payload-stdin --async --json` |
+| Redis `args_json` job `8f15f56f-a119-4d19-9a31-546090f6fc76` | `["nextcloud-manage","canario-n36b","<domain>","create"]` — flags ausentes |
+| Job `682f675e-9a1d-4b24-9f88-5db71aa4e7a2` (tentativa 1) | exit 1 — `suite_catalog: no nc-suite-snapshot-*.yaml` (env worker; corrigido antes da tentativa 2) |
+| Job `8f15f56f-…` (tentativa 2) | exit 124 (`WORKER_JOB_TIMEOUT_SEC=1800`) durante docker pull de imagens legado |
+| Canário manual sync `teste2` | success — sem enqueue async; imagem pinada já cacheada |
+
+### Root cause
+
+O bloco D3.9b de `dispatch.sh` (`work-platform-scripts`) re-injeta apenas `--staging-id`/`--apps`/`--full-apps` ao montar `job_argv` para Redis. Flags booleanas `--image-mode` e `--suite-catalog` **não** são propagadas. A API (`work-platform-api`) está correta até o hop SSH (N36.1 validada).
+
+### Impacto
+
+Todo `create` image-mode disparado via API (async) executa provisionamento legado sem erro explícito na borda — risco operacional em produção.
+
+### Fix sugerido
+
+Re-injetar flags booleanas (`--image-mode`, `--suite-catalog`) no `job_argv` em `dispatch.sh` D3.9b, espelhando o argv auditado no shim. Coordenação cross-repo (tipo ISSUE-022).
+
+---
+
+## ISSUE-044 — CI vermelho no `main` pós-F3 (7 testes)
+
+- **Tipo**: bug (regressão de testes / fixtures desalinhados)
+- **Prioridade**: HIGH
+- **Sprint**: N36 (PR #128)
+- **Status**: **fixed (2026-07-03, sprint/N36 PR #128)**
+- **Reportado em**: 2026-07-03 (commit base `6b29717`; run main 28349563271)
+
+### Causa
+
+7 falhas pré-existentes no `main` desde F3, mascarando sinal do PR N36:
+
+1. `OnboardingSagaTest` ×4 — `app_id: calendar` inexistente no fixture do suite catalog (ids válidos: `dashboard`, `mail`, `spreed`, `deck`) → 422.
+2. `AgentTransportCutoverTest` + `ProvisionTest` ×3 — mocks `runAsync` sem `--suite-catalog` / stdin `{"shell":true}` desalinhados do contrato F3.
+
+### Correção (commit `80f3063`)
+
+- `calendar` → `mail` nos testes de onboarding.
+- Mocks alinhados ao contrato F3 (`--suite-catalog`, stdin esperado).
+- Sem mudança de produção. CI verde após o fix.
 
 ---
 

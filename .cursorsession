@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Campanha V2 Platform — Sprint N25 (LAB greenfield + BOM)",
-  "sprint_atual": "N25",
-  "previous_sprint": "N28",
-  "sprint_branch": "sprint/N25-lab-greenfield",
+  "fase_nome": "Sprint N36 — API → produção image-mode (ISSUE-043); N25 pausada",
+  "sprint_atual": "N36",
+  "previous_sprint": "N25 (pausada — N25.3/N25.4 pendentes)",
+  "sprint_branch": "sprint/N36",
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -65,7 +65,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-03T13:08:44Z",
+  "ultimo_update": "2026-07-03T15:19:35Z",
   "next_sprint_planned": "N36",
   "modulos": [
     "Core",
@@ -227,10 +227,30 @@
   "sprint_pr": 119,
   "sprint_pr_repo": "SoftwareBeesy/work-platform",
   "checkpoint": {
+    "phase": "blocked",
+    "sprint": "N36",
+    "branch": "sprint/N36",
+    "validation_authority": "github_actions_pr",
+    "current_task": "N36.4",
+    "last_completed_task": "N36.3",
+    "blocked_reason": "N36.4 canário E2E bloqueado por ISSUE-045 (upstream dispatch.sh D3.9b perde --image-mode/--suite-catalog no job_argv); 4/5 tasks DONE; CI verde PR #128",
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/128",
+    "exec_model": "composer-2.5 (Decision #225)",
+    "relevant_paths": [
+      "app/Modules/Customers/",
+      "app/Modules/Integration/",
+      "app/Http/Requests/",
+      "config/platform.php",
+      "docs/openapi-external.yaml"
+    ],
+    "timestamp": "2026-07-03T15:25:00Z"
+  },
+  "checkpoint_n25_paused": {
     "phase": "in_progress",
     "sprint": "N25",
     "current_task": "N25.3",
     "last_completed_task": "N25.2",
+    "paused_reason": "usuário priorizou execução da N36 (ISSUE-043) em 2026-07-03",
     "blockers": [
       "N25.3 needs SSH key (ncsaas-api) authorized on .108 + admin operator on fresh DB",
       "N25.4 canary needs WHMCS tenant decision"
@@ -263,6 +283,52 @@
     }
   },
   "sprint_tasks": [
+    {
+      "id": "N36.3",
+      "status": "completed",
+      "size": "P",
+      "title": "Cadastro operacional cluster_server produção image-pilot (.120): SSH key + webhook secret + Testar Conexão (R6)",
+      "file": "docs/OPERATIONS.md",
+      "evidence": "cluster_server 978d6dd4-33fa-48d6-8347-15da9d4aa672 no LAB; R6 exit 0; worker instalado"
+    },
+    {
+      "id": "N36.1",
+      "status": "completed",
+      "size": "M",
+      "title": "Flag image_mode no contrato de provisionamento (request → payload → argv --image-mode) + openapi + testes",
+      "file": "app/Modules/Customers/Actions/ProvisionCustomerAction.php",
+      "evidence": "commit c22d13d; 4 testes ImageModeProvisionV1Test; CI verde PR #128; argv validado no host (.120 sudo audit)"
+    },
+    {
+      "id": "N36.2",
+      "status": "completed",
+      "size": "P",
+      "title": "Alinhar spec/docs ao alvo de produção (openapi examples, SUITE-ENV.md, ecosystem-map.md)",
+      "file": "docs/SUITE-ENV.md",
+      "depends": ["N36.1"],
+      "evidence": "commit 96e8420"
+    },
+    {
+      "id": "N36.5",
+      "status": "completed",
+      "size": "M",
+      "title": "Readiness compatível com image-mode (TenantReadinessGateChecker sem mework360_memail; probe sem /status.php)",
+      "file": "app/Modules/Integration/Support/TenantReadinessGateChecker.php",
+      "depends": ["N36.1"],
+      "evidence": "commit 3468695; 3 testes CustomerReadinessTest; CI verde"
+    },
+    {
+      "id": "N36.4",
+      "status": "blocked",
+      "size": "M",
+      "title": "Canário E2E via API contra .120 (image-mode + suite-catalog): job success + webhook 204 + readiness PASS",
+      "file": "docs/OPERATIONS.md",
+      "depends": ["N36.1", "N36.3", "N36.5"],
+      "blocked_by": "ISSUE-045 (upstream work-platform-scripts dispatch.sh D3.9b descarta --image-mode/--suite-catalog do job_argv async)",
+      "evidence": "2 tentativas: job 682f675e (exit 1, snapshot ausente — corrigido via env worker) e 8f15f56f (exit 124, create legado por flags perdidas)"
+    }
+  ],
+  "sprint_tasks_n25_paused": [
     {
       "id": "N25.1",
       "status": "completed",

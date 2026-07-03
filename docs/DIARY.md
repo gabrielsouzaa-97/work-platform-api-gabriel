@@ -7,6 +7,8 @@
 | N30 | Core, Auth, Customers, Jobs | api/v1, DomainError, openapi-external, scopes | 57-98 |
 | N32 | Integration, Jobs, Customers, Core | PlatformPort ondas, correlation_id, grep gate, observabilidade | 99-145 |
 | N33 | Integration, Customers, Core, ClusterServers | occ spec gate, mutação via port, grep estrito, CQ-N32-003 | 146-192 |
+| N34 | TenantLifecycle, Integration | saga onboarding, readiness gate, idempotency | 200-246 |
+| N36 | Customers, ClusterServers, Integration, DevOps | image_mode, readiness image-mode, cluster image-pilot, ISSUE-045 | 248+ |
 <!-- /DIARY-INDEX -->
 
 ---
@@ -243,4 +245,49 @@
 - Adoção real por onboarding-api/WHMCS (N22); smoke/staging E2E
 - Expandir allowlist upstream D-02 (ISSUE-016) para branding/quota em produção
 - PR/merge branch `sprint/N34`
+
+---
+
+## Sprint N36 — ISSUE-043 fase inicial: API → produção image-mode
+
+**Data**: 2026-07-03
+**Status**: EM ANDAMENTO (4/5 — N36.4 bloqueada)
+**Tasks**: 4/5
+**Branch**: `sprint/N36` — PR #128 (CI verde)
+
+### Entregas
+
+- **N36.1** (`c22d13d`): flag `image_mode` (request → `ProvisionPayload::imageMode` → argv `--image-mode`); config `platform.image_mode.default_mode` (env `PLATFORM_IMAGE_MODE_DEFAULT`); migration `customers.image_mode`; openapi `CreateTenantRequest.image_mode`; 4 testes `ImageModeProvisionV1Test.php`.
+- **N36.5** (`3468695`): `TenantReadinessGateChecker::passesMeMailHttp` ramifica por `customer->image_mode` — image-mode usa `https://<domain>/login` (200); legado inalterado. 3 testes em `CustomerReadinessTest`.
+- **N36.2** (`96e8420`): exemplo `image_pilot_production` no openapi; `SUITE-ENV.md` (piloto produção image-mode); `ecosystem-map.md` (cluster image-pilot).
+- **N36.3** (ops): cluster `image-pilot` cadastrado no LAB (UUID `978d6dd4-…`); bootstrap SSH/shim/worker no `.120`; R6 PASS; deploy LAB SHA `80f3063`.
+- **ISSUE-044** (`80f3063`): 7 testes CI pré-existentes no main corrigidos (fixture `calendar`→`mail`; mocks F3).
+- **ISSUE-042** (`d480080`): `command: !override []` no worker de `docker-compose.lab.yml`.
+
+### Bloqueio (N36.4)
+
+Canário E2E via API — 2 tentativas, stop-loss. Jobs `682f675e-…` (env suite) e `8f15f56f-…` (timeout pull legado). **ISSUE-045**: `dispatch.sh` D3.9b não propaga `--image-mode`/`--suite-catalog` ao Redis — API correta até o SSH.
+
+### Aprendizados
+
+1. **Flags booleanas no contrato `create`**: validar e2e do argv até o Redis do worker, não só do audit SSH — bug D3.9b é silencioso (legado sem erro na borda).
+2. **Hosts pilotos**: checklist worker antes de canário API (env manifest, `WORKER_REDIS_PASS`, `SUITE_RELEASES_DIR`) — image-pilot nunca tinha worker instalado.
+3. **Layout flat** `/opt/nextcloud-customers`: quebra resolução de platform root das libs — padrão recorrente de bug de env.
+4. **CI no main**: 7 falhas pré-existentes mascaravam o PR — regra "CI verde no main antes de branch de sprint".
+5. **OpenSSH + ForceCommand**: `/usr/sbin/nologin` no host `.120` impedia execução do shim; desvio para `/bin/bash` com acesso restrito ao ForceCommand.
+
+### Gate da Sprint
+
+- [x] N36.1 — `image_mode` no contrato + testes
+- [x] N36.2 — docs/spec alinhados ao piloto prod
+- [x] N36.3 — cluster cadastrado + R6 PASS
+- [x] N36.5 — readiness image-mode
+- [ ] N36.4 — canário E2E via API (**bloqueada ISSUE-045**)
+- [x] CI verde (PR #128)
+
+### Próximos Passos
+
+- Fix upstream `dispatch.sh` D3.9b (ISSUE-045) — coordenação cross-repo
+- Retomar N36.4 após backport no host `.120`
+- ISSUE-043: cutover domínio `<tenant>.mework360.com.br` (fora desta sprint)
 
