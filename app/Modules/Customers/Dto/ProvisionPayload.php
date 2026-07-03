@@ -23,6 +23,7 @@ final readonly class ProvisionPayload
         public bool $shell = true,
         public bool $suiteCatalog = true,
         public bool $legacyVendor = false,
+        public bool $imageMode = false,
     ) {}
 
     public function usesSuiteCatalog(): bool
@@ -32,6 +33,11 @@ final readonly class ProvisionPayload
         }
 
         return $this->suiteCatalog;
+    }
+
+    public function usesImageMode(): bool
+    {
+        return $this->imageMode;
     }
 
     public static function fromRequest(Request $request): self
@@ -44,6 +50,10 @@ final readonly class ProvisionPayload
         $suiteCatalog = $request->has('suite_catalog')
             ? $request->boolean('suite_catalog')
             : (bool) config('platform.suite_catalog.default_mode', true);
+
+        $imageMode = $request->has('image_mode')
+            ? $request->boolean('image_mode')
+            : (bool) config('platform.image_mode.default_mode', false);
 
         return new self(
             slug: $request->string('slug')->toString(),
@@ -58,6 +68,7 @@ final readonly class ProvisionPayload
             shell: $request->has('shell') ? $request->boolean('shell') : true,
             suiteCatalog: $suiteCatalog,
             legacyVendor: $request->boolean('legacy_vendor', false),
+            imageMode: $imageMode,
         );
     }
 
