@@ -48,9 +48,9 @@
 | ISSUE-040 | change_request | LAB mirror de prod: VM dedicada para o control plane (`api.lab`) separada do upstream — SSH/webhook cross-host real | DevOps, Infra | MEDIUM | **in_progress** — sid=65 @ `128.201.61.110`: bootstrap CONCLUÍDO 2026-06-22 (Docker 26.1.5 + Compose v5.1.4 + Traefik LE + control plane src@`83880bd` + migrations); `https://api.lab.mework360.com.br/up` → **200** TLS OK. Pendente: cadastro `cluster_servers` → `.108` (chave SSH `ncsaas-api`), gates R1–R8, orphan sid=64 `.109` |
 | ISSUE-042 | bug | `docker-compose.lab.yml` — overlay do `worker` define `entrypoint` com o comando completo (`php artisan queue:work redis …`), mas o `command:` do compose-base é **anexado** → "Too many arguments to queue:work command". Worker entra em CrashLoop. Fix: `command: !override []` no serviço `worker` (mesmo padrão de `volumes: !override []`). Descoberto no deploy greenfield LAB N25 (.110); mitigado só no artefato deployado da VM até N36 | DevOps, Jobs | HIGH | **fixed no repo (2026-07-03, sprint/N36, commit `d480080`)** — `docker compose config` OK; histórico: mitigação manual na VM N25/N36 deploy |
 | ISSUE-041 | bug | ~~Dispatch lifecycle async via `PlatformPort` trava em `--payload-stdin`~~ **Root cause**: `manage` não lia `REDIS_PASSWORD_FILE` pós-bl07 → NOAUTH → `idem_check` mascarava como `conflict` | Customers, Integration, Core/Ssh | HIGH | **closed (2026-06-19)** — UP-A/UP-B aplicados LAB + backport `work-platform-scripts` |
-| ISSUE-043 | change_request | Apontar a API para o ambiente que será PRODUÇÃO: piloto image-mode `cloud.image-pilot.mework360.com.br` (`.120`); tenants prod = `<tenant>.mework360.com.br` | Customers, ClusterServers, Dns, Integration, Infra | HIGH | open (escopo esclarecido 2026-07-03 → /pmo plan) |
+| ISSUE-043 | change_request | Apontar a API para o ambiente que será PRODUÇÃO: piloto image-mode `cloud.image-pilot.mework360.com.br` (`.120`); tenants prod = `<tenant>.mework360.com.br` | Customers, ClusterServers, Dns, Integration, Infra | HIGH | open — **fase inicial (N36) concluída** com gate E2E canário `canario-n36e` (2026-07-04); cutover domínio `<tenant>.mework360.com.br` e migração SaaS-02 fora do escopo N36 |
 | ISSUE-044 | bug | CI vermelho no `main` pós-F3 (`6b29717`): 7 testes falham — `OnboardingSagaTest` ×4 (`Unknown suite catalog app_id: calendar` → 422) + `AgentTransport`/`Provision` ×3 (mocks `runAsync` sem `--suite-catalog` no argv esperado) | Customers, Onboarding, QA/CI | HIGH | **fixed (2026-07-03, sprint/N36 PR #128)** — evidência pré-fix: run main 28349563271 |
-| ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | open — upstream; bloqueia gate N36.4; coordenação tipo ISSUE-022 |
+| ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | **fixed (2026-07-04)** — fix upstream `ba53ecc` + deploy `.120` + canário `canario-n36e` gate PASS |
 
 ---
 
@@ -58,8 +58,8 @@
 
 - **Tipo**: bug (integração cross-repo — `work-platform-scripts`)
 - **Prioridade**: CRITICAL / BLOCKER (gate N36.4; violação silenciosa NC-ARCH-017)
-- **Sprint**: descoberto em N36.4; fix fora do escopo desta sprint
-- **Status**: open — upstream
+- **Sprint**: descoberto em N36.4; fix upstream em `work-platform-scripts` (`ba53ecc`, main)
+- **Status**: **fixed (2026-07-04)**
 - **Reportado em**: 2026-07-03
 - **Módulos afetados**: upstream `dispatch.sh` (~407–417, bloco D3.9b); impacto em `Jobs`, `Customers` (provisionamento async via API)
 
@@ -88,6 +88,13 @@ Todo `create` image-mode disparado via API (async) executa provisionamento legad
 ### Fix sugerido
 
 Re-injetar flags booleanas (`--image-mode`, `--suite-catalog`) no `job_argv` em `dispatch.sh` D3.9b, espelhando o argv auditado no shim. Coordenação cross-repo (tipo ISSUE-022).
+
+### Resolução (2026-07-04)
+
+- **Fix upstream:** commit `ba53ecc` em `work-platform-scripts` (main) — bloco D3.9b passa a propagar `--image-mode` e `--suite-catalog` ao `args_json` Redis.
+- **Deploy host `.120`:** artefato atualizado no image-pilot; canários falhos anteriores (`canario-n36`, `canario-n36b`, `canario-n36c`, `canario-n36d`) em soft-delete.
+- **Gate N36.4 — canário `canario-n36e`:** job `9904497b-ad3c-4390-ba61-c5f433cd00c1` (dispatch 21:19 UTC) → **success** ~5m44s; customer `active` automático ~4s depois; `/login` 200; imagem mw4; `/status.php` 404 (esperado em image-mode, N36.5).
+- **Validação pós-merge:** deploy `main` `7a79086` no LAB (`.110`) com readiness oficial (sem hotfix).
 
 ---
 
@@ -118,8 +125,8 @@ Re-injetar flags booleanas (`--image-mode`, `--suite-catalog`) no `job_argv` em 
 
 - **Tipo**: FEATURE (change_request — integração de novo sistema upstream/imagem + mudança de padrão de domínio)
 - **Prioridade**: HIGH (redefine o alvo de produção do provisionamento)
-- **Sprint**: a definir (via `/pmo plan`)
-- **Status**: aberto
+- **Sprint**: N36 (fase inicial concluída 2026-07-04); fases seguintes a definir
+- **Status**: aberto — **fase inicial (N36) concluída** com gate E2E `canario-n36e` (ISSUE-045 resolvida upstream)
 - **Reportado em**: 2026-07-03
 
 ### Descrição

@@ -33,10 +33,11 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N36 — API → produção image-mode (ISSUE-043); N25 pausada",
-  "sprint_atual": "N36",
-  "previous_sprint": "N25 (pausada — N25.3/N25.4 pendentes)",
-  "sprint_branch": "sprint/N36",
+  "fase_nome": "Sprint N36 concluída — API → produção image-mode (ISSUE-043 fase inicial); N25 pausada",
+  "sprint_atual": null,
+  "previous_sprint": "N36",
+  "sprint_branch": null,
+  "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -52,7 +53,8 @@
       "N27",
       "N24",
       "N22",
-      "N28"
+      "N28",
+      "N36"
     ],
     "sprints_pending": [
       "N25"
@@ -65,7 +67,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-03T15:19:35Z",
+  "ultimo_update": "2026-07-04T21:46:33Z",
   "next_sprint_planned": "N36",
   "modulos": [
     "Core",
@@ -219,31 +221,22 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-21T14:55:53Z",
-    "usage_percent": 92.721,
-    "messages_lost": 338
+    "compacted_at": "2026-07-04T22:06:50Z",
+    "usage_percent": 92.7915,
+    "messages_lost": 258
   },
-  "compact_count": 2,
-  "sprint_pr": 119,
-  "sprint_pr_repo": "SoftwareBeesy/work-platform",
+  "compact_count": 3,
+  "sprint_pr": 128,
+  "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "blocked",
+    "phase": "done",
     "sprint": "N36",
     "branch": "sprint/N36",
-    "validation_authority": "github_actions_pr",
-    "current_task": "N36.4",
-    "last_completed_task": "N36.3",
-    "blocked_reason": "N36.4 canário E2E bloqueado por ISSUE-045 (upstream dispatch.sh D3.9b perde --image-mode/--suite-catalog no job_argv); 4/5 tasks DONE; CI verde PR #128",
+    "merged_at": "2026-07-04T21:10:00Z",
+    "merge_commit": "7a79086",
     "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/128",
-    "exec_model": "composer-2.5 (Decision #225)",
-    "relevant_paths": [
-      "app/Modules/Customers/",
-      "app/Modules/Integration/",
-      "app/Http/Requests/",
-      "config/platform.php",
-      "docs/openapi-external.yaml"
-    ],
-    "timestamp": "2026-07-03T15:25:00Z"
+    "note": "Gate PASS canario-n36e (job 9904497b-ad3c-4390-ba61-c5f433cd00c1, success ~5m44s); ISSUE-045 fixed upstream ba53ecc; 5/5 tasks",
+    "timestamp": "2026-07-04T21:25:00Z"
   },
   "checkpoint_n25_paused": {
     "phase": "in_progress",
@@ -305,7 +298,9 @@
       "size": "P",
       "title": "Alinhar spec/docs ao alvo de produção (openapi examples, SUITE-ENV.md, ecosystem-map.md)",
       "file": "docs/SUITE-ENV.md",
-      "depends": ["N36.1"],
+      "depends": [
+        "N36.1"
+      ],
       "evidence": "commit 96e8420"
     },
     {
@@ -314,18 +309,23 @@
       "size": "M",
       "title": "Readiness compatível com image-mode (TenantReadinessGateChecker sem mework360_memail; probe sem /status.php)",
       "file": "app/Modules/Integration/Support/TenantReadinessGateChecker.php",
-      "depends": ["N36.1"],
+      "depends": [
+        "N36.1"
+      ],
       "evidence": "commit 3468695; 3 testes CustomerReadinessTest; CI verde"
     },
     {
       "id": "N36.4",
-      "status": "blocked",
+      "status": "completed",
       "size": "M",
       "title": "Canário E2E via API contra .120 (image-mode + suite-catalog): job success + webhook 204 + readiness PASS",
       "file": "docs/OPERATIONS.md",
-      "depends": ["N36.1", "N36.3", "N36.5"],
-      "blocked_by": "ISSUE-045 (upstream work-platform-scripts dispatch.sh D3.9b descarta --image-mode/--suite-catalog do job_argv async)",
-      "evidence": "2 tentativas: job 682f675e (exit 1, snapshot ausente — corrigido via env worker) e 8f15f56f (exit 124, create legado por flags perdidas)"
+      "depends": [
+        "N36.1",
+        "N36.3",
+        "N36.5"
+      ],
+      "evidence": "canario-n36e job 9904497b-ad3c-4390-ba61-c5f433cd00c1 success ~5m44s (2026-07-04); ISSUE-045 fixed upstream ba53ecc; OPERATIONS.md 2026-07-04T21:25:00Z"
     }
   ],
   "sprint_tasks_n25_paused": [
