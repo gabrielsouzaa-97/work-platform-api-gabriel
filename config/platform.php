@@ -17,4 +17,11 @@ return [
         ),
     ],
 
+    'image_mode' => [
+        'default_mode' => filter_var(
+            env('PLATFORM_IMAGE_MODE_DEFAULT', false),
+            FILTER_VALIDATE_BOOL,
+        ),
+    ],
+
 ];

@@ -18,6 +18,7 @@ services:
     env_file:
       - .env
     volumes: !override []
+    command: !override []
     entrypoint: ["/sbin/tini", "--", "php", "artisan", "queue:work", "redis", "--tries=3", "--timeout=90", "--sleep=3"]
 
   nginx:

@@ -45,8 +45,115 @@
 | ISSUE-037 | security | `ApiKey.scopes` nunca aplicado + sem autorização por tenant — qualquer chave age sobre qualquer customer (IDOR latente; vira CRITICAL ao abrir `/v1` a terceiros) | Core (Auth/api-key), Customers | HIGH | **corrigido local** — Sprint F15 (2026-06-16) |
 | ISSUE-038 | change_request | API externa `/api/v1` com dois contratos (OpenAPI estável + protocolo NC interno via ACL/PlatformPort) — ADR do painel adversarial | Core (HTTP/Auth), Customers, Occ, Agents | HIGH | **Fases 0–4 concluídas** (N30–N34, branch `sprint/N34`; validation R2 APROVADA) — adoção N22 pendente |
 | ISSUE-039 | bug | CI vermelho no `main` — regressão de testes pós-N19 + `phpseclib` desatualizado | ClusterServers, Audit, Core | HIGH | **closed (2026-06-16)** — Sprint F14 merge PR #112; CI verde |
-| ISSUE-040 | change_request | LAB mirror de prod: VM dedicada para o control plane (`api.lab`) separada do upstream — SSH/webhook cross-host real | DevOps, Infra | MEDIUM | **in_progress** — sid=65 @ `128.201.61.110` (SSH key OK); DNS `api.lab` → `.110`; sid=64 orphan `.109`; bootstrap aguarda SSH:22 |
+| ISSUE-040 | change_request | LAB mirror de prod: VM dedicada para o control plane (`api.lab`) separada do upstream — SSH/webhook cross-host real | DevOps, Infra | MEDIUM | **in_progress** — sid=65 @ `128.201.61.110`: bootstrap CONCLUÍDO 2026-06-22 (Docker 26.1.5 + Compose v5.1.4 + Traefik LE + control plane src@`83880bd` + migrations); `https://api.lab.mework360.com.br/up` → **200** TLS OK. Pendente: cadastro `cluster_servers` → `.108` (chave SSH `ncsaas-api`), gates R1–R8, orphan sid=64 `.109` |
+| ISSUE-042 | bug | `docker-compose.lab.yml` — overlay do `worker` define `entrypoint` com o comando completo (`php artisan queue:work redis …`), mas o `command:` do compose-base é **anexado** → "Too many arguments to queue:work command". Worker entra em CrashLoop. Fix: `command: !override []` no serviço `worker` (mesmo padrão de `volumes: !override []`). Descoberto no deploy greenfield LAB N25 (.110); mitigado só no artefato deployado da VM até N36 | DevOps, Jobs | HIGH | **fixed no repo (2026-07-03, sprint/N36, commit `d480080`)** — `docker compose config` OK; histórico: mitigação manual na VM N25/N36 deploy |
 | ISSUE-041 | bug | ~~Dispatch lifecycle async via `PlatformPort` trava em `--payload-stdin`~~ **Root cause**: `manage` não lia `REDIS_PASSWORD_FILE` pós-bl07 → NOAUTH → `idem_check` mascarava como `conflict` | Customers, Integration, Core/Ssh | HIGH | **closed (2026-06-19)** — UP-A/UP-B aplicados LAB + backport `work-platform-scripts` |
+| ISSUE-043 | change_request | Apontar a API para o ambiente que será PRODUÇÃO: piloto image-mode `cloud.image-pilot.mework360.com.br` (`.120`); tenants prod = `<tenant>.mework360.com.br` | Customers, ClusterServers, Dns, Integration, Infra | HIGH | open (escopo esclarecido 2026-07-03 → /pmo plan) |
+| ISSUE-044 | bug | CI vermelho no `main` pós-F3 (`6b29717`): 7 testes falham — `OnboardingSagaTest` ×4 (`Unknown suite catalog app_id: calendar` → 422) + `AgentTransport`/`Provision` ×3 (mocks `runAsync` sem `--suite-catalog` no argv esperado) | Customers, Onboarding, QA/CI | HIGH | **fixed (2026-07-03, sprint/N36 PR #128)** — evidência pré-fix: run main 28349563271 |
+| ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | open — upstream; bloqueia gate N36.4; coordenação tipo ISSUE-022 |
+
+---
+
+## ISSUE-045 — Dispatch async perde flags `--image-mode` / `--suite-catalog` (upstream `dispatch.sh` D3.9b)
+
+- **Tipo**: bug (integração cross-repo — `work-platform-scripts`)
+- **Prioridade**: CRITICAL / BLOCKER (gate N36.4; violação silenciosa NC-ARCH-017)
+- **Sprint**: descoberto em N36.4; fix fora do escopo desta sprint
+- **Status**: open — upstream
+- **Reportado em**: 2026-07-03
+- **Módulos afetados**: upstream `dispatch.sh` (~407–417, bloco D3.9b); impacto em `Jobs`, `Customers` (provisionamento async via API)
+
+### Sintoma
+
+`POST /api/v1/tenants` com `image_mode=true` e `suite_catalog=true` retorna 202 e o host recebe argv completo via SSH, mas o worker executa `create` no **modelo legado** (pull `nextcloud:33-fpm`/`nginx:alpine`) — proibido para novos tenants image-mode.
+
+### Evidência
+
+| Fonte | Observação |
+|-------|------------|
+| sudo audit host `.120` (16:31:23Z) | argv recebido do LAB: `… create --idempotency-key=… --callback=… --suite-catalog --image-mode --payload-stdin --async --json` |
+| Redis `args_json` job `8f15f56f-a119-4d19-9a31-546090f6fc76` | `["nextcloud-manage","canario-n36b","<domain>","create"]` — flags ausentes |
+| Job `682f675e-9a1d-4b24-9f88-5db71aa4e7a2` (tentativa 1) | exit 1 — `suite_catalog: no nc-suite-snapshot-*.yaml` (env worker; corrigido antes da tentativa 2) |
+| Job `8f15f56f-…` (tentativa 2) | exit 124 (`WORKER_JOB_TIMEOUT_SEC=1800`) durante docker pull de imagens legado |
+| Canário manual sync `teste2` | success — sem enqueue async; imagem pinada já cacheada |
+
+### Root cause
+
+O bloco D3.9b de `dispatch.sh` (`work-platform-scripts`) re-injeta apenas `--staging-id`/`--apps`/`--full-apps` ao montar `job_argv` para Redis. Flags booleanas `--image-mode` e `--suite-catalog` **não** são propagadas. A API (`work-platform-api`) está correta até o hop SSH (N36.1 validada).
+
+### Impacto
+
+Todo `create` image-mode disparado via API (async) executa provisionamento legado sem erro explícito na borda — risco operacional em produção.
+
+### Fix sugerido
+
+Re-injetar flags booleanas (`--image-mode`, `--suite-catalog`) no `job_argv` em `dispatch.sh` D3.9b, espelhando o argv auditado no shim. Coordenação cross-repo (tipo ISSUE-022).
+
+---
+
+## ISSUE-044 — CI vermelho no `main` pós-F3 (7 testes)
+
+- **Tipo**: bug (regressão de testes / fixtures desalinhados)
+- **Prioridade**: HIGH
+- **Sprint**: N36 (PR #128)
+- **Status**: **fixed (2026-07-03, sprint/N36 PR #128)**
+- **Reportado em**: 2026-07-03 (commit base `6b29717`; run main 28349563271)
+
+### Causa
+
+7 falhas pré-existentes no `main` desde F3, mascarando sinal do PR N36:
+
+1. `OnboardingSagaTest` ×4 — `app_id: calendar` inexistente no fixture do suite catalog (ids válidos: `dashboard`, `mail`, `spreed`, `deck`) → 422.
+2. `AgentTransportCutoverTest` + `ProvisionTest` ×3 — mocks `runAsync` sem `--suite-catalog` / stdin `{"shell":true}` desalinhados do contrato F3.
+
+### Correção (commit `80f3063`)
+
+- `calendar` → `mail` nos testes de onboarding.
+- Mocks alinhados ao contrato F3 (`--suite-catalog`, stdin esperado).
+- Sem mudança de produção. CI verde após o fix.
+
+---
+
+## ISSUE-043 — Integrar novo sistema piloto (`cloud.image-pilot`) direcionado a produção (`<tenant>.mework360.com.br`)
+
+- **Tipo**: FEATURE (change_request — integração de novo sistema upstream/imagem + mudança de padrão de domínio)
+- **Prioridade**: HIGH (redefine o alvo de produção do provisionamento)
+- **Sprint**: a definir (via `/pmo plan`)
+- **Status**: aberto
+- **Reportado em**: 2026-07-03
+
+### Descrição
+
+Existe um novo sistema em piloto acessível em `https://cloud.image-pilot.mework360.com.br` (não referenciado em nenhum repositório até 2026-07-03; presumivelmente derivado do ensaio de upgrade Nextcloud na VM do Proxmox IDC-EVEO — ver `docs/OPERATIONS.md` 2026-06-24 e `docs/CLOUD-OPS-PVE-VALIDATION.json`). A demanda é atualizar o control plane (`work-platform-api`) para operar com esse novo sistema **já direcionado para produção**, onde os tenants passariam a usar o padrão de domínio `<tenant>.mework360.com.br` (ex.: `tenant.mework360.com.br`), em vez do modelo atual de host único de produção SaaS-02 (`cloud.mework360.com.br`, cluster `producao` `0e50e032-…`).
+
+### Esclarecimentos (usuário + evidência cross-repo, 2026-07-03)
+
+1. **Natureza do piloto — RESOLVIDO**: `cloud.image-pilot.mework360.com.br` (`128.201.61.120`) é o piloto greenfield **NC Suite image-mode** (ENH-010 p3 / Sprints N45–N48 do `work-platform-scripts`): tenant `imgpilot`, NC `33.0.5-mw5` (digest `sha256:535c86b4…`), `create --image-mode --suite-catalog`, plano `provision/plans/image-pilot-baseline.yaml`, runbook `docs/runbooks/NC-IMAGE-PILOT.md`. Status N48.11: **GO condicional** (signoff humano pendente itens 1/4/8). Esse ambiente **será a produção**.
+2. **Cenários confirmados pelo usuário**: LAB = `labwork.mework360.com.br` (`.112`, homolog canônica NC-ARCH-012, tenants `*.labwork.mework360.com.br`); PRODUÇÃO (em testes) = host image-pilot. Em produção os tenants usarão `<tenant>.mework360.com.br` (ex.: `tenant.mework360.com.br`).
+3. **Escopo pedido**: atualizar a API **inicialmente** para operar contra o ambiente que será produção (image-pilot) — cadastro de `cluster_server`, contrato de provisionamento (`fqdn`/domínio), DNS e validação canário — antes do cutover de domínio final.
+4. **Questão residual**: estratégia para os 11 tenants do SaaS-02 legado (`cloud.mework360.com.br`) — migração/convivência fica fora deste escopo inicial; relação com N25 (N25.3/N25.4 LAB) a decidir no planejamento.
+
+### Artefatos impactados (Impact Scan 2026-07-03)
+
+- **ClusterServers**: cadastro de novo `cluster_server` de produção (painel `/clusters` — CRUD F9; chave SSH dedicada + webhook secret + sync)
+- **Customers/provisionamento**: `app/Modules/Customers/Actions/ProvisionCustomerAction.php`, `app/Modules/Customers/Dto/ProvisionPayload.php` (campo `domain`), `app/Modules/Customers/Services/TenantReplicaSynchronizer.php`, `CustomerSyncService`
+- **Onboarding**: `app/Modules/Onboarding/Saga/OnboardingSaga.php` (propagação de `domain`)
+- **Dns**: `app/Modules/Dns/Actions/{ProvisionDnsZoneAction,PublishDkimRecordAction,VerifyDomainAction}.php` — padrão de zona/registros para `<tenant>.mework360.com.br`
+- **Mail**: `app/Modules/Mail/Actions/ProvisionTenantMailAction.php`, `MailApiClient` (domínio derivado)
+- **Billing/WHMCS**: `app/Modules/Billing/Services/WhmcsProvisionService.php`, `ProvisionDedicatedTenantAction`
+- **Integration**: `app/Modules/Integration/Support/TenantReadinessGateChecker.php` (URL de readiness `https://<domain>/…`)
+- **Testes**: `tests/Feature/Api/V1/SuiteCatalogProvisionV1Test.php`, suites de provisioning/lifecycle que assumem domínio atual
+- **Cross-repo**: `work-platform-scripts` / upstream `nextcloud-saas-manager` (template de tenant, vhosts/TLS, webhook) — coordenação tipo ISSUE-022
+
+### Documentação afetada
+
+- `.cursor/skills/me360-deployer/references/{ecosystem-map,architecture-and-routing,environment-and-parity,production-deploy}.md` (mapa aponta SaaS-02 como único prod)
+- `docs/PLATFORM-V2-PLAN.md`, `docs/OPERATIONS.md`, `docs/SUITE-ENV.md`
+- `docs/openapi.yaml` / `docs/openapi-external.yaml` (se contrato de `domain`/provisionamento mudar)
+
+### Proposta de escopo
+
+FEATURE grande (multi-sprint provável): (a) descoberta/contrato do novo sistema piloto; (b) cadastro e validação de cluster de produção novo (SSH + webhook + canário); (c) padrão de domínio + DNS/TLS; (d) estratégia de convivência/migração com SaaS-02. Detalhamento e split → `/pmo plan — ISSUE-043`.
 
 ---
 

@@ -50,6 +50,7 @@ class ProvisionCustomerRequest extends FormRequest
             'full_apps' => ['nullable', 'boolean'],
             'shell' => ['sometimes', 'boolean'],
             'suite_catalog' => ['sometimes', 'boolean'],
+            'image_mode' => ['sometimes', 'boolean'],
             'legacy_vendor' => ['sometimes', 'boolean'],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],
             'background' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],

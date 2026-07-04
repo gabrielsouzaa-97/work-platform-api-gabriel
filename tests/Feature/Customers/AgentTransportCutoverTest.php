@@ -161,8 +161,12 @@ it('provision uses ssh for large logo staging when agent transport enabled', fun
     $sshMock->shouldReceive('runAsync')
         ->once()
         ->withArgs(function (ClusterServer $c, string $cmd, array $args, ?string $stdin): bool {
-            return $stdin === null
-                && $cmd === 'nextcloud-manage'
+            $decoded = is_string($stdin) ? json_decode($stdin, true) : null;
+
+            return $cmd === 'nextcloud-manage'
+                && is_array($decoded)
+                && ($decoded['shell'] ?? null) === true
+                && in_array('--suite-catalog', $args, true)
                 && collect($args)->contains(fn (mixed $a): bool => str_starts_with((string) $a, '--staging-id='))
                 && ! collect($args)->contains('--payload-stdin');
         })

@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Campanha V2 Platform — Onda B (N26+N27+N24)",
-  "sprint_atual": "N24",
-  "previous_sprint": "N29",
-  "sprint_branch": "sprint/N24-ring-rollout",
+  "fase_nome": "Sprint N36 — API → produção image-mode (ISSUE-043); N25 pausada",
+  "sprint_atual": "N36",
+  "previous_sprint": "N25 (pausada — N25.3/N25.4 pendentes)",
+  "sprint_branch": "sprint/N36",
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -49,15 +49,15 @@
       "N23",
       "N29",
       "N26",
-      "N27"
-    ],
-    "sprints_pending": [
-      "N22",
-      "N25",
+      "N27",
       "N24",
+      "N22",
       "N28"
     ],
-    "lab_deferred": true,
+    "sprints_pending": [
+      "N25"
+    ],
+    "lab_deferred": false,
     "pr": 123
   },
   "beesy_version": "4.55.1",
@@ -65,8 +65,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-06-21T06:17:49Z",
-  "next_sprint_planned": "N22",
+  "ultimo_update": "2026-07-03T15:19:35Z",
+  "next_sprint_planned": "N36",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -76,11 +76,14 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Onda A PR #123 — CI verde e merge main",
-    "Onda B: N27 (scripts) ou N26 restore-drill",
-    "LAB + ISSUE-040: análise manual depois (fora da campanha autônoma)"
+    "N25.3: cadastrar cluster_servers → .108 (chave SSH ncsaas-api; criar operador admin via operators:create-admin)",
+    "N25.4: canário qa-platform-lab + gates R1–R8 (LAB-PROVISION-PLAN/F10.3)",
+    "N36 planejada (ISSUE-043: API → produção image-mode .120) — /pmo sprint N36 após decidir prioridade vs N25",
+    "Triagem ISSUE-042 (worker overlay command duplicado) → /pmo fix",
+    "Merge PR work-platform #1 após sign-off",
+    "PLATFORM_LAB_SIGNOFF=approved + /qa validar N25"
   ],
-  "contexto_rapido": "Onda A (N21+N23+N29) validation R3 APROVADA. PR #123. N19 merged main (#120). Merge main rebased.",
+  "contexto_rapido": "Sprint N25: N25.1+N25.5 done (work-platform). N25.2 bootstrap CONCLUÍDO 2026-06-22 — api.lab LIVE @ .110 (Docker+Traefik+control plane src@83880bd, /up 200 TLS). Falta N25.3 (cluster_servers→.108) e N25.4 (gates). Bug ISSUE-042 registrado.",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
@@ -216,59 +219,150 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-06-20T22:30:26Z",
-    "usage_percent": 93.28699999999999,
-    "messages_lost": 270
+    "compacted_at": "2026-06-21T14:55:53Z",
+    "usage_percent": 92.721,
+    "messages_lost": 338
   },
-  "compact_count": 1,
+  "compact_count": 2,
+  "sprint_pr": 119,
+  "sprint_pr_repo": "SoftwareBeesy/work-platform",
   "checkpoint": {
-    "phase": "validated",
-    "current_task": null,
-    "last_completed_task": "N29.5",
+    "phase": "blocked",
+    "sprint": "N36",
+    "branch": "sprint/N36",
+    "validation_authority": "github_actions_pr",
+    "current_task": "N36.4",
+    "last_completed_task": "N36.3",
+    "blocked_reason": "N36.4 canário E2E bloqueado por ISSUE-045 (upstream dispatch.sh D3.9b perde --image-mode/--suite-catalog no job_argv); 4/5 tasks DONE; CI verde PR #128",
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/128",
+    "exec_model": "composer-2.5 (Decision #225)",
+    "relevant_paths": [
+      "app/Modules/Customers/",
+      "app/Modules/Integration/",
+      "app/Http/Requests/",
+      "config/platform.php",
+      "docs/openapi-external.yaml"
+    ],
+    "timestamp": "2026-07-03T15:25:00Z"
+  },
+  "checkpoint_n25_paused": {
+    "phase": "in_progress",
+    "sprint": "N25",
+    "current_task": "N25.3",
+    "last_completed_task": "N25.2",
+    "paused_reason": "usuário priorizou execução da N36 (ISSUE-043) em 2026-07-03",
+    "blockers": [
+      "N25.3 needs SSH key (ncsaas-api) authorized on .108 + admin operator on fresh DB",
+      "N25.4 canary needs WHMCS tenant decision"
+    ],
+    "lab_deploy_vm_a": {
+      "host": "128.201.61.110",
+      "api_host": "api.lab.mework360.com.br",
+      "up_http": 200,
+      "tls": "letsencrypt OK",
+      "src_sha": "83880bd",
+      "stack": "Docker 26.1.5 + Compose v5.1.4 + Traefik (proxy net) + app/worker/nginx/mariadb/redis",
+      "migrations": "all applied",
+      "worker_fix": "ISSUE-042 mitigated on VM artifact only (command: !override [])",
+      "bootstrapped_at": "2026-06-22T19:50:00Z"
+    },
     "validation_gate": {
-      "produced_by": "validation-stamp.py",
-      "result": "APROVADA",
-      "validation_mode": "full",
+      "produced_by": "validate-umbrella-bom.sh",
+      "result": "APROVADA_PARCIAL",
+      "scope": "N25.1+N25.5 code only",
       "gates": [
         {
-          "cmd": "docker compose run --rm --no-TTY app php artisan test",
-          "exit_code": 0
+          "cmd": "./tools/validate-umbrella-bom.sh",
+          "exit_code": 0,
+          "repo": "work-platform",
+          "sha": "72c723b"
         }
       ],
-      "dirty_production_paths": [],
-      "missing_backends": [],
-      "last_validated_sha": "e328fc762619bfe3627f57a6e08feca6e627bcd3",
-      "stamped_at": "2026-06-21T06:48:03Z"
+      "pr_url": "https://github.com/SoftwareBeesy/work-platform/pull/1",
+      "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
   "sprint_tasks": [
     {
-      "id": "N29.5",
+      "id": "N36.3",
+      "status": "completed",
+      "size": "P",
+      "title": "Cadastro operacional cluster_server produção image-pilot (.120): SSH key + webhook secret + Testar Conexão (R6)",
+      "file": "docs/OPERATIONS.md",
+      "evidence": "cluster_server 978d6dd4-33fa-48d6-8347-15da9d4aa672 no LAB; R6 exit 0; worker instalado"
+    },
+    {
+      "id": "N36.1",
       "status": "completed",
       "size": "M",
-      "title": "Onda A QA hardening (CQ-N21-001..005, CQ-N29-001..003)",
-      "file": "app/Modules/Agents/Services/AgentEventHandler.php"
+      "title": "Flag image_mode no contrato de provisionamento (request → payload → argv --image-mode) + openapi + testes",
+      "file": "app/Modules/Customers/Actions/ProvisionCustomerAction.php",
+      "evidence": "commit c22d13d; 4 testes ImageModeProvisionV1Test; CI verde PR #128; argv validado no host (.120 sudo audit)"
     },
     {
-      "id": "N29.4",
+      "id": "N36.2",
       "status": "completed",
       "size": "P",
-      "title": "domain/verify + DNS tests",
-      "file": "tests/Feature/Mail/MailProvisionPipelineTest.php"
+      "title": "Alinhar spec/docs ao alvo de produção (openapi examples, SUITE-ENV.md, ecosystem-map.md)",
+      "file": "docs/SUITE-ENV.md",
+      "depends": ["N36.1"],
+      "evidence": "commit 96e8420"
     },
     {
-      "id": "N23.4",
+      "id": "N36.5",
       "status": "completed",
-      "size": "P",
-      "title": "Farm inventory + placement",
-      "file": "app/Modules/Farms/Services/PlacementService.php"
+      "size": "M",
+      "title": "Readiness compatível com image-mode (TenantReadinessGateChecker sem mework360_memail; probe sem /status.php)",
+      "file": "app/Modules/Integration/Support/TenantReadinessGateChecker.php",
+      "depends": ["N36.1"],
+      "evidence": "commit 3468695; 3 testes CustomerReadinessTest; CI verde"
     },
     {
-      "id": "N21.5",
+      "id": "N36.4",
+      "status": "blocked",
+      "size": "M",
+      "title": "Canário E2E via API contra .120 (image-mode + suite-catalog): job success + webhook 204 + readiness PASS",
+      "file": "docs/OPERATIONS.md",
+      "depends": ["N36.1", "N36.3", "N36.5"],
+      "blocked_by": "ISSUE-045 (upstream work-platform-scripts dispatch.sh D3.9b descarta --image-mode/--suite-catalog do job_argv async)",
+      "evidence": "2 tentativas: job 682f675e (exit 1, snapshot ausente — corrigido via env worker) e 8f15f56f (exit 124, create legado por flags perdidas)"
+    }
+  ],
+  "sprint_tasks_n25_paused": [
+    {
+      "id": "N25.1",
+      "status": "completed",
+      "size": "M",
+      "title": "Umbrella BOM platform-1.0.0 + lab-baseline sync",
+      "file": "releases/platform-1.0.0.yaml"
+    },
+    {
+      "id": "N25.5",
       "status": "completed",
       "size": "P",
-      "title": "Mail pipeline integration",
-      "file": "app/Modules/Mail/Actions/ProvisionTenantMailAction.php"
+      "title": "Promote LAB→PROD manual gate script",
+      "file": "tools/promote-lab-to-prod.sh"
+    },
+    {
+      "id": "N25.2",
+      "status": "completed",
+      "size": "M",
+      "title": "Bootstrap VPS LAB Debian 13 (LAB-PROVISION-PLAN Fase 3–4) — api.lab LIVE @ .110, /up 200 TLS",
+      "file": "docs/LAB-PROVISION-PLAN.md"
+    },
+    {
+      "id": "N25.3",
+      "status": "pending",
+      "size": "P",
+      "title": "Seed cluster_servers lab no control plane",
+      "file": "docs/LAB-PROVISION-PLAN.md"
+    },
+    {
+      "id": "N25.4",
+      "status": "pending",
+      "size": "M",
+      "title": "Canário qa-platform-lab + gates R1–R8 + ISSUE-031 smoke",
+      "file": "docs/runbooks/F10.3-lab-validation.md"
     }
   ],
   "validation_gate": {
@@ -292,6 +386,27 @@
     "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-07-03T15:30:00Z",
+      "action": "/pmo plan — ISSUE-043 fase inicial (apontar API p/ produção image-mode)",
+      "sprints_generated": [
+        "N36"
+      ],
+      "issues_in_scope": [
+        "ISSUE-043"
+      ],
+      "findings_in_scope": [],
+      "split_strategy": "fase inicial cirúrgica: flag image_mode no contrato + cluster_server .120 + readiness image-mode + canário E2E; migração SaaS-02 e cutover de domínio ficam para fases seguintes da ISSUE-043",
+      "tasks_count": {
+        "P": 2,
+        "M": 3,
+        "total": 5
+      },
+      "review_level": "senior+qa",
+      "exec_mode": "manual",
+      "evidence": "canário manual teste2 @ .120: create image-mode 7m10s, TLS OK, NC 33.0.5.1 (OPERATIONS.md 2026-07-03); achado /status.php 404 originou N36.5",
+      "gate": "POST /v1/tenants no cluster image-pilot: job success + readiness PASS + webhook 204 + TLS; CI verde"
+    },
     {
       "timestamp": "2026-06-19T01:15:00Z",
       "action": "/pmo plan via /rock — retomar N35 pós-debug ISSUE-041",
@@ -832,7 +947,6 @@
       ]
     }
   ],
-  "sprint_pr": 119,
   "checkpoint_n31_archived": {
     "phase": "auditing",
     "sprint": "N31",

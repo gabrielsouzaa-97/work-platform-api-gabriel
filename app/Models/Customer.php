@@ -27,6 +27,7 @@ class Customer extends Model
         'domain',
         'status',
         'tier',
+        'image_mode',
         'branding_meta',
         'mail_provision_payload',
         'last_sync_at',
@@ -35,6 +36,7 @@ class Customer extends Model
     protected function casts(): array
     {
         return [
+            'image_mode' => 'boolean',
             'branding_meta' => 'array',
             'mail_provision_payload' => 'array',
             'last_sync_at' => 'datetime',

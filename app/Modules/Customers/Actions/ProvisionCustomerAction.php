@@ -80,6 +80,10 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
             $args[] = '--suite-catalog';
         }
 
+        if ($payload->usesImageMode()) {
+            $args[] = '--image-mode';
+        }
+
         // Annexes: payloads that exceed SSH stdin cap go through SFTP staging (Canal B).
         $stdin = [];
         $stagingId = null;
@@ -179,6 +183,7 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'cluster_server_id' => $cluster->id,
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
+                    'image_mode' => $payload->imageMode,
                     'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),
                 ]);
@@ -189,6 +194,7 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'cluster_server_id' => $cluster->id,
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
+                    'image_mode' => $payload->imageMode,
                     'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),
                 ]);

@@ -180,6 +180,31 @@ function readinessSshMockWithGatesR1ToR5(): MockInterface
     return readinessGateSshMockWithGatesR1ToR5();
 }
 
+function readinessSshMockWithoutMemailApp(): MockInterface
+{
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->andReturnUsing(function (
+        ClusterServer $clusterArg,
+        string $cmd,
+        array $argv,
+    ): SshResponse {
+        $occ = $argv[2] ?? '';
+
+        if ($occ === 'app:list') {
+            return new SshResponse(
+                stdout: json_encode(['enabled' => ['me360_theme' => true]]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['enabled' => ['me360_theme' => true]],
+            );
+        }
+
+        return new SshResponse(stdout: '', stderr: 'unexpected occ', exitCode: 1, parsedJson: null);
+    });
+
+    return $ssh;
+}
+
 function bindReadinessGateMocks(Customer $customer, int $r6Status = 200): void
 {
     app()->instance(SshClientInterface::class, readinessGateSshMockWithGatesR1ToR5());

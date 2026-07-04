@@ -18,6 +18,10 @@ final class TenantReadinessGateChecker
 
     public function passesAll(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
     {
+        if ($customer->image_mode) {
+            return $this->passesMeMailHttp($customer, $timeoutSec);
+        }
+
         if (! $this->passesAppList($customer, $cluster, $timeoutSec)) {
             return false;
         }
@@ -115,7 +119,8 @@ final class TenantReadinessGateChecker
 
     private function passesMeMailHttp(Customer $customer, int $timeoutSec): bool
     {
-        $url = sprintf('https://%s/apps/mework360_memail/', $customer->domain);
+        $path = $customer->image_mode ? '/login' : '/apps/mework360_memail/';
+        $url = sprintf('https://%s%s', $customer->domain, $path);
 
         try {
             $response = Http::timeout($timeoutSec)->get($url);
