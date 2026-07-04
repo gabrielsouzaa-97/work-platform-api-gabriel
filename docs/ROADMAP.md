@@ -113,7 +113,7 @@
 | N22 | onboarding-api + api + WHMCS | Signup/trial/billing WHMCS+Vindi | planejada | N21; N29 *(opcional)* |
 | N23 | `work-platform-api` | Inventário + placement automático | **concluida** | N19 |
 | N24 | multi-repo | Rollout por ring no agente | planejada | N16, N23 |
-| N25 | `work-platform` + scripts | LAB greenfield + BOM promote | planejada | N14, N20 |
+| N25 | `work-platform` + scripts | LAB greenfield + BOM promote | **4/5 — bloqueada ISSUE-046** | N14, N20 |
 | N26 | `work-platform-scripts` | Restore drill mensal automatizado | planejada | — |
 | N27 | `work-platform-scripts` | Observabilidade default em deploy-server | planejada | — |
 | N28 | api + WHMCS + Proxmox | Tier Dedicated (VPS via WHMCS/`IDC-EVEO`) | planejada | N15, N23 |

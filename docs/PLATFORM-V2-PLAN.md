@@ -629,11 +629,13 @@ F3/F10.3 (carry-over) → N14 → N15 → N16
 
 | Status | Tam | Tarefa | Depende |
 |--------|-----|--------|---------|
-| [ ] | M | N25.1 — Criar `work-platform` com `releases/platform-1.0.0.yaml` | N14 |
-| [ ] | M | N25.2 — Bootstrap VPS LAB Debian 13 (runbook `LAB-PROVISION-PLAN` Fase 3–4) | N25.1, N30 |
-| [ ] | P | N25.3 — Seed `cluster_servers` lab no control plane | N25.2 |
-| [ ] | M | N25.4 — Canário + gates 16/16 settings + ISSUE-031 smoke | N20, N25.3 |
-| [ ] | P | N25.5 — Pipeline promote LAB→PROD (manual gate) | N25.4 |
+| [x] | M | N25.1 — Criar `work-platform` com `releases/platform-1.0.0.yaml` | N14 |
+| [x] | M | N25.2 — Bootstrap VPS LAB Debian 13 (runbook `LAB-PROVISION-PLAN` Fase 3–4) — `api.lab` LIVE @ `.110` | N25.1, N30 |
+| [x] | P | N25.3 — Seed `cluster_servers` lab no control plane (`.108` → `lab-upstream`, R6 PASS) | N25.2 |
+| [ ] | M | N25.4 — Canário + gates 16/16 settings + ISSUE-031 smoke — **BLOQUEADA (ISSUE-046)** | N20, N25.3 |
+| [x] | P | N25.5 — Pipeline promote LAB→PROD (manual gate) | N25.4 |
+
+**Execução (2026-07-04):** retomada pós-N36. N25.1/N25.2/N25.5 reconciliados como concluídos (evidência já existente, sem trabalho novo). N25.3 executada: cluster `lab-upstream` (`d7538710-676d-4673-a191-8decc0905596`) cadastrado com chave SSH dedicada `api-lab-108-2026`; `cluster:health-check` → active. N25.4 bloqueada: canário `canario-n25` falhou no create remoto (ver **ISSUE-046** — `nextcloud-manage` em `.108` roda `suite-deploy` misdirecionado para `.112`/labwork com script ausente; webhook de falha também não é entregue ao control plane).
 
 ---
 

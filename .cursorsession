@@ -33,8 +33,8 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N36 concluída — API → produção image-mode (ISSUE-043 fase inicial); N25 pausada",
-  "sprint_atual": null,
+  "fase_nome": "Sprint N25 retomada — N25.3 concluída; N25.4 blocked por ISSUE-046 (.108 suite-deploy)",
+  "sprint_atual": "N25",
   "previous_sprint": "N36",
   "sprint_branch": null,
   "sprint_pending_merge": null,
@@ -57,7 +57,7 @@
       "N36"
     ],
     "sprints_pending": [
-      "N25"
+      "N25 (blocked — ISSUE-046)"
     ],
     "lab_deferred": false,
     "pr": 123
@@ -67,7 +67,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-04T21:46:33Z",
+  "ultimo_update": "2026-07-04T23:14:32Z",
   "next_sprint_planned": "N36",
   "modulos": [
     "Core",
@@ -78,14 +78,14 @@
     "Customers"
   ],
   "proximos_passos": [
-    "N25.3: cadastrar cluster_servers → .108 (chave SSH ncsaas-api; criar operador admin via operators:create-admin)",
-    "N25.4: canário qa-platform-lab + gates R1–R8 (LAB-PROVISION-PLAN/F10.3)",
-    "N36 planejada (ISSUE-043: API → produção image-mode .120) — /pmo sprint N36 após decidir prioridade vs N25",
-    "Triagem ISSUE-042 (worker overlay command duplicado) → /pmo fix",
+    "Investigar causa raiz ISSUE-046 em work-platform-scripts (suite-deploy .108→.112 misdirecionado + apply-lab.sh ausente) → /pmo fix após diagnóstico",
+    "Investigar callback_failed do webhook de job failed (.108→.110) — comparar com fluxo OK de canario-n36e",
+    "Após fix ISSUE-046: retomar N25.4 (canário + gates R1–R8 + settings 16/16 + ISSUE-031 smoke)",
+    "ISSUE-031 (SSO memail↔Roundcube) e settings_matrix (16/16) permanecem escopo separado — não bloquear N25.4 core (create_canary) por eles",
     "Merge PR work-platform #1 após sign-off",
-    "PLATFORM_LAB_SIGNOFF=approved + /qa validar N25"
+    "PLATFORM_LAB_SIGNOFF=approved + /qa validar N25 (após N25.4 desbloqueada)"
   ],
-  "contexto_rapido": "Sprint N25: N25.1+N25.5 done (work-platform). N25.2 bootstrap CONCLUÍDO 2026-06-22 — api.lab LIVE @ .110 (Docker+Traefik+control plane src@83880bd, /up 200 TLS). Falta N25.3 (cluster_servers→.108) e N25.4 (gates). Bug ISSUE-042 registrado.",
+  "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
     "mode": "ci_authority",
     "local_docker": false,
@@ -221,11 +221,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-04T22:06:50Z",
-    "usage_percent": 92.7915,
-    "messages_lost": 258
+    "compacted_at": "2026-07-04T23:34:11Z",
+    "usage_percent": 91.38466666666667,
+    "messages_lost": 308
   },
-  "compact_count": 3,
+  "compact_count": 4,
   "sprint_pr": 128,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
@@ -238,16 +238,29 @@
     "note": "Gate PASS canario-n36e (job 9904497b-ad3c-4390-ba61-c5f433cd00c1, success ~5m44s); ISSUE-045 fixed upstream ba53ecc; 5/5 tasks",
     "timestamp": "2026-07-04T21:25:00Z"
   },
-  "checkpoint_n25_paused": {
-    "phase": "in_progress",
+  "checkpoint_n25": {
+    "phase": "blocked",
     "sprint": "N25",
-    "current_task": "N25.3",
-    "last_completed_task": "N25.2",
-    "paused_reason": "usuário priorizou execução da N36 (ISSUE-043) em 2026-07-03",
+    "current_task": "N25.4",
+    "last_completed_task": "N25.3",
+    "resumed_at": "2026-07-04T23:15:00Z",
     "blockers": [
-      "N25.3 needs SSH key (ncsaas-api) authorized on .108 + admin operator on fresh DB",
-      "N25.4 canary needs WHMCS tenant decision"
+      "N25.4 blocked by ISSUE-046: nextcloud-manage create legado falha em .108 (suite-deploy misdirecionado p/ .112 labwork); webhook de falha não entregue ao control plane"
     ],
+    "n25_3_evidence": {
+      "cluster_server_id": "d7538710-676d-4673-a191-8decc0905596",
+      "name": "lab-upstream",
+      "ssh_host": "128.201.61.108",
+      "ssh_key": "api-lab-108-2026 (dedicada, gerada 2026-07-04)",
+      "webhook_secret_set": true,
+      "health_check": "active (cluster:health-check R6 PASS)"
+    },
+    "n25_4_attempt": {
+      "canary_slug": "canario-n25",
+      "job_id": "4ba0824d-343c-44fd-bed7-aa1bd0b7de88",
+      "result": "failed exit 1 (ISSUE-046)",
+      "cleanup": "customer soft-deleted (provisioning_failed); api key canary-n25 revoked"
+    },
     "lab_deploy_vm_a": {
       "host": "128.201.61.110",
       "api_host": "api.lab.mework360.com.br",
@@ -328,7 +341,7 @@
       "evidence": "canario-n36e job 9904497b-ad3c-4390-ba61-c5f433cd00c1 success ~5m44s (2026-07-04); ISSUE-045 fixed upstream ba53ecc; OPERATIONS.md 2026-07-04T21:25:00Z"
     }
   ],
-  "sprint_tasks_n25_paused": [
+  "sprint_tasks_n25": [
     {
       "id": "N25.1",
       "status": "completed",
@@ -352,17 +365,19 @@
     },
     {
       "id": "N25.3",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
-      "title": "Seed cluster_servers lab no control plane",
-      "file": "docs/LAB-PROVISION-PLAN.md"
+      "title": "Seed cluster_servers lab no control plane (.108 → lab-upstream)",
+      "file": "docs/OPERATIONS.md",
+      "evidence": "cluster_server d7538710-676d-4673-a191-8decc0905596; chave dedicada api-lab-108-2026; R6 cluster:health-check active"
     },
     {
       "id": "N25.4",
-      "status": "pending",
+      "status": "blocked",
       "size": "M",
       "title": "Canário qa-platform-lab + gates R1–R8 + ISSUE-031 smoke",
-      "file": "docs/runbooks/F10.3-lab-validation.md"
+      "file": "docs/runbooks/F10.3-lab-validation.md",
+      "blocked_by": "ISSUE-046"
     }
   ],
   "validation_gate": {

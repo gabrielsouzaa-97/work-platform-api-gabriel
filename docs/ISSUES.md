@@ -51,6 +51,53 @@
 | ISSUE-043 | change_request | Apontar a API para o ambiente que será PRODUÇÃO: piloto image-mode `cloud.image-pilot.mework360.com.br` (`.120`); tenants prod = `<tenant>.mework360.com.br` | Customers, ClusterServers, Dns, Integration, Infra | HIGH | open — **fase inicial (N36) concluída** com gate E2E canário `canario-n36e` (2026-07-04); cutover domínio `<tenant>.mework360.com.br` e migração SaaS-02 fora do escopo N36 |
 | ISSUE-044 | bug | CI vermelho no `main` pós-F3 (`6b29717`): 7 testes falham — `OnboardingSagaTest` ×4 (`Unknown suite catalog app_id: calendar` → 422) + `AgentTransport`/`Provision` ×3 (mocks `runAsync` sem `--suite-catalog` no argv esperado) | Customers, Onboarding, QA/CI | HIGH | **fixed (2026-07-03, sprint/N36 PR #128)** — evidência pré-fix: run main 28349563271 |
 | ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | **fixed (2026-07-04)** — fix upstream `ba53ecc` + deploy `.120` + canário `canario-n36e` gate PASS |
+| ISSUE-046 | bug | Cross-repo `.108` (LAB upstream `nextcloud-saas-manager`): `nextcloud-manage <slug> <domain> create` (legado, sem `--image-mode`) falha exit 1 — `suite-deploy` aponta para host errado (`mecloud360@128.201.61.112` = labwork) e script `apply-lab.sh` ausente (`//work-nc-theme-fork/deploy/apply-lab.sh`); webhook de falha também não chega ao control plane (`callback_failed=true`, customer preso em `provisioning`) | Cross-repo (work-platform-scripts), Jobs, Customers, Webhook | CRITICAL | open — **bloqueia N25.4** (gate `create_canary`); descoberto no canário `canario-n25` (job `4ba0824d-343c-44fd-bed7-aa1bd0b7de88`) |
+
+---
+
+## ISSUE-046 — `.108` (LAB upstream): create legado falha via `suite-deploy` misdirecionado + webhook de falha não entregue
+
+- **Tipo**: bug (cross-repo — `work-platform-scripts` / host `.108`)
+- **Prioridade**: CRITICAL / BLOCKER (gate N25.4 `create_canary`)
+- **Sprint**: descoberto em N25.4 (retomada da campanha v2-platform)
+- **Status**: open
+- **Reportado em**: 2026-07-04
+
+### Contexto
+
+N25.3 registrou `.108` (`nextcloud-saas-manager`, upstream LAB legado — tenants `360`, `360cat`, `lab`) como `cluster_server` `lab-upstream` (`d7538710-676d-4673-a191-8decc0905596`) no control plane `.110`. Chave SSH dedicada `api-lab-108-2026` gerada e autorizada; `nextcloud-manage list --json` funcional; R6 (`cluster:health-check`) → **active**.
+
+N25.4 disparou canário `canario-n25` via `POST /api/v1/tenants` (sem `image_mode`, path legado). Job aceito (202), dispatch SSH OK (`transport.dispatch` logado), mas o `nextcloud-manage create` no host **falhou**.
+
+### Reprodução
+
+```
+$ ssh -i api-lab-108-2026 ncsaas-api@128.201.61.108 "nextcloud-manage canario-n25 canario-n25.lab.mework360.com.br create"
+[suite-deploy] deploy_shell client=canario-n25 fqdn=canario-n25.lab.mework360.com.br snapshot=nc-suite-snapshot-2026-06-29.yaml
+[suite-deploy] target host=mecloud360@128.201.61.112 url=https://cloud.labwork.mework360.com.br
+[suite-deploy] error: apply-lab.sh not found at //work-nc-theme-fork/deploy/apply-lab.sh
+exit 1
+```
+
+**Achado 1 (causa raiz provável):** o `nextcloud-manage` instalado em `.108` foi atualizado para um fluxo `suite-deploy` que **hardcoded** o alvo `mecloud360@128.201.61.112` (host **labwork**, ambiente diferente) e um path de script (`work-nc-theme-fork/deploy/apply-lab.sh`) que não existe em `.108`. Ou seja: criar um tenant NOVO em `.108` tenta indevidamente aplicar tema/deploy contra o host `labwork`, não contra si mesmo.
+
+**Achado 2 (secundário, agrava o diagnóstico):** o job `state: failed` no Redis (`nc:jobs:4ba0824d-…`) tem `callback_failed: true` (4 tentativas) — a notificação de falha nunca chegou ao control plane `.110`. `GET /api/v1/tenants/canario-n25` ficou preso em `status: provisioning` mesmo minutos após a falha real. Conectividade de rede `.108→api.lab.mework360.com.br` confirmada OK (405 em GET no endpoint webhook); secret HMAC confirmado idêntico dos dois lados. Causa exata do callback não investigada a fundo (não há log da tentativa no `laravel.log` do app — possível rejeição em camada anterior ao controller, ex. IP allowlist behind Traefik/proxy real IP, ou timeout do worker).
+
+### Evidência
+
+- Job Redis: `nc:jobs:4ba0824d-343c-44fd-bed7-aa1bd0b7de88` — `state=failed`, `exit_code=1`, `callback_failed=true`, `callback_attempts=4`
+- Cluster `lab-upstream` R6 PASS (`cluster:health-check` → active) — dispatch/transporte SSH funcionam corretamente; bug é no script remoto
+- Customer `canario-n25` soft-deletado (`status=provisioning_failed`) e API key de teste `canary-n25` revogada — cleanup feito
+
+### Impacto
+
+Bloqueia **N25.4** (gate `create_canary` da umbrella BOM `platform-1.0.0.yaml`). Os gates `memail_sso_smoke` (ISSUE-031) e `settings_matrix` (16/16) dependem de um create bem-sucedido e portanto também ficam bloqueados por tabela.
+
+### Próximos passos sugeridos
+
+1. Investigar em `work-platform-scripts` por que `suite-deploy`/`nc_image.sh` (ou equivalente) direciona `.108` para `labwork` (`.112`) em vez de aplicar localmente — possível config global compartilhada incorretamente entre hosts (mesmo padrão de causa-raiz do ISSUE-045: env/config drift entre clusters)
+2. Investigar entrega do webhook de falha (`callback_failed`) — comparar com o fluxo que funcionou em `canario-n36e` (`.120`, image-mode) para achar a diferença
+3. Rotear correção via `/pmo fix` após confirmação da causa raiz — não fixar inline em produção/LAB
 
 ---
 

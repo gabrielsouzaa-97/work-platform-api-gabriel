@@ -1,5 +1,14 @@
 # Operations log
 
+## 2026-07-04T23:31:00Z — Retomada N25: cluster `lab-upstream` (.108) cadastrado; canário bloqueado por ISSUE-046
+
+- **N25.3 — cluster `lab-upstream` (`.108`):** UUID `d7538710-676d-4673-a191-8decc0905596`; SSH `ncsaas-api@128.201.61.108`; tier shared; `webhook_allowed_ip` 128.201.61.108; `nextcloud_version` 31.0.0 (legado). Chave dedicada ed25519 `~/.ssh/api-lab-108-2026` (comment `api-lab-108-2026`), autorizada em `/home/ncsaas-api/.ssh/authorized_keys` no `.108` com o mesmo `ForceCommand` restrito (`ncsaas-api-shim`) usado em `.120`.
+- **Webhook secret:** aplicado via `nextcloud-manage config set-webhook-secret --payload-stdin` no `.108` → success, worker `nextcloud-saas-worker` reiniciado.
+- **R6 Testar Conexão:** `php artisan cluster:health-check` → `[lab-upstream] → active` (junto com `[image-pilot] → active`).
+- **N25.4 — canário `canario-n25` (BLOQUEADO — ISSUE-046):** `POST /api/v1/tenants` (legado, sem `image_mode`) → job `4ba0824d-343c-44fd-bed7-aa1bd0b7de88` aceito (202), dispatch SSH OK, mas `nextcloud-manage create` no host **falhou exit 1**: script `suite-deploy` interno tenta aplicar tema/deploy contra `mecloud360@128.201.61.112` (host **labwork**, ambiente errado) e não encontra `apply-lab.sh`. Job Redis `state=failed`, `callback_failed=true` (4 tentativas — notificação de falha não chegou ao control plane). Ver ISSUE-046 para detalhes e evidência completa.
+- **Cleanup pós-tentativa:** customer `canario-n25` soft-deletado (`status=provisioning_failed`); API key de teste `canary-n25` revogada.
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-04T21:25:00Z — Validação pós-merge N36: deploy LAB + canário `canario-n36e` (gate PASS)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — deploy `main` SHA `7a79086` (merge PR #128, sem hotfix); readiness oficial validado pós-deploy.
