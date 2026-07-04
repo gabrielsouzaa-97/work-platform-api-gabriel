@@ -1,5 +1,15 @@
 # Operations log
 
+## 2026-07-04T21:25:00Z — Validação pós-merge N36: deploy LAB + canário `canario-n36e` (gate PASS)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — deploy `main` SHA `7a79086` (merge PR #128, sem hotfix); readiness oficial validado pós-deploy.
+- **Upstream ISSUE-045:** fix `dispatch.sh` D3.9b em `work-platform-scripts` commit `ba53ecc` (main) deployado no host image-pilot (`.120`).
+- **N36.4 — canário E2E `canario-n36e`:** `POST /api/v1/tenants` com `image_mode=true`, `suite_catalog=true` → job `9904497b-ad3c-4390-ba61-c5f433cd00c1` (dispatch 21:19 UTC) **success** ~5m44s; customer `active` automático ~4s depois; `/login` 200; imagem mw4 (`ghcr.io/softwarebeesy/work-nextcloud-image:33.0.5-mw4`); `/status.php` 404 (esperado image-mode, gate N36.5).
+- **Critérios R6–R8:** R6 cluster `image-pilot` ativo (cadastro N36.3); R7 webhook 204 + `jobs.summary` populado; R8 readiness PASS sem `mework360_memail` nem `/status.php`.
+- **Histórico canários falhos (soft-delete):** `canario-n36`, `canario-n36b`, `canario-n36c`, `canario-n36d` — bloqueados por ISSUE-045 antes do fix upstream.
+- **Hardening `.120` (2026-07-04):** symlink `/opt/releases` → bundle `746ecb81` releases; removidos tenants residuais `canario-n36b`/`canario-n36c`; `NC_IMAGE_BOM` mantido no worker env até canário confirmar resolução só com defaults.
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-03T18:00:00Z — Sprint N36: cluster image-pilot + deploy LAB + canário API (ISSUE-043 / ISSUE-045)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — código `sprint/N36` SHA `80f3063` implantado (swap diretório preservando `.env`/`storage`; imagens app `1daeee78af66` / worker `2f7649b7412b`); migration `customers.image_mode` aplicada; `/up` 200. Rollback: `/opt/mework360-deployer-old-202607031556` + imagens `0b2e4175f754`/`bb7fd318215d`.

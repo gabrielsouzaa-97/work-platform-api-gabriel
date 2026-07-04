@@ -250,10 +250,10 @@
 
 ## Sprint N36 — ISSUE-043 fase inicial: API → produção image-mode
 
-**Data**: 2026-07-03
-**Status**: EM ANDAMENTO (4/5 — N36.4 bloqueada)
-**Tasks**: 4/5
-**Branch**: `sprint/N36` — PR #128 (CI verde)
+**Data**: 2026-07-03 — fechamento 2026-07-04
+**Status**: CONCLUÍDA (5/5)
+**Tasks**: 5/5
+**Branch**: `sprint/N36` — PR #128 merge `7a79086`; campanha `campanha/n36-pendencias` (docs + ops)
 
 ### Entregas
 
@@ -264,9 +264,9 @@
 - **ISSUE-044** (`80f3063`): 7 testes CI pré-existentes no main corrigidos (fixture `calendar`→`mail`; mocks F3).
 - **ISSUE-042** (`d480080`): `command: !override []` no worker de `docker-compose.lab.yml`.
 
-### Bloqueio (N36.4)
+### N36.4 — gate PASS (2026-07-04)
 
-Canário E2E via API — 2 tentativas, stop-loss. Jobs `682f675e-…` (env suite) e `8f15f56f-…` (timeout pull legado). **ISSUE-045**: `dispatch.sh` D3.9b não propaga `--image-mode`/`--suite-catalog` ao Redis — API correta até o SSH.
+Canário `canario-n36e`: job `9904497b-ad3c-4390-ba61-c5f433cd00c1` success ~5m44s; customer `active` automático; `/login` 200; imagem mw4. **ISSUE-045** resolvida upstream (`ba53ecc`) + deploy `.120`. Ops: symlink `/opt/releases` → bundle `746ecb81`; cleanup `canario-n36b`/`canario-n36c`.
 
 ### Aprendizados
 
@@ -282,12 +282,11 @@ Canário E2E via API — 2 tentativas, stop-loss. Jobs `682f675e-…` (env suite
 - [x] N36.2 — docs/spec alinhados ao piloto prod
 - [x] N36.3 — cluster cadastrado + R6 PASS
 - [x] N36.5 — readiness image-mode
-- [ ] N36.4 — canário E2E via API (**bloqueada ISSUE-045**)
-- [x] CI verde (PR #128)
+- [x] N36.4 — canário E2E via API (`canario-n36e` gate PASS)
+- [x] CI verde (PR #128 merge + deploy LAB validado)
 
 ### Próximos Passos
 
-- Fix upstream `dispatch.sh` D3.9b (ISSUE-045) — coordenação cross-repo
-- Retomar N36.4 após backport no host `.120`
-- ISSUE-043: cutover domínio `<tenant>.mework360.com.br` (fora desta sprint)
+- ISSUE-043: cutover domínio `<tenant>.mework360.com.br` + migração SaaS-02 (fora N36)
+- N25.3/N25.4: seed cluster `.108` + canário `qa-platform-lab`
 

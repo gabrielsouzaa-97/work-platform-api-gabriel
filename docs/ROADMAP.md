@@ -91,7 +91,7 @@
 | N33    | N         | ISSUE-038 Fase 3: despublicar `/occ/*` + capabilities mutação | **concluída** | 8 | Integration, Customers, Core, ClusterServers, Agents | PR #117; validation R1 APROVADA; CQ-N32-003 validado | 4740+ |
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | **concluída** | 8 | TenantLifecycle, Integration | branch `sprint/N34`; validation R2 APROVADA; CQ-N34-001/002/003 corrigidos | 4854+ |
 | N35    | N         | ISSUE-023 F10.3: validação LAB (`api.lab`) + migração deployer | **concluída** | 8 | Jobs, DevOps, Core | smoke E2E OK; ISSUE-023 closed (2026-06-19) | 4902+ |
-| N36    | N         | Canário `POST /v1/tenants` no host image-pilot (`.120`) com `--image-mode --suite-catalog`: job success + readiness PASS + webhook 204 + TLS/DNS OK; CI verde | em andamento — 4/5 (N36.4 bloqueada upstream ISSUE-045) | 5 | Customers, ClusterServers, Integration, Dns | ISSUE-043 fase inicial: apontar API para produção image-mode | 4990+ |
+| N36    | N         | Canário `POST /v1/tenants` no host image-pilot (`.120`) com `--image-mode --suite-catalog`: job success + readiness PASS + webhook 204 + TLS/DNS OK; CI verde | **concluída** (5/5) | 5 | Customers, ClusterServers, Integration, Dns | ISSUE-043 fase inicial: apontar API para produção image-mode | 4990+ |
 
 ---
 
@@ -5003,7 +5003,7 @@ Critério de pronto: `summary` POPULATED; UI não exibe "Nenhum log disponível"
 | [x] | M | N36.1 — Flag `image_mode` no contrato de provisionamento (request → payload → argv `--image-mode`) + openapi-external + testes | api-rest-patterns | — |
 | [x] | P | N36.2 — Alinhar spec/docs ao alvo de produção: exemplos openapi (fqdn prod), `docs/SUITE-ENV.md`, `.cursor/skills/me360-deployer/references/ecosystem-map.md` | — | N36.1 |
 | [x] | M | N36.5 — Readiness compatível com image-mode: `TenantReadinessGateChecker` sem URL `mework360_memail`; probe sem `/status.php` | api-rest-patterns | N36.1 |
-| [ ] | M | N36.4 — Canário E2E via API contra `.120` (image-mode + suite-catalog): job success + webhook 204 + readiness PASS + evidência em OPERATIONS.md **BLOQUEADA — ISSUE-045 (upstream dispatch.sh)** | me360-deployer | N36.1, N36.3, N36.5 |
+| [x] | M | N36.4 — Canário E2E via API contra `.120` (image-mode + suite-catalog): job success + webhook 204 + readiness PASS + evidência em OPERATIONS.md | me360-deployer | N36.1, N36.3, N36.5 |
 
 ### Task N36.1 — Flag `image_mode` no contrato de provisionamento
 
@@ -5075,12 +5075,13 @@ Cenários de teste:
 - **Iron law**: nenhuma task declara "pronto" sem evidência R6–R8 (me360-deployer guardrails); canário N36.4 é o gate da sprint
 - **Dependência externa**: BOM do host `.120` em mw4 vs `imgpilot` mw5 — alinhamento é upstream (`work-platform-scripts`), fora da sprint; registrar como coordenação ISSUE-022-like
 - **Brief path**: `docs/.briefs/N36.brief.md` (gerar no sprint-init)
-- **Execução (2026-07-03, PR #128, CI verde):** 4/5 tasks concluídas — N36.1 (`c22d13d`), N36.5 (`3468695`), N36.2 (`96e8420`), N36.3 (ops); ISSUE-044/ISSUE-042 fechados no repo. **N36.4 bloqueada** por ISSUE-045 (`dispatch.sh` D3.9b perde flags async). Canário manual `teste2` permanece evidência de create sync; gate E2E via API pendente upstream.
+- **Execução (2026-07-04, gate PASS):** 5/5 tasks concluídas — N36.1 (`c22d13d`), N36.5 (`3468695`), N36.2 (`96e8420`), N36.3 (ops), N36.4 (canário `canario-n36e`, job `9904497b-ad3c-4390-ba61-c5f433cd00c1`, success ~5m44s); ISSUE-044/ISSUE-042 fechados no repo; ISSUE-045 resolvida upstream (`ba53ecc`) + deploy `.120`. Merge PR #128 (`7a79086`); deploy LAB validado com readiness oficial. Canários falhos anteriores (`canario-n36`, `n36b`, `n36c`, `n36d`) em soft-delete.
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-04 | 0.36.2 | Sprint N36 concluída (5/5): gate E2E canário `canario-n36e` PASS; ISSUE-045 fixed upstream `ba53ecc`; merge PR #128 + deploy LAB `7a79086`. | sprint-finalizer |
 | 2026-07-03 | 0.36.1 | Execução N36: 4/5 tasks; N36.4 bloqueada por ISSUE-045; CI verde PR #128. | sprint-finalizer |
 | 2026-07-03 | 0.36   | Sprint N36 planejada — ISSUE-043 fase inicial (apontar API p/ produção image-mode): 5 tasks (2P+3M); canário manual `teste2` 7m10s como evidência; readiness image-mode (N36.5) originada do achado `/status.php` 404. | `/pmo plan` |
 | 2026-06-19 | 0.35   | N35 em andamento — N35.5 done; ISSUE-041 fix LAB (UP-A); N35.6 replanejado (smoke E2E via LifecycleAsyncAction); callback 404 re-diagnosticado (falso positivo smoke bypass). | `/pmo plan` via `/rock` |
