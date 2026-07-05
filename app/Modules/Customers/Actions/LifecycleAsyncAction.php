@@ -91,6 +91,7 @@ final class LifecycleAsyncAction
             $correlationId,
             $cmd,
             $args,
+            $stdinPayload,
             $actor,
         );
     }
@@ -222,6 +223,7 @@ final class LifecycleAsyncAction
         string $correlationId,
         string $cmd,
         array $args,
+        ?array $stdinPayload,
         Operator $actor,
     ): Job {
         return DB::transaction(function () use (
@@ -232,6 +234,7 @@ final class LifecycleAsyncAction
             $correlationId,
             $cmd,
             $args,
+            $stdinPayload,
             $actor,
         ): Job {
             $job = Job::create([
@@ -243,7 +246,7 @@ final class LifecycleAsyncAction
                 'state' => 'queued',
                 'idempotency_key' => $idempotencyKey,
                 'correlation_id' => $correlationId,
-                'payload_sanitized' => ['cmd' => $cmd, 'args' => $args],
+                'payload_sanitized' => $this->buildPayloadSanitized($cmd, $args, $stdinPayload),
                 'queued_at' => now(),
             ]);
 
@@ -266,5 +269,27 @@ final class LifecycleAsyncAction
 
             return $job;
         });
+    }
+
+    /**
+     * @param  array<int, string>  $args
+     * @param  array<string, mixed>|null  $stdinPayload
+     * @return array<string, mixed>
+     */
+    private function buildPayloadSanitized(string $cmd, array $args, ?array $stdinPayload): array
+    {
+        $payload = ['cmd' => $cmd, 'args' => $args];
+
+        if ($cmd !== 'users:create' || $stdinPayload === null) {
+            return $payload;
+        }
+
+        foreach (['email', 'groups', 'quota', 'origin'] as $field) {
+            if (array_key_exists($field, $stdinPayload)) {
+                $payload[$field] = $stdinPayload[$field];
+            }
+        }
+
+        return $payload;
     }
 }

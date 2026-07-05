@@ -6,6 +6,7 @@ use App\Console\Commands\ClusterHealthCheckCommand;
 use App\Console\Commands\CustomersSyncCommand;
 use App\Console\Commands\JobsObservabilityCheckCommand;
 use App\Console\Commands\JobsPollStuckCommand;
+use App\Console\Commands\TenantUsersSyncCommand;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -18,5 +19,6 @@ Schedule::command(AuditPurgeCommand::class)->monthlyOn(1, '03:30')->withoutOverl
 Schedule::command(ClusterHealthCheckCommand::class)->everyFiveMinutes();
 Schedule::command(CleanExpiredWebhookSecretsCommand::class)->dailyAt('03:00');
 Schedule::command(CustomersSyncCommand::class)->dailyAt('03:00');
+Schedule::command(TenantUsersSyncCommand::class)->dailyAt('03:15');
 Schedule::command(JobsPollStuckCommand::class)->everyFiveMinutes()->withoutOverlapping();
 Schedule::command(JobsObservabilityCheckCommand::class)->everyFiveMinutes()->withoutOverlapping();

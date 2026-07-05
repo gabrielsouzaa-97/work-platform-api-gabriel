@@ -80,7 +80,9 @@ A aba Usuários do OccPanel (N39.2) faz SSH síncrono (`occ-exec user:list --jso
 3. Refactor `OccPanel::loadUsers()` → SELECT local (aba instantânea); botão "Atualizar" dispara sync sob demanda
 4. Sync periódico de reconciliação (`tenant-users:sync`, padrão `customers:sync`) — detector de drift (ops manual, ISSUE-013)
 5. Enforcement da política: create de usuário nunca em grupo `admin`; checagem de drift no sync
-6. (Cross-repo, coordenação) política upstream/provision alinhada — nenhum admin de cliente
+6. (Cross-repo, coordenação) política upstream/provision alinhada — nenhum admin de cliente. A política upstream (provision sem admin de cliente) permanece pendente de coordenação cross-repo.
+
+**Execução (2026-07-05)**: Sprint N40 onda A+B implementadas — ver ROADMAP N40.
 
 ### Relacionado
 

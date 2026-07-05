@@ -20,7 +20,8 @@
 |----------|-----------|-------------------|
 | `operators` | Usuários do sistema (painel admin) | `has_many AuditLogs` |
 | `cluster_servers` | Gestão dos servidores nextcloud upstream | `has_many Customers`, `has_many Jobs` |
-| `customers` | Réplica de customers instalados (sync) | `belongs_to ClusterServer`, `has_many Jobs` |
+| `customers` | Réplica de customers instalados (sync) | `belongs_to ClusterServer`, `has_many Jobs`, `has_many TenantUsers` |
+| `tenant_users` | Read model local de usuários de tenant (projeção webhook + sync) | `belongs_to Customer` (FK `customer_slug`) |
 | `jobs` | Réplica de fila e execuções no upstream | `belongs_to Customer`, `belongs_to ClusterServer` |
 | `audit_logs` | Logs do painel de administração e API | `belongs_to Operator`, `belongs_to ClusterServer`, `belongs_to Job` |
 | `webhook_secret_history` | Histórico de secrets para grace period 24h | `belongs_to ClusterServer` |
@@ -42,11 +43,11 @@
  +---------------+       1:N      +------------------+
  |   customers   |--------------->|       jobs       |
  +---------------+                +------------------+
-                                           | 1:1
- +--------------------------+              v
- | webhook_secret_history   |     +------------------+
- +--------------------------+     | idempotency_keys |
-                                  +------------------+
+         | 1:N                            | 1:1
+         v                                v
+ +---------------+                +------------------+
+ | tenant_users  |                | idempotency_keys |
+ +---------------+                +------------------+
 ```
 
 ### Convenções aplicadas
@@ -56,6 +57,24 @@ Conforme `~/.cursor/skills/capabilities/database-conventions.md`:
 - Timestamps (`created_at`, `updated_at`) obrigatórios.
 - Soft delete (`deleted_at`) nas entidades que merecem (como `operators`, `cluster_servers`), embora `audit_logs` e `jobs` sejam append-only ou removidos apenas por políticas longas.
 - Índices em todas as FKs e campos de busca pesada (`jobs.state`, `jobs.customer_slug`).
+
+### `tenant_users` (Sprint N40)
+
+Read model local de usuários de tenant — alimentado por projeção webhook (`users:create`/`users:delete`/`provision`/`deprovision`) e reconciliação periódica/on-demand via `tenant-users:sync`.
+
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `id` | uuid PK | Gerado na aplicação |
+| `customer_slug` | varchar(64) FK → `customers.slug` | ON DELETE CASCADE |
+| `username` | varchar(64) | UNIQUE composto com `customer_slug` |
+| `email` | varchar(255) nullable | |
+| `quota` | varchar(64) nullable | |
+| `groups` | json nullable | Lista de grupos NC |
+| `origin` | varchar(20) | `api`, `panel`, `sync`, `provision` |
+| `synced_at` | timestamp nullable | Preenchido em paths de sync/reconciliação |
+| `created_at` / `updated_at` | timestamps | |
+
+Índices: `uniq_tenant_users_customer_username`, `idx_tenant_users_customer_slug`.
 
 ## 3. Infraestrutura de Dados
 

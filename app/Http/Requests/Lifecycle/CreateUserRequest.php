@@ -28,19 +28,35 @@ class CreateUserRequest extends FormRequest
 
     public function rules(): array
     {
+        $forbiddenAdminGroup = function (string $attribute, mixed $value, \Closure $fail): void {
+            if (strtolower((string) $value) === 'admin') {
+                $fail('Grupo admin é reservado da plataforma.');
+            }
+        };
+
         return [
-            'username' => ['required', 'string', 'regex:/^[a-zA-Z0-9._-]+$/', 'max:64'],
+            'username' => [
+                'required',
+                'string',
+                'regex:/^[a-zA-Z0-9._-]+$/',
+                'max:64',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (strtolower((string) $value) === 'admin') {
+                        $fail('Username reservado (criado no provisionamento).');
+                    }
+                },
+            ],
             'password' => ['required', 'string', Password::min(8)->letters()->numbers()],
             'display_name' => ['nullable', 'string', 'max:255'],
             'displayname' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
             'quota' => ['nullable', 'string', 'regex:/^(\d+(\.\d+)?\s*(GB|MB|KB)|\d+(GB|MB|KB)|none|default|unlimited)$/i'],
             'groups' => ['nullable', 'array'],
-            'groups.*' => ['string', 'max:256'],
+            'groups.*' => ['string', 'max:256', $forbiddenAdminGroup],
             'subadmin_groups' => ['nullable', 'array'],
-            'subadmin_groups.*' => ['string', 'max:256'],
+            'subadmin_groups.*' => ['string', 'max:256', $forbiddenAdminGroup],
             'subadmin' => ['nullable', 'array'],
-            'subadmin.*' => ['string', 'max:256'],
+            'subadmin.*' => ['string', 'max:256', $forbiddenAdminGroup],
         ];
     }
 

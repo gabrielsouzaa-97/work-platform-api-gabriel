@@ -8,6 +8,7 @@ use App\Http\Exceptions\RenderDomainError;
 use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Models\TenantUser;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
@@ -16,6 +17,8 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Customers\Services\TenantUserSyncService;
+use App\Modules\Customers\Support\TenantUserListParser;
 use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
@@ -124,7 +127,7 @@ class OccPanel extends Component
         $this->clearMessages();
 
         if ($tab === 'users') {
-            $this->loadUsers(app(OccPassthroughService::class));
+            $this->loadUsers();
         }
     }
 
@@ -134,7 +137,7 @@ class OccPanel extends Component
             return;
         }
 
-        $this->loadUsers(app(OccPassthroughService::class));
+        $this->loadUsers();
     }
 
     // ── Quota ────────────────────────────────────────────────────────────────
@@ -252,16 +255,38 @@ class OccPanel extends Component
 
     // ── Users (list sync + async lifecycle) ───────────────────────────────────
 
-    public function loadUsers(OccPassthroughService $occ): void
+    public function loadUsers(): void
     {
         $this->usersLoading = true;
         $this->usersError = '';
 
         try {
-            $payload = $occ->exec($this->customer, 'user:list', ['--json'], 30);
-            $this->tenantUsers = $this->normalizeUserListRows($payload);
+            $rows = TenantUser::query()
+                ->where('customer_slug', $this->customer->slug)
+                ->orderBy('username')
+                ->get();
+
+            $this->tenantUsers = $rows
+                ->map(static fn (TenantUser $user): array => TenantUserListParser::toDisplayRow($user))
+                ->values()
+                ->all();
         } catch (\Throwable $e) {
             $this->tenantUsers = [];
+            $this->usersError = $this->formatError($e);
+        } finally {
+            $this->usersLoading = false;
+        }
+    }
+
+    public function syncUsers(TenantUserSyncService $sync): void
+    {
+        $this->usersLoading = true;
+        $this->usersError = '';
+
+        try {
+            $sync->sync($this->customer);
+            $this->loadUsers();
+        } catch (\Throwable $e) {
             $this->usersError = $this->formatError($e);
         } finally {
             $this->usersLoading = false;
@@ -287,6 +312,18 @@ class OccPanel extends Component
                 },
             ],
             'userEmail' => ['nullable', 'email'],
+            'userGroups' => [
+                'nullable',
+                'string',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $groups = array_map('trim', explode(',', (string) $value));
+                    foreach ($groups as $group) {
+                        if ($group !== '' && strtolower($group) === 'admin') {
+                            $fail('Grupo admin é reservado da plataforma.');
+                        }
+                    }
+                },
+            ],
         ]);
 
         if (strlen($this->userPasswordPlain) < 10) {
@@ -332,7 +369,7 @@ class OccPanel extends Component
         }
     }
 
-    public function pollPendingUserJob(OccPassthroughService $occ): void
+    public function pollPendingUserJob(): void
     {
         if ($this->pendingUserCreateJobId === '') {
             return;
@@ -351,7 +388,7 @@ class OccPanel extends Component
             return;
         }
 
-        $this->handleUserCreateJobTerminal($job, $occ);
+        $this->handleUserCreateJobTerminal($job);
     }
 
     public function deleteUser(LifecycleAsyncAction $action): void
@@ -464,58 +501,19 @@ class OccPanel extends Component
         $this->errorMessage = "Tempo esgotado — verifique /queue/{$jobId}";
     }
 
-    private function handleUserCreateJobTerminal(Job $job, OccPassthroughService $occ): void
+    private function handleUserCreateJobTerminal(Job $job): void
     {
         $this->clearPendingUserCreateJob();
         $this->clearMessages();
 
         if ($job->state === 'success') {
             $this->successMessage = 'Usuário criado com sucesso.';
-            $this->loadUsers($occ);
+            $this->loadUsers();
 
             return;
         }
 
         $this->errorMessage = JobSummaryParser::failureMessage($job);
-    }
-
-    /**
-     * @return array<int, array{username: string, email: string, quota: string, groups: string}>
-     */
-    private function normalizeUserListRows(mixed $payload): array
-    {
-        $raw = match (true) {
-            is_array($payload) && isset($payload['users']) && is_array($payload['users']) => $payload['users'],
-            is_array($payload) && array_is_list($payload) => $payload,
-            default => [],
-        };
-
-        $rows = [];
-        foreach ($raw as $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-            $rows[] = $this->normalizeUserRow($item);
-        }
-
-        return $rows;
-    }
-
-    /**
-     * @param  array<string, mixed>  $item
-     * @return array{username: string, email: string, quota: string, groups: string}
-     */
-    private function normalizeUserRow(array $item): array
-    {
-        $groups = $item['groups'] ?? [];
-        $groupsStr = is_array($groups) ? implode(', ', $groups) : (string) $groups;
-
-        return [
-            'username' => (string) ($item['username'] ?? $item['uid'] ?? $item['user_id'] ?? ''),
-            'email' => (string) ($item['email'] ?? $item['mail'] ?? ''),
-            'quota' => (string) ($item['quota'] ?? $item['file_quota'] ?? '—'),
-            'groups' => $groupsStr !== '' ? $groupsStr : '—',
-        ];
     }
 
     private function formatError(\Throwable $e): string

@@ -11,6 +11,7 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Onboarding;
 use App\Modules\Core\Translators\StateTranslator;
+use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Jobs\Dto\WebhookPayload;
 use App\Modules\Onboarding\Enums\OnboardingStep;
@@ -30,6 +31,7 @@ final class WebhookHandler
         private readonly JobLogFetcher $jobLogFetcher,
         private readonly TransportObservability $observability,
         private readonly OnboardingSaga $onboardingSaga,
+        private readonly TenantUserProjector $tenantUserProjector,
     ) {}
 
     public function handle(ClusterServer $cluster, array $rawPayload): void
@@ -226,6 +228,19 @@ final class WebhookHandler
 
         if ($probeCustomerSlug !== null) {
             ProbeCustomerReadinessJob::dispatch($probeCustomerSlug);
+        }
+
+        if (! $isSummaryRecoveryRetry && in_array($canonical, self::TERMINAL_STATES, true)) {
+            try {
+                $this->tenantUserProjector->handleTerminalJob($job->fresh(), $canonical);
+            } catch (\Throwable $e) {
+                Log::warning('tenant_users.projection.failed', [
+                    'job_id' => $job->job_id,
+                    'customer_slug' => $job->customer_slug,
+                    'job_type' => $job->job_type,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         if (! $isSummaryRecoveryRetry) {

@@ -158,12 +158,12 @@
             <button
                 type="button"
                 class="rounded-md border border-outline-variant bg-surface-container-high px-md py-2 text-[13px] text-primary hover:border-primary"
-                wire:click="loadUsers"
+                wire:click="syncUsers"
                 wire:loading.attr="disabled"
-                wire:target="loadUsers"
+                wire:target="syncUsers"
             >
-                <span wire:loading.remove wire:target="loadUsers">Atualizar</span>
-                <span wire:loading wire:target="loadUsers">Carregando…</span>
+                <span wire:loading.remove wire:target="syncUsers">Atualizar</span>
+                <span wire:loading wire:target="syncUsers">Carregando…</span>
             </button>
         </div>
 
@@ -194,7 +194,10 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-md py-xl text-center text-on-surface-variant">Nenhum usuário.</td>
+                                <td colspan="4" class="px-md py-xl text-center text-on-surface-variant">
+                                    Nenhum usuário.
+                                    <span class="block mt-xs text-[11px] text-outline">Clique em Atualizar para sincronizar com o servidor.</span>
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>

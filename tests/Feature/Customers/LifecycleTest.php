@@ -176,7 +176,7 @@ it('POST users com display_name, quota e subadmin_groups → stdin payload upstr
                 && ($decoded['display_name'] ?? null) === 'Ricardo Ramos'
                 && ($decoded['email'] ?? null) === 'ricardo.ramos@me360.com.br'
                 && ($decoded['quota'] ?? null) === '5GB'
-                && ($decoded['groups'] ?? null) === ['admin']
+                && ($decoded['groups'] ?? null) === ['staff']
                 && ($decoded['subadmin_groups'] ?? null) === ['financeiro'];
         })
         ->andReturn(sshLifecycleSuccess($jobId));
@@ -189,7 +189,7 @@ it('POST users com display_name, quota e subadmin_groups → stdin payload upstr
             'display_name' => 'Ricardo Ramos',
             'email' => 'ricardo.ramos@me360.com.br',
             'quota' => '5 GB',
-            'groups' => ['admin'],
+            'groups' => ['staff'],
             'subadmin_groups' => ['financeiro'],
         ])
         ->assertStatus(202);
@@ -209,7 +209,7 @@ it('POST users aceita aliases displayname e subadmin do OpenAPI legado', functio
 
             return is_array($decoded)
                 && ($decoded['display_name'] ?? null) === 'João Silva'
-                && ($decoded['subadmin_groups'] ?? null) === ['admin'];
+                && ($decoded['subadmin_groups'] ?? null) === ['staff'];
         })
         ->andReturn(sshLifecycleSuccess($jobId));
     $this->app->instance(SshClientInterface::class, $ssh);
@@ -219,7 +219,7 @@ it('POST users aceita aliases displayname e subadmin do OpenAPI legado', functio
             'username' => 'joao.silva',
             'password' => 'Secret123!',
             'displayname' => 'João Silva',
-            'subadmin' => ['admin'],
+            'subadmin' => ['staff'],
         ])
         ->assertStatus(202);
 });
