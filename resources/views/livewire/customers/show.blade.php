@@ -1,4 +1,8 @@
-<div>
+<div
+    @if ($this->shouldPoll())
+        wire:poll.5s="refreshProgress"
+    @endif
+>
     <style>
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
         .page-title { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; }
@@ -37,6 +41,11 @@
         .modal-input:focus { outline: none; border-color: #991b1b; }
         .form-error { color: #fc8181; font-size: .75rem; margin-top: .25rem; }
         .modal-actions { display: flex; gap: .75rem; margin-top: 1.25rem; justify-content: flex-end; }
+        .job-link { color: #63b3ed; text-decoration: none; }
+        .job-link:hover { text-decoration: underline; }
+        .log-tail { margin-top: .75rem; padding: .75rem; background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; }
+        .log-tail-title { font-size: .7rem; font-weight: 600; color: #718096; text-transform: uppercase; margin-bottom: .5rem; }
+        .log-tail-line { font-family: monospace; font-size: .7rem; color: #a0aec0; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
     </style>
 
     <div class="page-header">
@@ -93,7 +102,11 @@
             <tbody>
                 @forelse ($jobs as $job)
                     <tr>
-                        <td class="mono">{{ Str::limit($job->job_id, 8, '') }}…</td>
+                        <td class="mono">
+                            <a href="{{ route('queue.show', $job->job_id) }}" class="job-link">
+                                {{ Str::limit($job->job_id, 8, '') }}…
+                            </a>
+                        </td>
                         <td class="mono">{{ $job->job_type }}</td>
                         <td><span class="badge badge-{{ $job->state }}">{{ $job->state }}</span></td>
                         <td class="mono">{{ $job->exit_code !== null ? $job->exit_code : '—' }}</td>
@@ -104,6 +117,14 @@
                 @endforelse
             </tbody>
         </table>
+        @if (! empty($runningJobTail))
+            <div class="log-tail">
+                <div class="log-tail-title">Log em execução (últimas linhas)</div>
+                @foreach ($runningJobTail as $line)
+                    <div class="log-tail-line">{{ $line }}</div>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     <div class="section-card">
