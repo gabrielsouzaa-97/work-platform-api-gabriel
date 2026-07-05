@@ -6,12 +6,12 @@ namespace App\Http\Livewire\Customers;
 
 use App\Models\ClusterServer;
 use App\Models\Operator;
-use App\Support\DomainNormalizer;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Dto\ProvisionPayload;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Support\DomainNormalizer;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
