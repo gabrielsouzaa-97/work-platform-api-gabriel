@@ -1,5 +1,29 @@
 # Operations log
 
+## 2026-07-05T03:41:54Z — N25.4 canário `canario-n25-labwork` no cluster `labwork` (`.112`)
+
+- **Request:** `POST /api/v1/tenants` (legado, sem `image_mode`) → slug `canario-n25-labwork`, domain `canario-n25-labwork.labwork.mework360.com.br`, cluster `262ab7f9-d284-4671-a05c-fc996a156730`.
+- **Job upstream:** `36fcdb4f-b129-4055-9893-42f4e11c42eb` → **success** exit 0 (~105s); webhook `callback_started_delivered=true`, `callback_attempts=1`.
+- **Control plane:** customer `provisioning` → **`provisioning_finishing`**; `ProbeCustomerReadinessJob` → **`ready=0`** (não promove a `active`).
+- **Gates manuais:**
+  - `/login` → **200** ✅
+  - `/apps/mework360_memail/` → **404** ❌
+  - `occ app:list`: `me360_theme` 1.6.15 ✅; **`mework360_memail` ausente** ❌ (idem tenant referência `suite` no mesmo host).
+- **Causa raiz readiness (infra):** create no labwork sincroniza apps genéricos (`mail`, `me360_theme`, etc.) mas **não instala/habilita `mework360_memail`** — gap de suíte no host (ISSUE-046 camada 3, escopo labwork).
+- **Causa adicional (API):** `TenantReadinessGateChecker` lê `parsedJson['enabled']` com `=== true`, mas `occ-exec` via shim retorna envelope `parsed_result.enabled` com **versões string** — gate OCC nunca passa mesmo com apps presentes (registrar finding separado).
+- **Expectativa:** após ~1200s / 10 tentativas → `status=failed` (`customer_readiness_timeout`). **Confirmado:** customer `failed` (~04:00 UTC).
+- **N25.4 gate completo:** **BLOQUEADO** (readiness + 16 settings + ISSUE-031 SSO).
+- **Credenciais/secrets:** [REDACTED]
+
+## 2026-07-05T03:40:00Z — Cadastro cluster `labwork` (`.112`) no control plane + bootstrap host
+
+- **Decisão de escopo (usuário):** API provisiona em **labwork** (LAB oficial, `.112`) e **image-pilot** (teste de produção, `.120`); produção real ainda não existe; `.108` (`lab-upstream`) é legado F10.3 co-locado — não é alvo de provisionamento nesta fase.
+- **Bootstrap `.112` (pré-requisito):** host estava incompleto — faltavam `nc_image*.sh`, `scripts/worker.sh`, usuário `ncsaas-api`, worker systemd. Sincronizado de `.120`: libs (`nc_image.sh`, `nc_image_create.sh`, `nc_image_upgrade.sh`, `suite_post_deploy_integrate.sh`, etc.), `scripts/`, shim `ncsaas-api-shim`, sudoers + sshd drop-in, `nextcloud-saas-worker` (env apontando para provision `929889b0-…/releases/suite_catalog.json` + `platform-1.0.0-labwork-baseline.yaml`). Worker → **active**.
+- **N25.3 (corrigido):** cluster `labwork` UUID `262ab7f9-d284-4671-a05c-fc996a156730`; SSH `ncsaas-api@128.201.61.112`; chave dedicada `api-lab-labwork-2026`; `webhook_secret_history` v1 criada no cadastro (lição ISSUE-046 camada 2); `webhook_allowed_ip` 128.201.61.112; `nextcloud_version` 33.0.5.
+- **R6:** `cluster:health-check` → `[labwork] → active`, `[image-pilot] → active`, `[lab-upstream] → active`.
+- **Tenants existentes no labwork:** `suite` (`cloud.labwork.mework360.com.br`), `cloud2` (`cloud2.labwork.mework360.com.br`).
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-05T03:00:00Z — ISSUE-046 diagnóstico 3 camadas + fixes (config `.108` + webhook history)
 
 - **Camada 1 (create, FIXED):** criado `/opt/work-platform-scripts/deploy/lab-deploy.conf` no `.108` com `LAB_DEPLOY_HOST=` vazio → `deploy_shell` deixa de tentar `apply-lab` remoto contra labwork `.112` e cai no caminho local `custom_apps_sync_tenant`. Create via API validado (`canario-n25c`/`d` → job success exit 0).

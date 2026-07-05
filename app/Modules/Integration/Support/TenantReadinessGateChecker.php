@@ -67,13 +67,13 @@ final class TenantReadinessGateChecker
             return false;
         }
 
-        $enabled = $response->parsedJson['enabled'] ?? null;
-        if (! is_array($enabled)) {
+        $payload = OccExecEnvelopeParser::unwrapPayload($response->parsedJson);
+        if ($payload === null) {
             return false;
         }
 
-        return ($enabled['mework360_memail'] ?? false) === true
-            && ($enabled['me360_theme'] ?? false) === true;
+        return OccExecEnvelopeParser::isAppEnabled($payload, 'mework360_memail')
+            && OccExecEnvelopeParser::isAppEnabled($payload, 'me360_theme');
     }
 
     private function passesUserList(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
@@ -94,7 +94,7 @@ final class TenantReadinessGateChecker
             return false;
         }
 
-        $value = $response->parsedJson['value'] ?? trim($response->stdout);
+        $value = OccExecEnvelopeParser::configValue($response->parsedJson, $response->stdout);
 
         return is_string($value) && $value !== '';
     }
@@ -112,7 +112,7 @@ final class TenantReadinessGateChecker
             return false;
         }
 
-        $value = $response->parsedJson['value'] ?? trim($response->stdout);
+        $value = OccExecEnvelopeParser::configValue($response->parsedJson, $response->stdout);
 
         return is_string($value) && strcasecmp($value, 'yes') === 0;
     }
@@ -123,7 +123,10 @@ final class TenantReadinessGateChecker
         $url = sprintf('https://%s%s', $customer->domain, $path);
 
         try {
-            $response = Http::timeout($timeoutSec)->get($url);
+            $response = Http::timeout($timeoutSec)
+                ->withHeaders(['Accept' => 'text/html,application/xhtml+xml'])
+                ->withOptions(['allow_redirects' => true])
+                ->get($url);
         } catch (\Throwable) {
             return false;
         }

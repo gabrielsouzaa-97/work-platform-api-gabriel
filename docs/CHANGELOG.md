@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **fix(sprint-N25)**: `OccExecEnvelopeParser` — readiness gate unwraps `occ-exec` shim envelope (`parsed_result` + version strings); fixes false-negative `ProbeCustomerReadinessJob` on ncsaas-api clusters (ISSUE-046 camada API).
 - **test(sprint-N19)**: Sprint N19 closeout — ROADMAP formalizado (concluída); testes fallback SSH remove/offline-agent + `AgentUpstreamGatewayTest` (QA-N19-002/003/004); cutover piloto deferido pós-LAB.
 - **docs(sprint-N34)**: Sprint N34 concluída — ISSUE-038 Fase 4 (saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook); validation R2 APROVADA (auditor-senior PASS após `5bd7456`; CQ-N34-001/002/003 corrigidos); 582 tests Docker; version 0.1.5.
 - **docs(sprint-N33)**: Sprint N33 concluída — ISSUE-038 Fase 3 (despublicar `/occ/*` + mutação via port + grep gate estrito + CQ-N32-003); PR #117; validation R1 APROVADA (auditor-senior PASS, 0 HIGH/CRITICAL); 563 tests Docker; version 0.1.4.
@@ -345,3 +346,55 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-06-21 02:38** `d584b8d` — Merge pull request #124 from SoftwareBeesy/fix/merlin-security-review-cli
 - **2026-06-21 06:00** `74ac4e9` — chore(campanha): sync session and changelog after Onda A merge
 - **2026-06-21 03:17** `74ac4e9` — chore(campanha): sync session and changelog after Onda A merge
+- **2026-06-21 03:52** `2ec9e75` — Merge pull request #125 from SoftwareBeesy/sprint/N24-ring-rollout
+- **2026-06-21 12:08** `47d1559` — feat(sprint-N22-N28): WHMCS pipeline, dedicated tier, and placement
+- **2026-06-21 12:28** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-21 12:33** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-21 15:20** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 11:50** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 12:28** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 12:32** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 12:56** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 13:00** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 13:05** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 13:10** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 13:12** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 14:17** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 14:45** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 14:52** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 14:53** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 14:57** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 15:09** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 15:40** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 16:02** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-22 18:37** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 01:50** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 15:07** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 16:08** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 17:43** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 18:01** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 18:04** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 18:10** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 18:11** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-24 18:15** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-25 15:01** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-26 01:45** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-06-26 02:03** `83880bd` — Merge pull request #126 from SoftwareBeesy/sprint/N22-whmcs-pipeline
+- **2026-07-03 10:08** `6b29717` — feat(sprint-F3): suite catalog provision on POST /v1/tenants
+- **2026-07-03 12:19** `f0e531b` — docs(sprint-N36): planning output
+- **2026-07-03 18:48** `4c2d7fb` — docs(sprint-N36): execution log — 4/5 tasks done, N36.4 blocked by upstream ISSUE-045
+- **2026-07-03 19:34** `49b4d4f` — fix(sprint-N36): skip OCC readiness gates for image-mode tenants (N36.5 completion)
+- **2026-07-04 09:27** `49b4d4f` — fix(sprint-N36): skip OCC readiness gates for image-mode tenants (N36.5 completion)
+- **2026-07-04 18:13** `7a79086` — Merge pull request #128 from SoftwareBeesy/sprint/N36
+- **2026-07-04 18:39** `7a79086` — Merge pull request #128 from SoftwareBeesy/sprint/N36
+- **2026-07-04 18:46** `7a79086` — Merge pull request #128 from SoftwareBeesy/sprint/N36
+- **2026-07-04 19:11** `5604303` — docs(campanha-N36): close sprint N36 and ISSUE-045 after canary n36e
+- **2026-07-04 19:28** `23813b9` — Merge pull request #129 from SoftwareBeesy/campanha/n36-pendencias
+- **2026-07-04 19:44** `e15f9b6` — Merge pull request #130 from SoftwareBeesy/docs/n36d-cleanup
+- **2026-07-04 20:04** `e15f9b6` — Merge pull request #130 from SoftwareBeesy/docs/n36d-cleanup
+- **2026-07-04 20:14** `e15f9b6` — Merge pull request #130 from SoftwareBeesy/docs/n36d-cleanup
+- **2026-07-04 20:40** `63de556` — feat(sprint-N25): resume campaign — register .108 cluster + block N25.4 on ISSUE-046 (#131)
+- **2026-07-05 00:12** `75e4602` — docs(issue-046): full 3-layer diagnosis + config/webhook fixes for .108 canary (#132)
+- **2026-07-05 00:20** `75e4602` — docs(issue-046): full 3-layer diagnosis + config/webhook fixes for .108 canary (#132)
+- **2026-07-05 00:39** `75e4602` — docs(issue-046): full 3-layer diagnosis + config/webhook fixes for .108 canary (#132)
+- **2026-07-05 00:49** `75e4602` — docs(issue-046): full 3-layer diagnosis + config/webhook fixes for .108 canary (#132)

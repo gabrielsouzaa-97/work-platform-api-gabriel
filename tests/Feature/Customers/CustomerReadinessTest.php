@@ -16,6 +16,7 @@ use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Mockery\MockInterface;
 
 it('POST users on provisioning_finishing returns 503 tenant_not_ready', function () {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
@@ -429,6 +430,104 @@ it('ProbeCustomerReadinessJob keeps finishing when image-mode login HTTP gate fa
 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'mework360_memail'));
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
+});
+
+// ── occ-exec shim envelope (parsed_result + version strings) ─────────────────
+
+/**
+ * @param  array<string, mixed>  $parsedResult
+ * @return array<string, mixed>
+ */
+function readinessOccExecShimEnvelope(string $occCommand, array $parsedResult, ?string $stdout = null): array
+{
+    return [
+        'schema_version' => '1',
+        'occ_command' => $occCommand,
+        'exit_code' => 0,
+        'stdout' => $stdout ?? json_encode($parsedResult),
+        'parsed_result' => $parsedResult,
+    ];
+}
+
+function readinessSshMockWithOccExecShimEnvelopes(): MockInterface
+{
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->andReturnUsing(function (
+        ClusterServer $clusterArg,
+        string $cmd,
+        array $argv,
+    ): SshResponse {
+        $occ = $argv[2] ?? '';
+
+        if ($occ === 'app:list') {
+            $inner = [
+                'enabled' => [
+                    'mework360_memail' => '2.0.1',
+                    'me360_theme' => '1.6.15',
+                ],
+            ];
+            $envelope = readinessOccExecShimEnvelope('app:list', $inner);
+
+            return new SshResponse(
+                stdout: json_encode($envelope),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: $envelope,
+            );
+        }
+
+        if ($occ === 'user:list') {
+            return new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []);
+        }
+
+        if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'externalLocation') {
+            $value = 'https://cloud.example/roundcube';
+            $envelope = readinessOccExecShimEnvelope('config:app:get', ['value' => $value], $value);
+
+            return new SshResponse(
+                stdout: json_encode($envelope),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: $envelope,
+            );
+        }
+
+        if ($occ === 'config:app:get' && ($argv[4] ?? '') === 'forceSSO') {
+            $envelope = readinessOccExecShimEnvelope('config:app:get', ['value' => 'yes'], 'yes');
+
+            return new SshResponse(
+                stdout: json_encode($envelope),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: $envelope,
+            );
+        }
+
+        return new SshResponse(stdout: '', stderr: 'unexpected occ', exitCode: 1, parsedJson: null);
+    });
+
+    return $ssh;
+}
+
+it('ProbeCustomerReadinessJob promotes tenant when occ-exec shim returns envelope with version strings', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-shim-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-shim.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+
+    Http::fake([
+        'https://probe-shim.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
+    ]);
+
+    app()->instance(SshClientInterface::class, readinessSshMockWithOccExecShimEnvelopes());
+    $probe = app(CustomerReadinessProbe::class);
+    (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
+
+    expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE)
+        ->and(AuditLog::where('action', 'customer_readiness_confirmed')->where('resource_id', $customer->slug)->exists())->toBeTrue();
 });
 
 it('ProbeCustomerReadinessJob legacy tenant still probes mework360_memail HTTP gate', function () {
