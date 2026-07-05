@@ -34,7 +34,7 @@
   ],
   "fase_atual": "13",
   "fase_nome": "Sprint N25 retomada — N25.3 concluída; N25.4 blocked por ISSUE-046 (.108 suite-deploy)",
-  "sprint_atual": "N25",
+  "sprint_atual": "N38",
   "previous_sprint": "N36",
   "sprint_branch": null,
   "sprint_pending_merge": null,
@@ -67,7 +67,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-05T05:30:00Z",
+  "ultimo_update": "2026-07-05T14:00:22Z",
   "next_sprint_planned": "N37",
   "modulos": [
     "Core",
@@ -236,7 +236,17 @@
     "merge_commit": "7a79086",
     "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/128",
     "note": "Gate PASS canario-n36e (job 9904497b-ad3c-4390-ba61-c5f433cd00c1, success ~5m44s); ISSUE-045 fixed upstream ba53ecc; 5/5 tasks",
-    "timestamp": "2026-07-04T21:25:00Z"
+    "timestamp": "2026-07-04T21:25:00Z",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "3519757a11116887efb954cde40fe7672380425c",
+      "stamped_at": "2026-07-05T14:05:34Z"
+    }
   },
   "checkpoint_n25": {
     "phase": "blocked",
