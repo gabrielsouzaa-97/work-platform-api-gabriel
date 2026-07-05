@@ -15,6 +15,7 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -465,26 +466,14 @@ it('ProbeCustomerReadinessJob grava dois audits com attempt incremental em falha
     $probe = app(CustomerReadinessProbe::class);
     $deadline = now()->addHour()->timestamp;
 
-    $job = new class($customer->slug, $deadline) extends ProbeCustomerReadinessJob
-    {
-        private int $mockAttempt = 1;
+    foreach ([1, 2] as $attempt) {
+        $fakeQueueJob = new FakeJob;
+        $fakeQueueJob->attempts = $attempt;
 
-        public function setAttempt(int $attempt): void
-        {
-            $this->mockAttempt = $attempt;
-        }
-
-        public function attempts(): int
-        {
-            return $this->mockAttempt;
-        }
-    };
-
-    $job->setAttempt(1);
-    $job->handle($probe);
-
-    $job->setAttempt(2);
-    $job->handle($probe);
+        (new ProbeCustomerReadinessJob($customer->slug, $deadline))
+            ->setJob($fakeQueueJob)
+            ->handle($probe);
+    }
 
     $logs = AuditLog::where('action', 'customer_readiness_probe')
         ->where('resource_id', $customer->slug)
