@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-05T21:26:51Z",
+  "ultimo_update": "2026-07-05T22:26:11Z",
   "next_sprint_planned": "N40",
   "modulos": [
     "Core",
@@ -240,15 +240,13 @@
     "verify_evidence": "gh pr checks 137 (2026-07-05T22:56Z): Lint, Test Pest, OpenAPI Redocly, Security, coverage-check, security-review — all pass",
     "validation_gate_qa": {
       "sprint": "N40",
-      "produced_by": "/qa validar N40 R1 via /rock (verifier + auditor-senior + auditor-qa)",
+      "produced_by": "/qa validar N40 R2 (revalidação — auditor-senior independente)",
       "result": "APROVADA",
-      "validation_round": 1,
-      "validation_mode": "full",
-      "senior_review_status": "PASS_WITH_NOTES",
-      "qa_review_status": "PASS_WITH_NOTES",
-      "verifier_status": "PASS_WITH_NOTES",
-      "findings_found": 9,
-      "findings_fixed_in_sprint": [
+      "validation_round": 2,
+      "validation_mode": "revalidation",
+      "senior_review_status": "PASS",
+      "findings_found": 0,
+      "findings_validated": [
         "N40-001",
         "CQ-N40-001",
         "CQ-N40-002",
@@ -262,8 +260,20 @@
         "QA-N40-004"
       ],
       "gate_tamper_check": "PASS",
-      "tests_evidence": "Docker app: 789 passed, 7 skipped, 2609 assertions (2026-07-05); suites N40 93 passed",
-      "stamped_at": "2026-07-05T22:40:00Z"
+      "tests_evidence": "Docker Pest R2: 789 passed, 7 skipped, 2609 assertions (2026-07-05T23:05Z)",
+      "ci_verify": "PR #137 MERGEABLE/CLEAN — Lint, Pest, OpenAPI, Security, coverage, security-review all pass",
+      "stamped_at": "2026-07-05T23:10:00Z",
+      "r1": {
+        "produced_by": "/qa validar N40 R1 via /rock (verifier + auditor-senior + auditor-qa)",
+        "result": "APROVADA",
+        "senior_review_status": "PASS_WITH_NOTES",
+        "qa_review_status": "PASS_WITH_NOTES",
+        "verifier_status": "PASS_WITH_NOTES",
+        "findings_found": 9,
+        "findings_fixed_in_sprint": ["N40-001", "CQ-N40-001", "CQ-N40-002", "QA-N40-001", "QA-N40-002", "QA-N40-006"],
+        "tests_evidence": "Docker app: 789 passed, 7 skipped (2026-07-05); suites N40 93 passed",
+        "stamped_at": "2026-07-05T22:40:00Z"
+      }
     },
     "validation_gate": {
       "produced_by": "validation-stamp.py",
