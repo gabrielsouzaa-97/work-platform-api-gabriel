@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-05T19:45:00Z",
-  "next_sprint_planned": "N39",
+  "ultimo_update": "2026-07-05T21:15:00Z",
+  "next_sprint_planned": "N40",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -210,23 +210,23 @@
   ],
   "anchor": {
     "persona": "planejador-melhorias",
-    "phase": "Sprint N39 planejada (pendente)",
-    "intent": "ISSUE-049 UX provisionamento + OCC — DESIGN.md §8: FQDN normalizado, progresso/readiness visível, lista usuários OCC, erro create inline; 7 tasks (2P+4M+1M stretch)",
-    "changes_made": "ISSUE-049 registrada; Sprint N39 no ROADMAP (índice + seção + histórico 0.39); brief N39 PASS_WITH_NOTES; next_sprint_planned=N39; sprint_tasks vazio (planning only)",
-    "decisions": "Ordem núcleo N39.1→N39.2→N39.3; N39.4→N39.5; N39.6/N39.7 stretch; review senior+qa; JobLogFetcher throttle 15s; FQDN server-side obrigatório; N37 permanece pendente de execução",
-    "next_steps": "/pmo sprint iniciar N39 (pipeline); N37 ainda pendente; N25.4 segue blocked por ISSUE-046",
-    "updated_at": "2026-07-05T19:45:00Z"
+    "phase": "Sprint N40 planejada (pendente)",
+    "intent": "ISSUE-050 read model local tenant_users + política 'nenhum cliente tem admin NC' — aba Usuários sem SSH síncrono, projeção via webhook, sync drift; 6 tasks (3P+3M)",
+    "changes_made": "ISSUE-050 registrada (triagem) e marcada planned; Sprint N40 no ROADMAP (índice + seção + histórico 0.42); brief N40 PASS_WITH_NOTES + verifier PASS; next_sprint_planned=N40",
+    "decisions": "FK customer_slug (não customer_id — PB-N40-001); projector pós-transação non-fatal no WebhookHandler (PB-N40-003); payload_sanitized enriquecido sem password (PB-N40-002); admin plataforma nunca é drift; ordem N40.1 → (N40.2∥N40.3∥N40.5) → N40.4 → N40.6; review senior+qa",
+    "next_steps": "/pmo sprint iniciar N40 (pipeline); N25.4 segue blocked por ISSUE-046; coordenação cross-repo política upstream fora do escopo N40",
+    "updated_at": "2026-07-05T21:15:00Z"
   },
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-05T14:16:08Z",
-    "usage_percent": 90.498,
-    "messages_lost": 267
+    "compacted_at": "2026-07-05T19:53:35Z",
+    "usage_percent": 94.963,
+    "messages_lost": 328
   },
-  "compact_count": 6,
+  "compact_count": 7,
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
@@ -413,6 +413,28 @@
     "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-07-05T21:15:00Z",
+      "action": "/pmo plan — ISSUE-050 read model tenant_users + política sem admin p/ clientes",
+      "sprints_generated": [
+        "N40"
+      ],
+      "issues_in_scope": [
+        "ISSUE-050"
+      ],
+      "findings_in_scope": [],
+      "split_strategy": "N40.1 migration/model → N40.2 projector via webhook (pós-transação, non-fatal) ∥ N40.3 sync reconciliação+drift ∥ N40.5 enforcement admin groups/subadmin → N40.4 OccPanel lê projeção → N40.6 docs; cross-repo política upstream fora de escopo (coordenação na ISSUE-050)",
+      "tasks_count": {
+        "P": 3,
+        "M": 3,
+        "total": 6
+      },
+      "review_level": "senior+qa",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/N40.brief.md",
+      "brief_status": "PASS_WITH_NOTES (verifier PASS — docs/.briefs/N40.verifier.md)",
+      "gate": "aba Usuários lê tenant_users local (zero SSH no load); create/delete/provision refletem via webhook; tenant-users:sync + AuditLog drift; admin bloqueado painel+API; CI verde"
+    },
     {
       "timestamp": "2026-07-05T19:45:00Z",
       "action": "/pmo plan — ISSUE-049 UX provisionamento + OCC operacional (DESIGN.md §8)",

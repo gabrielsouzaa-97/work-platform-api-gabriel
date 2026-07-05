@@ -95,6 +95,7 @@
 | N37    | N         | `/docs/api` renderiza `openapi-external.yaml` só autenticado (`manage-operators`); credencial com scopes persiste e é honrada por `api.scope:*`; listagem exibe scopes; CI verde | **concluída** (4/4) | 4 | Core (Auth/api-key), Livewire, docs | ISSUE-047: API Console fase 1 — docs viewer privado (Scalar) + scopes nas credenciais | 5080+ |
 | N38    | N         | LAB: assets Vite servidos pelo nginx; form `/customers/create` com `image_mode` + UX domínio/slug; deploy `.110` smoke | **concluída** (3/3) | 3 | Livewire, DevOps | ISSUE-048: gap N36 no painel + FOUC LAB (compose volume) | 5168+ |
 | N39    | N         | UX provisionamento + OCC operacional: FQDN normalizado; progresso/readiness visível; lista usuários OCC; erro create inline; CI verde | **concluída** (7/7) | 7 | Livewire, Customers, Occ, Jobs, ClusterServers | ISSUE-049: DESIGN.md §8 UX Audit 2026-07-05 | 5182+ |
+| N40    | N         | Aba Usuários lê projeção local `tenant_users` (zero SSH síncrono no load); create/delete/provision refletem na projeção via webhook; `tenant-users:sync` reconcilia + detecta drift; grupo/username `admin` bloqueados painel+API; CI verde | pendente | 6 | Customers, Occ, Jobs/Webhook, Livewire, DB | ISSUE-050: read model tenant_users + política sem admin p/ clientes | 5417+ |
 
 ---
 
@@ -5415,8 +5416,149 @@ Cenários de teste:
 
 ---
 
+## Sprint N40 — Read model local `tenant_users` + política "nenhum cliente tem admin NC" (ISSUE-050)
+
+> Categoria: N
+> Gate: aba Usuários do OccPanel abre lendo `tenant_users` local (zero SSH síncrono no load; botão "Atualizar" dispara sync on-demand); job `users:create`/`users:delete` success reflete na projeção via webhook; provision success registra `admin` origin=provision; deprovision success purga projeção; `tenant-users:sync` reconcilia por cluster e grava AuditLog de drift (usuário fora da projeção ou usuário de cliente em grupo admin); grupo/username `admin` rejeitados no painel E na API v1 (`groups.*` + `subadmin_groups.*`); testes Pest; CI verde.
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-05. Fonte: ISSUE-050 (triagem 2026-07-05 — aba Usuários lenta pós-N39.2 + decisão de governança do usuário). Modo de execução: pipeline/autopilot.
+> Fora de escopo: política upstream/provision cross-repo (coordenação registrada na ISSUE-050 item 6); mudança de senha/quota via projeção (segue fluxo atual); UI de grupos.
+> Premissa de governança (decisão usuário 2026-07-05): nenhum cliente terá conta admin no NC; a conta `admin` do provisionamento é da plataforma e governada pela API → 100% dos creates/deletes passam pela API → projeção autoritativa, sync = detector de drift.
+> Quality Brief: `docs/.briefs/N40.brief.md` (PASS_WITH_NOTES; verifier PASS — `docs/.briefs/N40.verifier.md`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | P | N40.1 — Migration `create_tenant_users_table` + model `TenantUser` (FK `customer_slug` → customers.slug; unique(customer_slug, username); origin enum; groups json) | laravel-migration | — |
+| [ ] | M | N40.2 — `TenantUserProjector`: hooks pós-transação no `WebhookHandler` (users:create/delete success → upsert/remove; provision success → row `admin`; deprovision success → purge) + enriquecer `payload_sanitized` no enqueue (email/groups/quota, NUNCA password) | laravel-api / webhook-receiver | N40.1 |
+| [ ] | M | N40.3 — `tenant-users:sync` command + `TenantUserSyncService` (reconciliação via `user:list --json` por customer ativo; AuditLog de drift; scheduler daily; padrão `CustomerSyncService`) | laravel-api / ssh-orchestrator | N40.1 |
+| [ ] | M | N40.4 — Refactor `OccPanel`: `loadUsers()` lê projeção local; "Atualizar" = sync on-demand do customer; poll create success recarrega projeção (não SSH); hint backfill p/ tenants pré-N40 | laravel-livewire | N40.2, N40.3 |
+| [ ] | P | N40.5 — Enforcement política: rejeitar `admin` em `groups.*`/`subadmin_groups.*` + username `admin` no `CreateUserRequest` (API v1) e no OccPanel | api-rest-patterns | — |
+| [ ] | P | N40.6 — Docs: DATABASE.md + db-schema.dbml (tabela `tenant_users` com `customer_slug`) + ISSUE-050 corrigida (customer_id → customer_slug) + nota cross-repo política upstream | — | N40.1 |
+
+### Task N40.2 — TenantUserProjector + hooks no WebhookHandler
+
+**Estado atual**: `WebhookHandler::applyFinishedEvent()` (`WebhookHandler.php:124-234`) persiste estado terminal, propaga `Customer.status` e despacha `ProbeCustomerReadinessJob` pós-transação; jobs `users:create` só carregam username em `payload_sanitized` (`LifecycleAsyncAction.php:246`) — email/groups vão apenas no stdin SSH. Nenhuma projeção local de usuários existe.
+**Estado desejado**: service `TenantUserProjector` invocado **após** `DB::transaction()` (mesmo padrão de `ProbeCustomerReadinessJob::dispatch`), apenas quando `!$isSummaryRecoveryRetry && $canonical === 'success'`: `users:create` → upsert em `tenant_users` com origin=`api`/`panel`; `users:delete` → delete row; `provision` → insert row `admin` origin=`provision`; `deprovision` → purge rows do customer. `payload_sanitized` enriquecido no enqueue com campos não-secretos (email, groups, quota) — password NUNCA.
+**Fonte(s)**: ISSUE-050; PB-N40-002/003/007 (`docs/.briefs/N40.brief.md`)
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Services/TenantUserProjector.php` (novo), `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Customers/Actions/LifecycleAsyncAction.php`, `tests/Feature/Jobs/WebhookTenantUserProjectionTest.php` (novo)
+**Risco**: MEDIUM — toca caminho crítico do webhook; falha do projector não pode impedir o 204 (try/catch com log, como `jobLogFetcher`)
+**Task size**: M (~4 arquivos)
+**Depende de**: N40.1
+
+**executor_prompt**:
+Melhoria: projeção local de usuários de tenant alimentada pelos webhooks de job terminal.
+Contexto: 100% dos creates/deletes de usuários passam pela API (premissa de governança ISSUE-050). O `WebhookHandler` já sabe quando um job `users:create`/`users:delete`/`provision`/`deprovision` terminou com success — é o ponto natural de escrita da projeção.
+
+### Quality Brief (Sprint N40)
+- Hook **pós-transação** em `applyFinishedEvent`, nunca dentro do `DB::transaction()` principal; só quando `!$isSummaryRecoveryRetry && $canonical === 'success'` (respeitar out-of-order guard e early returns existentes — `WebhookHandler.php:134-136`).
+- Falha do projector é non-fatal: try/catch + `Log::warning` — webhook deve continuar retornando 204 (mesmo padrão do `jobLogFetcher` fetch).
+- `payload_sanitized` no enqueue (`LifecycleAsyncAction`) passa a incluir email/groups/quota do stdin payload — **password JAMAIS** entra em `payload_sanitized`, projeção ou logs.
+- Upsert idempotente: `updateOrCreate(['customer_slug' => …, 'username' => …], […])` — webhook re-entregue não duplica.
+- FK é `customer_slug` (customers PK = slug), não customer_id (PB-N40-001).
+- `job_type` canônicos: verificar `JobTypeTranslator` para os nomes exatos (`users:create`, `users:delete`, `provision`, `deprovision`).
+
+Objetivo: toda mutação de usuário via API/painel reflete em `tenant_users` sem SSH adicional; admin do provisionamento registrado com origin=provision.
+Arquivos: TenantUserProjector.php (novo), WebhookHandler.php, LifecycleAsyncAction.php, WebhookTenantUserProjectionTest.php (novo).
+Critério de pronto: cenários abaixo passam; webhook continua 204 com projector falhando; CI verde.
+reuse_targets:
+  - component: app/Modules/Jobs/Services/WebhookHandler.php
+    reuse_as: extend
+    convergence_check: rg "TenantUserProjector" app/Modules/Jobs/Services/WebhookHandler.php
+Cenários de teste:
+  1. Normal: webhook `users:create` success → row em `tenant_users` com username/email/groups do payload_sanitized.
+  2. Normal: webhook `users:delete` success → row removida.
+  3. Normal: webhook `provision` success → row `admin` origin=provision.
+  4. Edge: webhook re-entregue (mesmo estado terminal) → early return, sem duplicar row.
+  5. Edge: projector lança exception → webhook ainda 204 + log warning.
+  6. Edge: `deprovision` success → rows do customer purgadas.
+  7. Regressão: propagação `Customer.status` + `ProbeCustomerReadinessJob` dispatch inalterados (suite WebhookHandler existente verde).
+  8. Segurança: `payload_sanitized` de users:create não contém `password`.
+
+### Task N40.3 — tenant-users:sync (reconciliação + drift)
+
+**Estado atual**: única fonte de lista de usuários é SSH síncrono `user:list --json` (`OccPassthroughService.php`, usado por `OccPanel::loadUsers()` e readiness). `CustomerSyncService` + `CustomersSyncCommand` já implementam o padrão de reconciliação upstream→local para customers (insert/update/delete + report).
+**Estado desejado**: `TenantUserSyncService::sync(Customer): TenantUserSyncReport` — chama `user:list --json`, reconcilia `tenant_users` (insert novos, update mudados, delete ausentes — exceto rows recém-criadas < 5min para não apagar create em trânsito); detecta drift: (a) usuário no NC ausente da projeção com origin ≠ sync (intervenção manual), (b) usuário ≠ `admin` em grupo `admin` → AuditLog `tenant_user_drift`. Command `tenant-users:sync {--customer=}` itera customers ativos; scheduler daily junto de `customers:sync`.
+**Fonte(s)**: ISSUE-050; ISSUE-013 (webhooks nulos — safety net); QC #6-7 do brief
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Services/TenantUserSyncService.php` (novo), `app/Console/Commands/TenantUsersSyncCommand.php` (novo), `routes/console.php`, `tests/Feature/Customers/TenantUserSyncTest.php` (novo)
+**Risco**: MEDIUM — SSH em lote (1 call por customer ativo); falha por customer não pode abortar o batch (mesmo padrão do CustomersSyncCommand)
+**Task size**: M (~4 arquivos)
+**Depende de**: N40.1
+
+**executor_prompt**:
+Melhoria: sync de reconciliação da projeção `tenant_users` + detector de drift.
+Contexto: com a projeção autoritativa (N40.2), o sync vira safety net: pega intervenção manual de ops via SSH e valida contra webhooks perdidos (ISSUE-013). Espelhar `CustomerSyncService`/`CustomersSyncCommand` (batch resiliente, report inserted/updated/deleted, Log security em falha).
+
+### Quality Brief (Sprint N40)
+- `user:list --json` via `OccPassthroughService::exec($customer, 'user:list', ['--json'], 30)` — não montar argv manualmente; reutilizar parse defensivo (`OccPanel::normalizeUserListRows` → extrair para service compartilhado se preciso, ≤30 linhas).
+- Conta `admin` da plataforma NÃO é drift (origin=provision esperado) — falso-positivo proibido.
+- Rows com `created_at` < 5min e ausentes do NC não são deletadas (create async em trânsito).
+- Drift → `AuditLog action=tenant_user_drift` payload `{customer_slug, username, kind: manual_creation|admin_group_member}`; não corrigir automaticamente além do upsert normal.
+- Falha SSH de um customer → log + continua batch (exit SUCCESS como CustomersSyncCommand).
+
+Objetivo: projeção converge diariamente com o NC; ops manual e violação da política admin ficam auditáveis.
+Arquivos: TenantUserSyncService.php, TenantUsersSyncCommand.php, routes/console.php (schedule daily), TenantUserSyncTest.php.
+Critério de pronto: cenários abaixo passam; schedule registrado; CI verde.
+reuse_targets:
+  - component: app/Modules/Customers/Services/CustomerSyncService.php
+    reuse_as: mirror_shape
+    convergence_check: rg "class TenantUserSyncService" app/Modules/Customers/Services/TenantUserSyncService.php
+Cenários de teste:
+  1. Normal: NC retorna 3 users, projeção tem 2 → 1 inserted origin=sync, report correto.
+  2. Normal: user removido no NC e presente na projeção (origin=api, >5min) → deleted.
+  3. Edge: user novo no NC ausente da projeção → AuditLog drift kind=manual_creation.
+  4. Edge: user ≠ admin em grupo admin → AuditLog drift kind=admin_group_member.
+  5. Edge: `admin` origin=provision presente → NENHUM drift logado.
+  6. Edge: SSH falha em customer A → customer B ainda sincroniza; exit SUCCESS.
+  7. Edge: row criada há 2min ausente do NC → preservada.
+
+### Task N40.4 — OccPanel lê projeção local
+
+**Estado atual**: `OccPanel::loadUsers()` (`OccPanel.php:255-268`) faz SSH síncrono `user:list --json` timeout 30s a cada abertura da aba Usuários — origem da lentidão reportada (ISSUE-050); `pollPendingUserJob` success chama `loadUsers($occ)` repetindo SSH (PB-N40-005); `deleteUser` não atualiza lista (PB-N40-008).
+**Estado desejado**: `loadUsers()` vira SELECT em `TenantUser::where('customer_slug', …)` — aba instantânea; botão "Atualizar" chama `TenantUserSyncService::sync($customer)` (on-demand, mantém loading/erro states) e recarrega do banco; poll create success recarrega projeção local (webhook N40.2 já upsertou); delete success idem; hint "Lista local — Atualizar para sincronizar com o servidor" + empty-state para tenants pré-N40 orientando primeiro sync.
+**Fonte(s)**: ISSUE-050; PB-N40-005/006/008
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`
+**Risco**: MEDIUM — refactor de componente com poll N39.3 recém-entregue; preservar F5.11 (wire:submit + cleanup senha) e timeout poll 120s
+**Task size**: M (3 arquivos)
+**Depende de**: N40.2, N40.3
+
+**executor_prompt**:
+Melhoria: aba Usuários instantânea lendo projeção local `tenant_users`.
+Contexto: N39.2 introduziu SSH síncrono no load (timeout 30s) — operador percebe lentidão. Com N40.2 (projeção via webhook) e N40.3 (sync service), a UI pode ler do banco e sincronizar sob demanda.
+
+### Quality Brief (Sprint N40)
+- `loadUsers()` NÃO recebe mais `OccPassthroughService` — só Eloquent; formato de rows preservado (username, email, quota, groups) para o blade atual.
+- "Atualizar" → novo método `syncUsers(TenantUserSyncService $sync)` com `$usersLoading`/`$usersError` reaproveitados; erro SSH → `formatError()` existente.
+- `pollPendingUserJob` success → reload da projeção (SELECT), não SSH (PB-N40-005).
+- Empty-state distinto: projeção vazia + customer pré-N40 → hint "Clique em Atualizar para sincronizar" (PB-N40-006).
+- Preservar: bloqueio username `admin` (N39.2), poll timeout 120s (N39.3), F5.11 wire:submit + senha zerada no finally.
+
+Objetivo: abrir aba Usuários < 100ms (sem SSH); sync explícito sob demanda; feedback create/delete consistente.
+Arquivos: OccPanel.php, occ-panel.blade.php, OccPanelTest.php.
+Critério de pronto: cenários abaixo passam; nenhum SSH no fluxo de load; CI verde.
+reuse_targets:
+  - component: app/Http/Livewire/Customers/OccPanel.php
+    reuse_as: extend
+    convergence_check: rg "TenantUser::" app/Http/Livewire/Customers/OccPanel.php
+Cenários de teste:
+  1. Normal: aba users com 2 rows em tenant_users → tabela renderiza sem mock SSH.
+  2. Normal: "Atualizar" → TenantUserSyncService mockado chamado + lista recarregada.
+  3. Edge: sync falha (SSH) → $usersError amigável, lista local preservada.
+  4. Edge: projeção vazia → empty-state com hint de sync.
+  5. Regressão: poll create success → lista atualizada SEM chamada a OccPassthroughService.
+  6. Regressão: bloqueio username admin + validação senha ≥10 intactos (suite N39 verde).
+
+### Quality Brief (Sprint N40) — resumo
+
+- **Review**: senior+qa (caminho crítico webhook + política de segurança)
+- **Brief**: `docs/.briefs/N40.brief.md` — PASS_WITH_NOTES (8 findings: 2 HIGH corrigidos no plano — FK `customer_slug`, `payload_sanitized` enriquecido); verifier PASS
+- **Iron law**: projector nunca dentro da transação principal do webhook nem bloqueando o 204; password jamais em `payload_sanitized`/projeção; conta `admin` da plataforma nunca flagada como drift; promote/timeout do readiness intocados
+- **Ordem de execução**: N40.1 → (N40.2 ∥ N40.3 ∥ N40.5) → N40.4 → N40.6
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-05 | 0.42   | Sprint N40 planejada — ISSUE-050 read model `tenant_users` + política sem admin p/ clientes: 6 tasks (3P+3M); gate aba Usuários sem SSH síncrono + projeção via webhook + sync drift; brief PASS_WITH_NOTES + verifier PASS; review senior+qa. | `/pmo plan` |
 | 2026-07-05 | 0.41   | Sprint N39 concluída (7/7): ISSUE-049 UX provisionamento + OCC — FQDN normalize, OccPanel users, async feedback, show poll, readiness card, M3 retrofit, cluster remove UI; PR #135 `8e58fed`; deploy LAB `.110`. | sprint-finalizer |
 | 2026-07-05 | 0.40   | Sprint N37 concluída (4/4): ISSUE-047 API Console fase 1 — Scalar `/docs/api`, API key scopes + badges, sidebar link; PR #136 `b43422c`; manifest `docs-api.js`; deploy LAB `.110`. | sprint-finalizer |
 | 2026-07-05 | 0.39   | Sprint N39 planejada — ISSUE-049 UX provisionamento + OCC (DESIGN.md §8): 7 tasks (2P+4M+1M stretch); gate FQDN + progresso + users OCC + readiness; review senior+qa. | `/pmo plan` |

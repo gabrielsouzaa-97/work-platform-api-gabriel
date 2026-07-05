@@ -55,7 +55,7 @@
 | ISSUE-047 | enhancement | API Console fase 1: viewer privado de documentação (`/docs/api` via Scalar renderizando `openapi-external.yaml`) + seleção de scopes v1 na criação de credenciais em `/api-keys` | Core (Auth/api-key), Livewire, docs | MEDIUM | **fixed (2026-07-05)** — Sprint N37; PR #136; deploy LAB `8e58fed` |
 | ISSUE-048 | bug | Painel LAB sem CSS (nginx sem `public/build`) + Livewire `/customers/create` não envia `image_mode` (gap N36) | Livewire, DevOps | HIGH | **fixed (2026-07-05)** — Sprint N38; deploy LAB `.110` |
 | ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
-| ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | open — triagem 2026-07-05; aguarda `/pmo plan` |
+| ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | **planned — Sprint N40** (2026-07-05; brief PASS_WITH_NOTES) |
 
 ---
 
@@ -63,7 +63,7 @@
 
 - **Tipo**: change_request / arquitetura (FEATURE)
 - **Prioridade**: HIGH
-- **Status**: open — triagem 2026-07-05; aguarda `/pmo plan`
+- **Status**: **planned — Sprint N40** (2026-07-05); brief `docs/.briefs/N40.brief.md` PASS_WITH_NOTES, verifier PASS
 - **Registrado em**: 2026-07-05 (triagem — usuário reportou lentidão na aba Usuários do OccPanel pós-N39 e propôs BD próprio centralizando controle)
 - **Módulos afetados**: `database/migrations/` (nova tabela `tenant_users`), `app/Http/Livewire/Customers/OccPanel.php`, `app/Modules/Customers/` (service + sync command), webhook/job handlers de `users:*`, política de provisionamento (cross-repo)
 
@@ -75,7 +75,7 @@ A aba Usuários do OccPanel (N39.2) faz SSH síncrono (`occ-exec user:list --jso
 
 ### Escopo proposto (para `/pmo plan`)
 
-1. Tabela `tenant_users` (customer_id, username, email, quota, groups, origem, timestamps) + model/casts
+1. Tabela `tenant_users` (`customer_slug` FK → `customers.slug` — PK de customers é slug, não id; username, email, quota, groups json, origin, timestamps) + model/casts
 2. Escrita na projeção em cada `users:create`/`users:delete` via painel/API (inclusive `admin` do provisionamento, registrado no provision)
 3. Refactor `OccPanel::loadUsers()` → SELECT local (aba instantânea); botão "Atualizar" dispara sync sob demanda
 4. Sync periódico de reconciliação (`tenant-users:sync`, padrão `customers:sync`) — detector de drift (ops manual, ISSUE-013)
