@@ -55,6 +55,39 @@
 | ISSUE-047 | enhancement | API Console fase 1: viewer privado de documentação (`/docs/api` via Scalar renderizando `openapi-external.yaml`) + seleção de scopes v1 na criação de credenciais em `/api-keys` | Core (Auth/api-key), Livewire, docs | MEDIUM | **fixed (2026-07-05)** — Sprint N37; PR #136; deploy LAB `8e58fed` |
 | ISSUE-048 | bug | Painel LAB sem CSS (nginx sem `public/build`) + Livewire `/customers/create` não envia `image_mode` (gap N36) | Livewire, DevOps | HIGH | **fixed (2026-07-05)** — Sprint N38; deploy LAB `.110` |
 | ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
+| ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | open — triagem 2026-07-05; aguarda `/pmo plan` |
+
+---
+
+## ISSUE-050 — Read model local de usuários de tenant + política sem admin para clientes
+
+- **Tipo**: change_request / arquitetura (FEATURE)
+- **Prioridade**: HIGH
+- **Status**: open — triagem 2026-07-05; aguarda `/pmo plan`
+- **Registrado em**: 2026-07-05 (triagem — usuário reportou lentidão na aba Usuários do OccPanel pós-N39 e propôs BD próprio centralizando controle)
+- **Módulos afetados**: `database/migrations/` (nova tabela `tenant_users`), `app/Http/Livewire/Customers/OccPanel.php`, `app/Modules/Customers/` (service + sync command), webhook/job handlers de `users:*`, política de provisionamento (cross-repo)
+
+### Descrição
+
+A aba Usuários do OccPanel (N39.2) faz SSH síncrono (`occ-exec user:list --json`, timeout 30s) a cada abertura — operador percebe lentidão de 2–10s+. Proposta do usuário: BD próprio armazenando usuários de tenant, com o painel/API como fonte central.
+
+**Premissa de governança (decisão do usuário 2026-07-05):** nenhum cliente terá conta admin no Nextcloud — só usuários comuns. A conta `admin` criada no provisionamento é da plataforma e governada por regra da API. Com isso, 100% dos creates/deletes de usuários passam pela API → a projeção local é autoritativa, não apenas cache.
+
+### Escopo proposto (para `/pmo plan`)
+
+1. Tabela `tenant_users` (customer_id, username, email, quota, groups, origem, timestamps) + model/casts
+2. Escrita na projeção em cada `users:create`/`users:delete` via painel/API (inclusive `admin` do provisionamento, registrado no provision)
+3. Refactor `OccPanel::loadUsers()` → SELECT local (aba instantânea); botão "Atualizar" dispara sync sob demanda
+4. Sync periódico de reconciliação (`tenant-users:sync`, padrão `customers:sync`) — detector de drift (ops manual, ISSUE-013)
+5. Enforcement da política: create de usuário nunca em grupo `admin`; checagem de drift no sync
+6. (Cross-repo, coordenação) política upstream/provision alinhada — nenhum admin de cliente
+
+### Relacionado
+
+- N39.2 (origem da aba Usuários com SSH síncrono)
+- ISSUE-013 (webhooks com dados nulos — motivo do sync de segurança)
+- ISSUE-033 (governança de conta admin seed — análogo no painel)
+- `customers:sync` (precedente de projeção + reconciliação)
 
 ---
 
