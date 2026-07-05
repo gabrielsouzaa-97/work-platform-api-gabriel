@@ -2,6 +2,14 @@
 # Usage on LAB host:
 #   docker compose -f docker-compose.yml -f docker-compose.lab.yml build
 #   docker compose -f docker-compose.yml -f docker-compose.lab.yml up -d
+#
+# Assets: production app image bakes Vite output into public/build, but nginx
+# must read the same tree. Shared named volume avoids host bind-mount without
+# build/ (FOUC / unstyled panel). After image rebuild with new frontend assets,
+# recreate the volume once: docker compose ... down && docker volume rm ..._deployer_public
+
+volumes:
+  deployer_public:
 
 services:
   app:
@@ -9,7 +17,8 @@ services:
       target: production
     env_file:
       - .env
-    volumes: !override []
+    volumes: !override
+      - deployer_public:/var/www/html/public
     entrypoint: ["/sbin/tini", "--", "php-fpm"]
 
   worker:
@@ -23,6 +32,9 @@ services:
 
   nginx:
     ports: !override []
+    volumes: !override
+      - deployer_public:/var/www/html/public:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - mework360
       - proxy
