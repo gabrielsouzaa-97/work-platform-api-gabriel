@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N39 validada",
-  "sprint_atual": null,
+  "fase_nome": "N40 em execução",
+  "sprint_atual": "N40",
   "previous_sprint": "N39",
-  "sprint_branch": null,
+  "sprint_branch": "sprint/N40",
   "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
@@ -230,9 +230,10 @@
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "validated",
-    "current_task": null,
-    "last_completed_task": "N39"
+    "phase": "implementation",
+    "sprint": "N40",
+    "current_task": "N40.1",
+    "last_completed_task": null
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -299,7 +300,54 @@
       "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
-  "sprint_tasks": [],
+  "sprint_tasks": [
+    {
+      "id": "N40.1",
+      "status": "pending",
+      "size": "P",
+      "title": "Migration create_tenant_users_table + model TenantUser (FK customer_slug)",
+      "file": "database/migrations/2026_07_05_000002_create_tenant_users_table.php"
+    },
+    {
+      "id": "N40.2",
+      "status": "pending",
+      "size": "M",
+      "title": "TenantUserProjector + hooks pós-transação no WebhookHandler + payload_sanitized enriquecido",
+      "file": "app/Modules/Customers/Services/TenantUserProjector.php",
+      "depends": ["N40.1"]
+    },
+    {
+      "id": "N40.3",
+      "status": "pending",
+      "size": "M",
+      "title": "tenant-users:sync command + TenantUserSyncService (reconciliação + drift AuditLog + scheduler)",
+      "file": "app/Modules/Customers/Services/TenantUserSyncService.php",
+      "depends": ["N40.1"]
+    },
+    {
+      "id": "N40.4",
+      "status": "pending",
+      "size": "M",
+      "title": "OccPanel lê projeção local; Atualizar = sync on-demand; poll recarrega projeção",
+      "file": "app/Http/Livewire/Customers/OccPanel.php",
+      "depends": ["N40.2", "N40.3"]
+    },
+    {
+      "id": "N40.5",
+      "status": "pending",
+      "size": "P",
+      "title": "Enforcement admin em groups/subadmin_groups/username (CreateUserRequest API v1 + OccPanel)",
+      "file": "app/Http/Requests/Lifecycle/CreateUserRequest.php"
+    },
+    {
+      "id": "N40.6",
+      "status": "pending",
+      "size": "P",
+      "title": "Docs: DATABASE.md + db-schema.dbml + ISSUE-050 + nota cross-repo",
+      "file": "docs/DATABASE.md",
+      "depends": ["N40.1"]
+    }
+  ],
   "sprint_tasks_n36_archived": [
     {
       "id": "N36.3",

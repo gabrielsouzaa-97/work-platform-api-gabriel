@@ -10,6 +10,7 @@ use App\Models\TenantUser;
 use App\Modules\Customers\Dto\TenantUserSyncReport;
 use App\Modules\Customers\Support\TenantUserListParser;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class TenantUserSyncService
@@ -51,13 +52,13 @@ class TenantUserSyncService
 
     /**
      * @param  list<array{username: string, email: ?string, quota: ?string, groups: list<string>}>  $upstreamRows
-     * @param  \Illuminate\Support\Collection<string, TenantUser>  $localByUsername
+     * @param  Collection<string, TenantUser>  $localByUsername
      * @return list<string>
      */
     private function reconcileUpstream(
         Customer $customer,
         array $upstreamRows,
-        \Illuminate\Support\Collection $localByUsername,
+        Collection $localByUsername,
         TenantUserSyncReport $report,
     ): array {
         $upstreamUsernames = [];
@@ -118,10 +119,10 @@ class TenantUserSyncService
 
     /**
      * @param  list<string>  $upstreamUsernames
-     * @param  \Illuminate\Support\Collection<string, TenantUser>  $localByUsername
+     * @param  Collection<string, TenantUser>  $localByUsername
      */
     private function deleteStaleRows(
-        \Illuminate\Support\Collection $localByUsername,
+        Collection $localByUsername,
         array $upstreamUsernames,
         Carbon $graceCutoff,
         TenantUserSyncReport $report,

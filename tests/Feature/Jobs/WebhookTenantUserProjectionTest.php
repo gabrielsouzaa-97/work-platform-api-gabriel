@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use App\Jobs\ProbeCustomerReadinessJob;
-use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
+use App\Models\Operator;
 use App\Models\TenantUser;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
@@ -236,7 +236,7 @@ it('webhook users:create success preserva propagação Customer.status e ProbeCu
 it('payload_sanitized de users:create não contém password após enqueue', function (): void {
     $cluster = projectionCluster();
     $customer = projectionCustomer($cluster->id, 'acme-pwd');
-    $operator = \App\Models\Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
     $jobId = Str::uuid()->toString();
 
     $ssh = Mockery::mock(SshClientInterface::class);
