@@ -43,6 +43,7 @@ final class LifecycleAsyncAction
      *                       groups:add, groups:remove, apps:enable, apps:disable.
      * @param  array<int, string>  $args  Positional args (no credentials — those go via stdin).
      * @param  array<string, mixed>|null  $stdinPayload  Sensitive payload (e.g. password).
+     * @param  'api'|'panel'|null  $projectionOrigin  Read-model origin for users:create (never sent upstream).
      *
      * @throws ClusterUnreachableException
      * @throws IdempotencyConflictException
@@ -56,6 +57,7 @@ final class LifecycleAsyncAction
         array $args,
         ?array $stdinPayload,
         Operator $actor,
+        ?string $projectionOrigin = null,
     ): Job {
         $upstreamVerbTokens = $this->translator->cmdToCliArgv($cmd);
         $cluster = $this->resolveActiveCluster($customer);
@@ -93,6 +95,7 @@ final class LifecycleAsyncAction
             $args,
             $stdinPayload,
             $actor,
+            $projectionOrigin,
         );
     }
 
@@ -191,7 +194,7 @@ final class LifecycleAsyncAction
         ?array $stdinPayload,
         string $idempotencyKey,
     ): AsyncJobRef {
-        $stdinJson = $stdinPayload !== null ? json_encode($stdinPayload) : null;
+        $stdinJson = $this->stdinJsonForUpstream($stdinPayload);
 
         try {
             return $this->platformPortFactory->for($cluster)->dispatchManageAsync(
@@ -225,6 +228,7 @@ final class LifecycleAsyncAction
         array $args,
         ?array $stdinPayload,
         Operator $actor,
+        ?string $projectionOrigin = null,
     ): Job {
         return DB::transaction(function () use (
             $customer,
@@ -236,6 +240,7 @@ final class LifecycleAsyncAction
             $args,
             $stdinPayload,
             $actor,
+            $projectionOrigin,
         ): Job {
             $job = Job::create([
                 'job_id' => $jobId,
@@ -246,7 +251,7 @@ final class LifecycleAsyncAction
                 'state' => 'queued',
                 'idempotency_key' => $idempotencyKey,
                 'correlation_id' => $correlationId,
-                'payload_sanitized' => $this->buildPayloadSanitized($cmd, $args, $stdinPayload),
+                'payload_sanitized' => $this->buildPayloadSanitized($cmd, $args, $stdinPayload, $projectionOrigin),
                 'queued_at' => now(),
             ]);
 
@@ -276,20 +281,43 @@ final class LifecycleAsyncAction
      * @param  array<string, mixed>|null  $stdinPayload
      * @return array<string, mixed>
      */
-    private function buildPayloadSanitized(string $cmd, array $args, ?array $stdinPayload): array
-    {
+    private function buildPayloadSanitized(
+        string $cmd,
+        array $args,
+        ?array $stdinPayload,
+        ?string $projectionOrigin = null,
+    ): array {
         $payload = ['cmd' => $cmd, 'args' => $args];
 
         if ($cmd !== 'users:create' || $stdinPayload === null) {
             return $payload;
         }
 
-        foreach (['email', 'groups', 'quota', 'origin'] as $field) {
+        foreach (['email', 'groups', 'quota'] as $field) {
             if (array_key_exists($field, $stdinPayload)) {
                 $payload[$field] = $stdinPayload[$field];
             }
         }
 
+        if (in_array($projectionOrigin, ['api', 'panel'], true)) {
+            $payload['origin'] = $projectionOrigin;
+        }
+
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $stdinPayload
+     */
+    private function stdinJsonForUpstream(?array $stdinPayload): ?string
+    {
+        if ($stdinPayload === null) {
+            return null;
+        }
+
+        $upstream = $stdinPayload;
+        unset($upstream['origin']);
+
+        return json_encode($upstream);
     }
 }

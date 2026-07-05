@@ -341,7 +341,8 @@ it('createUser dispara LifecycleAsyncAction com stdin payload e seta successMess
             return is_array($decoded)
                 && ($decoded['password'] ?? null) === 'Secret123!'
                 && ($decoded['email'] ?? null) === 'john@acme.com'
-                && ($decoded['groups'] ?? null) === ['editors'];
+                && ($decoded['groups'] ?? null) === ['editors']
+                && ! array_key_exists('origin', $decoded);
         })
         ->andReturn(new SshResponse(
             stdout: json_encode(['job_id' => $jobId]),
@@ -363,6 +364,10 @@ it('createUser dispara LifecycleAsyncAction com stdin payload e seta successMess
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.")
         ->assertSet('userUsername', '')
         ->assertSet('userPasswordPlain', '');
+
+    $job = Job::query()->where('job_id', $jobId)->first();
+    expect($job)->not->toBeNull()
+        ->and($job->payload_sanitized['origin'] ?? null)->toBe('panel');
 });
 
 it('createUser com IdempotencyConflictException → mensagem amigável', function () {

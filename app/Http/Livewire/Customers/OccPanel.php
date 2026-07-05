@@ -356,6 +356,7 @@ class OccPanel extends Component
                 [$this->userUsername],
                 $stdinPayload,
                 $actor,
+                'panel',
             );
             $this->pendingUserCreateJobId = $job->job_id;
             $this->pendingUserCreateJobStartedAt = now()->timestamp;
