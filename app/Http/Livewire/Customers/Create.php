@@ -11,6 +11,7 @@ use App\Modules\Customers\Dto\ProvisionPayload;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Support\DomainNormalizer;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
@@ -52,6 +53,13 @@ class Create extends Component
     public bool $submitting = false;
 
     public string $errorMessage = '';
+
+    public string $normalizedDomain = '';
+
+    public function updatedDomain(): void
+    {
+        $this->normalizedDomain = DomainNormalizer::normalize($this->domain);
+    }
 
     public function updatedClusterServerId(): void
     {
@@ -123,7 +131,7 @@ class Create extends Component
 
         $payload = new ProvisionPayload(
             slug: $this->slug,
-            domain: $this->domain,
+            domain: DomainNormalizer::normalize($this->domain),
             clusterServerId: $this->clusterServerId,
             apps: $this->apps,
             fullApps: $this->fullApps,

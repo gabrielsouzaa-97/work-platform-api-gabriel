@@ -6,12 +6,14 @@ use App\Http\Livewire\Customers\OccPanel;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\IdempotencyKey;
+use App\Models\Job;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
@@ -410,7 +412,7 @@ it('createUser com SshTimeoutException → mensagem amigável', function () {
         ->assertSet('userPasswordPlain', '');
 });
 
-it('createUser com senha < 8 chars → addError sem chamar SSH', function () {
+it('createUser com senha < 10 chars → addError sem chamar SSH', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
@@ -421,7 +423,7 @@ it('createUser com senha < 8 chars → addError sem chamar SSH', function () {
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
         ->set('userUsername', 'johndoe')
-        ->set('userPasswordPlain', '123')
+        ->set('userPasswordPlain', '123456789')
         ->call('createUser')
         ->assertHasErrors(['userPassword']);
 });
@@ -547,4 +549,254 @@ it('addUserToGroup → BlockedOnUpstreamException renderiza mensagem amigável (
         ->assertSet('successMessage', '');
 
     expect(IdempotencyKey::where('cmd', 'groups:add')->count())->toBe(0);
+});
+
+// ── User list (N39.2 — sync OCC user:list --json) ───────────────────────────
+
+it('loadUsers com mock SSH retorna 2 usuários e renderiza tabela', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $users = [
+        ['username' => 'alice', 'email' => 'alice@example.com', 'quota' => '5 GB', 'groups' => ['users']],
+        ['username' => 'bob', 'email' => 'bob@example.com', 'quota' => 'none', 'groups' => ['editors']],
+    ];
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($clusterArg, $cmd, $args) => $cmd === 'nextcloud-manage'
+            && in_array('user:list', $args, true)
+            && in_array('--json', $args, true))
+        ->andReturn(new SshResponse(
+            stdout: json_encode($users),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $users,
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSet('usersLoading', false)
+        ->assertCount('tenantUsers', 2)
+        ->assertSee('alice')
+        ->assertSee('bob')
+        ->assertSee('alice@example.com');
+});
+
+it('loadUsers com SSH timeout seta usersError amigável sem stack trace', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('timeout'));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSet('usersError', 'Timeout: OCC não respondeu em 60s.')
+        ->assertSet('tenantUsers', [])
+        ->assertDontSee('SshTimeoutException');
+});
+
+it('createUser com username admin → validação rejeita antes de SSH', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'admin')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertHasErrors(['userUsername']);
+});
+
+it('loadUsers com JSON vazio exibe Nenhum usuário sem exception', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    bindSshSyncSuccess([]);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSet('tenantUsers', [])
+        ->assertSee('Nenhum usuário');
+});
+
+it('loadUsers normaliza envelope users e refresh via botão', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $payload = [
+        'users' => [
+            ['uid' => 'carol', 'mail' => 'carol@example.com', 'quota' => '10 GB', 'groups' => ['admins']],
+        ],
+    ];
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->twice()
+        ->andReturn(new SshResponse(
+            stdout: json_encode($payload),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $payload,
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSee('carol')
+        ->call('loadUsers')
+        ->assertCount('tenantUsers', 1)
+        ->assertSet('usersError', '');
+});
+
+// ── User create poll (N39.3 — async feedback até terminal) ───────────────────
+
+it('createUser poll até job success → confirmação inline e reload da lista', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+
+    $users = [
+        ['username' => 'newuser', 'email' => 'new@example.com', 'quota' => '5 GB', 'groups' => ['users']],
+    ];
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['job_id' => $jobId]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['job_id' => $jobId],
+        ));
+    $ssh->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: json_encode($users),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $users,
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'newuser')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('pendingUserCreateJobId', $jobId)
+        ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
+
+    Job::query()->where('job_id', $jobId)->update([
+        'state' => 'success',
+        'summary' => ['[INFO] User newuser created'],
+        'finished_at' => now(),
+    ]);
+
+    $component->call('pollPendingUserJob')
+        ->assertSet('pendingUserCreateJobId', '')
+        ->assertSet('successMessage', 'Usuário criado com sucesso.')
+        ->assertCount('tenantUsers', 1)
+        ->assertSet('tenantUsers.0.username', 'newuser');
+});
+
+it('createUser poll job failed com summary → errorMessage inline', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+    bindSshAsyncSuccess($jobId);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'johndoe')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('pendingUserCreateJobId', $jobId);
+
+    Job::query()->where('job_id', $jobId)->update([
+        'state' => 'failed',
+        'summary' => ['[INFO] Starting user create', '[ERROR] admin already exists'],
+        'finished_at' => now(),
+        'exit_code' => 1,
+    ]);
+
+    $component->call('pollPendingUserJob')
+        ->assertSet('pendingUserCreateJobId', '')
+        ->assertSet('errorMessage', 'admin already exists')
+        ->assertSet('successMessage', '');
+});
+
+it('pollPendingUserJob após 120s sem terminal → mensagem timeout com link queue', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+
+    Carbon::setTestNow('2026-07-05 12:00:00');
+    bindSshAsyncSuccess($jobId);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'johndoe')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('pendingUserCreateJobId', $jobId);
+
+    Carbon::setTestNow('2026-07-05 12:02:01');
+
+    $component->call('pollPendingUserJob')
+        ->assertSet('pendingUserCreateJobId', '')
+        ->assertSet('errorMessage', "Tempo esgotado — verifique /queue/{$jobId}");
+
+    Carbon::setTestNow();
+});
+
+it('blade exibe hint política NC 33 e wire:poll quando job pendente', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->andReturn(new SshResponse(
+        stdout: json_encode([]),
+        stderr: '',
+        exitCode: 0,
+        parsedJson: [],
+    ));
+    $ssh->shouldReceive('runAsync')->andReturn(new SshResponse(
+        stdout: json_encode(['job_id' => $jobId]),
+        stderr: '',
+        exitCode: 0,
+        parsedJson: ['job_id' => $jobId],
+    ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->set('userUsername', 'johndoe')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSee('Nextcloud 33 exige ≥10 caracteres')
+        ->assertSeeHtml('wire:poll.3s="pollPendingUserJob"');
 });

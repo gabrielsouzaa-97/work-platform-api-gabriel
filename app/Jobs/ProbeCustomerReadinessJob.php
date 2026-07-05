@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Integration\Dto\ReadinessReport;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -57,7 +58,9 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
             return;
         }
 
-        if ($probe->isReady($customer)) {
+        $report = $probe->probe($customer);
+
+        if ($report->ready) {
             $customer->update(['status' => CustomerLifecycleStatus::ACTIVE]);
 
             AuditLog::create([
@@ -77,6 +80,8 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
             return;
         }
 
+        $this->recordProbeFailure($customer, $report);
+
         if ($this->attempts() >= $this->tries) {
             $this->markTimedOut($customer);
 
@@ -89,6 +94,25 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
     private function isDeadlineExceeded(): bool
     {
         return now()->timestamp >= $this->deadlineTimestamp;
+    }
+
+    private function recordProbeFailure(Customer $customer, ReadinessReport $report): void
+    {
+        AuditLog::create([
+            'id' => Str::uuid()->toString(),
+            'actor_id' => null,
+            'action' => 'customer_readiness_probe',
+            'resource_type' => 'customer',
+            'resource_id' => $customer->slug,
+            'payload' => [
+                'attempt' => $this->attempts(),
+                'error' => $report->error ?? 'readiness gate failed',
+                'probe' => $report->probe ?? 'occ-exec user:list',
+            ],
+            'cluster_server_id' => $customer->cluster_server_id,
+            'job_id' => null,
+            'ip' => null,
+        ]);
     }
 
     private function markTimedOut(Customer $customer): void

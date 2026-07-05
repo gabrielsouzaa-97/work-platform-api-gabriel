@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Livewire\Customers;
 
 use App\Models\AuditLog;
+use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
@@ -12,6 +13,10 @@ use App\Modules\Customers\Actions\RemoveCustomerAction;
 use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Jobs\Exceptions\JobLogFetchException;
+use App\Modules\Jobs\Services\JobLogFetcher;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -20,6 +25,12 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class Show extends Component
 {
+    private const POLL_STATUSES = ['provisioning', 'provisioning_finishing', 'removing'];
+
+    private const LOG_TAIL_CACHE_SECONDS = 15;
+
+    private const LOG_TAIL_LINE_COUNT = 5;
+
     public Customer $customer;
 
     public bool $showRemoveModal = false;
@@ -33,6 +44,17 @@ class Show extends Component
     public function mount(string $slug): void
     {
         $this->customer = Customer::with('clusterServer')->findOrFail($slug);
+    }
+
+    public function refreshProgress(): void
+    {
+        $this->customer->refresh();
+        $this->customer->load('clusterServer');
+    }
+
+    public function shouldPoll(): bool
+    {
+        return in_array($this->customer->status, self::POLL_STATUSES, true);
     }
 
     public function remove(RemoveCustomerAction $action): void
@@ -94,6 +116,73 @@ class Show extends Component
             ->limit(20)
             ->get();
 
-        return view('livewire.customers.show', compact('jobs', 'auditLogs'));
+        $runningJobTail = $this->resolveRunningJobTail();
+        $readinessProbe = $this->resolveReadinessProbe();
+        $maxReadinessAttempts = (int) config('services.customer_readiness.max_attempts', 10);
+
+        return view('livewire.customers.show', compact(
+            'jobs',
+            'auditLogs',
+            'runningJobTail',
+            'readinessProbe',
+            'maxReadinessAttempts',
+        ));
+    }
+
+    private function resolveReadinessProbe(): ?AuditLog
+    {
+        if ($this->customer->status !== CustomerLifecycleStatus::PROVISIONING_FINISHING) {
+            return null;
+        }
+
+        return AuditLog::where('resource_type', 'customer')
+            ->where('resource_id', $this->customer->slug)
+            ->where('action', 'customer_readiness_probe')
+            ->orderByDesc('created_at')
+            ->first();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveRunningJobTail(): array
+    {
+        $runningJob = Job::where('customer_slug', $this->customer->slug)
+            ->where('state', 'running')
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($runningJob === null) {
+            return [];
+        }
+
+        $cluster = $this->customer->clusterServer;
+
+        if ($cluster === null) {
+            return [];
+        }
+
+        $cacheKey = "job_log_tail:{$runningJob->job_id}";
+
+        /** @var list<string> $lines */
+        $lines = Cache::remember(
+            $cacheKey,
+            self::LOG_TAIL_CACHE_SECONDS,
+            fn (): array => $this->fetchJobTailLines($runningJob, $cluster),
+        );
+
+        return array_slice($lines, -self::LOG_TAIL_LINE_COUNT);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function fetchJobTailLines(Job $job, ClusterServer $cluster): array
+    {
+        try {
+            return app(JobLogFetcher::class)->fetch($job, $cluster);
+        } catch (JobLogFetchException) {
+            return [];
+        }
     }
 }

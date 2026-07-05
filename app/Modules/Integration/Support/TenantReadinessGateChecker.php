@@ -8,6 +8,7 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Integration\Dto\ReadinessReport;
 use Illuminate\Support\Facades\Http;
 
 final class TenantReadinessGateChecker
@@ -18,27 +19,29 @@ final class TenantReadinessGateChecker
 
     public function passesAll(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
     {
+        return $this->evaluate($customer, $cluster, $timeoutSec)->ready;
+    }
+
+    public function evaluate(Customer $customer, ClusterServer $cluster, int $timeoutSec): ReadinessReport
+    {
         if ($customer->image_mode) {
-            return $this->passesMeMailHttp($customer, $timeoutSec);
+            return $this->evaluateMeMailHttp($customer, $timeoutSec);
         }
 
-        if (! $this->passesAppList($customer, $cluster, $timeoutSec)) {
-            return false;
+        foreach ([
+            fn (): ReadinessReport => $this->evaluateAppList($customer, $cluster, $timeoutSec),
+            fn (): ReadinessReport => $this->evaluateUserList($customer, $cluster, $timeoutSec),
+            fn (): ReadinessReport => $this->evaluateExternalLocation($customer, $cluster, $timeoutSec),
+            fn (): ReadinessReport => $this->evaluateForceSso($customer, $cluster, $timeoutSec),
+            fn (): ReadinessReport => $this->evaluateMeMailHttp($customer, $timeoutSec),
+        ] as $gate) {
+            $report = $gate();
+            if (! $report->ready) {
+                return $report;
+            }
         }
 
-        if (! $this->passesUserList($customer, $cluster, $timeoutSec)) {
-            return false;
-        }
-
-        if (! $this->passesExternalLocation($customer, $cluster, $timeoutSec)) {
-            return false;
-        }
-
-        if (! $this->passesForceSso($customer, $cluster, $timeoutSec)) {
-            return false;
-        }
-
-        return $this->passesMeMailHttp($customer, $timeoutSec);
+        return new ReadinessReport(true);
     }
 
     /**
@@ -60,29 +63,41 @@ final class TenantReadinessGateChecker
         );
     }
 
-    private function passesAppList(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
+    private function evaluateAppList(Customer $customer, ClusterServer $cluster, int $timeoutSec): ReadinessReport
     {
+        $probe = 'occ-exec app:list';
         $response = $this->runOcc($customer, $cluster, 'app:list', ['--json'], $timeoutSec);
         if ($response->exitCode !== 0) {
-            return false;
+            return new ReadinessReport(false, $this->occFailureMessage($response), $probe);
         }
 
         $payload = OccExecEnvelopeParser::unwrapPayload($response->parsedJson);
         if ($payload === null) {
-            return false;
+            return new ReadinessReport(false, 'app:list returned invalid JSON', $probe);
         }
 
-        return OccExecEnvelopeParser::isAppEnabled($payload, 'mework360_memail')
-            && OccExecEnvelopeParser::isAppEnabled($payload, 'me360_theme');
+        if (! OccExecEnvelopeParser::isAppEnabled($payload, 'mework360_memail')
+            || ! OccExecEnvelopeParser::isAppEnabled($payload, 'me360_theme')) {
+            return new ReadinessReport(false, 'required apps not enabled', $probe);
+        }
+
+        return new ReadinessReport(true);
     }
 
-    private function passesUserList(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
+    private function evaluateUserList(Customer $customer, ClusterServer $cluster, int $timeoutSec): ReadinessReport
     {
-        return $this->runOcc($customer, $cluster, 'user:list', ['--json'], $timeoutSec)->exitCode === 0;
+        $probe = 'occ-exec user:list';
+        $response = $this->runOcc($customer, $cluster, 'user:list', ['--json'], $timeoutSec);
+        if ($response->exitCode === 0) {
+            return new ReadinessReport(true);
+        }
+
+        return new ReadinessReport(false, $this->occFailureMessage($response), $probe);
     }
 
-    private function passesExternalLocation(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
+    private function evaluateExternalLocation(Customer $customer, ClusterServer $cluster, int $timeoutSec): ReadinessReport
     {
+        $probe = 'occ-exec config:externalLocation';
         $response = $this->runOcc(
             $customer,
             $cluster,
@@ -91,16 +106,20 @@ final class TenantReadinessGateChecker
             $timeoutSec,
         );
         if ($response->exitCode !== 0) {
-            return false;
+            return new ReadinessReport(false, $this->occFailureMessage($response), $probe);
         }
 
         $value = OccExecEnvelopeParser::configValue($response->parsedJson, $response->stdout);
+        if (is_string($value) && $value !== '') {
+            return new ReadinessReport(true);
+        }
 
-        return is_string($value) && $value !== '';
+        return new ReadinessReport(false, 'externalLocation not configured', $probe);
     }
 
-    private function passesForceSso(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
+    private function evaluateForceSso(Customer $customer, ClusterServer $cluster, int $timeoutSec): ReadinessReport
     {
+        $probe = 'occ-exec config:forceSSO';
         $response = $this->runOcc(
             $customer,
             $cluster,
@@ -109,17 +128,21 @@ final class TenantReadinessGateChecker
             $timeoutSec,
         );
         if ($response->exitCode !== 0) {
-            return false;
+            return new ReadinessReport(false, $this->occFailureMessage($response), $probe);
         }
 
         $value = OccExecEnvelopeParser::configValue($response->parsedJson, $response->stdout);
+        if (is_string($value) && strcasecmp($value, 'yes') === 0) {
+            return new ReadinessReport(true);
+        }
 
-        return is_string($value) && strcasecmp($value, 'yes') === 0;
+        return new ReadinessReport(false, 'forceSSO is not yes', $probe);
     }
 
-    private function passesMeMailHttp(Customer $customer, int $timeoutSec): bool
+    private function evaluateMeMailHttp(Customer $customer, int $timeoutSec): ReadinessReport
     {
         $path = $customer->image_mode ? '/login' : '/apps/mework360_memail/';
+        $probe = $customer->image_mode ? 'http:login' : 'http:memail';
         $url = sprintf('https://%s%s', $customer->domain, $path);
 
         try {
@@ -127,10 +150,24 @@ final class TenantReadinessGateChecker
                 ->withHeaders(['Accept' => 'text/html,application/xhtml+xml'])
                 ->withOptions(['allow_redirects' => true])
                 ->get($url);
-        } catch (\Throwable) {
-            return false;
+        } catch (\Throwable $e) {
+            return new ReadinessReport(false, $e->getMessage(), $probe);
         }
 
-        return $response->status() === 200;
+        if ($response->status() === 200) {
+            return new ReadinessReport(true);
+        }
+
+        return new ReadinessReport(false, "HTTP {$response->status()}", $probe);
+    }
+
+    private function occFailureMessage(SshResponse $response): string
+    {
+        $stderr = trim($response->stderr);
+        if ($stderr !== '') {
+            return $stderr;
+        }
+
+        return "exit_code={$response->exitCode}";
     }
 }
