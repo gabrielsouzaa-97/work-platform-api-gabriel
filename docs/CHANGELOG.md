@@ -428,3 +428,8 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-05 13:04** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
 - **2026-07-05 18:55** `8e58fed` — Merge pull request #135 from SoftwareBeesy/sprint/N39
 - **2026-07-05 18:50** `b43422c` — Merge pull request #136 from SoftwareBeesy/sprint/N37
+- **2026-07-05 15:57** `d8cf61a` — chore(sprint-finalize): session checkpoint and version 0.1.8 for N37/N39
+- **2026-07-05 16:25** `d8cf61a` — chore(sprint-finalize): session checkpoint and version 0.1.8 for N37/N39
+- **2026-07-05 16:33** `d8cf61a` — chore(sprint-finalize): session checkpoint and version 0.1.8 for N37/N39
+- **2026-07-05 16:53** `d674ce2` — docs(triage): register ISSUE-050 tenant users read model + no-client-admin policy
+- **2026-07-05 18:26** `7453833` — docs(sprint-N40): planning output
