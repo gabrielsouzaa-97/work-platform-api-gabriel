@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Modules\Integration\Services\SuiteCatalogValidator;
+use App\Rules\Fqdn;
 use App\Rules\Slug;
+use App\Support\DomainNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -33,6 +35,20 @@ class ProvisionCustomerRequest extends FormRequest
         if ($merge !== []) {
             $this->merge($merge);
         }
+
+        $normalized = [];
+
+        if ($this->filled('domain')) {
+            $normalized['domain'] = DomainNormalizer::normalize($this->string('domain')->toString());
+        }
+
+        if ($this->filled('fqdn')) {
+            $normalized['fqdn'] = DomainNormalizer::normalize($this->string('fqdn')->toString());
+        }
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
+        }
     }
 
     public function rules(): array
@@ -43,8 +59,8 @@ class ProvisionCustomerRequest extends FormRequest
             'cluster_server_id' => ['required_without:auto_place', 'uuid', 'exists:cluster_servers,id'],
             'auto_place' => ['sometimes', 'boolean'],
             'tier' => ['sometimes', 'string', 'in:shared,dedicated'],
-            'domain' => ['required_without:fqdn', 'string', 'max:253'],
-            'fqdn' => ['sometimes', 'string', 'max:253'],
+            'domain' => ['required_without:fqdn', 'string', 'max:253', new Fqdn],
+            'fqdn' => ['sometimes', 'string', 'max:253', new Fqdn],
             'apps' => ['nullable', 'array'],
             'apps.*' => ['string', 'max:100'],
             'full_apps' => ['nullable', 'boolean'],

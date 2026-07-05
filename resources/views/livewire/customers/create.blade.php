@@ -44,6 +44,9 @@
                 <label for="domain">Domínio (FQDN) *</label>
                 <input id="domain" type="text" class="form-input" wire:model.blur="domain" placeholder="minha-empresa.image-pilot.mework360.com.br" autocomplete="off">
                 <p class="form-hint">FQDN completo do tenant — não use só <code>image-pilot.mework360.com.br</code>. Padrão image-pilot: <code>&lt;slug&gt;.image-pilot.mework360.com.br</code>.</p>
+                @if ($normalizedDomain !== '')
+                    <p class="form-hint">Domínio final: {{ $normalizedDomain }}</p>
+                @endif
                 @error('domain') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
