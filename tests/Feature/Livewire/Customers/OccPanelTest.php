@@ -548,3 +548,118 @@ it('addUserToGroup → BlockedOnUpstreamException renderiza mensagem amigável (
 
     expect(IdempotencyKey::where('cmd', 'groups:add')->count())->toBe(0);
 });
+
+// ── User list (N39.2 — sync OCC user:list --json) ───────────────────────────
+
+it('loadUsers com mock SSH retorna 2 usuários e renderiza tabela', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $users = [
+        ['username' => 'alice', 'email' => 'alice@example.com', 'quota' => '5 GB', 'groups' => ['users']],
+        ['username' => 'bob', 'email' => 'bob@example.com', 'quota' => 'none', 'groups' => ['editors']],
+    ];
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->once()
+        ->withArgs(fn ($clusterArg, $cmd, $args) => $cmd === 'nextcloud-manage'
+            && in_array('user:list', $args, true)
+            && in_array('--json', $args, true))
+        ->andReturn(new SshResponse(
+            stdout: json_encode($users),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $users,
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSet('usersLoading', false)
+        ->assertCount('tenantUsers', 2)
+        ->assertSee('alice')
+        ->assertSee('bob')
+        ->assertSee('alice@example.com');
+});
+
+it('loadUsers com SSH timeout seta usersError amigável sem stack trace', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('timeout'));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSet('usersError', 'Timeout: OCC não respondeu em 60s.')
+        ->assertSet('tenantUsers', [])
+        ->assertDontSee('SshTimeoutException');
+});
+
+it('createUser com username admin → validação rejeita antes de SSH', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'admin')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertHasErrors(['userUsername']);
+});
+
+it('loadUsers com JSON vazio exibe Nenhum usuário sem exception', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    bindSshSyncSuccess([]);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSet('tenantUsers', [])
+        ->assertSee('Nenhum usuário');
+});
+
+it('loadUsers normaliza envelope users e refresh via botão', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $payload = [
+        'users' => [
+            ['uid' => 'carol', 'mail' => 'carol@example.com', 'quota' => '10 GB', 'groups' => ['admins']],
+        ],
+    ];
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('run')
+        ->twice()
+        ->andReturn(new SshResponse(
+            stdout: json_encode($payload),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $payload,
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertSee('carol')
+        ->call('loadUsers')
+        ->assertCount('tenantUsers', 1)
+        ->assertSet('usersError', '');
+});

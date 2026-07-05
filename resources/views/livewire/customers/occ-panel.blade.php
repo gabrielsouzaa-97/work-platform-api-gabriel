@@ -36,6 +36,10 @@
         .hint { font-size: .7rem; color: #4a5568; margin-top: .2rem; }
         .toggle-row { display: flex; align-items: center; gap: .75rem; }
         .divider { border: none; border-top: 1px solid #2d3748; margin: 1.25rem 0; }
+        .users-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+        .users-table th { text-align: left; color: #718096; font-weight: 500; padding: .5rem .75rem; border-bottom: 1px solid #2d3748; }
+        .users-table td { padding: .5rem .75rem; border-bottom: 1px solid #2d3748; color: #e2e8f0; }
+        .users-table .mono { font-family: ui-monospace, monospace; font-size: .75rem; }
     </style>
 
     {{-- Header --}}
@@ -177,6 +181,57 @@
     {{-- ─── USERS TAB ───────────────────────────────────────────────────────── --}}
     @if ($tab === 'users')
     <div class="section-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="section-title" style="margin-bottom:0">Usuários ativos</div>
+            <button
+                class="btn-primary"
+                type="button"
+                wire:click="loadUsers"
+                wire:loading.attr="disabled"
+                wire:target="loadUsers"
+            >
+                <span wire:loading.remove wire:target="loadUsers">Atualizar</span>
+                <span wire:loading wire:target="loadUsers">Carregando…</span>
+            </button>
+        </div>
+
+        @if ($usersError)
+            <div class="alert-error" style="margin-bottom:1rem">{{ $usersError }}</div>
+        @endif
+
+        @if ($usersLoading)
+            <p class="hint">Carregando usuários…</p>
+        @else
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>E-mail</th>
+                        <th>Quota</th>
+                        <th>Grupos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($tenantUsers as $user)
+                        <tr wire:key="tenant-user-{{ $user['username'] }}">
+                            <td class="mono">{{ $user['username'] }}</td>
+                            <td>{{ $user['email'] !== '' ? $user['email'] : '—' }}</td>
+                            <td>{{ $user['quota'] }}</td>
+                            <td>{{ $user['groups'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" style="text-align:center;color:#718096;padding:1.5rem">Nenhum usuário.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        @endif
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-card">
         <div class="section-title">Criar Usuário (async)</div>
         {{-- F5.11 (QA-F5-019): <form wire:submit> + wire:model na senha eliminam
              test/production divergence. createUser() lê de $userPasswordPlain
@@ -187,6 +242,7 @@
                     <label>Username *</label>
                     <input class="form-input" wire:model="userUsername" placeholder="johndoe">
                     @error('userUsername') <div class="form-error">{{ $message }}</div> @enderror
+                    <p class="hint">O username <code>admin</code> é reservado (criado no provisionamento).</p>
                 </div>
                 <div class="form-group">
                     <label>E-mail</label>

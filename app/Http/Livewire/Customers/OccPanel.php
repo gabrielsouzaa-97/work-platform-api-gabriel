@@ -81,6 +81,13 @@ class OccPanel extends Component
 
     public string $deleteUsername = '';
 
+    /** @var array<int, array{username: string, email: string, quota: string, groups: string}> */
+    public array $tenantUsers = [];
+
+    public bool $usersLoading = false;
+
+    public string $usersError = '';
+
     // Groups tab
     public string $groupName = '';
 
@@ -104,6 +111,19 @@ class OccPanel extends Component
     {
         $this->tab = $tab;
         $this->clearMessages();
+
+        if ($tab === 'users') {
+            $this->loadUsers(app(OccPassthroughService::class));
+        }
+    }
+
+    public function updatedTab(): void
+    {
+        if ($this->tab !== 'users') {
+            return;
+        }
+
+        $this->loadUsers(app(OccPassthroughService::class));
     }
 
     // ── Quota ────────────────────────────────────────────────────────────────
@@ -219,7 +239,23 @@ class OccPanel extends Component
         }
     }
 
-    // ── Users (async lifecycle) ───────────────────────────────────────────────
+    // ── Users (list sync + async lifecycle) ───────────────────────────────────
+
+    public function loadUsers(OccPassthroughService $occ): void
+    {
+        $this->usersLoading = true;
+        $this->usersError = '';
+
+        try {
+            $payload = $occ->exec($this->customer, 'user:list', ['--json'], 30);
+            $this->tenantUsers = $this->normalizeUserListRows($payload);
+        } catch (\Throwable $e) {
+            $this->tenantUsers = [];
+            $this->usersError = $this->formatError($e);
+        } finally {
+            $this->usersLoading = false;
+        }
+    }
 
     public function createUser(LifecycleAsyncAction $action): void
     {
@@ -228,7 +264,17 @@ class OccPanel extends Component
         // propriedade no finally — produção e testes percorrem o MESMO caminho
         // (F5.11 elimina test/production divergence registrada em QA-F5-019).
         $this->validate([
-            'userUsername' => ['required', 'string', 'regex:/^[a-zA-Z0-9._-]+$/', 'max:64'],
+            'userUsername' => [
+                'required',
+                'string',
+                'regex:/^[a-zA-Z0-9._-]+$/',
+                'max:64',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (strtolower((string) $value) === 'admin') {
+                        $fail('Username reservado (criado no provisionamento).');
+                    }
+                },
+            ],
             'userEmail' => ['nullable', 'email'],
         ]);
 
@@ -361,6 +407,45 @@ class OccPanel extends Component
     {
         $this->successMessage = '';
         $this->errorMessage = '';
+    }
+
+    /**
+     * @return array<int, array{username: string, email: string, quota: string, groups: string}>
+     */
+    private function normalizeUserListRows(mixed $payload): array
+    {
+        $raw = match (true) {
+            is_array($payload) && isset($payload['users']) && is_array($payload['users']) => $payload['users'],
+            is_array($payload) && array_is_list($payload) => $payload,
+            default => [],
+        };
+
+        $rows = [];
+        foreach ($raw as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $rows[] = $this->normalizeUserRow($item);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return array{username: string, email: string, quota: string, groups: string}
+     */
+    private function normalizeUserRow(array $item): array
+    {
+        $groups = $item['groups'] ?? [];
+        $groupsStr = is_array($groups) ? implode(', ', $groups) : (string) $groups;
+
+        return [
+            'username' => (string) ($item['username'] ?? $item['uid'] ?? $item['user_id'] ?? ''),
+            'email' => (string) ($item['email'] ?? $item['mail'] ?? ''),
+            'quota' => (string) ($item['quota'] ?? $item['file_quota'] ?? '—'),
+            'groups' => $groupsStr !== '' ? $groupsStr : '—',
+        ];
     }
 
     private function formatError(\Throwable $e): string
