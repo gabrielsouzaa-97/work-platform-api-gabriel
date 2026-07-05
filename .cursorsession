@@ -33,9 +33,9 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "Sprint N25 retomada — N25.3 concluída; N25.4 blocked por ISSUE-046 (.108 suite-deploy)",
+  "fase_nome": "N39 validada",
   "sprint_atual": null,
-  "previous_sprint": "N38",
+  "previous_sprint": "N39",
   "sprint_branch": null,
   "sprint_pending_merge": null,
   "campaign": {
@@ -227,27 +227,12 @@
     "messages_lost": 267
   },
   "compact_count": 6,
-  "sprint_pr": 134,
+  "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "done",
-    "sprint": "N38",
-    "branch": "sprint/N38",
-    "merged_at": "2026-07-05T14:16:00Z",
-    "merge_commit": "621d8fd",
-    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/134",
-    "note": "ISSUE-048: LAB FOUC (volume deployer_public) + Livewire image_mode/suite_catalog no form provision; deploy LAB .110 smoke OK; 3/3 tasks; CI 704 tests",
-    "timestamp": "2026-07-05T14:20:00Z",
-    "validation_gate": {
-      "produced_by": "validation-stamp.py",
-      "result": "APROVADA",
-      "validation_mode": "full",
-      "gates": [],
-      "dirty_production_paths": [],
-      "missing_backends": [],
-      "last_validated_sha": "621d8fd92497ecf5558cb77115b79599f07fc895",
-      "stamped_at": "2026-07-05T14:20:00Z"
-    }
+    "phase": "validated",
+    "current_task": null,
+    "last_completed_task": "N39"
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -451,6 +436,9 @@
       "brief_status": "PASS_WITH_NOTES",
       "gate": "FQDN normalizado (Livewire+API+testes); operador vê progresso/readiness; lista usuários OCC; erro create inline; CI verde"
     },
+    {
+      "timestamp": "2026-07-05T16:45:00Z",
+      "action": "/pmo plan — ISSUE-047 API Console fase 1",
       "sprints_generated": [
         "N37"
       ],
@@ -1550,5 +1538,50 @@
       ],
       "evidence": "deploy manual .110; usuário confirmou painel OK"
     }
-  ]
+  ],
+  "checkpoint_n38_archived": {
+    "phase": "done",
+    "sprint": "N38",
+    "branch": "sprint/N38",
+    "merged_at": "2026-07-05T14:16:00Z",
+    "merge_commit": "621d8fd",
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/134",
+    "note": "ISSUE-048: LAB FOUC (volume deployer_public) + Livewire image_mode/suite_catalog no form provision; deploy LAB .110 smoke OK; 3/3 tasks; CI 704 tests",
+    "timestamp": "2026-07-05T14:20:00Z",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "621d8fd92497ecf5558cb77115b79599f07fc895",
+      "stamped_at": "2026-07-05T14:20:00Z"
+    },
+    "validation_gate_qa": {
+      "sprint": "N37",
+      "produced_by": "/rock sprint finalizer — CI PR #136 + LAB deploy",
+      "result": "APROVADA",
+      "validation_round": 1,
+      "senior_review_status": "PASS",
+      "security_review_status": "PASS",
+      "tests_evidence": "CI green PR #136 (Lint, Pest, OpenAPI, Security); LAB /up 200, manifest docs-api.js @ 8e58fed",
+      "stamped_at": "2026-07-05T18:55:00Z"
+    }
+  },
+  "checkpoint_n39_archived": {
+    "phase": "validated",
+    "current_task": null,
+    "last_completed_task": "N37",
+    "validation_gate_qa": {
+      "sprint": "N39",
+      "produced_by": "/rock sprint finalizer — CI PR #135 + LAB deploy",
+      "result": "APROVADA",
+      "validation_round": 1,
+      "senior_review_status": "PASS",
+      "security_review_status": "PASS",
+      "tests_evidence": "CI green PR #135 (Lint, Pest, OpenAPI, Security); LAB deploy 8e58fed, /up 200, docs-api manifest",
+      "stamped_at": "2026-07-05T18:56:00Z"
+    }
+  }
 }
