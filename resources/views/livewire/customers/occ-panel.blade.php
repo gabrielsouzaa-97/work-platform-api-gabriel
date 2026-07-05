@@ -1,4 +1,8 @@
-<div>
+<div
+    @if ($pendingUserCreateJobId !== '')
+        wire:poll.3s="pollPendingUserJob"
+    @endif
+>
     <style>
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
         .page-title { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; }
@@ -253,6 +257,7 @@
                     <label>Senha *</label>
                     <input class="form-input" type="password" wire:model="userPasswordPlain" autocomplete="new-password">
                     @error('userPassword') <div class="form-error">{{ $message }}</div> @enderror
+                    <p class="hint">Nextcloud 33 exige ≥10 caracteres; senhas comuns são rejeitadas.</p>
                 </div>
                 <div class="form-group">
                     <label>Grupos (separados por vírgula)</label>

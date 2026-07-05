@@ -6,6 +6,7 @@ namespace App\Http\Livewire\Customers;
 
 use App\Http\Exceptions\RenderDomainError;
 use App\Models\Customer;
+use App\Models\Job;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
@@ -18,6 +19,7 @@ use App\Modules\Customers\Services\OccPassthroughService;
 use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
+use App\Modules\Jobs\Support\JobSummaryParser;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -26,6 +28,11 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class OccPanel extends Component
 {
+    private const USER_CREATE_POLL_TIMEOUT_SECONDS = 120;
+
+    /** @var list<string> */
+    private const JOB_TERMINAL_STATES = ['success', 'failed', 'cancelled'];
+
     public Customer $customer;
 
     public string $tab = 'quota';
@@ -87,6 +94,10 @@ class OccPanel extends Component
     public bool $usersLoading = false;
 
     public string $usersError = '';
+
+    public string $pendingUserCreateJobId = '';
+
+    public ?int $pendingUserCreateJobStartedAt = null;
 
     // Groups tab
     public string $groupName = '';
@@ -260,9 +271,9 @@ class OccPanel extends Component
     public function createUser(LifecycleAsyncAction $action): void
     {
         // Senha viaja em $this->userPasswordPlain (bound via wire:model na view).
-        // O método valida >=8 chars antes de qualquer chamada upstream e zera a
-        // propriedade no finally — produção e testes percorrem o MESMO caminho
-        // (F5.11 elimina test/production divergence registrada em QA-F5-019).
+        // O método valida >=10 chars (política NC 33) antes de qualquer chamada
+        // upstream e zera a propriedade no finally — produção e testes percorrem
+        // o MESMO caminho (F5.11 elimina test/production divergence QA-F5-019).
         $this->validate([
             'userUsername' => [
                 'required',
@@ -278,8 +289,8 @@ class OccPanel extends Component
             'userEmail' => ['nullable', 'email'],
         ]);
 
-        if (strlen($this->userPasswordPlain) < 8) {
-            $this->addError('userPassword', 'Senha deve ter ao menos 8 caracteres.');
+        if (strlen($this->userPasswordPlain) < 10) {
+            $this->addError('userPassword', 'Senha deve ter ao menos 10 caracteres.');
 
             return;
         }
@@ -309,6 +320,8 @@ class OccPanel extends Component
                 $stdinPayload,
                 $actor,
             );
+            $this->pendingUserCreateJobId = $job->job_id;
+            $this->pendingUserCreateJobStartedAt = now()->timestamp;
             $this->successMessage = "Usuário enfileirado — job {$job->job_id}.";
             $this->userUsername = $this->userEmail = $this->userGroups = '';
         } catch (\Throwable $e) {
@@ -317,6 +330,28 @@ class OccPanel extends Component
             $this->userPasswordPlain = '';
             unset($stdinPayload);
         }
+    }
+
+    public function pollPendingUserJob(OccPassthroughService $occ): void
+    {
+        if ($this->pendingUserCreateJobId === '') {
+            return;
+        }
+
+        $jobId = $this->pendingUserCreateJobId;
+
+        if ($this->isUserCreatePollTimedOut()) {
+            $this->finalizeUserCreatePollTimeout($jobId);
+
+            return;
+        }
+
+        $job = Job::query()->where('job_id', $jobId)->first();
+        if ($job === null || ! in_array($job->state, self::JOB_TERMINAL_STATES, true)) {
+            return;
+        }
+
+        $this->handleUserCreateJobTerminal($job, $occ);
     }
 
     public function deleteUser(LifecycleAsyncAction $action): void
@@ -407,6 +442,41 @@ class OccPanel extends Component
     {
         $this->successMessage = '';
         $this->errorMessage = '';
+    }
+
+    private function clearPendingUserCreateJob(): void
+    {
+        $this->pendingUserCreateJobId = '';
+        $this->pendingUserCreateJobStartedAt = null;
+    }
+
+    private function isUserCreatePollTimedOut(): bool
+    {
+        $startedAt = $this->pendingUserCreateJobStartedAt ?? now()->timestamp;
+
+        return now()->timestamp - $startedAt >= self::USER_CREATE_POLL_TIMEOUT_SECONDS;
+    }
+
+    private function finalizeUserCreatePollTimeout(string $jobId): void
+    {
+        $this->clearPendingUserCreateJob();
+        $this->clearMessages();
+        $this->errorMessage = "Tempo esgotado — verifique /queue/{$jobId}";
+    }
+
+    private function handleUserCreateJobTerminal(Job $job, OccPassthroughService $occ): void
+    {
+        $this->clearPendingUserCreateJob();
+        $this->clearMessages();
+
+        if ($job->state === 'success') {
+            $this->successMessage = 'Usuário criado com sucesso.';
+            $this->loadUsers($occ);
+
+            return;
+        }
+
+        $this->errorMessage = JobSummaryParser::failureMessage($job);
     }
 
     /**
