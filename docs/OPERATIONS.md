@@ -1,5 +1,13 @@
 # Operations log
 
+## 2026-07-05T03:00:00Z — ISSUE-046 diagnóstico 3 camadas + fixes (config `.108` + webhook history)
+
+- **Camada 1 (create, FIXED):** criado `/opt/work-platform-scripts/deploy/lab-deploy.conf` no `.108` com `LAB_DEPLOY_HOST=` vazio → `deploy_shell` deixa de tentar `apply-lab` remoto contra labwork `.112` e cai no caminho local `custom_apps_sync_tenant`. Create via API validado (`canario-n25c`/`d` → job success exit 0).
+- **Camada 2 (webhook 401, FIXED):** cadastro N25.3 criou `cluster_server` sem linha em `webhook_secret_history` (feito por atribuição direta, fora do fluxo `ClusterCreate`). `WebhookSecretValidator` valida contra essa tabela → 401. Criada linha via `WebhookSecretHistory::createWithSecret` (v1) para `d7538710-...`. Callback validado (401→aceito; customer → `provisioning_finishing`).
+- **Camada 3 (readiness, ESCOPO):** create local não instala a suíte me360 (`app:list` → 0 apps); gate de readiness (mework360_memail+me360_theme+SSO) nunca passa. `.108` não provisionado p/ suíte local. Decisão de escopo pendente (canário de suíte no `.112` vs `.108`).
+- **Cleanup:** tenants `canario-n25c`/`canario-n25d` removidos (host `remove --confirm` + soft-delete control plane); API keys de teste revogadas. Override `lab-deploy.conf` mantido (documentado).
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-04T23:31:00Z — Retomada N25: cluster `lab-upstream` (.108) cadastrado; canário bloqueado por ISSUE-046
 
 - **N25.3 — cluster `lab-upstream` (`.108`):** UUID `d7538710-676d-4673-a191-8decc0905596`; SSH `ncsaas-api@128.201.61.108`; tier shared; `webhook_allowed_ip` 128.201.61.108; `nextcloud_version` 31.0.0 (legado). Chave dedicada ed25519 `~/.ssh/api-lab-108-2026` (comment `api-lab-108-2026`), autorizada em `/home/ncsaas-api/.ssh/authorized_keys` no `.108` com o mesmo `ForceCommand` restrito (`ncsaas-api-shim`) usado em `.120`.

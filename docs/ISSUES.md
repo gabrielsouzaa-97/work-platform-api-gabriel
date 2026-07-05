@@ -51,7 +51,7 @@
 | ISSUE-043 | change_request | Apontar a API para o ambiente que será PRODUÇÃO: piloto image-mode `cloud.image-pilot.mework360.com.br` (`.120`); tenants prod = `<tenant>.mework360.com.br` | Customers, ClusterServers, Dns, Integration, Infra | HIGH | open — **fase inicial (N36) concluída** com gate E2E canário `canario-n36e` (2026-07-04); cutover domínio `<tenant>.mework360.com.br` e migração SaaS-02 fora do escopo N36 |
 | ISSUE-044 | bug | CI vermelho no `main` pós-F3 (`6b29717`): 7 testes falham — `OnboardingSagaTest` ×4 (`Unknown suite catalog app_id: calendar` → 422) + `AgentTransport`/`Provision` ×3 (mocks `runAsync` sem `--suite-catalog` no argv esperado) | Customers, Onboarding, QA/CI | HIGH | **fixed (2026-07-03, sprint/N36 PR #128)** — evidência pré-fix: run main 28349563271 |
 | ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | **fixed (2026-07-04)** — fix upstream `ba53ecc` + deploy `.120` + canário `canario-n36e` gate PASS |
-| ISSUE-046 | bug | Cross-repo `.108` (LAB upstream `nextcloud-saas-manager`): `nextcloud-manage <slug> <domain> create` (legado, sem `--image-mode`) falha exit 1 — `suite-deploy` aponta para host errado (`mecloud360@128.201.61.112` = labwork) e script `apply-lab.sh` ausente (`//work-nc-theme-fork/deploy/apply-lab.sh`); webhook de falha também não chega ao control plane (`callback_failed=true`, customer preso em `provisioning`) | Cross-repo (work-platform-scripts), Jobs, Customers, Webhook | CRITICAL | open — **bloqueia N25.4** (gate `create_canary`); descoberto no canário `canario-n25` (job `4ba0824d-343c-44fd-bed7-aa1bd0b7de88`) |
+| ISSUE-046 | bug | Cross-repo `.108` (LAB upstream): create suite-catalog aponta `deploy_shell` para host labwork `.112` (`apply-lab.sh` ausente) → exit 1. Diagnóstico 3 camadas: (1) suite-deploy misdirecionado **[fix config]**, (2) webhook 401 por falta de `webhook_secret_history` no cadastro N25.3 **[fixed]**, (3) readiness gate exige suíte me360 que o create local não instala **[escopo]** | Cross-repo (work-platform-scripts), Jobs, Customers, Webhook | HIGH | **parcial** — create+webhook OK; gate completo N25.4 depende de decisão de escopo (suíte no `.108` vs `.112`) + fix estrutural via `/pmo fix` |
 
 ---
 
@@ -93,11 +93,29 @@ exit 1
 
 Bloqueia **N25.4** (gate `create_canary` da umbrella BOM `platform-1.0.0.yaml`). Os gates `memail_sso_smoke` (ISSUE-031) e `settings_matrix` (16/16) dependem de um create bem-sucedido e portanto também ficam bloqueados por tabela.
 
+### Diagnóstico completo (2026-07-05) — 3 camadas
+
+Investigação a fundo no `.108` identificou **três problemas empilhados**:
+
+**Camada 1 — create falha (PRIMÁRIA, RESOLVIDA):** `/opt/nextcloud-customers/manage.sh` resolve o platform root para `/opt/work-platform-scripts` (onde está `releases/suite_catalog.json`). O `create` sem `--legacy-vendor` entra em "suite-catalog mode" (default) → chama `deploy_shell`. Como `/opt/work-platform-scripts/deploy/labwork-deploy.conf` define `LAB_DEPLOY_HOST=mecloud360@128.201.61.112` (host **labwork**, ambiente diferente), o `deploy_shell` entra no ramo "apply-lab remoto" e busca `${work_root}/work-nc-theme-fork/deploy/apply-lab.sh` — que resolve para `//work-nc-theme-fork/...` (work_root vazio) e **não existe** no `.108`. → exit 1.
+- **Fix aplicado (config, reversível):** criado `/opt/work-platform-scripts/deploy/lab-deploy.conf` no `.108` com `LAB_DEPLOY_HOST=` (vazio). O loader `suite_deploy_load_lab_conf` faz source dele DEPOIS do `labwork-deploy.conf`, então o valor vazio vence → `deploy_shell` cai no caminho local `custom_apps_sync_tenant`. **Validado:** create via API `canario-n25c`/`canario-n25d` → job `success`, `exit_code=0`.
+
+**Camada 2 — webhook 401 (SECUNDÁRIA, RESOLVIDA — era gap do setup N25.3):** o `WebhookSecretValidator::valid()` **não lê** `cluster.webhook_secret_encrypted`; valida contra a tabela `webhook_secret_history`. O cadastro N25.3 (feito por atribuição direta no model, fora do fluxo `ClusterCreate` Livewire) criou o `ClusterServer` sem a linha correspondente em `webhook_secret_history` → validator sem secret → **401 invalid_signature** (não era mismatch: os secrets batiam). Mesma assimetria do finding sobre `Create.php` sem `DB::transaction` (FINDINGS).
+- **Fix aplicado:** criada a linha via `WebhookSecretHistory::createWithSecret(...)` (version 1, valid_from now, valid_until null) para `cluster_server_id=d7538710-...`. **Validado:** callback do `canario-n25d` passou de 401 → aceito; customer avançou `provisioning` → `provisioning_finishing`.
+
+**Camada 3 — readiness gate nunca passa (ESCOPO, não resolvido por config):** o `TenantReadinessGateChecker::passesAll` (via `ProbeCustomerReadinessJob`) exige, para tenant não-image-mode: apps `mework360_memail` **e** `me360_theme` habilitados + `externalLocation` + `forceSSO=yes` + HTTP 200 em `/apps/mework360_memail/`. Mas o caminho local (`custom_apps_sync_tenant` com `LAB_DEPLOY_HOST` vazio) **NÃO instala a suíte** — o create do `canario-n25d` logou "sem app/ — sync ignorado" e `app:list` confirmou `total enabled: 0`. Ou seja: o create "sobe" um Nextcloud **cru**, e o gate de readiness (16/16 settings + SSO) **nunca passa** → tenant expiraria em `failed` (deadline 1200s).
+- **Implicação de escopo:** a suíte me360 completa é justamente o que o `apply-lab.sh` (bypassado) instalaria. O `.108` **não está provisionado para hospedar a suíte localmente** — a máquina de suite-deploy aponta para o host de proving-ground labwork (`.112`). Portanto o gate completo do N25.4 (canário + 16/16 + SSO memail) **não é satisfazível no `.108` como está hoje**.
+
+### Estado após diagnóstico
+
+- Camadas 1 e 2 corrigidas e validadas end-to-end (create via API → job success → webhook 204 → `provisioning_finishing`).
+- Camada 3 é decisão de escopo/arquitetura (ver abaixo). Tenants de teste `canario-n25c`/`canario-n25d` removidos (host + control plane soft-delete); API key `canary-n25b` revogada; override `lab-deploy.conf` mantido no `.108` (documentado).
+
 ### Próximos passos sugeridos
 
-1. Investigar em `work-platform-scripts` por que `suite-deploy`/`nc_image.sh` (ou equivalente) direciona `.108` para `labwork` (`.112`) em vez de aplicar localmente — possível config global compartilhada incorretamente entre hosts (mesmo padrão de causa-raiz do ISSUE-045: env/config drift entre clusters)
-2. Investigar entrega do webhook de falha (`callback_failed`) — comparar com o fluxo que funcionou em `canario-n36e` (`.120`, image-mode) para achar a diferença
-3. Rotear correção via `/pmo fix` após confirmação da causa raiz — não fixar inline em produção/LAB
+1. **Fix estrutural (`/pmo fix` em `work-platform-scripts`):** decidir por que os defaults do labwork proving-ground (`labwork-deploy.conf`) são embarcados no checkout do `.108` — env/config drift entre hosts, mesma classe do ISSUE-045. Idealmente o `create` num host self-contained deveria fazer deploy local da suíte (não remoto).
+2. **Decisão de escopo N25.4:** o canário de suíte completa (16/16 + SSO) deve rodar contra o host de suíte (`.112`/labwork) e não contra o `.108` legado? Reavaliar o gate no `PLATFORM-V2-PLAN §18` antes de mais mudanças de infra.
+3. Sub-item resolvido: o problema de webhook (Camada 2) era gap do cadastro N25.3, não bug upstream — já corrigido.
 
 ---
 

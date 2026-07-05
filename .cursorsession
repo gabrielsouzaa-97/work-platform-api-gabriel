@@ -67,7 +67,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-04T23:14:32Z",
+  "ultimo_update": "2026-07-04T23:40:49Z",
   "next_sprint_planned": "N36",
   "modulos": [
     "Core",
@@ -244,8 +244,13 @@
     "current_task": "N25.4",
     "last_completed_task": "N25.3",
     "resumed_at": "2026-07-04T23:15:00Z",
+    "issue_046_diagnosis": {
+      "layer1_create": "FIXED (config) — lab-deploy.conf override no .108 (LAB_DEPLOY_HOST vazio) → deploy_shell usa custom_apps_sync local; create via API job success exit 0",
+      "layer2_webhook_401": "FIXED — faltava webhook_secret_history no cadastro N25.3; criada linha via createWithSecret; callback aceito, customer → provisioning_finishing",
+      "layer3_readiness": "SCOPE — readiness gate exige apps mework360_memail+me360_theme+SSO; create local não instala suíte (total enabled 0); .108 não provisionado p/ suíte local (suite-deploy aponta labwork .112). Gate completo N25.4 não satisfazível no .108 como está"
+    },
     "blockers": [
-      "N25.4 blocked by ISSUE-046: nextcloud-manage create legado falha em .108 (suite-deploy misdirecionado p/ .112 labwork); webhook de falha não entregue ao control plane"
+      "N25.4 gate completo depende de decisão de escopo: canário de suíte (16/16 + SSO) roda no .112 labwork ou .108 passa a hospedar suíte local? + fix estrutural work-platform-scripts (labwork-deploy.conf vazando p/ .108)"
     ],
     "n25_3_evidence": {
       "cluster_server_id": "d7538710-676d-4673-a191-8decc0905596",
@@ -255,11 +260,11 @@
       "webhook_secret_set": true,
       "health_check": "active (cluster:health-check R6 PASS)"
     },
-    "n25_4_attempt": {
-      "canary_slug": "canario-n25",
-      "job_id": "4ba0824d-343c-44fd-bed7-aa1bd0b7de88",
-      "result": "failed exit 1 (ISSUE-046)",
-      "cleanup": "customer soft-deleted (provisioning_failed); api key canary-n25 revoked"
+    "n25_4_attempts": {
+      "canario-n25": "failed exit 1 (ISSUE-046 camada 1) — antes do fix",
+      "canario-n25c": "job success exit 0 (pós fix config camada 1); webhook 401 (camada 2)",
+      "canario-n25d": "job success + webhook aceito (pós fix camada 2) → provisioning_finishing; readiness nunca passa (camada 3: sem suíte)",
+      "cleanup": "todos os tenants removidos (host + control plane soft-delete); api keys canary-n25/canary-n25b revogadas"
     },
     "lab_deploy_vm_a": {
       "host": "128.201.61.110",
