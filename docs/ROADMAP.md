@@ -94,6 +94,7 @@
 | N36    | N         | Canário `POST /v1/tenants` no host image-pilot (`.120`) com `--image-mode --suite-catalog`: job success + readiness PASS + webhook 204 + TLS/DNS OK; CI verde | **concluída** (5/5) | 5 | Customers, ClusterServers, Integration, Dns | ISSUE-043 fase inicial: apontar API para produção image-mode | 4990+ |
 | N37    | N         | `/docs/api` renderiza `openapi-external.yaml` só autenticado (`manage-operators`); credencial com scopes persiste e é honrada por `api.scope:*`; listagem exibe scopes; CI verde | pendente | 4 | Core (Auth/api-key), Livewire, docs | ISSUE-047: API Console fase 1 — docs viewer privado (Scalar) + scopes nas credenciais | 5080+ |
 | N38    | N         | LAB: assets Vite servidos pelo nginx; form `/customers/create` com `image_mode` + UX domínio/slug; deploy `.110` smoke | **concluída** (3/3) | 3 | Livewire, DevOps | ISSUE-048: gap N36 no painel + FOUC LAB (compose volume) | 5168+ |
+| N39    | N         | UX provisionamento + OCC operacional: FQDN normalizado; progresso/readiness visível; lista usuários OCC; erro create inline; CI verde | pendente | 7 | Livewire, Customers, Occ, Jobs, ClusterServers | ISSUE-049: DESIGN.md §8 UX Audit 2026-07-05 | 5182+ |
 
 ---
 
@@ -5181,9 +5182,238 @@ Cenários de teste:
 
 ---
 
+## Sprint N39 — UX provisionamento + OCC operacional (DESIGN.md §8 UX Audit 2026-07-05)
+
+> Categoria: N
+> Gate (núcleo N39.1–N39.5): provisionamento com domínio normalizado (trailing slash **strip** server-side; protocolo rejeitado 422; preview no form; API v1 + Livewire + testes Pest); operador vê progresso em `customers/show` (`wire:poll` + link job + tail log throttled); OccPanel lista usuários via `user:list --json` (timeout SSH 30s) e bloqueia `admin`; erro de `users:create` inline após poll até terminal; readiness visível em `provisioning_finishing` via AuditLog `customer_readiness_probe` (tentativa/último erro); CI verde (lint + Pest). **Stretch N39.6/N39.7 fora do gate** — entregar após núcleo verde.
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-05. Fonte: ISSUE-049; `docs/design/DESIGN.md` §8; `docs/REQUIREMENTS.md` F3/F6; incidentes LAB `pacoteste` (trailing slash, user create failed). Modo de execução: pipeline/autopilot.
+> Fora de escopo: mudanças upstream NC/senha; ISSUE-047/N37; cutover domínio prod (ISSUE-043).
+> Quality Brief: `docs/.briefs/N39.brief.md` (PASS_WITH_NOTES).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | P | N39.1 — Normalizar FQDN: strip trailing slash, lowercase, regex; Livewire Create + ProvisionCustomerRequest + API v1; preview no form; testes Pest | laravel-livewire / api-rest-patterns | — |
+| [ ] | M | N39.2 — OccPanel aba Usuários: listar via `OccPassthroughService` `user:list --json`; tabela refresh; bloquear username `admin` | laravel-livewire | — |
+| [ ] | M | N39.3 — Feedback async user create: poll job até terminal; summary/erro inline; senha ≥10 + hint política NC | laravel-livewire | N39.2 |
+| [ ] | M | N39.4 — `customers/show`: `wire:poll` durante provisioning/finishing; link `/queue/{job_id}`; tail log (`JobLogFetcher` throttled) | laravel-livewire | — |
+| [ ] | M | N39.5 — Readiness visível em `provisioning_finishing` — tentativa/erro (extend `ReadinessReport` ou audit log) | laravel-livewire | N39.4 |
+| [ ] | P | N39.6 *(stretch)* — Retrofit visual `customers/*` para tokens M3 (match `cluster-servers`) | laravel-livewire | — |
+| [ ] | M | N39.7 *(stretch)* — Remover cluster soft-delete na UI com guarda customers ativos | laravel-livewire | — |
+
+### Task N39.1 — Normalizar FQDN (strip slash, lowercase, regex)
+
+**Estado atual**: `Create.php` valida `domain` com `required|string|max:253` sem normalização; `ProvisionCustomerRequest` aceita `domain`/`fqdn` com `max:253` apenas; incidente LAB `pacoteste` com `/` final quebrou Traefik `Host()`, `trusted_domains` e readiness (404 silencioso). N38 adicionou hints de sugestão de domínio mas não sanitiza input.
+**Estado desejado**: regra compartilhada `App\Rules\Fqdn` (ou helper `DomainNormalizer`) aplicada em `prepareForValidation()` do FormRequest e em `updatedDomain()` do Livewire; regex `/^[a-z0-9-]+(\.[a-z0-9-]+)+$/` (sem protocolo, sem barra, lowercase); preview "Domínio final: …" no blade antes de submit; `ProvisionTenantRequest` (API v1) herda o mesmo comportamento; testes Pest cobrindo trailing slash, uppercase, protocolo e domínio válido.
+**Fonte(s)**: DESIGN.md §8.4; ISSUE-049; REQUIREMENTS F3
+**Módulo(s) afetado(s)**: `app/Rules/Fqdn.php` (novo), `app/Http/Livewire/Customers/Create.php`, `resources/views/livewire/customers/create.blade.php`, `app/Http/Requests/ProvisionCustomerRequest.php`, `app/Http/Requests/V1/ProvisionTenantRequest.php`, `tests/Feature/Customers/ProvisionTest.php` ou `tests/Feature/Api/V1/ProvisionTenantTest.php`
+**Risco**: LOW — mudança isolada de validação; regressão poderia rejeitar domínios legítimos com IDN (fora de escopo MVP)
+**Task size**: P (~5 arquivos)
+
+**Critério de pronto**: trailing slash **normalizado** (não 422); `HTTPS://Foo.Bar` → 422; `foo.bar` persiste lowercase; preview em tempo real; API v1 + Livewire + CI verde.
+
+**executor_prompt**:
+Melhoria: normalizar e validar FQDN em provisionamento (incidente LAB `pacoteste` trailing slash).
+Contexto: domínio com `/` final quebra Traefik `Host()` e readiness; hoje `Create.php` e `ProvisionCustomerRequest` aceitam input cru.
+
+### Quality Brief (Sprint N39)
+- Criar `App\Rules\Fqdn` + helper `DomainNormalizer::normalize(string): string` (`trim → strtolower → rtrim('/')`).
+- Aplicar em `prepareForValidation()` de `ProvisionCustomerRequest` **antes** da regra Fqdn; `updatedDomain()` no Livewire para preview.
+- `ProvisionTenantRequest` herda via parent — não duplicar regras.
+- Rejeitar 422 apenas: protocolo (`://`), TLD ausente, regex inválida — **não** rejeitar trailing slash (strip).
+- Preview blade: "Domínio final: {normalized}".
+
+Objetivo: FQDN persistido sempre normalizado; operador vê preview; API v1 e Livewire consistentes.
+Arquivos: app/Rules/Fqdn.php, app/Support/DomainNormalizer.php (ou inline no Rule), Create.php, create.blade.php, ProvisionCustomerRequest.php, ProvisionTenantRequest.php, testes Pest.
+Critério de pronto: cenários abaixo passam; CI verde.
+reuse_targets:
+  - pattern: FormRequest prepareForValidation
+    reuse_as: extend
+    convergence_check: rg "prepareForValidation" app/Http/Requests/ProvisionCustomerRequest.php
+Cenários de teste:
+  1. Normal: `pacoteste.image-pilot.mework360.com.br` → aceito e persistido lowercase.
+  2. Edge: `Pacoteste.Image-Pilot.MeWork360.Com.Br/` → **normalizado** para lowercase sem barra (200, não 422).
+  3. Edge: `https://foo.bar` → 422 (protocolo rejeitado).
+  4. Edge: `foo` (sem TLD) → 422.
+  5. Regressão: provision existente com domínio válido continua passando.
+
+### Task N39.2 — OccPanel aba Usuários: listar + bloquear admin
+
+**Estado atual**: `OccPanel` aba `users` só expõe forms de criar/remover (`occ-panel.blade.php:178+`); operador não vê usuários existentes (admin do provisionamento só via SSH/`.credentials`); `OccPassthroughService::exec($customer, 'user:list', ['--json'])` já funciona (usado em readiness gate) mas não é consumido na UI.
+**Estado desejado**: ao abrir aba `users`, carregar tabela (username, email, quota, grupos) via `user:list --json`; botão "Atualizar" + refresh automático ao entrar na aba; validação client-side bloqueando username `admin` (reservado) com hint; estados loading/erro inline; testes Livewire com SSH mock.
+**Fonte(s)**: DESIGN.md §8.5; ISSUE-049; REQUIREMENTS F6
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`
+**Risco**: MEDIUM — nova chamada SSH sync na UI; timeout em cluster unreachable deve usar `formatError()` existente
+**Task size**: M (3 arquivos)
+
+**executor_prompt**:
+Melhoria: listar usuários ativos do tenant no Painel OCC (aba Usuários).
+Contexto: `OccPassthroughService` já mapeia `user:list` → `occ-exec user:list --json` (`OccPassthroughService.php:96`). O componente `OccPanel` tem aba `users` com apenas create/delete async — operador tenta criar `admin` sem saber que já existe (incidente LAB `pacoteste`).
+
+### Quality Brief (Sprint N39)
+- Usar `OccPassthroughService::exec()` existente — NÃO montar argv SSH manualmente no Livewire.
+- Parse JSON defensivo: upstream pode retornar lista ou envelope `{users:[]}` — normalizar para array de rows na view.
+- Bloquear `admin` no `$rules` + hint "Username reservado (criado no provisionamento)" antes do submit.
+- Gate `provision-customers` já aplicado no mount — manter.
+- Timeout wall-clock **30s** em `loadUsers()` — falha → `$usersError` amigável (evitar hang SSH).
+
+Objetivo: propriedades `$tenantUsers = []`, `$usersLoading`, `$usersError`; método `loadUsers()` chamado em `updatedTab()` quando `$tab === 'users'` e via botão refresh; tabela com colunas username/email/quota/groups.
+Arquivos: app/Http/Livewire/Customers/OccPanel.php, resources/views/livewire/customers/occ-panel.blade.php, tests/Feature/Livewire/Customers/OccPanelTest.php.
+Critério de pronto: testes passam; lista renderiza com mock SSH; `admin` bloqueado client-side; CI verde.
+reuse_targets:
+  - service: app/Modules/Customers/Services/OccPassthroughService.php
+    reuse_as: call
+    convergence_check: rg "user:list" app/Modules/Customers/Services/OccPassthroughService.php
+Cenários de teste:
+  1. Normal: `loadUsers()` com mock retornando 2 users → tabela exibe rows.
+  2. Edge: SSH timeout → `$usersError` com mensagem amigável (não stack trace).
+  3. Edge: submit create com username `admin` → validação rejeita antes de SSH.
+  4. Regressão: createUser/deleteUser existentes continuam funcionando.
+  5. Edge: JSON vazio → tabela "Nenhum usuário" sem exception.
+
+### Task N39.3 — Feedback async user create + política de senha
+
+**Estado atual**: `createUser()` enfileira via `LifecycleAsyncAction` e mostra "Usuário enfileirado — job {id}" (`OccPanel.php:266`); validação de senha `>= 8` chars; erro real (admin duplicado, senha fraca NC33) só aparece no `summary` do job na tabela "Jobs recentes" de `customers/show`, fora do OCC.
+**Estado desejado**: após enfileirar, guardar `$pendingUserCreateJobId` e ativar `wire:poll.3s` até job `success`/`failed`; exibir resultado inline (sucesso ou motivo da falha extraído do `summary`); elevar validação para `>= 10` chars + hint citando política Nextcloud 33 (comprimento mínimo, senhas comuns rejeitadas); refresh da lista de usuários em sucesso; testes cobrindo poll terminal failed/success.
+**Fonte(s)**: DESIGN.md §8.6; ISSUE-049; incidente LAB user create failed
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`
+**Risco**: MEDIUM — poll Livewire + leitura de `Job` model; evitar poll infinito (timeout wall-clock ~120s)
+**Task size**: M (3 arquivos)
+**Depende de**: N39.2 (lista de usuários para refresh pós-sucesso)
+
+**executor_prompt**:
+Melhoria: feedback inline do resultado real de `users:create` async no Painel OCC.
+Contexto: `LifecycleAsyncAction` retorna `Job` com `job_id`; webhook preenche `state` e `summary`. Hoje o operador só vê "enfileirado" — no LAB, NC rejeitou por senha fraca ou username duplicado e o erro ficou escondido em `/customers/{slug}` → Jobs recentes.
+
+### Quality Brief (Sprint N39)
+- Poll via método `pollPendingUserJob()` chamado por `wire:poll.3s` condicional no blade (mesmo padrão de `jobs/show.blade.php:3-5`).
+- Ler `Job::where('job_id', $pendingUserCreateJobId)->first()`; estados terminais: `success`, `failed`, `cancelled`.
+- Extrair mensagem de falha: última linha `[ERROR]` ou `summary` string/array — reutilizar lógica de `Jobs\Show::parsedLogLines()` se possível (extrair helper compartilhado ≤30 linhas).
+- Senha: `strlen >= 10` no componente + hint no blade "Nextcloud 33 exige ≥10 caracteres; senhas comuns são rejeitadas".
+- Zera `$pendingUserCreateJobId` e desliga poll no terminal; em sucesso chama `loadUsers()`.
+
+Objetivo: operador vê sucesso ou erro real sem sair do OCC; senha alinhada à política NC.
+Arquivos: OccPanel.php, occ-panel.blade.php, OccPanelTest.php (+ opcional helper em `app/Modules/Jobs/Support/JobSummaryParser.php` se extrair parser).
+Critério de pronto: testes simulam job failed com summary → erro inline; job success → mensagem verde + lista atualizada; CI verde.
+Cenários de teste:
+  1. Normal: createUser → poll até job success → successMessage com confirmação + users reload.
+  2. Edge: job failed summary "admin already exists" → errorMessage inline.
+  3. Edge: senha 9 chars → rejeitada antes de enfileirar.
+  4. Edge: poll timeout 120s → mensagem "Tempo esgotado — verifique /queue/{id}".
+  5. Regressão: F5.11 wire:submit + cleanup senha no finally preservados.
+
+### Task N39.4 — customers/show: poll + link job + tail log
+
+**Estado atual**: `Show.php` renderiza jobs estáticos sem auto-refresh (`Show.php:84-98`); blade usa CSS inline legado (`show.blade.php:2-40`); `JobLogFetcher` existe (`app/Modules/Jobs/Services/JobLogFetcher.php`) e é usado em webhook pós-finished mas não na página do customer durante provisioning.
+**Estado desejado**: `wire:poll.5s` no root quando `$customer->status` ∈ `{provisioning, provisioning_finishing, removing}`; card "Jobs recentes" com link `route('queue.show', $job->job_id)` por linha; para job `running` do customer, exibir tail das últimas 5 linhas via `JobLogFetcher` com throttle (max 1 fetch/15s por job_id em cache); `customer->refresh()` a cada poll.
+**Fonte(s)**: DESIGN.md §8.2; ISSUE-049; REQUIREMENTS F3/F5
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/Show.php`, `resources/views/livewire/customers/show.blade.php`, `tests/Feature/Livewire/Customers/CustomerShowTest.php` (novo ou estender suite existente)
+**Risco**: MEDIUM — SSH durante poll pode sobrecarregar; throttle obrigatório
+**Task size**: M (3-4 arquivos)
+
+**executor_prompt**:
+Melhoria: feedback de progresso na página do customer durante provisionamento.
+Contexto: operador fica na tela `running`/`provisioning_finishing` sem atualização até F5 manual. `jobs/show` já usa `wire:poll.5s` para jobs running; replicar padrão em `customers/show` com escopo no customer.
+
+### Quality Brief (Sprint N39)
+- Poll condicional: só quando status não terminal (`active`, `failed`, `removed`).
+- `JobLogFetcher::fetch()` só para job mais recente com `state=running` — cache key `job_log_tail:{job_id}` TTL 15s.
+- Não persistir logs no DB durante poll (read-only display).
+- Link para `/queue/{job_id}` em cada row da tabela jobs.
+
+Objetivo: operador vê status e tail de log sem reload manual; link direto para detalhe do job.
+Arquivos: Show.php, show.blade.php, testes Feature Livewire.
+Critério de pronto: teste com customer provisioning mock → poll ativo; job running → tail exibido; status terminal → poll desligado; CI verde.
+Cenários de teste:
+  1. Normal: customer `provisioning` → componente tem wire:poll (assert via Livewire).
+  2. Normal: job running → tail lines renderizadas (JobLogFetcher mockado).
+  3. Edge: JobLogFetcher SSH fail → tail vazio sem quebrar página.
+  4. Edge: customer `active` → sem poll.
+  5. Regressão: modal remove customer intacto.
+
+### Task N39.5 — Readiness visível em provisioning_finishing
+
+**Estado atual**: `ProbeCustomerReadinessJob` roda até 10 tentativas / 1200s (`ProbeCustomerReadinessJob.php:32-33`); UI não expõe tentativa nem motivo; `ReadinessReport` é só `bool $ready` (`ReadinessReport.php:9`); timeout grava `customer_readiness_timeout` em AuditLog com `attempts` e `deadline` mas sem último erro de probe.
+**Estado desejado**: estender `ReadinessReport` com `?string $lastError` e `?int $attempt` (ou gravar `customer_readiness_probe` no AuditLog a cada falha); `ProbeCustomerReadinessJob` persiste último erro do probe; `customers/show` exibe card "Readiness" quando `status=provisioning_finishing`: "Tentativa N/10 — último erro: …" lido do audit mais recente ou campo no customer; testes unitários do job + feature do Show.
+**Fonte(s)**: DESIGN.md §8.3; ISSUE-049; ISSUE-010 contexto
+**Módulo(s) afetado(s)**: `app/Modules/Integration/Dto/ReadinessReport.php`, `app/Modules/Integration/Adapters/SshPlatformAdapter.php`, `app/Jobs/ProbeCustomerReadinessJob.php`, `app/Http/Livewire/Customers/Show.php`, `resources/views/livewire/customers/show.blade.php`, `tests/Feature/Customers/CustomerReadinessTest.php`
+**Risco**: MEDIUM — toca job de readiness crítico; manter comportamento de promote → `active` inalterado
+**Task size**: M (~5 arquivos)
+**Depende de**: N39.4 (mesma página Show)
+
+**executor_prompt**:
+Melhoria: tornar `provisioning_finishing` observável — tentativas e último erro do readiness gate.
+Contexto: após webhook `provision success`, customer fica em `provisioning_finishing` enquanto `ProbeCustomerReadinessJob` faz backoff. Operador não sabe se está na tentativa 2 ou 9 nem por que falhou (ex.: HTTP 404 no probe meMail).
+
+### Quality Brief (Sprint N39)
+- Preferir AuditLog `action=customer_readiness_probe` com payload `{attempt, error, probe}` a cada falha — evita migration em `customers`.
+- `CustomerReadinessProbe::isReady()` pode retornar report estendido ou job grava após chamada.
+- UI: card visível só em `provisioning_finishing`; formato "Readiness: tentativa 3/10 — último erro: …".
+- Não alterar lógica de promote → `active` nem timeout → `failed`.
+
+Objetivo: operador entende espera do readiness sem SSH.
+Arquivos: ReadinessReport.php, SshPlatformAdapter.php (probeReadiness), ProbeCustomerReadinessJob.php, Show.php + blade, CustomerReadinessTest.php.
+Critério de pronto: teste job grava audit em falha; Show exibe tentativa/erro; promote success inalterado; CI verde.
+Cenários de teste:
+  1. Normal: probe falha 2x → 2 audit logs `customer_readiness_probe` com attempt incrementando.
+  2. Normal: probe success → customer `active` + audit `customer_readiness_confirmed` (regressão).
+  3. Edge: timeout após 10 tentativas → `failed` + audit `customer_readiness_timeout` com attempts.
+  4. UI: customer finishing → card readiness renderiza último erro.
+  5. Regressão: `CustomerReadinessTest` existente continua verde.
+
+### Task N39.6 *(stretch)* — Retrofit visual customers/* → tokens M3
+
+**Estado atual**: `customers/create`, `customers/show`, `customers/occ-panel` usam `<style>` inline com hex cru (`#1a1d27`, `#68d391`); `cluster-servers/index` usa tokens Tailwind semânticos (`bg-surface-container`, `text-on-surface`).
+**Estado desejado**: remover blocos `<style>` inline das 3 views; aplicar classes do design system M3 (mesmo padrão de `cluster-servers/index.blade.php`); badges de status via classes tokenizadas; zero mudança de informação/fluxo.
+**Fonte(s)**: DESIGN.md §8.1
+**Módulo(s) afetado(s)**: `resources/views/livewire/customers/create.blade.php`, `show.blade.php`, `occ-panel.blade.php`, `tests/Feature/Livewire/Customers/CustomerViewsM3Test.php` (novo)
+**Task size**: P (3 blades + testes)
+
+**executor_prompt**:
+Melhoria: alinhar visual `customers/*` ao design system M3 (referência `cluster-servers/index`).
+Contexto: §8.1 UX audit — drift hex inline vs tokens semânticos; **sem mudança funcional**.
+
+Objetivo: remover `<style>` com hex; badges/status com classes token (`bg-surface-container`, `text-on-surface`, etc.).
+Arquivos: 3 blades customers + teste Feature assertindo ausência de `<style>` inline e presença de classes token em badges.
+Critério de pronto: blades sem bloco `<style>`; testes passam; CI verde.
+Cenários de teste:
+  1. Normal: render create/show/occ-panel → HTTP 200, sem `<style>` no HTML.
+  2. Edge: badge status `active` usa classe token (não hex inline).
+  3. Regressão: fluxos Livewire existentes (mount) intactos.
+
+### Task N39.7 *(stretch)* — Remover cluster na UI com guarda
+
+**Estado atual**: `ClusterServer` usa `SoftDeletes` (`ClusterServer.php:16`) mas `ClusterServers\Index` não expõe ação de remoção — operador remove cluster legado via tinker/SSH (incidente remoção `lab-upstream`).
+**Estado desejado**: botão "Remover" na tabela `/cluster-servers` (gate `manage-cluster-servers`); modal confirmação digitando nome do cluster; `RemoveClusterServerAction` (novo) faz soft-delete; bloquear se `Customer::where('cluster_server_id', $id)->whereNull('deleted_at')->exists()`; audit log; testes Feature.
+**Fonte(s)**: DESIGN.md §8.7; ISSUE-049
+**Task size**: M (~4 arquivos)
+
+**executor_prompt**:
+Melhoria: soft-delete de cluster_server na UI com guarda de customers ativos.
+Contexto: modelo já suporta `SoftDeletes`; falta exposição no painel. Padrão: mesmo modal de confirmação por nome usado em `customers/show` remove.
+
+Objetivo: operador remove cluster deprecado sem SSH; impossível remover cluster com tenants ativos.
+Arquivos: app/Http/Livewire/ClusterServers/Index.php, resources/views/livewire/cluster-servers/index.blade.php, app/Modules/ClusterServers/Actions/RemoveClusterServerAction.php (novo), tests/Feature/ClusterServers/RemoveTest.php.
+Critério de pronto: soft-delete OK; guarda bloqueia com customers ativos; audit registrado; CI verde.
+Cenários de teste:
+  1. Normal: cluster sem customers → soft-delete + redirect toast.
+  2. Edge: cluster com customer ativo → 422/toast erro, nada deletado.
+  3. Edge: confirmação nome errado → rejeitado.
+  4. Segurança: operador sem `manage-cluster-servers` → 403.
+  5. Regressão: testConnection/rotateSecret intactos.
+
+### Quality Brief (Sprint N39) — resumo
+
+- **Review**: senior+qa (fluxos operacionais críticos: provision + OCC + readiness)
+- **Brief**: `docs/.briefs/N39.brief.md` — PASS_WITH_NOTES
+- **Iron law**: nenhuma normalização de FQDN só no client; nenhum poll SSH sem throttle; nenhuma mudança em `ProbeCustomerReadinessJob` promote/timeout sem teste de regressão
+- **Ordem de execução**: N39.1 → N39.2 → N39.3; N39.4 → N39.5; N39.6/N39.7 stretch após gate núcleo
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| 2026-07-05 | 0.38   | Sprint N38 concluída — ISSUE-048 LAB FOUC + Livewire image_mode no form provision; deploy `.110`. | `/rock` |
+| 2026-07-05 | 0.39   | Sprint N39 planejada — ISSUE-049 UX provisionamento + OCC (DESIGN.md §8): 7 tasks (2P+4M+1M stretch); gate FQDN + progresso + users OCC + readiness; review senior+qa. | `/pmo plan` |
 | 2026-07-04 | 0.36.2 | Sprint N36 concluída (5/5): gate E2E canário `canario-n36e` PASS; ISSUE-045 fixed upstream `ba53ecc`; merge PR #128 + deploy LAB `7a79086`. | sprint-finalizer |
 | 2026-07-03 | 0.36.1 | Execução N36: 4/5 tasks; N36.4 bloqueada por ISSUE-045; CI verde PR #128. | sprint-finalizer |
 | 2026-07-03 | 0.36   | Sprint N36 planejada — ISSUE-043 fase inicial (apontar API p/ produção image-mode): 5 tasks (2P+3M); canário manual `teste2` 7m10s como evidência; readiness image-mode (N36.5) originada do achado `/status.php` 404. | `/pmo plan` |
