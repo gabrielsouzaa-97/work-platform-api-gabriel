@@ -398,3 +398,6 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-05 00:20** `75e4602` — docs(issue-046): full 3-layer diagnosis + config/webhook fixes for .108 canary (#132)
 - **2026-07-05 00:39** `75e4602` — docs(issue-046): full 3-layer diagnosis + config/webhook fixes for .108 canary (#132)
 - **2026-07-05 00:49** `75e4602` — docs(issue-046): full 3-layer diagnosis + config/webhook fixes for .108 canary (#132)
+- **2026-07-05 01:57** `92ab2af` — fix(sprint-N25): unwrap occ-exec envelope in readiness gate (#133)
+- **2026-07-05 02:00** `92ab2af` — fix(sprint-N25): unwrap occ-exec envelope in readiness gate (#133)
+- **2026-07-05 02:01** `92ab2af` — fix(sprint-N25): unwrap occ-exec envelope in readiness gate (#133)

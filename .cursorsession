@@ -67,8 +67,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-04T23:40:49Z",
-  "next_sprint_planned": "N36",
+  "ultimo_update": "2026-07-05T05:30:00Z",
+  "next_sprint_planned": "N37",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -208,24 +208,24 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "implementer (Composer 2.5 — Decision #225 default)",
-    "phase": "Sprint N19 — closed",
-    "intent": "N19 APROVADA R2; HIGH zerados; próximo N20 ou F10.3 ops",
-    "changes_made": "CQ-N19-001 ownership fix; QA-N19-001 SFTP bypass test; validation_gate APROVADA R2",
-    "decisions": "Sprint gate N19 APROVADA",
-    "next_steps": "F10.3 runbook ops ou /pmo sprint iniciar N20",
-    "updated_at": "2026-06-12T20:30:00Z"
+    "persona": "planejador-melhorias",
+    "phase": "Sprint N37 planejada (pendente)",
+    "intent": "ISSUE-047 API Console fase 1 — docs viewer privado (Scalar) + scopes v1 nas credenciais; 4 tasks (2M+2P)",
+    "changes_made": "ISSUE-047 registrada; Sprint N37 no ROADMAP (índice + seção + histórico 0.37); brief N37 PASS_WITH_NOTES + verifier PASS; next_sprint_planned=N37",
+    "decisions": "Doc privada atrás de manage-operators; Scalar npm/Vite sem CDN; só openapi-external.yaml; scopes opt-in (default null); review senior+qa; exec pipeline; fase 2 (try-it-out proxy, expiração, doc pública) fora de escopo",
+    "next_steps": "/pmo sprint iniciar N37 (pipeline); N25.4 segue blocked por ISSUE-046 (decisão de escopo .108 vs .112)",
+    "updated_at": "2026-07-05T05:30:00Z"
   },
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-04T23:34:11Z",
-    "usage_percent": 91.38466666666667,
-    "messages_lost": 308
+    "compacted_at": "2026-07-05T05:01:32Z",
+    "usage_percent": 96.53766666666667,
+    "messages_lost": 395
   },
-  "compact_count": 4,
+  "compact_count": 5,
   "sprint_pr": 128,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
@@ -406,6 +406,28 @@
     "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-07-05T05:30:00Z",
+      "action": "/pmo plan — ISSUE-047 API Console fase 1 (docs viewer privado Scalar + scopes v1 nas credenciais)",
+      "sprints_generated": [
+        "N37"
+      ],
+      "issues_in_scope": [
+        "ISSUE-047"
+      ],
+      "findings_in_scope": [],
+      "split_strategy": "fase 1: viewer Scalar privado (manage-operators, só openapi-external.yaml, npm/Vite sem CDN) + scopes v1 opt-in no create de /api-keys (default null preservado); try-it-out proxy, expiração e doc pública ficam para fase 2 (anotado na ISSUE-047)",
+      "tasks_count": {
+        "P": 2,
+        "M": 2,
+        "total": 4
+      },
+      "review_level": "senior+qa",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/N37.brief.md",
+      "brief_status": "PASS_WITH_NOTES (verifier PASS — docs/.briefs/N37.verifier.md)",
+      "gate": "/docs/api renderiza spec só autenticado (testes anônimo/403); credencial com scopes persiste e é honrada por EnsureApiKeyScope; badges na listagem; CI verde"
+    },
     {
       "timestamp": "2026-07-03T15:30:00Z",
       "action": "/pmo plan — ISSUE-043 fase inicial (apontar API p/ produção image-mode)",

@@ -92,6 +92,7 @@
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | **concluída** | 8 | TenantLifecycle, Integration | branch `sprint/N34`; validation R2 APROVADA; CQ-N34-001/002/003 corrigidos | 4854+ |
 | N35    | N         | ISSUE-023 F10.3: validação LAB (`api.lab`) + migração deployer | **concluída** | 8 | Jobs, DevOps, Core | smoke E2E OK; ISSUE-023 closed (2026-06-19) | 4902+ |
 | N36    | N         | Canário `POST /v1/tenants` no host image-pilot (`.120`) com `--image-mode --suite-catalog`: job success + readiness PASS + webhook 204 + TLS/DNS OK; CI verde | **concluída** (5/5) | 5 | Customers, ClusterServers, Integration, Dns | ISSUE-043 fase inicial: apontar API para produção image-mode | 4990+ |
+| N37    | N         | `/docs/api` renderiza `openapi-external.yaml` só autenticado (`manage-operators`); credencial com scopes persiste e é honrada por `api.scope:*`; listagem exibe scopes; CI verde | pendente | 4 | Core (Auth/api-key), Livewire, docs | ISSUE-047: API Console fase 1 — docs viewer privado (Scalar) + scopes nas credenciais | 5080+ |
 
 ---
 
@@ -5079,8 +5080,94 @@ Cenários de teste:
 
 ---
 
+## Sprint N37 — API Console fase 1: docs viewer privado (Scalar) + scopes nas credenciais (ISSUE-047)
+
+> Categoria: N
+> Gate: `/docs/api` renderiza `openapi-external.yaml` via Scalar apenas autenticado com `manage-operators` (anônimo → redirect login; operador sem gate → 403 — ambos com teste); criar credencial em `/api-keys` com scopes selecionados persiste `scopes` no banco e é honrado por `EnsureApiKeyScope` (teste de integração 403 em scope ausente); listagem exibe scopes; CI verde (lint + Pest + Redocly).
+> review: senior+qa
+> Gerado via /pmo plan em 2026-07-05. Fonte: ISSUE-047 (plano `/rock` "Ambiente Admin de APIs + Swagger", premissas defaults-first aprovadas). Modo de execução: pipeline/autopilot.
+> Fora de escopo (fase 2): try-it-out com proxy autenticado; expiração/rotação de credenciais; obrigar seleção explícita de scopes; doc pública.
+> Quality Brief: `docs/.briefs/N37.brief.md` (PASS_WITH_NOTES; verificado em `docs/.briefs/N37.verifier.md` — PASS).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | N37.1 — Viewer de docs autenticado `/docs/api` (Scalar via npm/Vite) + endpoint interno do spec `GET /docs/api/spec` | api-rest-patterns / laravel-livewire | — |
+| [ ] | M | N37.2 — Scopes v1 no create de credenciais (`/api-keys`): checkboxes, validação `config/api-scopes.php`, persistência + testes | laravel-livewire | — |
+| [ ] | P | N37.3 — Badges de scopes na listagem de `/api-keys` (`null`/`*` = "irrestrita") | laravel-livewire | N37.2 |
+| [ ] | P | N37.4 — Link "Documentação API" na sidebar com `@can('manage-operators')` (fix PB-N37-001) + banner de ambiente + versão do spec server-side no viewer | laravel-livewire | N37.1 |
+
+### Task N37.1 — Viewer de docs autenticado `/docs/api` (Scalar)
+
+**Estado atual**: `docs/openapi-external.yaml` (contrato externo v1, N30.2) existe e é lintado no CI (Redocly), mas não há nenhum viewer — operadores dependem do arquivo cru. Nenhuma rota de documentação em `routes/web.php`.
+**Estado desejado**: rota `GET /docs/api` (gate `manage-operators`) renderiza o spec via Scalar; spec servido por `GET /docs/api/spec` autenticado lendo `base_path('docs/openapi-external.yaml')`; zero acesso anônimo (teste); sem CDN externo.
+**Fonte(s)**: ISSUE-047; brief PB-N37 constraints #1, #2, #4
+**Módulo(s) afetado(s)**: `routes/web.php`, novo controller (ex.: `app/Http/Controllers/DocsController.php`), nova view `resources/views/docs/api.blade.php`, `vite.config.js`, `package.json`, novo entry `resources/js/docs-api.js`, testes Feature
+**Risco**: MEDIUM — nova superfície autenticada que serve arquivo do repo; dependência front nova
+**Task size**: M (~6 arquivos)
+
+**executor_prompt**:
+Feature: viewer privado de documentação da API externa v1.
+Contexto: o contrato `docs/openapi-external.yaml` não tem viewer; operadores autenticados precisam consultá-lo no painel admin (Laravel 12 + Livewire 3 + Vite + Tailwind, layout `layouts.app`).
+
+### Quality Brief (Sprint N37)
+- Gate duplo: rotas dentro do grupo `['auth', 'active.operator']` + `->middleware('can:manage-operators')` (padrão de `/api-keys` em `routes/web.php`); repetir autorização no controller.
+- Spec lido EXCLUSIVAMENTE de `base_path('docs/openapi-external.yaml')` — proibido copiar para `public/`, aceitar parâmetro de path ou servir o `docs/openapi.yaml` interno/legado.
+- Scalar via npm (`@scalar/api-reference`) empacotado pelo Vite (novo entry, seguindo o padrão dos entries existentes em `vite.config.js`) — sem CDN.
+- Try-it-out: desabilitar OU sobrescrever `servers` do spec para `url('/api/v1')` do ambiente atual — o spec aponta servidor de produção (PB-N37-002); não deixar o default cross-env.
+
+Objetivo: `GET /docs/api` retorna a página com o container Scalar apontando para `GET /docs/api/spec` (response `application/yaml` ou JSON convertido); ambas as rotas exigem auth + `manage-operators`.
+Arquivos: routes/web.php, DocsController (ou closures nomeadas), resources/views/docs/api.blade.php, resources/js/docs-api.js, vite.config.js, package.json, tests/Feature/Docs/ApiDocsTest.php.
+Critério de pronto: testes Feature passam; `npm run build` sem erro; CI verde.
+Cenários de teste:
+  1. Normal: operador com `manage-operators` → GET /docs/api 200 com container Scalar; GET /docs/api/spec 200 com `openapi: 3.0.3`.
+  2. Edge: anônimo → redirect para login em ambas as rotas.
+  3. Edge: operador autenticado sem `manage-operators` → 403 em ambas.
+  4. Segurança: response do spec NÃO contém paths exclusivos do `openapi.yaml` interno (ex.: `/occ/`).
+  5. Regressão: rotas existentes do painel (ex.: `/api-keys`) continuam acessíveis.
+
+### Task N37.2 — Scopes v1 no create de credenciais
+
+**Estado atual**: `App\Http\Livewire\ApiKeys\Index::create()` sempre chama `ApiKeyService::generate(scopes: null)` — toda chave nova é irrestrita, apesar de `EnsureApiKeyScope` + `config/api-scopes.php` (v1) já aplicarem enforcement nas rotas `/api/v1` (N30.3/F15, ISSUE-037).
+**Estado desejado**: modal de create oferece checkboxes dos scopes `v1`; seleção persiste como array exato em `api_keys.scopes` (+ audit payload já existente); sem seleção → `null` (comportamento atual preservado); scope inválido rejeitado por validação.
+**Fonte(s)**: ISSUE-047; ISSUE-037 (contexto); brief PB-N37 constraints #3, #5; PB-N37-003
+**Módulo(s) afetado(s)**: `app/Http/Livewire/ApiKeys/Index.php`, `resources/views/livewire/api-keys/index.blade.php`, testes (estender cobertura de ApiKeys)
+**Risco**: MEDIUM — toca fluxo de credencial de segurança compartilhado; regressão criaria chaves com permissão errada
+**Task size**: M (3 arquivos)
+
+**executor_prompt**:
+Melhoria: permitir seleção de scopes v1 ao criar credencial de API no painel.
+Contexto: o enforcement por scope já existe (`app/Http/Middleware/EnsureApiKeyScope.php`: `null`/`*` = irrestrita; array = allowlist exata) e o catálogo está em `config/api-scopes.php` chave `v1`. O gap é só a UI/validação: `Index::create()` fixa `scopes: null`.
+
+### Quality Brief (Sprint N37)
+- Persistência EXCLUSIVAMENTE via `ApiKeyService::generate(scopes:)` existente (transação + AuditLog) — não duplicar lógica de criação.
+- Validação no `$rules` do Livewire: array opcional, cada item `Rule::in(config('api-scopes.v1'))`. NÃO ofertar scopes `legacy` na UI.
+- Atenção PB-N37-005: `ApiKeyService` linha 33 usa `$scopes ?: null` — array vazio já colapsa para `null` (irrestrita); manter esse comportamento como default documentado no modal ("nenhum scope = acesso irrestrito").
+
+Objetivo: propriedade `array $createScopes = []` no componente + checkboxes no modal (blade `resources/views/livewire/api-keys/index.blade.php`) + passar `scopes: $this->createScopes ?: null` ao service; reset da seleção em `openCreate()`.
+Arquivos: app/Http/Livewire/ApiKeys/Index.php, resources/views/livewire/api-keys/index.blade.php, tests/Feature (suite de ApiKeys existente).
+Critério de pronto: testes passam incluindo integração com `EnsureApiKeyScope`; CI verde.
+reuse_targets:
+  - component: app/Modules/Core/Services/ApiKeyService.php
+    reuse_as: call
+    convergence_check: rg "apiKeyService->generate" app/Http/Livewire/ApiKeys/Index.php
+Cenários de teste:
+  1. Normal: create com `['tenants:read','jobs:read']` → `scopes` persistido com array exato + audit payload contém scopes.
+  2. Regressão: create sem seleção → `scopes null` (chave irrestrita, comportamento atual).
+  3. Edge: scope fora de `config('api-scopes.v1')` (ex.: `occ:write` legacy ou inventado) → validação rejeita, nada persiste.
+  4. Integração: chave criada só com `tenants:read` → `GET /api/v1/tenants` 200 e `POST /api/v1/tenants` 403 via `EnsureApiKeyScope`.
+  5. Edge: array vazio explícito → persiste `null` (PB-N37-005).
+
+### Quality Brief (Sprint N37) — resumo
+
+- **Review**: senior+qa (superfície auth-adjacent: gate de docs + credenciais)
+- **Brief**: `docs/.briefs/N37.brief.md` — PASS_WITH_NOTES (1 HIGH pré-existente PB-N37-001 endereçado por N37.4; 2 MEDIUM refletidos nos executor_prompts; verifier PASS)
+- **Iron law**: nenhuma rota nova de docs sem teste de acesso anônimo/sem-gate; nenhuma mudança em credenciais sem teste de integração com `EnsureApiKeyScope`
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-05 | 0.37   | Sprint N37 planejada — ISSUE-047 API Console fase 1 (docs viewer privado Scalar + scopes v1 nas credenciais): 4 tasks (2M+2P); brief PASS_WITH_NOTES + verifier PASS; exec pipeline. | `/pmo plan` |
 | 2026-07-04 | 0.36.2 | Sprint N36 concluída (5/5): gate E2E canário `canario-n36e` PASS; ISSUE-045 fixed upstream `ba53ecc`; merge PR #128 + deploy LAB `7a79086`. | sprint-finalizer |
 | 2026-07-03 | 0.36.1 | Execução N36: 4/5 tasks; N36.4 bloqueada por ISSUE-045; CI verde PR #128. | sprint-finalizer |
 | 2026-07-03 | 0.36   | Sprint N36 planejada — ISSUE-043 fase inicial (apontar API p/ produção image-mode): 5 tasks (2P+3M); canário manual `teste2` 7m10s como evidência; readiness image-mode (N36.5) originada do achado `/status.php` 404. | `/pmo plan` |

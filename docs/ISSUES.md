@@ -52,6 +52,39 @@
 | ISSUE-044 | bug | CI vermelho no `main` pós-F3 (`6b29717`): 7 testes falham — `OnboardingSagaTest` ×4 (`Unknown suite catalog app_id: calendar` → 422) + `AgentTransport`/`Provision` ×3 (mocks `runAsync` sem `--suite-catalog` no argv esperado) | Customers, Onboarding, QA/CI | HIGH | **fixed (2026-07-03, sprint/N36 PR #128)** — evidência pré-fix: run main 28349563271 |
 | ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | **fixed (2026-07-04)** — fix upstream `ba53ecc` + deploy `.120` + canário `canario-n36e` gate PASS |
 | ISSUE-046 | bug | Cross-repo `.108` (LAB upstream): create suite-catalog aponta `deploy_shell` para host labwork `.112` (`apply-lab.sh` ausente) → exit 1. Diagnóstico 3 camadas: (1) suite-deploy misdirecionado **[fix config]**, (2) webhook 401 por falta de `webhook_secret_history` no cadastro N25.3 **[fixed]**, (3) readiness gate exige suíte me360 que o create local não instala **[escopo]** | Cross-repo (work-platform-scripts), Jobs, Customers, Webhook | HIGH | **parcial** — create+webhook OK; gate completo N25.4 depende de decisão de escopo (suíte no `.108` vs `.112`) + fix estrutural via `/pmo fix` |
+| ISSUE-047 | enhancement | API Console fase 1: viewer privado de documentação (`/docs/api` via Scalar renderizando `openapi-external.yaml`) + seleção de scopes v1 na criação de credenciais em `/api-keys` | Core (Auth/api-key), Livewire, docs | MEDIUM | open — **planejada Sprint N37** |
+
+---
+
+## ISSUE-047 — API Console fase 1: docs viewer privado (Scalar) + scopes nas credenciais
+
+- **Tipo**: enhancement
+- **Prioridade**: MEDIUM
+- **Status**: open — planejada Sprint N37
+- **Registrado em**: 2026-07-05 (triagem via plano `/rock` "Ambiente Admin de APIs + Swagger" → `/pmo plan`)
+- **Módulos afetados**: `app/Http/Livewire/ApiKeys/Index.php`, `app/Modules/Core/Services/ApiKeyService.php`, `routes/web.php`, `resources/views/` (layout/sidebar + viewer), `docs/openapi-external.yaml` (consumo read-only)
+
+### Descrição
+
+O contrato externo v1 (`docs/openapi-external.yaml`) existe e é lintado no CI, mas não há nenhum viewer de documentação — operadores e futuros integradores dependem do arquivo cru. Além disso, o create de credenciais em `/api-keys` sempre grava `scopes: null` (chave irrestrita), apesar de o enforcement por scope já existir (`EnsureApiKeyScope` + `config/api-scopes.php`, Sprint N30/F15).
+
+### Escopo fase 1 (Sprint N37)
+
+1. Viewer de docs **privado** em `/docs/api` (gate `manage-operators`), renderizando **apenas** `openapi-external.yaml` via **Scalar** (npm/Vite, sem CDN); spec servido por rota autenticada, arquivo não vai para `public/`.
+2. Seleção de scopes v1 (checkboxes) no create de credenciais; default sem seleção = irrestrita (`null`, comportamento atual); validação contra `config/api-scopes.php`.
+3. Badges de scopes na listagem de `/api-keys`; link "Documentação API" na sidebar; banner de ambiente (LAB) + versão do spec no viewer.
+
+### Premissas aprovadas (defaults-first, 2026-07-05)
+
+- Doc privada (operadores autenticados) — doc pública é fase posterior, se surgir parceiro externo real.
+- Só `openapi-external.yaml`; o `openapi.yaml` interno/legado fica fora do portal.
+- Scalar em vez de Swagger UI clássico (UX, try-it-out nativo, bundle menor).
+
+### Fase 2 (fora de escopo — nova issue quando priorizar)
+
+- Try-it-out com proxy autenticado server-side + audit
+- Expiração/rotação de credenciais; obrigar seleção explícita de scopes
+- Doc pública (spec externo simplificado)
 
 ---
 
