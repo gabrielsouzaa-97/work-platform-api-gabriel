@@ -37,6 +37,12 @@ class Create extends Component
     #[Validate('boolean')]
     public bool $fullApps = false;
 
+    #[Validate('boolean')]
+    public bool $imageMode = false;
+
+    #[Validate('boolean')]
+    public bool $suiteCatalog = true;
+
     #[Validate('nullable|file|mimes:png,jpg,jpeg|max:5120')]
     public mixed $logo = null;
 
@@ -46,6 +52,64 @@ class Create extends Component
     public bool $submitting = false;
 
     public string $errorMessage = '';
+
+    public function updatedClusterServerId(): void
+    {
+        if ($this->clusterServerId === '') {
+            return;
+        }
+
+        $cluster = ClusterServer::query()
+            ->whereKey($this->clusterServerId)
+            ->value('name');
+
+        if ($cluster === null) {
+            return;
+        }
+
+        $isImagePilot = str_contains(strtolower($cluster), 'image');
+
+        if ($isImagePilot) {
+            $this->imageMode = true;
+            $this->suggestTenantDomain();
+        }
+    }
+
+    public function updatedSlug(): void
+    {
+        $this->suggestTenantDomain();
+    }
+
+    private function suggestTenantDomain(): void
+    {
+        if ($this->slug === '' || $this->clusterServerId === '') {
+            return;
+        }
+
+        $clusterName = ClusterServer::query()
+            ->whereKey($this->clusterServerId)
+            ->value('name');
+
+        if ($clusterName === null) {
+            return;
+        }
+
+        $suffix = match (true) {
+            str_contains(strtolower($clusterName), 'image') => '.image-pilot.mework360.com.br',
+            str_contains(strtolower($clusterName), 'labwork') => '.labwork.mework360.com.br',
+            default => null,
+        };
+
+        if ($suffix === null) {
+            return;
+        }
+
+        $suggested = $this->slug.$suffix;
+
+        if ($this->domain === '' || str_ends_with($this->domain, $suffix)) {
+            $this->domain = $suggested;
+        }
+    }
 
     public function submit(ProvisionCustomerAction $action): void
     {
@@ -65,6 +129,8 @@ class Create extends Component
             fullApps: $this->fullApps,
             logoPath: $this->logo?->getRealPath(),
             backgroundPath: $this->background?->getRealPath(),
+            suiteCatalog: $this->suiteCatalog,
+            imageMode: $this->imageMode,
         );
 
         try {

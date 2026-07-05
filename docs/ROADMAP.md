@@ -93,6 +93,7 @@
 | N35    | N         | ISSUE-023 F10.3: validação LAB (`api.lab`) + migração deployer | **concluída** | 8 | Jobs, DevOps, Core | smoke E2E OK; ISSUE-023 closed (2026-06-19) | 4902+ |
 | N36    | N         | Canário `POST /v1/tenants` no host image-pilot (`.120`) com `--image-mode --suite-catalog`: job success + readiness PASS + webhook 204 + TLS/DNS OK; CI verde | **concluída** (5/5) | 5 | Customers, ClusterServers, Integration, Dns | ISSUE-043 fase inicial: apontar API para produção image-mode | 4990+ |
 | N37    | N         | `/docs/api` renderiza `openapi-external.yaml` só autenticado (`manage-operators`); credencial com scopes persiste e é honrada por `api.scope:*`; listagem exibe scopes; CI verde | pendente | 4 | Core (Auth/api-key), Livewire, docs | ISSUE-047: API Console fase 1 — docs viewer privado (Scalar) + scopes nas credenciais | 5080+ |
+| N38    | N         | LAB: assets Vite servidos pelo nginx; form `/customers/create` com `image_mode` + UX domínio/slug; deploy `.110` smoke | **concluída** (3/3) | 3 | Livewire, DevOps | ISSUE-048: gap N36 no painel + FOUC LAB (compose volume) | 5168+ |
 
 ---
 
@@ -5165,9 +5166,24 @@ Cenários de teste:
 
 ---
 
+## Sprint N38 — LAB UX hotfix: assets Vite + form provision image-mode (ISSUE-048)
+
+> Categoria: N
+> Gate: `GET /build/assets/*.css` → 200 no LAB; `/customers/create` expõe `image_mode`/`suite_catalog`, sugere FQDN por cluster; deploy `.110` aplicado.
+> review: skip
+> Gerado via `/rock` em 2026-07-05. Fonte: teste manual operador no LAB (FOUC pós-deploy + form sem `--image-mode`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | N38.1 — `docker-compose.lab.yml`: volume `deployer_public` compartilhado app↔nginx (Vite assets) | laravel-docker | — |
+| [x] | M | N38.2 — Livewire `Customers\Create`: flags `image_mode`/`suite_catalog`, hints slug/FQDN, select dark-mode | laravel-livewire | — |
+| [x] | P | N38.3 — Deploy LAB `.110` + smoke `/up` + `/build/manifest.json` | me360-deployer | N38.1, N38.2 |
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| 2026-07-05 | 0.37   | Sprint N37 planejada — ISSUE-047 API Console fase 1 (docs viewer privado Scalar + scopes v1 nas credenciais): 4 tasks (2M+2P); brief PASS_WITH_NOTES + verifier PASS; exec pipeline. | `/pmo plan` |
+| 2026-07-05 | 0.38   | Sprint N38 concluída — ISSUE-048 LAB FOUC + Livewire image_mode no form provision; deploy `.110`. | `/rock` |
 | 2026-07-04 | 0.36.2 | Sprint N36 concluída (5/5): gate E2E canário `canario-n36e` PASS; ISSUE-045 fixed upstream `ba53ecc`; merge PR #128 + deploy LAB `7a79086`. | sprint-finalizer |
 | 2026-07-03 | 0.36.1 | Execução N36: 4/5 tasks; N36.4 bloqueada por ISSUE-045; CI verde PR #128. | sprint-finalizer |
 | 2026-07-03 | 0.36   | Sprint N36 planejada — ISSUE-043 fase inicial (apontar API p/ produção image-mode): 5 tasks (2P+3M); canário manual `teste2` 7m10s como evidência; readiness image-mode (N36.5) originada do achado `/status.php` 404. | `/pmo plan` |

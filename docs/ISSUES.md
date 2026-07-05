@@ -53,6 +53,7 @@
 | ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | **fixed (2026-07-04)** — fix upstream `ba53ecc` + deploy `.120` + canário `canario-n36e` gate PASS |
 | ISSUE-046 | bug | Cross-repo `.108` (LAB upstream): create suite-catalog aponta `deploy_shell` para host labwork `.112` (`apply-lab.sh` ausente) → exit 1. Diagnóstico 3 camadas: (1) suite-deploy misdirecionado **[fix config]**, (2) webhook 401 por falta de `webhook_secret_history` no cadastro N25.3 **[fixed]**, (3) readiness gate exige suíte me360 que o create local não instala **[escopo]** | Cross-repo (work-platform-scripts), Jobs, Customers, Webhook | HIGH | **parcial** — create+webhook OK; gate completo N25.4 depende de decisão de escopo (suíte no `.108` vs `.112`) + fix estrutural via `/pmo fix` |
 | ISSUE-047 | enhancement | API Console fase 1: viewer privado de documentação (`/docs/api` via Scalar renderizando `openapi-external.yaml`) + seleção de scopes v1 na criação de credenciais em `/api-keys` | Core (Auth/api-key), Livewire, docs | MEDIUM | open — **planejada Sprint N37** |
+| ISSUE-048 | bug | Painel LAB sem CSS (nginx sem `public/build`) + Livewire `/customers/create` não envia `image_mode` (gap N36) | Livewire, DevOps | HIGH | **fixed (2026-07-05)** — Sprint N38; deploy LAB `.110` |
 
 ---
 
