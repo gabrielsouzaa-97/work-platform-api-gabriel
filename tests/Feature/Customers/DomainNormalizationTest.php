@@ -36,14 +36,14 @@ function mockDomainNormProvision(string $jobId): void
 {
     $sshMock = Mockery::mock(SshClientInterface::class);
     $sshMock->shouldReceive('runAsync')->once()->andReturn(domainNormSshSuccess($jobId));
-    test()->app->instance(SshClientInterface::class, $sshMock);
+    app()->instance(SshClientInterface::class, $sshMock);
 }
 
 function mockDomainNormProvisionBlocked(): void
 {
     $sshMock = Mockery::mock(SshClientInterface::class);
     $sshMock->shouldNotReceive('runAsync');
-    test()->app->instance(SshClientInterface::class, $sshMock);
+    app()->instance(SshClientInterface::class, $sshMock);
 }
 
 it('accepts lowercase FQDN and persists normalized domain (N39.1 scenario 1)', function () {
