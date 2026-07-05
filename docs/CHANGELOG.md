@@ -4,6 +4,9 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **docs(sprint-finalize)**: Sprints N37 e N39 fechadas pós-merge — ISSUE-047 (API Console fase 1: Scalar `/docs/api`, scopes credenciais) e ISSUE-049 (UX provisionamento + OCC); deploy LAB `8e58fed`.
+- **feat(sprint-N39)**: ISSUE-049 — FQDN normalize server-side; OccPanel users list; async user-create feedback; `customers/show` poll + job link + throttled tail log; readiness probe card; M3 retrofit `customers/*`; cluster soft-delete UI with active-tenant guard (PR #135).
+- **feat(sprint-N37)**: ISSUE-047 fase 1 — private Scalar API docs viewer `/docs/api`; API key scopes selection + badges; sidebar link with `manage-operators` gate (PR #136).
 - **fix(sprint-N25)**: `OccExecEnvelopeParser` — readiness gate unwraps `occ-exec` shim envelope (`parsed_result` + version strings); fixes false-negative `ProbeCustomerReadinessJob` on ncsaas-api clusters (ISSUE-046 camada API).
 - **test(sprint-N19)**: Sprint N19 closeout — ROADMAP formalizado (concluída); testes fallback SSH remove/offline-agent + `AgentUpstreamGatewayTest` (QA-N19-002/003/004); cutover piloto deferido pós-LAB.
 - **docs(sprint-N34)**: Sprint N34 concluída — ISSUE-038 Fase 4 (saga `POST /v1/onboarding` + GET status + readiness gate + spec + runbook); validation R2 APROVADA (auditor-senior PASS após `5bd7456`; CQ-N34-001/002/003 corrigidos); 582 tests Docker; version 0.1.5.
@@ -423,3 +426,5 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-05 12:44** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
 - **2026-07-05 12:55** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
 - **2026-07-05 13:04** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 18:55** `8e58fed` — Merge pull request #135 from SoftwareBeesy/sprint/N39
+- **2026-07-05 18:50** `b43422c` — Merge pull request #136 from SoftwareBeesy/sprint/N37

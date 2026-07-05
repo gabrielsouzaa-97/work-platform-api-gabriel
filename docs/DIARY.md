@@ -9,6 +9,8 @@
 | N33 | Integration, Customers, Core, ClusterServers | occ spec gate, mutação via port, grep estrito, CQ-N32-003 | 146-192 |
 | N34 | TenantLifecycle, Integration | saga onboarding, readiness gate, idempotency | 200-246 |
 | N36 | Customers, ClusterServers, Integration, DevOps | image_mode, readiness image-mode, cluster image-pilot, ISSUE-045 | 248+ |
+| N37 | Core, Auth, Livewire, docs | Scalar /docs/api, api-key scopes, sidebar link, ISSUE-047 | 294+ |
+| N39 | Livewire, Customers, Occ, Jobs, ClusterServers | FQDN normalize, OCC users, async feedback, readiness card, ISSUE-049 | 330+ |
 <!-- /DIARY-INDEX -->
 
 ---
@@ -289,4 +291,58 @@ Canário `canario-n36e`: job `9904497b-ad3c-4390-ba61-c5f433cd00c1` success ~5m4
 
 - ISSUE-043: cutover domínio `<tenant>.mework360.com.br` + migração SaaS-02 (fora N36)
 - N25.3/N25.4: seed cluster `.108` + canário `qa-platform-lab`
+
+---
+
+## Sprint N37 — ISSUE-047: API Console fase 1 (Scalar + scopes)
+
+**Data**: 2026-07-05
+**Status**: CONCLUÍDA (4/4)
+**Tasks**: 4/4
+**PR**: #136 merge `b43422c`
+
+### Entregas
+
+- Viewer privado `/docs/api` (Scalar via `resources/js/docs-api.js` + Vite); spec `openapi-external.yaml` servido por rota autenticada; gate `manage-operators`.
+- Scopes v1 selecionáveis no create de `/api-keys`; default sem seleção = irrestrita (`null`); validação `config/api-scopes.php`; integração `EnsureApiKeyScope`.
+- Badges de scopes na listagem; link "Documentação API" na sidebar com `@can('manage-operators')`.
+
+### Aprendizados
+
+1. **Try-it-out Scalar**: spec aponta servidor de produção — desabilitar ou sobrescrever `servers` para `url('/api/v1')` do ambiente (fase 2).
+2. **Array vazio de scopes**: `ApiKeyService` colapsa `[]` → `null` (irrestrita) — comportamento documentado no modal.
+
+### Gate da Sprint
+
+- [x] `/docs/api` autenticado renderiza spec externo; anônimo → redirect; sem gate → 403
+- [x] Credencial com scopes persiste e é honrada por middleware
+- [x] CI verde (PR #136); deploy LAB `8e58fed`; manifest `docs-api.js`; `/up` 200
+
+---
+
+## Sprint N39 — ISSUE-049: UX provisionamento + OCC operacional
+
+**Data**: 2026-07-05
+**Status**: CONCLUÍDA (7/7, núcleo + stretch)
+**Tasks**: 7/7
+**PR**: #135 merge `8e58fed`
+
+### Entregas
+
+- **N39.1:** FQDN normalizado server-side (strip `/`, lowercase, regex); preview no form; API v1 + Livewire + Pest.
+- **N39.2–N39.3:** OccPanel lista usuários via `user:list --json`; bloqueio `admin`; feedback async de `users:create` com poll até terminal.
+- **N39.4–N39.5:** `customers/show` com `wire:poll`, link job, tail log throttled; readiness visível via AuditLog `customer_readiness_probe`.
+- **N39.6–N39.7 (stretch):** retrofit M3 em `customers/*`; remoção de cluster na UI com guarda de tenants ativos.
+
+### Aprendizados
+
+1. **FQDN trailing slash**: normalização só no client não basta — incidente `pacoteste` quebrou Traefik `Host()`; strip server-side é obrigatório.
+2. **Poll SSH**: `JobLogFetcher` com throttle 15s evita amplificar carga durante provisioning.
+
+### Gate da Sprint
+
+- [x] Domínio normalizado em Livewire + FormRequest + API v1
+- [x] Progresso e readiness visíveis em `customers/show`
+- [x] OccPanel operacional (lista + erro inline)
+- [x] CI verde (PR #135); deploy LAB `8e58fed`; `/up` 200
 

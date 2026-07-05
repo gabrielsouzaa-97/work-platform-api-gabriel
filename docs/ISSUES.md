@@ -52,9 +52,9 @@
 | ISSUE-044 | bug | CI vermelho no `main` pós-F3 (`6b29717`): 7 testes falham — `OnboardingSagaTest` ×4 (`Unknown suite catalog app_id: calendar` → 422) + `AgentTransport`/`Provision` ×3 (mocks `runAsync` sem `--suite-catalog` no argv esperado) | Customers, Onboarding, QA/CI | HIGH | **fixed (2026-07-03, sprint/N36 PR #128)** — evidência pré-fix: run main 28349563271 |
 | ISSUE-045 | bug | Cross-repo `work-platform-scripts`: `dispatch.sh` D3.9b não re-injeta `--image-mode`/`--suite-catalog` no `args_json` Redis — create async via API roda modelo legado silenciosamente (NC-ARCH-017) | Cross-repo (work-platform-scripts), Jobs, Customers | CRITICAL | **fixed (2026-07-04)** — fix upstream `ba53ecc` + deploy `.120` + canário `canario-n36e` gate PASS |
 | ISSUE-046 | bug | Cross-repo `.108` (LAB upstream): create suite-catalog aponta `deploy_shell` para host labwork `.112` (`apply-lab.sh` ausente) → exit 1. Diagnóstico 3 camadas: (1) suite-deploy misdirecionado **[fix config]**, (2) webhook 401 por falta de `webhook_secret_history` no cadastro N25.3 **[fixed]**, (3) readiness gate exige suíte me360 que o create local não instala **[escopo]** | Cross-repo (work-platform-scripts), Jobs, Customers, Webhook | HIGH | **parcial** — create+webhook OK; gate completo N25.4 depende de decisão de escopo (suíte no `.108` vs `.112`) + fix estrutural via `/pmo fix` |
-| ISSUE-047 | enhancement | API Console fase 1: viewer privado de documentação (`/docs/api` via Scalar renderizando `openapi-external.yaml`) + seleção de scopes v1 na criação de credenciais em `/api-keys` | Core (Auth/api-key), Livewire, docs | MEDIUM | open — **planejada Sprint N37** |
+| ISSUE-047 | enhancement | API Console fase 1: viewer privado de documentação (`/docs/api` via Scalar renderizando `openapi-external.yaml`) + seleção de scopes v1 na criação de credenciais em `/api-keys` | Core (Auth/api-key), Livewire, docs | MEDIUM | **fixed (2026-07-05)** — Sprint N37; PR #136; deploy LAB `8e58fed` |
 | ISSUE-048 | bug | Painel LAB sem CSS (nginx sem `public/build`) + Livewire `/customers/create` não envia `image_mode` (gap N36) | Livewire, DevOps | HIGH | **fixed (2026-07-05)** — Sprint N38; deploy LAB `.110` |
-| ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | open — **planejada Sprint N39** |
+| ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
 
 ---
 
@@ -62,7 +62,7 @@
 
 - **Tipo**: change_request / melhoria UX
 - **Prioridade**: HIGH
-- **Status**: open — planejada Sprint N39
+- **Status**: **fixed (2026-07-05)** — Sprint N39; PR #135 merge `8e58fed`
 - **Registrado em**: 2026-07-05 (triagem via UX Audit DESIGN.md §8 + incidentes LAB `pacoteste`: trailing slash em FQDN, `user create` falhou sem feedback inline)
 - **Módulos afetados**: `app/Http/Livewire/Customers/{Create,Show,OccPanel}.php`, `app/Http/Requests/ProvisionCustomerRequest.php`, `app/Http/Requests/V1/ProvisionTenantRequest.php`, `app/Modules/Customers/`, `app/Http/Livewire/ClusterServers/Index.php`, `resources/views/livewire/customers/*`, `app/Jobs/ProbeCustomerReadinessJob.php`
 
@@ -92,13 +92,19 @@ Sessão operacional real no LAB (provisionamento `pacoteste`, criação de usuá
 - Mudanças upstream `nextcloud-manage` ou política de senha no NC (só alinhar validação/hint no painel)
 - Cutover domínio produção (ISSUE-043 fases posteriores)
 
+### Resolução (2026-07-05)
+
+- **correcao:** N39.1–N39.7 entregues — FQDN normalizado server-side (strip `/`, lowercase, 422 só protocolo/formato); OccPanel lista usuários via `user:list --json` (timeout 30s) e bloqueia `admin`; feedback async de `users:create` com poll até terminal; `customers/show` com `wire:poll`, link job e tail log throttled; readiness visível via AuditLog `customer_readiness_probe`; retrofit M3 em `customers/*`; remoção de cluster na UI com guarda de tenants ativos.
+- **validacao:** PR #135 mergeada; CI verde; deploy LAB `.110` SHA `8e58fed`; `/up` 200.
+- **resolved_by:** Sprint N39
+
 ---
 
 ## ISSUE-047 — API Console fase 1: docs viewer privado (Scalar) + scopes nas credenciais
 
 - **Tipo**: enhancement
 - **Prioridade**: MEDIUM
-- **Status**: open — planejada Sprint N37
+- **Status**: **fixed (2026-07-05)** — Sprint N37; PR #136 merge `b43422c`
 - **Registrado em**: 2026-07-05 (triagem via plano `/rock` "Ambiente Admin de APIs + Swagger" → `/pmo plan`)
 - **Módulos afetados**: `app/Http/Livewire/ApiKeys/Index.php`, `app/Modules/Core/Services/ApiKeyService.php`, `routes/web.php`, `resources/views/` (layout/sidebar + viewer), `docs/openapi-external.yaml` (consumo read-only)
 
@@ -123,6 +129,12 @@ O contrato externo v1 (`docs/openapi-external.yaml`) existe e é lintado no CI, 
 - Try-it-out com proxy autenticado server-side + audit
 - Expiração/rotação de credenciais; obrigar seleção explícita de scopes
 - Doc pública (spec externo simplificado)
+
+### Resolução (2026-07-05)
+
+- **correcao:** Viewer privado `/docs/api` (Scalar via Vite entry `docs-api.js`) renderiza `openapi-external.yaml` com gate `manage-operators`; spec servido por rota autenticada; scopes v1 selecionáveis no create de `/api-keys` com validação `config/api-scopes.php` e enforcement `EnsureApiKeyScope`; badges na listagem; link "Documentação API" na sidebar com `@can('manage-operators')`.
+- **validacao:** PR #136 mergeada; CI verde; deploy LAB `.110` SHA `8e58fed` (inclui N39); manifest Vite `docs-api.js` presente; `/up` 200.
+- **resolved_by:** Sprint N37
 
 ---
 

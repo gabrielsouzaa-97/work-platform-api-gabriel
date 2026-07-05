@@ -92,9 +92,9 @@
 | N34    | N         | ISSUE-038 Fase 4: `POST /v1/onboarding` saga | **concluída** | 8 | TenantLifecycle, Integration | branch `sprint/N34`; validation R2 APROVADA; CQ-N34-001/002/003 corrigidos | 4854+ |
 | N35    | N         | ISSUE-023 F10.3: validação LAB (`api.lab`) + migração deployer | **concluída** | 8 | Jobs, DevOps, Core | smoke E2E OK; ISSUE-023 closed (2026-06-19) | 4902+ |
 | N36    | N         | Canário `POST /v1/tenants` no host image-pilot (`.120`) com `--image-mode --suite-catalog`: job success + readiness PASS + webhook 204 + TLS/DNS OK; CI verde | **concluída** (5/5) | 5 | Customers, ClusterServers, Integration, Dns | ISSUE-043 fase inicial: apontar API para produção image-mode | 4990+ |
-| N37    | N         | `/docs/api` renderiza `openapi-external.yaml` só autenticado (`manage-operators`); credencial com scopes persiste e é honrada por `api.scope:*`; listagem exibe scopes; CI verde | pendente | 4 | Core (Auth/api-key), Livewire, docs | ISSUE-047: API Console fase 1 — docs viewer privado (Scalar) + scopes nas credenciais | 5080+ |
+| N37    | N         | `/docs/api` renderiza `openapi-external.yaml` só autenticado (`manage-operators`); credencial com scopes persiste e é honrada por `api.scope:*`; listagem exibe scopes; CI verde | **concluída** (4/4) | 4 | Core (Auth/api-key), Livewire, docs | ISSUE-047: API Console fase 1 — docs viewer privado (Scalar) + scopes nas credenciais | 5080+ |
 | N38    | N         | LAB: assets Vite servidos pelo nginx; form `/customers/create` com `image_mode` + UX domínio/slug; deploy `.110` smoke | **concluída** (3/3) | 3 | Livewire, DevOps | ISSUE-048: gap N36 no painel + FOUC LAB (compose volume) | 5168+ |
-| N39    | N         | UX provisionamento + OCC operacional: FQDN normalizado; progresso/readiness visível; lista usuários OCC; erro create inline; CI verde | pendente | 7 | Livewire, Customers, Occ, Jobs, ClusterServers | ISSUE-049: DESIGN.md §8 UX Audit 2026-07-05 | 5182+ |
+| N39    | N         | UX provisionamento + OCC operacional: FQDN normalizado; progresso/readiness visível; lista usuários OCC; erro create inline; CI verde | **concluída** (7/7) | 7 | Livewire, Customers, Occ, Jobs, ClusterServers | ISSUE-049: DESIGN.md §8 UX Audit 2026-07-05 | 5182+ |
 
 ---
 
@@ -5090,13 +5090,14 @@ Cenários de teste:
 > Gerado via /pmo plan em 2026-07-05. Fonte: ISSUE-047 (plano `/rock` "Ambiente Admin de APIs + Swagger", premissas defaults-first aprovadas). Modo de execução: pipeline/autopilot.
 > Fora de escopo (fase 2): try-it-out com proxy autenticado; expiração/rotação de credenciais; obrigar seleção explícita de scopes; doc pública.
 > Quality Brief: `docs/.briefs/N37.brief.md` (PASS_WITH_NOTES; verificado em `docs/.briefs/N37.verifier.md` — PASS).
+> **Status**: **concluída** (4/4) — PR #136 merge `b43422c`; CI verde; ISSUE-047 fechada; deploy LAB `8e58fed` (`/docs/api` + manifest `docs-api.js`; `/up` 200).
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | N37.1 — Viewer de docs autenticado `/docs/api` (Scalar via npm/Vite) + endpoint interno do spec `GET /docs/api/spec` | api-rest-patterns / laravel-livewire | — |
-| [ ] | M | N37.2 — Scopes v1 no create de credenciais (`/api-keys`): checkboxes, validação `config/api-scopes.php`, persistência + testes | laravel-livewire | — |
-| [ ] | P | N37.3 — Badges de scopes na listagem de `/api-keys` (`null`/`*` = "irrestrita") | laravel-livewire | N37.2 |
-| [ ] | P | N37.4 — Link "Documentação API" na sidebar com `@can('manage-operators')` (fix PB-N37-001) + banner de ambiente + versão do spec server-side no viewer | laravel-livewire | N37.1 |
+| [x] | M | N37.1 — Viewer de docs autenticado `/docs/api` (Scalar via npm/Vite) + endpoint interno do spec `GET /docs/api/spec` | api-rest-patterns / laravel-livewire | — |
+| [x] | M | N37.2 — Scopes v1 no create de credenciais (`/api-keys`): checkboxes, validação `config/api-scopes.php`, persistência + testes | laravel-livewire | — |
+| [x] | P | N37.3 — Badges de scopes na listagem de `/api-keys` (`null`/`*` = "irrestrita") | laravel-livewire | N37.2 |
+| [x] | P | N37.4 — Link "Documentação API" na sidebar com `@can('manage-operators')` (fix PB-N37-001) + banner de ambiente + versão do spec server-side no viewer | laravel-livewire | N37.1 |
 
 ### Task N37.1 — Viewer de docs autenticado `/docs/api` (Scalar)
 
@@ -5164,6 +5165,7 @@ Cenários de teste:
 - **Review**: senior+qa (superfície auth-adjacent: gate de docs + credenciais)
 - **Brief**: `docs/.briefs/N37.brief.md` — PASS_WITH_NOTES (1 HIGH pré-existente PB-N37-001 endereçado por N37.4; 2 MEDIUM refletidos nos executor_prompts; verifier PASS)
 - **Iron law**: nenhuma rota nova de docs sem teste de acesso anônimo/sem-gate; nenhuma mudança em credenciais sem teste de integração com `EnsureApiKeyScope`
+- **Validação pós-merge (2026-07-05):** PR #136 `b43422c`; CI verde; deploy LAB `8e58fed` — `/docs/api` + manifest `docs-api.js`; ISSUE-047 fechada.
 
 ---
 
@@ -5190,16 +5192,17 @@ Cenários de teste:
 > Gerado via `/pmo plan` em 2026-07-05. Fonte: ISSUE-049; `docs/design/DESIGN.md` §8; `docs/REQUIREMENTS.md` F3/F6; incidentes LAB `pacoteste` (trailing slash, user create failed). Modo de execução: pipeline/autopilot.
 > Fora de escopo: mudanças upstream NC/senha; ISSUE-047/N37; cutover domínio prod (ISSUE-043).
 > Quality Brief: `docs/.briefs/N39.brief.md` (PASS_WITH_NOTES).
+> **Status**: **concluída** (7/7, núcleo + stretch) — PR #135 merge `8e58fed`; CI verde; ISSUE-049 fechada; deploy LAB `8e58fed`.
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | N39.1 — Normalizar FQDN: strip trailing slash, lowercase, regex; Livewire Create + ProvisionCustomerRequest + API v1; preview no form; testes Pest | laravel-livewire / api-rest-patterns | — |
-| [ ] | M | N39.2 — OccPanel aba Usuários: listar via `OccPassthroughService` `user:list --json`; tabela refresh; bloquear username `admin` | laravel-livewire | — |
-| [ ] | M | N39.3 — Feedback async user create: poll job até terminal; summary/erro inline; senha ≥10 + hint política NC | laravel-livewire | N39.2 |
-| [ ] | M | N39.4 — `customers/show`: `wire:poll` durante provisioning/finishing; link `/queue/{job_id}`; tail log (`JobLogFetcher` throttled) | laravel-livewire | — |
-| [ ] | M | N39.5 — Readiness visível em `provisioning_finishing` — tentativa/erro (extend `ReadinessReport` ou audit log) | laravel-livewire | N39.4 |
-| [ ] | P | N39.6 *(stretch)* — Retrofit visual `customers/*` para tokens M3 (match `cluster-servers`) | laravel-livewire | — |
-| [ ] | M | N39.7 *(stretch)* — Remover cluster soft-delete na UI com guarda customers ativos | laravel-livewire | — |
+| [x] | P | N39.1 — Normalizar FQDN: strip trailing slash, lowercase, regex; Livewire Create + ProvisionCustomerRequest + API v1; preview no form; testes Pest | laravel-livewire / api-rest-patterns | — |
+| [x] | M | N39.2 — OccPanel aba Usuários: listar via `OccPassthroughService` `user:list --json`; tabela refresh; bloquear username `admin` | laravel-livewire | — |
+| [x] | M | N39.3 — Feedback async user create: poll job até terminal; summary/erro inline; senha ≥10 + hint política NC | laravel-livewire | N39.2 |
+| [x] | M | N39.4 — `customers/show`: `wire:poll` durante provisioning/finishing; link `/queue/{job_id}`; tail log (`JobLogFetcher` throttled) | laravel-livewire | — |
+| [x] | M | N39.5 — Readiness visível em `provisioning_finishing` — tentativa/erro (extend `ReadinessReport` ou audit log) | laravel-livewire | N39.4 |
+| [x] | P | N39.6 *(stretch)* — Retrofit visual `customers/*` para tokens M3 (match `cluster-servers`) | laravel-livewire | — |
+| [x] | M | N39.7 *(stretch)* — Remover cluster soft-delete na UI com guarda customers ativos | laravel-livewire | — |
 
 ### Task N39.1 — Normalizar FQDN (strip slash, lowercase, regex)
 
@@ -5408,11 +5411,14 @@ Cenários de teste:
 - **Brief**: `docs/.briefs/N39.brief.md` — PASS_WITH_NOTES
 - **Iron law**: nenhuma normalização de FQDN só no client; nenhum poll SSH sem throttle; nenhuma mudança em `ProbeCustomerReadinessJob` promote/timeout sem teste de regressão
 - **Ordem de execução**: N39.1 → N39.2 → N39.3; N39.4 → N39.5; N39.6/N39.7 stretch após gate núcleo
+- **Validação pós-merge (2026-07-05):** PR #135 `8e58fed`; CI verde; deploy LAB `.110`; núcleo + stretch entregues; ISSUE-049 fechada.
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-05 | 0.41   | Sprint N39 concluída (7/7): ISSUE-049 UX provisionamento + OCC — FQDN normalize, OccPanel users, async feedback, show poll, readiness card, M3 retrofit, cluster remove UI; PR #135 `8e58fed`; deploy LAB `.110`. | sprint-finalizer |
+| 2026-07-05 | 0.40   | Sprint N37 concluída (4/4): ISSUE-047 API Console fase 1 — Scalar `/docs/api`, API key scopes + badges, sidebar link; PR #136 `b43422c`; manifest `docs-api.js`; deploy LAB `.110`. | sprint-finalizer |
 | 2026-07-05 | 0.39   | Sprint N39 planejada — ISSUE-049 UX provisionamento + OCC (DESIGN.md §8): 7 tasks (2P+4M+1M stretch); gate FQDN + progresso + users OCC + readiness; review senior+qa. | `/pmo plan` |
 | 2026-07-04 | 0.36.2 | Sprint N36 concluída (5/5): gate E2E canário `canario-n36e` PASS; ISSUE-045 fixed upstream `ba53ecc`; merge PR #128 + deploy LAB `7a79086`. | sprint-finalizer |
 | 2026-07-03 | 0.36.1 | Execução N36: 4/5 tasks; N36.4 bloqueada por ISSUE-045; CI verde PR #128. | sprint-finalizer |

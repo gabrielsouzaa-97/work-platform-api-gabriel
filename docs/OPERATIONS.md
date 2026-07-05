@@ -1,5 +1,13 @@
 # Operations log
 
+## 2026-07-05T18:55:00Z — Deploy LAB pós-merge N37 + N39 (ISSUE-047 / ISSUE-049)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — deploy `main` SHA `8e58fed` (merge PR #135 N39 sobre PR #136 N37); `/up` 200.
+- **N37 (ISSUE-047):** viewer Scalar em `/docs/api` (gate `manage-operators`); manifest Vite `docs-api.js`; scopes v1 no create de `/api-keys` com badges na listagem; link sidebar "Documentação API".
+- **N39 (ISSUE-049):** FQDN normalizado server-side; OccPanel lista usuários OCC; feedback async user create; `customers/show` poll + tail log; readiness card em `provisioning_finishing`; retrofit M3 `customers/*`; UI remoção cluster com guarda.
+- **CI:** verde em ambos PRs (#136 N37, #135 N39) antes do merge.
+- **Rollback:** imagem/commit anterior no host `.110` (swap diretório + compose restart).
+
 ## 2026-07-05T03:41:54Z — N25.4 canário `canario-n25-labwork` no cluster `labwork` (`.112`)
 
 - **Request:** `POST /api/v1/tenants` (legado, sem `image_mode`) → slug `canario-n25-labwork`, domain `canario-n25-labwork.labwork.mework360.com.br`, cluster `262ab7f9-d284-4671-a05c-fc996a156730`.
