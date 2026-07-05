@@ -161,6 +161,40 @@ it('webhook re-entregue com mesmo estado terminal não duplica row na projeção
     expect(TenantUser::where('customer_slug', $customer->slug)->count())->toBe(1);
 });
 
+it('summary-recovery retry não reprojeta tenant_users após tamper manual', function (): void {
+    $cluster = projectionCluster();
+    $customer = projectionCustomer($cluster->id, 'acme-sum-rec');
+    $job = projectionJob($cluster->id, $customer->slug, 'users:create', payloadSanitized: [
+        'args' => ['johndoe'],
+        'email' => 'john@acme.com',
+    ]);
+
+    $handler = app(WebhookHandler::class);
+    $payload = projectionFinishedPayload($job);
+
+    $handler->handle($cluster, $payload);
+
+    $row = TenantUser::where('customer_slug', $customer->slug)
+        ->where('username', 'johndoe')
+        ->first();
+
+    expect($row)->not->toBeNull()
+        ->and($row->email)->toBe('john@acme.com');
+
+    $row->update(['email' => 'tampered@x.com']);
+
+    $job->refresh();
+    expect($job->state)->toBe('success')
+        ->and($job->summary)->toBeNull();
+
+    $handler->handle($cluster, $payload);
+
+    expect(TenantUser::where('customer_slug', $customer->slug)->count())->toBe(1);
+
+    $row->refresh();
+    expect($row->email)->toBe('tampered@x.com');
+});
+
 it('projector exception não impede webhook 204 e registra log warning', function (): void {
     $cluster = projectionCluster();
     $customer = projectionCustomer($cluster->id, 'acme-proj-err');

@@ -172,6 +172,25 @@ it('sync registra drift admin_group_member para usuário não-admin em grupo adm
         ->and($drift->payload['kind'])->toBe('admin_group_member');
 });
 
+it('sync registra drift admin_group_member para usuário não-admin em grupo subadmin', function (): void {
+    $cluster = syncCluster();
+    $customer = syncCustomer($cluster, 'sync-drift-subadmin-grp');
+
+    bindSyncUserListViaSsh($customer, [
+        ['username' => 'privuser', 'groups' => ['subadmin']],
+    ]);
+
+    app(TenantUserSyncService::class)->sync($customer);
+
+    $drift = AuditLog::where('action', 'tenant_user_drift')
+        ->where('resource_id', $customer->slug)
+        ->first();
+
+    expect($drift)->not->toBeNull()
+        ->and($drift->payload['username'])->toBe('privuser')
+        ->and($drift->payload['kind'])->toBe('admin_group_member');
+});
+
 it('sync não registra drift para admin origin provision', function (): void {
     $cluster = syncCluster();
     $customer = syncCustomer($cluster, 'sync-no-drift-admin');
@@ -190,6 +209,34 @@ it('sync não registra drift para admin origin provision', function (): void {
     expect($report->driftDetected)->toBe(0)
         ->and(AuditLog::where('action', 'tenant_user_drift')->where('resource_id', $customer->slug)->exists())
         ->toBeFalse();
+});
+
+it('sync preserva admin origin provision ausente do user:list e registra missing_platform_admin', function (): void {
+    $cluster = syncCluster();
+    $customer = syncCustomer($cluster, 'sync-missing-admin');
+
+    syncSeedUser($customer->slug, 'admin', [
+        'origin' => 'provision',
+        'groups' => ['admin'],
+        'created_at' => now()->subHours(2),
+    ]);
+
+    bindSyncUserListViaSsh($customer, []);
+
+    $report = app(TenantUserSyncService::class)->sync($customer);
+
+    expect($report->deleted)->toBe(0)
+        ->and($report->driftDetected)->toBe(1)
+        ->and(TenantUser::where('customer_slug', $customer->slug)->where('username', 'admin')->exists())
+        ->toBeTrue();
+
+    $drift = AuditLog::where('action', 'tenant_user_drift')
+        ->where('resource_id', $customer->slug)
+        ->first();
+
+    expect($drift)->not->toBeNull()
+        ->and($drift->payload['username'])->toBe('admin')
+        ->and($drift->payload['kind'])->toBe('missing_platform_admin');
 });
 
 it('tenant-users:sync continua batch quando SSH falha em um customer', function (): void {

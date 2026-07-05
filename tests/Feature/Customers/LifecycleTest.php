@@ -918,7 +918,7 @@ it('POST users aceita email com plus addressing (boundary válido)', function ()
         ->assertStatus(202);
 });
 
-it('POST users aceita password com exatamente 8 caracteres (boundary válido)', function () {
+it('POST users aceita password com exatamente 10 caracteres (boundary válido)', function () {
     $cluster = makeLifecycleCluster();
     $customer = makeLifecycleCustomer($cluster);
     $operator = makeLifecycleOperator();
@@ -931,7 +931,7 @@ it('POST users aceita password com exatamente 8 caracteres (boundary válido)', 
     $this->actingAs($operator)
         ->postJson("/api/customers/{$customer->slug}/users", [
             'username' => 'johndoe',
-            'password' => 'Abcd1234',
+            'password' => 'secret1234',
         ])
         ->assertStatus(202)
         ->assertJsonPath('job_id', $jobId);

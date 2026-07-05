@@ -46,7 +46,7 @@ class CreateUserRequest extends FormRequest
                     }
                 },
             ],
-            'password' => ['required', 'string', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'string', Password::min(10)->letters()->numbers()],
             'display_name' => ['nullable', 'string', 'max:255'],
             'displayname' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],

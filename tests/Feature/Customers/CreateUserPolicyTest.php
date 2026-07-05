@@ -113,3 +113,21 @@ it('POST users válido sem admin passa validação e enfileira job', function ()
         ->assertStatus(202)
         ->assertJsonPath('job_id', $jobId);
 });
+
+it('POST users com password de 9 caracteres → 422 sem SSH', function (): void {
+    $cluster = policyCluster();
+    $customer = policyCustomer($cluster);
+    $operator = policyOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'johndoe',
+            'password' => 'Abcd12345',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['password']);
+});

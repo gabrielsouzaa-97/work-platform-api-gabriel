@@ -41,6 +41,7 @@ class TenantUserSyncService
         );
 
         $this->deleteStaleRows(
+            $customer,
             $localByUsername,
             $upstreamUsernames,
             Carbon::now()->subMinutes(self::GRACE_MINUTES),
@@ -112,7 +113,7 @@ class TenantUserSyncService
             return;
         }
 
-        if ($username !== 'admin' && $this->hasAdminGroup($groups)) {
+        if ($username !== 'admin' && $this->hasPrivilegedGroup($groups)) {
             $this->recordDrift($customer, $username, 'admin_group_member', $report);
         }
     }
@@ -122,6 +123,7 @@ class TenantUserSyncService
      * @param  Collection<string, TenantUser>  $localByUsername
      */
     private function deleteStaleRows(
+        Customer $customer,
         Collection $localByUsername,
         array $upstreamUsernames,
         Carbon $graceCutoff,
@@ -129,6 +131,12 @@ class TenantUserSyncService
     ): void {
         foreach ($localByUsername as $username => $local) {
             if (in_array($username, $upstreamUsernames, true)) {
+                continue;
+            }
+
+            if ($username === 'admin' && $local->origin === 'provision') {
+                $this->recordDrift($customer, $username, 'missing_platform_admin', $report);
+
                 continue;
             }
 
@@ -195,10 +203,11 @@ class TenantUserSyncService
     /**
      * @param  list<string>  $groups
      */
-    private function hasAdminGroup(array $groups): bool
+    private function hasPrivilegedGroup(array $groups): bool
     {
         foreach ($groups as $group) {
-            if (strtolower((string) $group) === 'admin') {
+            $normalized = strtolower((string) $group);
+            if ($normalized === 'admin' || $normalized === 'subadmin') {
                 return true;
             }
         }

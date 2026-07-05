@@ -19,6 +19,7 @@ class TenantUser extends Model
             }
         });
     }
+
     protected $table = 'tenant_users';
 
     protected $primaryKey = 'id';
