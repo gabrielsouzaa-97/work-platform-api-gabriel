@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-06-20
+synced_at: 2026-07-05
 open_critical: 0
 open_high: 9
 open_medium: 44
-open_low: 33
+open_low: 36
 sprints_with_open_blockers:
-notes: Onda A R3 APROVADA (2026-06-20) — CQ-N21-004/005 validados; 656 passed Docker. Blockers N21/N29 zerados.
+notes: N40 R1 APROVADA (2026-07-05) — 0 HIGH; 4 MEDIUM + QA-N40-001/006 corrigidos in-sprint; 3 LOW backlog (CQ-N40-003≡QA-N40-005, QA-N40-003, QA-N40-004). 789 passed Docker.
 FINDINGS-INDEX -->
 
 
@@ -43,6 +43,15 @@ FINDINGS-INDEX -->
 | N21 | 0 | 5 | 0 | 0 | 0 | 0 | 5 |
 | N29 | 0 | 3 | 0 | 0 | 0 | 0 | 3 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
+| N40 | 0 | 0 | 4 | 5 | 3 | 6 | 0 |
+
+> **Validação N40 R1** (2026-07-05, `/qa validar N40` via `/rock`): scope = `main...sprint/N40` (read model `tenant_users` + política no-client-admin, ISSUE-050). **Testes**: suite completa Docker **789 passed, 7 skipped** (2609 assertions); suites N40 93 passed. **verifier** → PASS_WITH_NOTES (guardrails #213 8/8; N40-001 origin=panel corrigido in-sprint). **auditor-senior** → PASS_WITH_NOTES (`CQ-N40-001` drift subadmin MEDIUM, `CQ-N40-002` guard admin plataforma no stale-delete MEDIUM — **ambos corrigidos in-sprint**; `CQ-N40-003` deleteUser refresh LOW backlog). **auditor-qa** → PASS_WITH_NOTES (25/25 cenários ROADMAP 1:1; `QA-N40-001` teste summary-recovery MEDIUM e `QA-N40-002` TenantUserListParserTest MEDIUM — **corrigidos in-sprint**; `QA-N40-006` senha API min 10 LOW — **corrigida**; `QA-N40-003`/`QA-N40-004` LOW backlog; `QA-N40-005` dedupe com CQ-N40-003). **Gate anti-tamper**: PASS (nenhum arquivo de gate no diff). **Resultado: APROVADA** — 0 CRITICAL/HIGH pendentes; 3 LOW non-blocking em backlog.
+
+### Backlog LOW N40 (non-blocking)
+
+- **[CQ-N40-003 ≡ QA-N40-005] LOW — pendente**: `OccPanel::deleteUser` não recarrega lista pós-success (create tem poll; delete fica stale até "Atualizar"). `app/Http/Livewire/Customers/OccPanel.php:395-413`.
+- **[QA-N40-003] LOW — pendente**: falta teste cruzando webhook out-of-order (`job.started` após terminal) com projeção `tenant_users` intacta.
+- **[QA-N40-004] LOW — pendente**: teste de poll create success usa seed manual em vez de integração webhook→projector→poll.
 
 > **Validação F15 R2** (2026-06-17, `/qa validar F15` via `/rock`): scope = follow-up `ce86325` (campanha `f15-authz-followup`). **Testes**: `ApiKeyAuthorizationTest` 9 passed + `CancelJobTest` 4 passed, 29 assertions (SQLite local). **auditor-senior R2** → **PASS** (0 HIGH). **Findings validados**: `CQ-F15-001`, `CQ-F15-002`, `CQ-F15-003`, `CQ-F15-005`, `SEC-V1-001`. **Backlog non-blocking**: `CQ-F15-007`, `CQ-F15-008` (LOW). **Hard Rule #2**: OK (0 arquivos fora whitelist). **Resultado: APROVADA**.
 

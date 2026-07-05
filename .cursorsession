@@ -230,10 +230,47 @@
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "implementation",
+    "phase": "auditing",
     "sprint": "N40",
-    "current_task": "N40.1",
-    "last_completed_task": null
+    "current_task": null,
+    "last_completed_task": "N40.6",
+    "validation_gate_qa": {
+      "sprint": "N40",
+      "produced_by": "/qa validar N40 R1 via /rock (verifier + auditor-senior + auditor-qa)",
+      "result": "APROVADA",
+      "validation_round": 1,
+      "validation_mode": "full",
+      "senior_review_status": "PASS_WITH_NOTES",
+      "qa_review_status": "PASS_WITH_NOTES",
+      "verifier_status": "PASS_WITH_NOTES",
+      "findings_found": 9,
+      "findings_fixed_in_sprint": [
+        "N40-001",
+        "CQ-N40-001",
+        "CQ-N40-002",
+        "QA-N40-001",
+        "QA-N40-002",
+        "QA-N40-006"
+      ],
+      "findings_backlog_low": [
+        "CQ-N40-003",
+        "QA-N40-003",
+        "QA-N40-004"
+      ],
+      "gate_tamper_check": "PASS",
+      "tests_evidence": "Docker app: 789 passed, 7 skipped, 2609 assertions (2026-07-05); suites N40 93 passed",
+      "stamped_at": "2026-07-05T22:40:00Z"
+    },
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "26eee76e26be584e2117075a309b836c93adda1e",
+      "stamped_at": "2026-07-05T22:15:04Z"
+    }
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -314,7 +351,9 @@
       "size": "M",
       "title": "TenantUserProjector + hooks pós-transação no WebhookHandler + payload_sanitized enriquecido",
       "file": "app/Modules/Customers/Services/TenantUserProjector.php",
-      "depends": ["N40.1"]
+      "depends": [
+        "N40.1"
+      ]
     },
     {
       "id": "N40.3",
@@ -322,7 +361,9 @@
       "size": "M",
       "title": "tenant-users:sync command + TenantUserSyncService (reconciliação + drift AuditLog + scheduler)",
       "file": "app/Modules/Customers/Services/TenantUserSyncService.php",
-      "depends": ["N40.1"]
+      "depends": [
+        "N40.1"
+      ]
     },
     {
       "id": "N40.4",
@@ -330,7 +371,10 @@
       "size": "M",
       "title": "OccPanel lê projeção local; Atualizar = sync on-demand; poll recarrega projeção",
       "file": "app/Http/Livewire/Customers/OccPanel.php",
-      "depends": ["N40.2", "N40.3"]
+      "depends": [
+        "N40.2",
+        "N40.3"
+      ]
     },
     {
       "id": "N40.5",
@@ -345,7 +389,9 @@
       "size": "P",
       "title": "Docs: DATABASE.md + db-schema.dbml + ISSUE-050 + nota cross-repo",
       "file": "docs/DATABASE.md",
-      "depends": ["N40.1"]
+      "depends": [
+        "N40.1"
+      ]
     }
   ],
   "sprint_tasks_n36_archived": [
