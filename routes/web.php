@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DocsController;
 use App\Http\Livewire\ApiKeys\Index as ApiKeysIndex;
 use App\Http\Livewire\Audit\Index as AuditIndex;
 use App\Http\Livewire\Auth\AcceptInvite;
@@ -104,6 +105,15 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
     Route::get('/admin/dashboard', fn () => redirect()->route('dashboard'))
         ->middleware('can:manage-operators')
         ->name('admin.dashboard');
+
+    // ===== API Documentation (private Scalar viewer) =====
+    Route::get('/docs/api', [DocsController::class, 'api'])
+        ->middleware('can:manage-operators')
+        ->name('docs.api');
+
+    Route::get('/docs/api/spec', [DocsController::class, 'spec'])
+        ->middleware('can:manage-operators')
+        ->name('docs.api.spec');
 
     // ===== Credenciais (API Keys) =====
     Route::get('/api-keys', ApiKeysIndex::class)

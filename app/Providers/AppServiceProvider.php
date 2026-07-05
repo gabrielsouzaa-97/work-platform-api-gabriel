@@ -21,6 +21,7 @@ use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -99,5 +100,12 @@ class AppServiceProvider extends ServiceProvider
                 SecurityScheme::http('bearer'),
             );
         });
+
+        Scramble::configure()->expose(
+            ui: false,
+            document: fn (Router $router, $action) => $router
+                ->get('docs/api.json', $action)
+                ->name('scramble.docs.document'),
+        );
     }
 }
