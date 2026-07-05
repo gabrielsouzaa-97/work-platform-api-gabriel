@@ -34,8 +34,8 @@
   ],
   "fase_atual": "13",
   "fase_nome": "Sprint N25 retomada — N25.3 concluída; N25.4 blocked por ISSUE-046 (.108 suite-deploy)",
-  "sprint_atual": "N38",
-  "previous_sprint": "N36",
+  "sprint_atual": null,
+  "previous_sprint": "N38",
   "sprint_branch": null,
   "sprint_pending_merge": null,
   "campaign": {
@@ -54,7 +54,8 @@
       "N24",
       "N22",
       "N28",
-      "N36"
+      "N36",
+      "N38"
     ],
     "sprints_pending": [
       "N25 (blocked — ISSUE-046)"
@@ -67,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-05T14:00:22Z",
-  "next_sprint_planned": "N37",
+  "ultimo_update": "2026-07-05T19:45:00Z",
+  "next_sprint_planned": "N39",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -209,34 +210,34 @@
   ],
   "anchor": {
     "persona": "planejador-melhorias",
-    "phase": "Sprint N37 planejada (pendente)",
-    "intent": "ISSUE-047 API Console fase 1 — docs viewer privado (Scalar) + scopes v1 nas credenciais; 4 tasks (2M+2P)",
-    "changes_made": "ISSUE-047 registrada; Sprint N37 no ROADMAP (índice + seção + histórico 0.37); brief N37 PASS_WITH_NOTES + verifier PASS; next_sprint_planned=N37",
-    "decisions": "Doc privada atrás de manage-operators; Scalar npm/Vite sem CDN; só openapi-external.yaml; scopes opt-in (default null); review senior+qa; exec pipeline; fase 2 (try-it-out proxy, expiração, doc pública) fora de escopo",
-    "next_steps": "/pmo sprint iniciar N37 (pipeline); N25.4 segue blocked por ISSUE-046 (decisão de escopo .108 vs .112)",
-    "updated_at": "2026-07-05T05:30:00Z"
+    "phase": "Sprint N39 planejada (pendente)",
+    "intent": "ISSUE-049 UX provisionamento + OCC — DESIGN.md §8: FQDN normalizado, progresso/readiness visível, lista usuários OCC, erro create inline; 7 tasks (2P+4M+1M stretch)",
+    "changes_made": "ISSUE-049 registrada; Sprint N39 no ROADMAP (índice + seção + histórico 0.39); brief N39 PASS_WITH_NOTES; next_sprint_planned=N39; sprint_tasks vazio (planning only)",
+    "decisions": "Ordem núcleo N39.1→N39.2→N39.3; N39.4→N39.5; N39.6/N39.7 stretch; review senior+qa; JobLogFetcher throttle 15s; FQDN server-side obrigatório; N37 permanece pendente de execução",
+    "next_steps": "/pmo sprint iniciar N39 (pipeline); N37 ainda pendente; N25.4 segue blocked por ISSUE-046",
+    "updated_at": "2026-07-05T19:45:00Z"
   },
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-05T05:01:32Z",
-    "usage_percent": 96.53766666666667,
-    "messages_lost": 395
+    "compacted_at": "2026-07-05T14:16:08Z",
+    "usage_percent": 90.498,
+    "messages_lost": 267
   },
-  "compact_count": 5,
-  "sprint_pr": 128,
+  "compact_count": 6,
+  "sprint_pr": 134,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
     "phase": "done",
-    "sprint": "N36",
-    "branch": "sprint/N36",
-    "merged_at": "2026-07-04T21:10:00Z",
-    "merge_commit": "7a79086",
-    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/128",
-    "note": "Gate PASS canario-n36e (job 9904497b-ad3c-4390-ba61-c5f433cd00c1, success ~5m44s); ISSUE-045 fixed upstream ba53ecc; 5/5 tasks",
-    "timestamp": "2026-07-04T21:25:00Z",
+    "sprint": "N38",
+    "branch": "sprint/N38",
+    "merged_at": "2026-07-05T14:16:00Z",
+    "merge_commit": "621d8fd",
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/134",
+    "note": "ISSUE-048: LAB FOUC (volume deployer_public) + Livewire image_mode/suite_catalog no form provision; deploy LAB .110 smoke OK; 3/3 tasks; CI 704 tests",
+    "timestamp": "2026-07-05T14:20:00Z",
     "validation_gate": {
       "produced_by": "validation-stamp.py",
       "result": "APROVADA",
@@ -244,9 +245,19 @@
       "gates": [],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "3519757a11116887efb954cde40fe7672380425c",
-      "stamped_at": "2026-07-05T14:05:34Z"
+      "last_validated_sha": "621d8fd92497ecf5558cb77115b79599f07fc895",
+      "stamped_at": "2026-07-05T14:20:00Z"
     }
+  },
+  "checkpoint_n36_archived": {
+    "phase": "done",
+    "sprint": "N36",
+    "branch": "sprint/N36",
+    "merged_at": "2026-07-04T21:10:00Z",
+    "merge_commit": "7a79086",
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/128",
+    "note": "Gate PASS canario-n36e (job 9904497b-ad3c-4390-ba61-c5f433cd00c1, success ~5m44s); ISSUE-045 fixed upstream ba53ecc; 5/5 tasks",
+    "timestamp": "2026-07-04T21:25:00Z"
   },
   "checkpoint_n25": {
     "phase": "blocked",
@@ -303,7 +314,8 @@
       "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
-  "sprint_tasks": [
+  "sprint_tasks": [],
+  "sprint_tasks_n36_archived": [
     {
       "id": "N36.3",
       "status": "completed",
@@ -417,8 +429,28 @@
   },
   "planning_history": [
     {
-      "timestamp": "2026-07-05T05:30:00Z",
-      "action": "/pmo plan — ISSUE-047 API Console fase 1 (docs viewer privado Scalar + scopes v1 nas credenciais)",
+      "timestamp": "2026-07-05T19:45:00Z",
+      "action": "/pmo plan — ISSUE-049 UX provisionamento + OCC operacional (DESIGN.md §8)",
+      "sprints_generated": [
+        "N39"
+      ],
+      "issues_in_scope": [
+        "ISSUE-049"
+      ],
+      "findings_in_scope": [],
+      "split_strategy": "núcleo: FQDN (N39.1) → users OCC list+feedback (N39.2–N39.3) → progresso show+readiness (N39.4–N39.5); stretch: retrofit visual M3 (N39.6) + cluster remove UI (N39.7); incidentes LAB pacoteste (trailing slash, user create failed)",
+      "tasks_count": {
+        "P": 2,
+        "M": 4,
+        "M_stretch": 1,
+        "total": 7
+      },
+      "review_level": "senior+qa",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/N39.brief.md",
+      "brief_status": "PASS_WITH_NOTES",
+      "gate": "FQDN normalizado (Livewire+API+testes); operador vê progresso/readiness; lista usuários OCC; erro create inline; CI verde"
+    },
       "sprints_generated": [
         "N37"
       ],
@@ -1487,6 +1519,36 @@
         "N35.6",
         "N35.7"
       ]
+    }
+  ],
+  "sprint_tasks_n38_archived": [
+    {
+      "id": "N38.1",
+      "status": "completed",
+      "size": "P",
+      "title": "docker-compose.lab.yml: volume deployer_public compartilhado app↔nginx (Vite assets)",
+      "file": "docker-compose.lab.yml",
+      "evidence": "PR #134; smoke /build/manifest.json 200 no LAB .110"
+    },
+    {
+      "id": "N38.2",
+      "status": "completed",
+      "size": "M",
+      "title": "Livewire Customers\\Create: image_mode/suite_catalog, hints slug/FQDN, select dark-mode",
+      "file": "app/Http/Livewire/Customers/Create.php",
+      "evidence": "PR #134; ISSUE-048 gap N36 no painel corrigido"
+    },
+    {
+      "id": "N38.3",
+      "status": "completed",
+      "size": "P",
+      "title": "Deploy LAB .110 + smoke /up + /build/manifest.json",
+      "file": "docs/OPERATIONS.md",
+      "depends": [
+        "N38.1",
+        "N38.2"
+      ],
+      "evidence": "deploy manual .110; usuário confirmou painel OK"
     }
   ]
 }

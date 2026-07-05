@@ -401,3 +401,25 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-05 01:57** `92ab2af` — fix(sprint-N25): unwrap occ-exec envelope in readiness gate (#133)
 - **2026-07-05 02:00** `92ab2af` — fix(sprint-N25): unwrap occ-exec envelope in readiness gate (#133)
 - **2026-07-05 02:01** `92ab2af` — fix(sprint-N25): unwrap occ-exec envelope in readiness gate (#133)
+- **2026-07-05 02:23** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:15** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:25** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:32** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:38** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:39** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:40** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:44** `4fb3b52` — docs(sprint-N37): planning output
+- **2026-07-05 09:53** `3519757` — fix(sprint-N38): LAB Vite assets volume + provision form image_mode
+- **2026-07-05 11:00** `3519757` — fix(sprint-N38): LAB Vite assets volume + provision form image_mode
+- **2026-07-05 11:09** `e3502c0` — chore(sprint-N38): session checkpoint and validation stamp
+- **2026-07-05 11:17** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:20** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:22** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:24** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:39** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:40** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:41** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:42** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:44** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 12:55** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38
+- **2026-07-05 13:04** `621d8fd` — Merge pull request #134 from SoftwareBeesy/sprint/N38

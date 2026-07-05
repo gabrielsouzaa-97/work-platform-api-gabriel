@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -26,9 +27,17 @@ class Index extends Component
 
     public string $createName = '';
 
-    protected array $rules = [
-        'createName' => ['required', 'string', 'min:2', 'max:120'],
-    ];
+    /** @var array<int, string> */
+    public array $createScopes = [];
+
+    protected function rules(): array
+    {
+        return [
+            'createName' => ['required', 'string', 'min:2', 'max:120'],
+            'createScopes' => ['array'],
+            'createScopes.*' => [Rule::in(config('api-scopes.v1'))],
+        ];
+    }
 
     public string $createdToken = '';
 
@@ -56,6 +65,7 @@ class Index extends Component
         Gate::authorize('manage-operators');
 
         $this->createName = '';
+        $this->createScopes = [];
         $this->resetErrorBag();
         $this->showCreateModal = true;
     }
@@ -71,7 +81,7 @@ class Index extends Component
             $actor = Auth::user();
             $result = $this->apiKeyService->generate(
                 name: trim($this->createName),
-                scopes: null,
+                scopes: $this->createScopes ?: null,
                 actor: $actor,
             );
 
@@ -79,6 +89,7 @@ class Index extends Component
             $this->showCreateModal = false;
             $this->showTokenReveal = true;
             $this->createName = '';
+            $this->createScopes = [];
             $this->resetErrorBag();
         } catch (\Throwable $e) {
             Log::warning('ApiKeys\Index: create failed', ['error' => $e->getMessage()]);

@@ -48,6 +48,7 @@
                         <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-md">Chave (mascarada)</th>
                         <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-md">Criada em</th>
                         <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-md">Último uso</th>
+                        <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-md">Escopos</th>
                         <th class="text-[11px] uppercase tracking-wide text-on-surface-variant px-lg py-md text-right">Status</th>
                         <th class="px-lg py-md w-10"></th>
                     </tr>
@@ -98,6 +99,28 @@
                                     <span class="text-[12px] text-outline">Nunca usada</span>
                                 @endif
                             </td>
+                            {{-- Scopes --}}
+                            <td class="px-lg py-md">
+                                @php
+                                    $scopes = $key->scopes;
+                                    $isUnrestricted = $scopes === null || in_array('*', $scopes ?? [], true);
+                                @endphp
+                                <div class="flex flex-wrap gap-xs max-w-[280px] whitespace-normal">
+                                    @if ($isUnrestricted)
+                                        <span class="inline-flex items-center px-sm py-[3px] rounded text-[11px] font-semibold uppercase tracking-wide
+                                            bg-secondary-container text-on-secondary-container border border-outline-variant/40">
+                                            irrestrita
+                                        </span>
+                                    @else
+                                        @foreach ($scopes as $scope)
+                                            <span class="inline-flex items-center px-sm py-[3px] rounded text-[11px] font-mono font-medium
+                                                bg-surface-container text-on-surface border border-outline-variant/50">
+                                                {{ $scope }}
+                                            </span>
+                                        @endforeach
+                                    @endif
+                                </div>
+                            </td>
                             {{-- Status --}}
                             <td class="px-lg py-md text-right">
                                 <span class="inline-flex items-center px-sm py-[3px] rounded text-[11px] font-semibold uppercase tracking-wide
@@ -129,7 +152,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-lg py-xl text-center text-on-surface-variant text-[13px]">
+                            <td colspan="7" class="px-lg py-xl text-center text-on-surface-variant text-[13px]">
                                 <span class="material-symbols-outlined text-outline block mx-auto mb-sm" style="font-size:32px">vpn_key_off</span>
                                 Nenhuma credencial cadastrada.
                                 <p class="text-[12px] text-outline mt-xs">Clique em "Gerar Nova Credencial" para criar a primeira.</p>
@@ -186,6 +209,18 @@
                     </div>
                 @enderror
 
+                @error('createScopes')
+                    <div class="mb-md rounded-lg bg-error/10 border border-error/20 px-md py-sm text-[13px] text-error" role="alert">
+                        {{ $message }}
+                    </div>
+                @enderror
+
+                @error('createScopes.*')
+                    <div class="mb-md rounded-lg bg-error/10 border border-error/20 px-md py-sm text-[13px] text-error" role="alert">
+                        {{ $message }}
+                    </div>
+                @enderror
+
                 <form wire:submit="create">
                     <div class="space-y-md">
                         <div>
@@ -203,6 +238,28 @@
                                 aria-describedby="createName-hint"
                             />
                             <p id="createName-hint" class="mt-xs text-[11px] text-outline">Mínimo 2 caracteres. Máximo 120.</p>
+                        </div>
+
+                        <div>
+                            <span class="block text-[12px] font-semibold uppercase tracking-wide text-on-surface-variant mb-xs">
+                                Scopes de acesso
+                            </span>
+                            <p class="text-[11px] text-outline mb-sm">
+                                Nenhum scope selecionado = acesso irrestrito a todos os endpoints.
+                            </p>
+                            <div class="space-y-xs rounded-lg border border-outline-variant bg-surface px-md py-sm max-h-[200px] overflow-y-auto">
+                                @foreach (config('api-scopes.v1') as $scope)
+                                    <label class="flex items-center gap-sm py-xs cursor-pointer group/scope">
+                                        <input
+                                            type="checkbox"
+                                            wire:model="createScopes"
+                                            value="{{ $scope }}"
+                                            class="rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-primary/40"
+                                        />
+                                        <code class="font-mono text-[12px] text-on-surface group-hover/scope:text-primary transition-colors">{{ $scope }}</code>
+                                    </label>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
 

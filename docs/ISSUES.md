@@ -54,6 +54,43 @@
 | ISSUE-046 | bug | Cross-repo `.108` (LAB upstream): create suite-catalog aponta `deploy_shell` para host labwork `.112` (`apply-lab.sh` ausente) → exit 1. Diagnóstico 3 camadas: (1) suite-deploy misdirecionado **[fix config]**, (2) webhook 401 por falta de `webhook_secret_history` no cadastro N25.3 **[fixed]**, (3) readiness gate exige suíte me360 que o create local não instala **[escopo]** | Cross-repo (work-platform-scripts), Jobs, Customers, Webhook | HIGH | **parcial** — create+webhook OK; gate completo N25.4 depende de decisão de escopo (suíte no `.108` vs `.112`) + fix estrutural via `/pmo fix` |
 | ISSUE-047 | enhancement | API Console fase 1: viewer privado de documentação (`/docs/api` via Scalar renderizando `openapi-external.yaml`) + seleção de scopes v1 na criação de credenciais em `/api-keys` | Core (Auth/api-key), Livewire, docs | MEDIUM | open — **planejada Sprint N37** |
 | ISSUE-048 | bug | Painel LAB sem CSS (nginx sem `public/build`) + Livewire `/customers/create` não envia `image_mode` (gap N36) | Livewire, DevOps | HIGH | **fixed (2026-07-05)** — Sprint N38; deploy LAB `.110` |
+| ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | open — **planejada Sprint N39** |
+
+---
+
+## ISSUE-049 — UX operador: provisionamento + OCC (DESIGN.md §8)
+
+- **Tipo**: change_request / melhoria UX
+- **Prioridade**: HIGH
+- **Status**: open — planejada Sprint N39
+- **Registrado em**: 2026-07-05 (triagem via UX Audit DESIGN.md §8 + incidentes LAB `pacoteste`: trailing slash em FQDN, `user create` falhou sem feedback inline)
+- **Módulos afetados**: `app/Http/Livewire/Customers/{Create,Show,OccPanel}.php`, `app/Http/Requests/ProvisionCustomerRequest.php`, `app/Http/Requests/V1/ProvisionTenantRequest.php`, `app/Modules/Customers/`, `app/Http/Livewire/ClusterServers/Index.php`, `resources/views/livewire/customers/*`, `app/Jobs/ProbeCustomerReadinessJob.php`
+
+### Descrição
+
+Sessão operacional real no LAB (provisionamento `pacoteste`, criação de usuários OCC) revelou fricções documentadas em `docs/design/DESIGN.md` §8: domínio com barra final quebra Traefik/readiness; página do customer não atualiza durante provisioning; `provisioning_finishing` é caixa-preta; Painel OCC não lista usuários existentes nem mostra erro real de `users:create` (só "enfileirado"); views `customers/*` usam CSS inline legado (hex cru) em vez dos tokens M3 de `cluster-servers/*`; remoção de cluster legado exige tinker/SSH.
+
+### Escopo (Sprint N39)
+
+1. **N39.1** — Normalizar FQDN (strip `/`, lowercase, regex) em Livewire Create + `ProvisionCustomerRequest` + API v1; preview no form; testes Pest.
+2. **N39.2** — OccPanel aba Usuários: listar via `OccPassthroughService` `user:list --json`; refresh; bloquear username `admin`.
+3. **N39.3** — Feedback async user create: poll job até terminal; summary/erro inline; senha ≥10 + hint política NC.
+4. **N39.4** — `customers/show`: `wire:poll` durante provisioning/finishing; link `/queue/{job_id}`; tail log (`JobLogFetcher` throttled).
+5. **N39.5** — Readiness visível em `provisioning_finishing` (tentativa/último erro via `ReadinessReport` estendido ou `AuditLog`).
+6. **N39.6** *(stretch P)* — Retrofit visual `customers/*` para tokens M3 (match `cluster-servers`).
+7. **N39.7** *(stretch M)* — Remover cluster soft-delete na UI com guarda de customers ativos.
+
+### Fontes
+
+- `docs/design/DESIGN.md` §8 (UX Audit 2026-07-05)
+- `docs/REQUIREMENTS.md` F3 (provisionar) + F6 (OCC/users)
+- Incidentes LAB: FQDN `pacoteste.../` (trailing slash); `users:create` rejeitado (admin duplicado / senha fraca) sem feedback no OCC
+
+### Fora de escopo
+
+- Try-it-out Scalar (ISSUE-047 / N37)
+- Mudanças upstream `nextcloud-manage` ou política de senha no NC (só alinhar validação/hint no painel)
+- Cutover domínio produção (ISSUE-043 fases posteriores)
 
 ---
 

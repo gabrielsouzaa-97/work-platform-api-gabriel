@@ -86,6 +86,7 @@
                 ['icon' => 'groups',        'label' => 'Clientes',               'route' => 'customers.index',     'gate' => null],
                 ['icon' => 'cloud_queue',   'label' => 'Logs de Provisionamento','route' => 'queue.index',         'gate' => null],
                 ['icon' => 'vpn_key',       'label' => 'Credenciais',            'route' => 'api-keys.index',      'gate' => 'manage-operators'],
+                ['icon' => 'api',           'label' => 'Documentação API',       'route' => 'docs.api',            'gate' => 'manage-operators'],
                 ['icon' => 'list_alt',      'label' => 'Logs de Requisição',     'route' => 'audit.index',         'gate' => 'manage-operators'],
                 ['icon' => 'settings',      'label' => 'Configurações',          'route' => 'settings.index',      'gate' => 'manage-cluster-servers'],
                 ['icon' => 'security',      'label' => 'Webhook IPs',            'route' => 'settings.webhook-ip', 'gate' => 'manage-cluster-servers'],
@@ -112,15 +113,6 @@
                 </a>
             @endif
         @endforeach
-
-        {{-- API Docs link — opens in new tab --}}
-        <a href="{{ url('/docs/api') }}" target="_blank" rel="noopener"
-           class="flex items-center gap-sm px-md py-[9px] rounded-lg font-semibold text-[12px] tracking-wide uppercase transition-all duration-150
-                  text-on-surface-variant hover:bg-surface-variant hover:text-on-surface">
-            <span class="material-symbols-outlined" style="font-size:20px">api</span>
-            API Docs
-            <span class="material-symbols-outlined ml-auto opacity-50" style="font-size:14px">open_in_new</span>
-        </a>
     </nav>
 
     {{-- Footer: logout + profile --}}

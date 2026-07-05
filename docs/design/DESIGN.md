@@ -203,3 +203,69 @@ As 18 telas do REQUIREMENTS mapeadas contra o design system.
 - **Contexto**: Múltiplos nomes no Stitch (CloudAdmin, DevPortal, etc).
 - **Decisão**: Unificar sob o nome "meWork360 Deployer".
 - **Consequências**: Marca única e consistente em todo o painel.
+
+---
+
+## 8. UX Audit — 2026-07-05 (fricções de provisionamento + inconsistência visual)
+
+> Modo: UX (`/designer ux`). Gatilho: sessão de operação real no LAB (provisionamento `pacoteste`, remoção de cluster legado, criação de usuários) revelou fricções de uso e desvio do design system. Achados abaixo alimentam `/pmo plan`; nenhuma task/ID de sprint foi definida aqui (fora do escopo do Designer).
+
+### 8.1 Inconsistência de biblioteca visual
+
+Duas gerações de tela coexistem no mesmo painel:
+
+| Padrão | Telas | Exemplo |
+|--------|-------|---------|
+| **Tokens Tailwind semânticos** (correto, alinhado a este DESIGN.md) | `cluster-servers/index`, `cluster-servers/create`, dashboard | `bg-surface-container`, `text-on-surface`, `text-error` |
+| **CSS inline com hex cru** (legado, pré-D006) | `customers/create`, `customers/show`, `customers/occ-panel` | `<style> .badge-active { background: #1c3a2f; color: #68d391; }` |
+
+Efeito: manutenção duplicada de paleta, risco de drift de contraste (WCAG AA já validado só no lado tokenizado), e badges/tabelas com visual levemente diferente entre `/customers` e `/cluster-servers`.
+
+**Recomendação**: migrar as 3 views de `customers/*` para as classes semânticas já usadas em `cluster-servers/index.blade.php` (mesmo componente de badge, tabela, card). Sem mudança de informação — só de implementação visual.
+
+### 8.2 Fluxo de provisionamento sem feedback de progresso
+
+- Página do customer não atualiza sozinha (`running` parado na tela até reload manual).
+- `JobLogFetcher` já existe no backend mas só é consumido no fechamento do job — o operador não vê o log rodando.
+- **Recomendação**: polling Livewire (`wire:poll.5s` na página `customers/show` enquanto `status` não é terminal) + trecho de log tail (últimas N linhas) no card "Jobs recentes".
+
+### 8.3 `provisioning_finishing` é caixa-preta
+
+- Readiness gate roda em background (`ProbeCustomerReadinessJob`, até 10 tentativas / 1200s) sem expor motivo de falha nem contagem de tentativas na UI.
+- **Recomendação**: novo campo/computed no card de Detalhes — "Readiness: tentativa 3/10 — último erro: HTTP 404 em /login" — lido do `AuditLog` (`customer_readiness_timeout`) ou de um novo campo `last_probe_result` no customer.
+
+### 8.4 Domínio aceita barra final (causou incidente real hoje)
+
+- `Create.php` (`customers/create`) e a API não normalizam `domain` — um FQDN com `/` no final quebra a regra do Traefik (`Host(...)`), `trusted_domains` e o probe de readiness (404 silencioso).
+- **Recomendação (UX + validação)**:
+  - Normalizar no `updatedDomain()`/`submit()`: `rtrim(trim(strtolower($domain)), '/')` antes de validar e enviar.
+  - Regex de validação explícita de FQDN (`/^[a-z0-9-]+(\.[a-z0-9-]+)+$/`, sem barra, sem protocolo).
+  - Mesmo tratamento na API pública (`POST /v1/tenants`) — não confiar só no client.
+  - Hint visual mostrando o domínio final "limpo" abaixo do campo antes de submeter (preview).
+
+### 8.5 Sem UI para listar usuários ativos do tenant
+
+- Usuário admin (criado no provisionamento) só é visível via SSH/`.credentials` no host — sem qualquer verificação no painel antes de tentar criar outro.
+- Backend já suporta: `OccPassthroughService::exec($customer, 'user:list')` (mesmo verbo usado no readiness gate) — **não precisa de nova capability upstream**.
+- **Recomendação**: nova sub-aba "Usuários" no Painel OCC exibindo tabela (`user:list --json`: username, email, quota, grupos) + botões inline de criar/deletar já existentes, eliminando a necessidade de "adivinhar" se um username está livre.
+
+### 8.6 Erro de criação de usuário só aparece depois, escondido
+
+- `createUser()` usa `LifecycleAsyncAction` (fluxo assíncrono) — a UI mostra "Usuário enfileirado" mesmo quando o Nextcloud vai rejeitar (ex.: `admin` já existe, senha fraca). O erro real só existe no `summary` do job, visível apenas na tabela "Jobs recentes" da página do customer (fora do Painel OCC).
+- **Recomendação**:
+  - Bloquear client-side o username `admin` (reservado) com hint explicativo.
+  - Alinhar a validação de senha do form (hoje `>= 8`) com a política real do Nextcloud 33 neste ambiente (`>= 10`, rejeita comuns/vazadas) — mensagem de erro citando a política, não só o mínimo.
+  - Depois de enfileirar, iniciar `wire:poll` curto no próprio Painel OCC até o job entrar em estado terminal, e mostrar o resultado real (sucesso/motivo da falha) inline — não só "enfileirado".
+
+### 8.7 Cluster legado sem ação de remoção na UI
+
+- Remover um `cluster_server` deprecado (ex.: `lab-upstream`) hoje exige SSH + `tinker` — sem exposição no `/cluster-servers`.
+- **Recomendação**: botão "Remover" (soft-delete) na tabela de clusters, com guarda (bloquear se houver customers ativos vinculados) e confirmação por nome — mesmo padrão do modal de remoção de customer.
+
+### 8.8 Prioridade sugerida (não vinculante — decisão de sprint cabe a `/pmo plan`)
+
+1. **8.4** (trailing slash) — causa incidente real, correção pequena e isolada.
+2. **8.5 + 8.6** (usuários) — mesmo fluxo, backend já pronto, maior redução de erro operacional.
+3. **8.2 + 8.3** (feedback de progresso/readiness) — UX de espera, sem bloqueio funcional.
+4. **8.1** (consistência visual) — retrofit incremental, sem urgência funcional.
+5. **8.7** (remover cluster na UI) — conveniência operacional, baixa frequência de uso.
