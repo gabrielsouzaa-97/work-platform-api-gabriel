@@ -6,6 +6,7 @@ namespace App\Http\Livewire\ClusterServers;
 
 use App\Mail\WebhookSecretRotatedMail;
 use App\Models\ClusterServer;
+use App\Modules\ClusterServers\Actions\RemoveClusterServerAction;
 use App\Modules\ClusterServers\Actions\RotateWebhookSecretAction;
 use App\Modules\Core\Ssh\Exceptions\SshClientException;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
@@ -25,6 +26,59 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+
+    public bool $showRemoveModal = false;
+
+    public ?string $removeClusterId = null;
+
+    public string $removeClusterName = '';
+
+    public string $confirmInput = '';
+
+    public string $removeError = '';
+
+    public function openRemoveModal(string $clusterId): void
+    {
+        Gate::authorize('manage-cluster-servers');
+        $cluster = ClusterServer::findOrFail($clusterId);
+        $this->removeClusterId = $cluster->id;
+        $this->removeClusterName = $cluster->name;
+        $this->showRemoveModal = true;
+        $this->confirmInput = '';
+        $this->removeError = '';
+    }
+
+    public function removeCluster(RemoveClusterServerAction $action): void
+    {
+        Gate::authorize('manage-cluster-servers');
+        $this->removeError = '';
+
+        $cluster = ClusterServer::findOrFail($this->removeClusterId);
+
+        if ($this->confirmInput !== $cluster->name) {
+            $this->removeError = 'Nome digitado não confere.';
+
+            return;
+        }
+
+        try {
+            $action->execute($cluster);
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === RemoveClusterServerAction::ERR_ACTIVE_CUSTOMERS) {
+                $this->dispatch('toast', type: 'error', msg: 'Não é possível remover: existem customers ativos vinculados.');
+
+                return;
+            }
+
+            throw $e;
+        }
+
+        $this->showRemoveModal = false;
+        $this->confirmInput = '';
+        $this->removeClusterId = null;
+        $this->removeClusterName = '';
+        $this->dispatch('toast', type: 'success', msg: 'Cluster removido com sucesso.');
+    }
 
     public function testConnection(string $clusterId, PlatformPortFactory $factory): void
     {

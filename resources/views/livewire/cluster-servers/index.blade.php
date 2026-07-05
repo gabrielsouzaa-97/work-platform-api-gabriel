@@ -117,6 +117,11 @@
                                         <span class="material-symbols-outlined" style="font-size:14px">edit</span>
                                         Editar
                                     </a>
+                                    <button wire:click="openRemoveModal('{{ $cluster->id }}')"
+                                            class="px-sm py-[4px] border border-error/30 text-[11px] font-semibold uppercase tracking-wide text-error hover:bg-error/10 rounded transition-colors flex items-center gap-xs">
+                                        <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                                        Remover
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -137,6 +142,50 @@
             {{ $clusters->links() }}
         </div>
     </section>
+
+    {{-- Modal de remoção --}}
+    @if ($showRemoveModal && $removeClusterName !== '')
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-md"
+             x-data="{ confirmInput: $wire.entangle('confirmInput') }">
+            <div class="bg-surface-container border border-error/40 rounded-xl p-lg max-w-md w-full shadow-xl">
+                <h3 class="font-semibold text-[16px] text-error flex items-center gap-sm mb-md">
+                    <span class="material-symbols-outlined" style="font-size:20px">warning</span>
+                    Remover cluster
+                </h3>
+                <p class="text-[13px] text-on-surface-variant mb-md">
+                    Esta operação faz <strong class="text-on-surface">soft-delete</strong> do cluster no painel.
+                    Só é permitido quando não há customers ativos vinculados.
+                </p>
+                <p class="text-[13px] text-on-surface-variant mb-sm">
+                    Para confirmar, digite exatamente:
+                    <code class="font-mono text-[12px] text-error bg-error/10 px-sm py-[2px] rounded">{{ $removeClusterName }}</code>
+                </p>
+                <input
+                    type="text"
+                    class="w-full bg-surface-container-highest border border-outline-variant rounded px-md py-sm text-[13px] text-on-surface font-mono focus:outline-none focus:border-error/60"
+                    x-model="confirmInput"
+                    placeholder="Digite o nome do cluster"
+                    autocomplete="off">
+                @if ($removeError)
+                    <p class="text-[12px] text-error mt-sm">{{ $removeError }}</p>
+                @endif
+                <div class="flex items-center justify-end gap-sm mt-lg">
+                    <button type="button"
+                            wire:click="$set('showRemoveModal', false); $set('confirmInput', ''); $set('removeError', ''); $set('removeClusterName', '')"
+                            class="px-md py-sm text-[12px] font-semibold uppercase tracking-wide text-on-surface-variant hover:text-on-surface border border-outline-variant rounded transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button"
+                            wire:click="removeCluster"
+                            wire:loading.attr="disabled"
+                            :disabled="confirmInput !== '{{ $removeClusterName }}'"
+                            class="px-md py-sm text-[12px] font-semibold uppercase tracking-wide text-on-primary bg-error hover:bg-error/90 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                        Confirmar remoção
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ===== Section: Info ===== --}}
     <section class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
