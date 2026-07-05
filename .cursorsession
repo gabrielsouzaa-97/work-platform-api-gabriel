@@ -33,11 +33,11 @@
     }
   ],
   "fase_atual": "13",
-  "fase_nome": "N40 em execução",
+  "fase_nome": "N40 validada — PR #137 CI verde, aguardando merge",
   "sprint_atual": "N40",
   "previous_sprint": "N39",
   "sprint_branch": "sprint/N40",
-  "sprint_pending_merge": null,
+  "sprint_pending_merge": "sprint/N40 (PR #137)",
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -230,10 +230,14 @@
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "auditing",
+    "phase": "validated",
     "sprint": "N40",
     "current_task": null,
     "last_completed_task": "N40.6",
+    "pr_number": 137,
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/137",
+    "verify_status": "green",
+    "verify_evidence": "gh pr checks 137 (2026-07-05T22:56Z): Lint, Test Pest, OpenAPI Redocly, Security, coverage-check, security-review — all pass",
     "validation_gate_qa": {
       "sprint": "N40",
       "produced_by": "/qa validar N40 R1 via /rock (verifier + auditor-senior + auditor-qa)",
