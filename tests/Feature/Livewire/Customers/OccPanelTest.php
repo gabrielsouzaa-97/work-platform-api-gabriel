@@ -8,10 +8,13 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Models\TenantUser;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Dto\TenantUserSyncReport;
+use App\Modules\Customers\Services\TenantUserSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -89,6 +92,19 @@ function bindSshAsyncThrows(Throwable $exception): MockInterface
     app()->instance(SshClientInterface::class, $ssh);
 
     return $ssh;
+}
+
+function seedOccPanelTenantUser(Customer $customer, array $attrs = []): TenantUser
+{
+    return TenantUser::create(array_merge([
+        'id' => Str::uuid()->toString(),
+        'customer_slug' => $customer->slug,
+        'username' => 'alice',
+        'email' => 'alice@example.com',
+        'quota' => '5 GB',
+        'groups' => ['users'],
+        'origin' => 'api',
+    ], $attrs));
 }
 
 // ── Mount + Authorization ────────────────────────────────────────────────────
@@ -551,30 +567,28 @@ it('addUserToGroup → BlockedOnUpstreamException renderiza mensagem amigável (
     expect(IdempotencyKey::where('cmd', 'groups:add')->count())->toBe(0);
 });
 
-// ── User list (N39.2 — sync OCC user:list --json) ───────────────────────────
+// ── User list (N40.4 — projeção local tenant_users) ─────────────────────────
 
-it('loadUsers com mock SSH retorna 2 usuários e renderiza tabela', function () {
+it('loadUsers lê projeção local sem SSH e renderiza tabela', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
 
-    $users = [
-        ['username' => 'alice', 'email' => 'alice@example.com', 'quota' => '5 GB', 'groups' => ['users']],
-        ['username' => 'bob', 'email' => 'bob@example.com', 'quota' => 'none', 'groups' => ['editors']],
-    ];
+    seedOccPanelTenantUser($customer, [
+        'username' => 'alice',
+        'email' => 'alice@example.com',
+        'quota' => '5 GB',
+        'groups' => ['users'],
+    ]);
+    seedOccPanelTenantUser($customer, [
+        'username' => 'bob',
+        'email' => 'bob@example.com',
+        'quota' => 'none',
+        'groups' => ['editors'],
+    ]);
 
     $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')
-        ->once()
-        ->withArgs(fn ($clusterArg, $cmd, $args) => $cmd === 'nextcloud-manage'
-            && in_array('user:list', $args, true)
-            && in_array('--json', $args, true))
-        ->andReturn(new SshResponse(
-            stdout: json_encode($users),
-            stderr: '',
-            exitCode: 0,
-            parsedJson: $users,
-        ));
+    $ssh->shouldNotReceive('run');
     app()->instance(SshClientInterface::class, $ssh);
 
     Livewire::actingAs($operator)
@@ -587,20 +601,27 @@ it('loadUsers com mock SSH retorna 2 usuários e renderiza tabela', function () 
         ->assertSee('alice@example.com');
 });
 
-it('loadUsers com SSH timeout seta usersError amigável sem stack trace', function () {
+it('syncUsers com falha SSH preserva lista local e seta usersError amigável', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
 
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('timeout'));
-    app()->instance(SshClientInterface::class, $ssh);
+    seedOccPanelTenantUser($customer, ['username' => 'alice']);
+
+    $sync = Mockery::mock(TenantUserSyncService::class);
+    $sync->shouldReceive('sync')
+        ->once()
+        ->with(Mockery::on(fn (Customer $c) => $c->slug === $customer->slug))
+        ->andThrow(new SshTimeoutException('timeout'));
+    app()->instance(TenantUserSyncService::class, $sync);
 
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
         ->call('setTab', 'users')
+        ->call('syncUsers')
         ->assertSet('usersError', 'Timeout: OCC não respondeu em 60s.')
-        ->assertSet('tenantUsers', [])
+        ->assertCount('tenantUsers', 1)
+        ->assertSee('alice')
         ->assertDontSee('SshTimeoutException');
 });
 
@@ -622,61 +643,87 @@ it('createUser com username admin → validação rejeita antes de SSH', functio
         ->assertHasErrors(['userUsername']);
 });
 
-it('loadUsers com JSON vazio exibe Nenhum usuário sem exception', function () {
+it('createUser com userGroups admin → validação rejeita antes de SSH', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
-    bindSshSyncSuccess([]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
 
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
-        ->call('setTab', 'users')
-        ->assertSet('tenantUsers', [])
-        ->assertSee('Nenhum usuário');
+        ->set('userUsername', 'johndoe')
+        ->set('userGroups', 'editors, admin')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertHasErrors(['userGroups']);
 });
 
-it('loadUsers normaliza envelope users e refresh via botão', function () {
+it('loadUsers com projeção vazia exibe empty-state com hint de sync', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
 
-    $payload = [
-        'users' => [
-            ['uid' => 'carol', 'mail' => 'carol@example.com', 'quota' => '10 GB', 'groups' => ['admins']],
-        ],
-    ];
-
     $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')
-        ->twice()
-        ->andReturn(new SshResponse(
-            stdout: json_encode($payload),
-            stderr: '',
-            exitCode: 0,
-            parsedJson: $payload,
-        ));
+    $ssh->shouldNotReceive('run');
     app()->instance(SshClientInterface::class, $ssh);
 
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
         ->call('setTab', 'users')
+        ->assertSet('tenantUsers', [])
+        ->assertSee('Nenhum usuário')
+        ->assertSee('Atualizar');
+});
+
+it('syncUsers chama TenantUserSyncService mockado e recarrega lista local', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    seedOccPanelTenantUser($customer, ['username' => 'alice']);
+
+    $sync = Mockery::mock(TenantUserSyncService::class);
+    $sync->shouldReceive('sync')
+        ->once()
+        ->with(Mockery::on(fn (Customer $c) => $c->slug === $customer->slug))
+        ->andReturnUsing(function () use ($customer): TenantUserSyncReport {
+            seedOccPanelTenantUser($customer, [
+                'username' => 'carol',
+                'email' => 'carol@example.com',
+                'quota' => '10 GB',
+                'groups' => ['admins'],
+            ]);
+
+            $report = new TenantUserSyncReport;
+            $report->inserted = 1;
+            $report->updated = 0;
+            $report->deleted = 0;
+            $report->driftDetected = 0;
+
+            return $report;
+        });
+    app()->instance(TenantUserSyncService::class, $sync);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->call('syncUsers')
+        ->assertCount('tenantUsers', 2)
         ->assertSee('carol')
-        ->call('loadUsers')
-        ->assertCount('tenantUsers', 1)
         ->assertSet('usersError', '');
 });
 
 // ── User create poll (N39.3 — async feedback até terminal) ───────────────────
 
-it('createUser poll até job success → confirmação inline e reload da lista', function () {
+it('createUser poll até job success recarrega projeção local sem OccPassthroughService', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
     $jobId = Str::uuid()->toString();
-
-    $users = [
-        ['username' => 'newuser', 'email' => 'new@example.com', 'quota' => '5 GB', 'groups' => ['users']],
-    ];
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
@@ -687,14 +734,7 @@ it('createUser poll até job success → confirmação inline e reload da lista'
             exitCode: 0,
             parsedJson: ['job_id' => $jobId],
         ));
-    $ssh->shouldReceive('run')
-        ->once()
-        ->andReturn(new SshResponse(
-            stdout: json_encode($users),
-            stderr: '',
-            exitCode: 0,
-            parsedJson: $users,
-        ));
+    $ssh->shouldNotReceive('run');
     app()->instance(SshClientInterface::class, $ssh);
 
     $component = Livewire::actingAs($operator)
@@ -704,6 +744,13 @@ it('createUser poll até job success → confirmação inline e reload da lista'
         ->call('createUser')
         ->assertSet('pendingUserCreateJobId', $jobId)
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
+
+    seedOccPanelTenantUser($customer, [
+        'username' => 'newuser',
+        'email' => 'new@example.com',
+        'quota' => '5 GB',
+        'groups' => ['users'],
+    ]);
 
     Job::query()->where('job_id', $jobId)->update([
         'state' => 'success',
