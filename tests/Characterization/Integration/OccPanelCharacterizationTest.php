@@ -112,7 +112,7 @@ it('characterizes createUser dispatches async manage argv not sync occ-exec', fu
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
         ->set('userUsername', 'newbie')
-        ->set('userPasswordPlain', 'secret123')
+        ->set('userPasswordPlain', 'secret1234')
         ->call('createUser')
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
 });
