@@ -13,6 +13,7 @@ use App\Modules\Customers\Actions\RemoveCustomerAction;
 use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Jobs\Exceptions\JobLogFetchException;
 use App\Modules\Jobs\Services\JobLogFetcher;
 use Illuminate\Support\Facades\Cache;
@@ -116,8 +117,29 @@ class Show extends Component
             ->get();
 
         $runningJobTail = $this->resolveRunningJobTail();
+        $readinessProbe = $this->resolveReadinessProbe();
+        $maxReadinessAttempts = (int) config('services.customer_readiness.max_attempts', 10);
 
-        return view('livewire.customers.show', compact('jobs', 'auditLogs', 'runningJobTail'));
+        return view('livewire.customers.show', compact(
+            'jobs',
+            'auditLogs',
+            'runningJobTail',
+            'readinessProbe',
+            'maxReadinessAttempts',
+        ));
+    }
+
+    private function resolveReadinessProbe(): ?AuditLog
+    {
+        if ($this->customer->status !== CustomerLifecycleStatus::PROVISIONING_FINISHING) {
+            return null;
+        }
+
+        return AuditLog::where('resource_type', 'customer')
+            ->where('resource_id', $this->customer->slug)
+            ->where('action', 'customer_readiness_probe')
+            ->orderByDesc('created_at')
+            ->first();
     }
 
     /**

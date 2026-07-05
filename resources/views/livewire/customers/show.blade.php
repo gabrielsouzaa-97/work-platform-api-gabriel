@@ -1,188 +1,205 @@
+@php
+    $customerStatusColors = [
+        'active' => 'text-[#6ad191] bg-[#6ad191]/10 border border-[#6ad191]/20',
+        'provisioning' => 'text-primary bg-primary/10 border border-primary/20',
+        'provisioning_finishing' => 'text-primary-fixed-dim bg-primary-fixed-dim/10 border border-primary-fixed-dim/20',
+        'removing' => 'text-tertiary bg-tertiary/10 border border-tertiary/20',
+        'removed' => 'text-error bg-error/10 border border-error/20',
+        'error' => 'text-error bg-error/10 border border-error/20',
+        'failed' => 'text-error bg-error/10 border border-error/20',
+    ];
+    $jobStateColors = [
+        'success' => 'text-[#6ad191] bg-[#6ad191]/10 border border-[#6ad191]/20',
+        'running' => 'text-primary bg-primary/10 border border-primary/20',
+        'queued' => 'text-on-surface-variant bg-surface-container-highest border border-outline-variant',
+        'failed' => 'text-error bg-error/10 border border-error/20',
+        'cancelled' => 'text-error bg-error/10 border border-error/20',
+    ];
+    $defaultBadgeClass = 'text-on-surface-variant bg-surface-container-highest border border-outline-variant';
+@endphp
+
 <div
     @if ($this->shouldPoll())
         wire:poll.5s="refreshProgress"
     @endif
 >
-    <style>
-        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-        .page-title { font-size: 1.25rem; font-weight: 600; color: #e2e8f0; }
-        .badge { display: inline-block; padding: .2rem .55rem; border-radius: 4px; font-size: .7rem; font-weight: 600; }
-        .badge-active { background: #1c3a2f; color: #68d391; }
-        .badge-provisioning { background: #1a2d4a; color: #63b3ed; }
-        .badge-provisioning_finishing { background: #2d2460; color: #b794f4; }
-        .badge-removing { background: #3a2d1a; color: #d6b656; }
-        .badge-removed { background: #2d2020; color: #fc8181; }
-        .badge-error { background: #3a2020; color: #fc8181; }
-        .badge-failed { background: #3a2020; color: #fc8181; }
-        .section-card { background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; }
-        .section-title { font-size: .875rem; font-weight: 600; color: #e2e8f0; margin-bottom: .75rem; }
-        .info-row { display: flex; gap: 1rem; margin-bottom: .5rem; font-size: .8rem; }
-        .info-label { color: #718096; min-width: 120px; }
-        .info-value { color: #a0aec0; }
-        .btn-danger {
-            background: #7f1d1d; color: #fc8181; border: 1px solid #991b1b;
-            border-radius: 6px; padding: .45rem 1rem; font-size: .8125rem; cursor: pointer;
-        }
-        .btn-danger:hover { background: #991b1b; }
-        .btn-cancel { background: none; border: 1px solid #4a5568; color: #a0aec0; border-radius: 4px; padding: .4rem .85rem; font-size: .8rem; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; font-size: .8rem; }
-        th { text-align: left; color: #718096; font-size: .75rem; font-weight: 600; padding: .5rem .75rem; border-bottom: 1px solid #2d3748; text-transform: uppercase; }
-        td { padding: .5rem .75rem; border-bottom: 1px solid #1e2535; color: #a0aec0; }
-        .mono { font-family: monospace; font-size: .75rem; }
-        /* Modal overlay */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,.7);
-            display: flex; align-items: center; justify-content: center; z-index: 50;
-        }
-        .modal-box { background: #1a1d27; border: 1px solid #991b1b; border-radius: 10px; padding: 1.75rem; max-width: 460px; width: 100%; }
-        .modal-title { font-size: 1rem; font-weight: 700; color: #fc8181; margin-bottom: .75rem; }
-        .modal-body { font-size: .8125rem; color: #a0aec0; margin-bottom: 1rem; line-height: 1.6; }
-        .modal-input { width: 100%; background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; color: #e2e8f0; padding: .45rem .75rem; font-size: .8125rem; box-sizing: border-box; margin-top: .5rem; }
-        .modal-input:focus { outline: none; border-color: #991b1b; }
-        .form-error { color: #fc8181; font-size: .75rem; margin-top: .25rem; }
-        .modal-actions { display: flex; gap: .75rem; margin-top: 1.25rem; justify-content: flex-end; }
-        .job-link { color: #63b3ed; text-decoration: none; }
-        .job-link:hover { text-decoration: underline; }
-        .log-tail { margin-top: .75rem; padding: .75rem; background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; }
-        .log-tail-title { font-size: .7rem; font-weight: 600; color: #718096; text-transform: uppercase; margin-bottom: .5rem; }
-        .log-tail-line { font-family: monospace; font-size: .7rem; color: #a0aec0; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
-    </style>
-
-    <div class="page-header">
+    <div class="flex flex-col gap-sm md:flex-row md:items-center md:justify-between mb-lg">
         <div>
-            <h1 class="page-title">
+            <h1 class="text-[1.25rem] font-semibold text-on-surface flex flex-wrap items-center gap-sm">
                 {{ $customer->slug }}
-                <span class="badge badge-{{ $customer->status }}" style="margin-left:.5rem">{{ $customer->status }}</span>
+                <span class="inline-flex items-center gap-xs px-sm py-[3px] rounded-full text-[11px] font-semibold uppercase tracking-wide {{ $customerStatusColors[$customer->status] ?? $defaultBadgeClass }}">
+                    {{ $customer->status }}
+                </span>
             </h1>
-            <div style="color:#718096;font-size:.8rem;margin-top:.25rem">{{ $customer->domain }}</div>
+            <div class="text-[13px] text-on-surface-variant mt-xs">{{ $customer->domain }}</div>
         </div>
-        <div style="display:flex;gap:.5rem;align-items:center">
+        <div class="flex items-center gap-sm">
             @if ($customer->status === 'active')
-                <a href="{{ route('customers.occ', $customer->slug) }}"
-                   style="background:#1a365d;color:#63b3ed;border:1px solid #2b4c7e;border-radius:6px;padding:.45rem 1rem;font-size:.8125rem;text-decoration:none">
+                <a
+                    href="{{ route('customers.occ', $customer->slug) }}"
+                    class="inline-flex items-center rounded-md border border-outline-variant bg-surface-container-high px-md py-2 text-[13px] text-primary hover:border-primary no-underline"
+                >
                     Painel OCC
                 </a>
             @endif
             @can('provision-customers')
                 @if (in_array($customer->status, ['active', 'provisioning']))
-                    <button class="btn-danger" wire:click="$set('showRemoveModal', true)">Remover</button>
+                    <button
+                        type="button"
+                        class="rounded-md border border-error/50 bg-error-container px-md py-2 text-[13px] text-error hover:opacity-90"
+                        wire:click="$set('showRemoveModal', true)"
+                    >
+                        Remover
+                    </button>
                 @endif
             @endcan
         </div>
     </div>
 
-    <div class="section-card">
-        <div class="section-title">Detalhes</div>
-        <div class="info-row">
-            <span class="info-label">Cluster</span>
-            <span class="info-value">{{ $customer->clusterServer?->name ?? '—' }}</span>
+    <div class="bg-surface-container border border-outline-variant rounded-xl p-lg mb-lg">
+        <div class="text-[14px] font-semibold text-on-surface mb-md">Detalhes</div>
+        <div class="flex gap-md mb-sm text-[13px]">
+            <span class="text-on-surface-variant min-w-[120px]">Cluster</span>
+            <span class="text-on-surface">{{ $customer->clusterServer?->name ?? '—' }}</span>
         </div>
-        <div class="info-row">
-            <span class="info-label">Criado em</span>
-            <span class="info-value">{{ $customer->created_at?->format('d/m/Y H:i') ?? '—' }}</span>
+        <div class="flex gap-md mb-sm text-[13px]">
+            <span class="text-on-surface-variant min-w-[120px]">Criado em</span>
+            <span class="text-on-surface">{{ $customer->created_at?->format('d/m/Y H:i') ?? '—' }}</span>
         </div>
-        <div class="info-row">
-            <span class="info-label">Última sync</span>
-            <span class="info-value">{{ $customer->last_sync_at?->format('d/m/Y H:i') ?? '—' }}</span>
+        <div class="flex gap-md text-[13px]">
+            <span class="text-on-surface-variant min-w-[120px]">Última sync</span>
+            <span class="text-on-surface">{{ $customer->last_sync_at?->format('d/m/Y H:i') ?? '—' }}</span>
         </div>
     </div>
 
-    <div class="section-card">
-        <div class="section-title">Jobs recentes</div>
-        <table>
+    @if ($customer->status === 'provisioning_finishing')
+        <div class="bg-surface-container border border-outline-variant rounded-xl p-lg mb-lg">
+            <div class="text-[14px] font-semibold text-on-surface mb-md">Readiness</div>
+            @if ($readinessProbe)
+                <div class="flex gap-md text-[13px]">
+                    <span class="text-on-surface-variant min-w-[120px]">Status</span>
+                    <span class="text-on-surface">
+                        tentativa {{ $readinessProbe->payload['attempt'] ?? '?' }}/{{ $maxReadinessAttempts }}
+                        — último erro: {{ $readinessProbe->payload['error'] ?? '—' }}
+                    </span>
+                </div>
+            @else
+                <div class="text-[13px] text-on-surface-variant">Aguardando primeira verificação…</div>
+            @endif
+        </div>
+    @endif
+
+    <div class="bg-surface-container border border-outline-variant rounded-xl p-lg mb-lg overflow-x-auto">
+        <div class="text-[14px] font-semibold text-on-surface mb-md">Jobs recentes</div>
+        <table class="w-full border-collapse text-[13px]">
             <thead>
-                <tr>
-                    <th>Job ID</th>
-                    <th>Tipo</th>
-                    <th>Estado</th>
-                    <th>Saída</th>
-                    <th>Enfileirado</th>
+                <tr class="border-b border-outline-variant">
+                    <th class="text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant px-md py-sm">Job ID</th>
+                    <th class="text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant px-md py-sm">Tipo</th>
+                    <th class="text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant px-md py-sm">Estado</th>
+                    <th class="text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant px-md py-sm">Saída</th>
+                    <th class="text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant px-md py-sm">Enfileirado</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-outline-variant/40">
                 @forelse ($jobs as $job)
-                    <tr>
-                        <td class="mono">
-                            <a href="{{ route('queue.show', $job->job_id) }}" class="job-link">
+                    <tr class="hover:bg-surface-container-high transition-colors">
+                        <td class="px-md py-sm font-mono text-[12px]">
+                            <a href="{{ route('queue.show', $job->job_id) }}" class="text-primary hover:underline no-underline">
                                 {{ Str::limit($job->job_id, 8, '') }}…
                             </a>
                         </td>
-                        <td class="mono">{{ $job->job_type }}</td>
-                        <td><span class="badge badge-{{ $job->state }}">{{ $job->state }}</span></td>
-                        <td class="mono">{{ $job->exit_code !== null ? $job->exit_code : '—' }}</td>
-                        <td style="white-space:nowrap;font-size:.75rem">{{ $job->queued_at?->format('d/m H:i') ?? '—' }}</td>
+                        <td class="px-md py-sm font-mono text-[12px] text-on-surface">{{ $job->job_type }}</td>
+                        <td class="px-md py-sm">
+                            <span class="inline-flex items-center gap-xs px-sm py-[3px] rounded-full text-[11px] font-semibold uppercase tracking-wide {{ $jobStateColors[$job->state] ?? $defaultBadgeClass }}">
+                                {{ $job->state }}
+                            </span>
+                        </td>
+                        <td class="px-md py-sm font-mono text-[12px] text-on-surface">{{ $job->exit_code !== null ? $job->exit_code : '—' }}</td>
+                        <td class="px-md py-sm whitespace-nowrap text-[12px] text-on-surface-variant">{{ $job->queued_at?->format('d/m H:i') ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" style="text-align:center;color:#718096;padding:1.5rem">Nenhum job.</td></tr>
+                    <tr>
+                        <td colspan="5" class="px-md py-xl text-center text-on-surface-variant">Nenhum job.</td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>
         @if (! empty($runningJobTail))
-            <div class="log-tail">
-                <div class="log-tail-title">Log em execução (últimas linhas)</div>
+            <div class="mt-md rounded-md border border-outline-variant bg-surface-container-lowest p-md">
+                <div class="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant mb-sm">Log em execução (últimas linhas)</div>
                 @foreach ($runningJobTail as $line)
-                    <div class="log-tail-line">{{ $line }}</div>
+                    <div class="font-mono text-[11px] text-on-surface leading-relaxed whitespace-pre-wrap break-all">{{ $line }}</div>
                 @endforeach
             </div>
         @endif
     </div>
 
-    <div class="section-card">
-        <div class="section-title">Audit trail</div>
-        <table>
+    <div class="bg-surface-container border border-outline-variant rounded-xl p-lg overflow-x-auto">
+        <div class="text-[14px] font-semibold text-on-surface mb-md">Audit trail</div>
+        <table class="w-full border-collapse text-[13px]">
             <thead>
-                <tr>
-                    <th>Ação</th>
-                    <th>Quando</th>
+                <tr class="border-b border-outline-variant">
+                    <th class="text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant px-md py-sm">Ação</th>
+                    <th class="text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant px-md py-sm">Quando</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-outline-variant/40">
                 @forelse ($auditLogs as $log)
-                    <tr>
-                        <td class="mono">{{ $log->action }}</td>
-                        <td style="white-space:nowrap;font-size:.75rem">{{ $log->created_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                    <tr class="hover:bg-surface-container-high transition-colors">
+                        <td class="px-md py-sm font-mono text-[12px] text-on-surface">{{ $log->action }}</td>
+                        <td class="px-md py-sm whitespace-nowrap text-[12px] text-on-surface-variant">{{ $log->created_at?->format('d/m/Y H:i') ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="2" style="text-align:center;color:#718096;padding:1.5rem">Sem entradas.</td></tr>
+                    <tr>
+                        <td colspan="2" class="px-md py-xl text-center text-on-surface-variant">Sem entradas.</td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 
-    {{-- Modal de remoção forte --}}
     @if ($showRemoveModal)
-    <div class="modal-overlay" x-data="{ confirmInput: $wire.entangle('confirmInput') }">
-        <div class="modal-box">
-            <div class="modal-title">⚠ Remover customer</div>
-            <div class="modal-body">
-                Esta operação é <strong>irreversível</strong>. O Nextcloud do cliente será removido no upstream.
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" x-data="{ confirmInput: $wire.entangle('confirmInput') }">
+        <div class="w-full max-w-[460px] rounded-xl border border-error/50 bg-surface-container p-lg mx-md">
+            <div class="text-[16px] font-bold text-error mb-md">⚠ Remover customer</div>
+            <div class="text-[13px] text-on-surface-variant leading-relaxed mb-md">
+                Esta operação é <strong class="text-on-surface">irreversível</strong>. O Nextcloud do cliente será removido no upstream.
                 <br><br>
-                Para confirmar, digite exatamente: <code style="background:#0f1117;padding:.1rem .35rem;border-radius:3px;color:#fc8181">{{ $customer->slug }}</code>
+                Para confirmar, digite exatamente:
+                <code class="rounded bg-surface-container-lowest px-xs py-[2px] text-error">{{ $customer->slug }}</code>
                 <input
                     type="text"
-                    class="modal-input"
+                    class="mt-sm w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-error"
                     x-model="confirmInput"
                     placeholder="Digite o slug para confirmar"
-                    autocomplete="off">
+                    autocomplete="off"
+                >
                 @if ($removeError)
-                    <div class="form-error">{{ $removeError }}</div>
+                    <p class="mt-1 text-[12px] text-error">{{ $removeError }}</p>
                 @endif
 
-                <div style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem">
+                <div class="mt-md flex items-center gap-sm">
                     <input type="checkbox" wire:model="backupFirst" id="backupFirst" checked>
-                    <label for="backupFirst" style="color:#a0aec0;font-size:.8rem;cursor:pointer">
+                    <label for="backupFirst" class="text-[13px] text-on-surface-variant cursor-pointer">
                         Fazer backup antes de remover (--backup-first)
                     </label>
                 </div>
             </div>
-            <div class="modal-actions">
-                <button class="btn-cancel" wire:click="$set('showRemoveModal', false); $set('confirmInput', '')">
+            <div class="flex justify-end gap-md mt-lg">
+                <button
+                    type="button"
+                    class="rounded border border-outline-variant px-md py-sm text-[13px] text-on-surface-variant hover:border-primary"
+                    wire:click="$set('showRemoveModal', false); $set('confirmInput', '')"
+                >
                     Cancelar
                 </button>
                 <button
-                    class="btn-danger"
+                    type="button"
+                    class="rounded-md border border-error/50 bg-error-container px-md py-sm text-[13px] text-error hover:opacity-90"
                     wire:click="remove"
-                    :disabled="confirmInput !== '{{ $customer->slug }}'">
+                    :disabled="confirmInput !== '{{ $customer->slug }}'"
+                >
                     Confirmar remoção
                 </button>
             </div>

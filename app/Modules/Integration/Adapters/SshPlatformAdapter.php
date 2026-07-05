@@ -113,16 +113,16 @@ final class SshPlatformAdapter implements PlatformPort
         $cluster = $customer->clusterServer ?? $customer->load('clusterServer')->clusterServer;
 
         if ($cluster === null || $cluster->status !== 'active') {
-            return new ReadinessReport(false);
+            return new ReadinessReport(false, 'cluster not active', 'cluster');
         }
 
         $timeoutSec = (int) config('services.customer_readiness.probe_timeout_seconds', 30);
         $checker = new TenantReadinessGateChecker($this->ssh);
 
         try {
-            return new ReadinessReport($checker->passesAll($customer, $cluster, $timeoutSec));
-        } catch (SshConnectionException|SshTimeoutException) {
-            return new ReadinessReport(false);
+            return $checker->evaluate($customer, $cluster, $timeoutSec);
+        } catch (SshConnectionException|SshTimeoutException $e) {
+            return new ReadinessReport(false, $e->getMessage(), 'ssh');
         }
     }
 

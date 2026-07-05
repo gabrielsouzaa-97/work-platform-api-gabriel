@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Livewire\Customers\Show;
 use App\Jobs\ProbeCustomerReadinessJob;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
@@ -16,6 +17,7 @@ use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use Mockery\MockInterface;
 
 it('POST users on provisioning_finishing returns 503 tenant_not_ready', function () {
@@ -192,6 +194,14 @@ it('ProbeCustomerReadinessJob keeps finishing when R6 meMail HTTP gate fails', f
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
+
+    $audit = AuditLog::where('action', 'customer_readiness_probe')
+        ->where('resource_id', $customer->slug)
+        ->first();
+    expect($audit)->not->toBeNull()
+        ->and($audit->payload['attempt'])->toBe(1)
+        ->and($audit->payload['error'])->toBe('HTTP 503')
+        ->and($audit->payload['probe'])->toBe('http:memail');
 });
 
 it('ProbeCustomerReadinessJob promotes to active when R6 meMail HTTP returns 200', function () {
@@ -430,6 +440,109 @@ it('ProbeCustomerReadinessJob keeps finishing when image-mode login HTTP gate fa
 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'mework360_memail'));
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::PROVISIONING_FINISHING);
+
+    expect(AuditLog::where('action', 'customer_readiness_probe')
+        ->where('resource_id', $customer->slug)
+        ->exists())->toBeTrue();
+});
+
+// ── N39.5: readiness probe audit + UI ────────────────────────────────────────
+
+it('ProbeCustomerReadinessJob grava dois audits com attempt incremental em falhas consecutivas', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'probe-inc-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'probe-inc.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+
+    Http::fake([
+        'https://probe-inc.example.com/apps/mework360_memail/*' => Http::response('Service Unavailable', 503),
+    ]);
+
+    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
+    $probe = app(CustomerReadinessProbe::class);
+    $deadline = now()->addHour()->timestamp;
+
+    $job = new class($customer->slug, $deadline) extends ProbeCustomerReadinessJob
+    {
+        private int $mockAttempt = 1;
+
+        public function setAttempt(int $attempt): void
+        {
+            $this->mockAttempt = $attempt;
+        }
+
+        public function attempts(): int
+        {
+            return $this->mockAttempt;
+        }
+    };
+
+    $job->setAttempt(1);
+    $job->handle($probe);
+
+    $job->setAttempt(2);
+    $job->handle($probe);
+
+    $logs = AuditLog::where('action', 'customer_readiness_probe')
+        ->where('resource_id', $customer->slug)
+        ->orderBy('created_at')
+        ->get();
+
+    expect($logs)->toHaveCount(2)
+        ->and($logs[0]->payload['attempt'])->toBe(1)
+        ->and($logs[1]->payload['attempt'])->toBe(2)
+        ->and($logs[0]->payload)->toHaveKeys(['attempt', 'error', 'probe']);
+});
+
+it('customers show exibe card readiness com ultimo erro em provisioning_finishing', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'show-ready-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'show-ready.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+
+    AuditLog::create([
+        'id' => Str::uuid()->toString(),
+        'actor_id' => null,
+        'action' => 'customer_readiness_probe',
+        'resource_type' => 'customer',
+        'resource_id' => $customer->slug,
+        'payload' => [
+            'attempt' => 3,
+            'error' => 'HTTP 404',
+            'probe' => 'http:memail',
+        ],
+        'cluster_server_id' => $cluster->id,
+        'job_id' => null,
+        'ip' => null,
+    ]);
+
+    Livewire::actingAs($operator)
+        ->test(Show::class, ['slug' => $customer->slug])
+        ->assertSee('Readiness')
+        ->assertSee('tentativa 3/10')
+        ->assertSee('HTTP 404');
+});
+
+it('customers show nao exibe card readiness fora de provisioning_finishing', function () {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => 'show-no-ready-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'show-no-ready.example.com',
+        'status' => CustomerLifecycleStatus::ACTIVE,
+    ]);
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+
+    Livewire::actingAs($operator)
+        ->test(Show::class, ['slug' => $customer->slug])
+        ->assertDontSee('Aguardando primeira verificação');
 });
 
 // ── occ-exec shim envelope (parsed_result + version strings) ─────────────────
