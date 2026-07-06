@@ -6,6 +6,7 @@ use App\Models\ApiKey;
 use App\Models\AppCatalogEntry;
 use App\Models\Operator;
 use App\Models\Plan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
@@ -230,7 +231,7 @@ it('PATCH /api/v1/plans/{slug} replaces app_ids in plan_apps', function (): void
         'is_default' => false,
         'status' => 'active',
     ]);
-    \Illuminate\Support\Facades\DB::table('plan_apps')->insert([
+    DB::table('plan_apps')->insert([
         'plan_slug' => 'swap-apps',
         'app_catalog_id' => $mailId,
     ]);
