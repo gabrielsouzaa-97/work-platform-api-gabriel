@@ -5,7 +5,7 @@ open_high: 9
 open_medium: 51
 open_low: 46
 sprints_with_open_blockers:
-notes: F20 R1 — CQ-F19-001/002 corrigidos (asserções QA-F18-005 espelhadas em empty-plan v1+legado; down() guardado por hasColumn). F19 R1 APROVADA (2026-07-06) — 7 findings F18 validados (enable happy path v1+legado, plan_apps vazio, migration hygiene); 259 testes verdes. 2 LOW novos non-blocking (CQ-F19-001/002). F18 R1 APROVADA — max_apps removido (ARCH-7), deploy LAB e8b1ad6.
+notes: F20 concluída — CQ-F19-001/002 corrigidos; deploy LAB 2313ea1. F19 R1 APROVADA — 7 findings F18 validados; 259 testes. F18 R1 APROVADA — max_apps removido (ARCH-7); deploy LAB e8b1ad6. ISSUE-051 fase 1 entregue (N41–N43 + F16–F20).
 FINDINGS-INDEX -->
 
 
@@ -49,14 +49,17 @@ FINDINGS-INDEX -->
 | N43 | 0 | 3 | 5 | 2 | 10 | 0 | 0 |
 | F17 | 0 | 0 | 3 | 2 | 4 | 0 | 3 |
 | F18 | 0 | 0 | 2 | 5 | 0 | 0 | 7 |
-| F19 | 0 | 0 | 0 | 2 | 2 | 0 | 0 |
+| F19 | 0 | 0 | 0 | 2 | 0 | 0 | 2 |
+| F20 | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
 
 > **Validação F19 R1** (2026-07-06, `/qa validar F19`): scope = delta `a623f8e...887b53f` (PR #144 — correção dos 7 findings F18). **Review**: senior+qa. **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **259 passed, 1075 assertions** (`Product/`, `Api/V1/`, `Database/`, `Customers/`). **auditor-senior** ([`d14c0e14`](d14c0e14-31da-447b-b86b-4bc58d4df922)) → 0 CRITICAL, 0 HIGH, 0 MEDIUM, 2 LOW. **Findings F18 validados**: CQ-F18-001, QA-F18-002, CQ-F18-002, CQ-F18-003, QA-F18-003, QA-F18-004, QA-F18-005 (7/7). **Resultado: APROVADA** — 0 CRITICAL/HIGH/MEDIUM; 2 LOW novos non-blocking.
 
 ### Findings — Sprint F19 (validação R1)
 
-- **[CQ-F19-001] LOW — corrigido (F20)**: testes `empty-plan` (v1+legado) só assertam `422` + `assertJsonValidationErrors(['apps'])`, sem espelhar as asserções QA-F18-005 (`assertJsonMissingPath('error')` + `AuditLog policy_denied` false) dos testes de app fora do plano. **Correção sugerida**: replicar asserções nos dois testes `empty-plan`. `tests/Feature/Product/PolicyResolverTest.php:269-308`.
-- **[CQ-F19-002] LOW — corrigido (F20)**: `down()` de `2026_07_06_000002` re-adiciona `max_apps` incondicionalmente, mas `000001` (pós-hygiene) não define mais a coluna — rollback parcial (`--step=1`) em fresh install causa drift até re-migrar. **Correção sugerida**: guardar `down()` com `if (! Schema::hasColumn(...))` ou documentar que rollback é só para hosts legados. `database/migrations/2026_07_06_000002_drop_max_apps_from_plans_table.php:20-25`.
+- **[CQ-F19-001] LOW — validado (F20)**: testes `empty-plan` (v1+legado) só assertam `422` + `assertJsonValidationErrors(['apps'])`, sem espelhar as asserções QA-F18-005 (`assertJsonMissingPath('error')` + `AuditLog policy_denied` false) dos testes de app fora do plano. **Correção**: asserções replicadas nos dois testes `empty-plan`. `tests/Feature/Product/PolicyResolverTest.php:269-308`.
+- **[CQ-F19-002] LOW — validado (F20)**: `down()` de `2026_07_06_000002` re-adiciona `max_apps` incondicionalmente, mas `000001` (pós-hygiene) não define mais a coluna — rollback parcial (`--step=1`) em fresh install causa drift até re-migrar. **Correção**: `down()` guardado com `if (! Schema::hasColumn(...))`. `database/migrations/2026_07_06_000002_drop_max_apps_from_plans_table.php:20-25`.
+
+> **Validação F20** (2026-07-06, hygiene pós-F19): scope = PR #145 (`2313ea1`). **Testes**: Pest Docker **14 passed** (`PolicyResolverTest` + `DropMaxAppsMigrationTest`). **Deploy LAB**: SHA `2313ea1`, `/up`+`/login` 200. **Resultado: concluída** — 2 LOW F19 corrigidos; sem novos findings.
 
 ### Findings — Sprint F18 (validação R1) (2026-07-06, `/qa validar F18`): scope = delta `661033e...e8b1ad6` (PR #143, 12 arquivos-fonte — remoção `max_apps`, enable via `PlanAppResolver`, ARCH-7). **Review**: senior+qa. **Preflight**: PROC-025/027 PASS; parity gate skip (delta sem `install.*`/`scripts/*.py`/`hooks/*.sh`). **Testes**: Pest Docker **120 passed, 591 assertions** (`Product/`, `Api/V1/`) incluindo os 2 novos casos de rejeição enable (v1+legado, app fora de `plan_apps` → 422, SSH não chamado). **auditor-senior** ([`bb41562f`](bb41562f-bfc4-4453-8695-4df944026b41)) → 0 CRITICAL, 0 HIGH, 1 MEDIUM, 2 LOW. **auditor-qa** ([`6ba5046a`](6ba5046a-c680-47e5-880b-d26dfb653bcf)) → 0 CRITICAL, 0 HIGH, 2 MEDIUM, 3 LOW (dedup: senior CQ-001 ≡ qa QA-001 = happy path enable). **Deploy LAB**: SHA `e8b1ad6`, migration `drop_max_apps` DONE (coluna ausente), `app-catalog:sync` OK, `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 2 MEDIUM + 5 LOW novos non-blocking em backlog.
 

@@ -87,7 +87,9 @@
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
 | F16    | F         | Product Governance HIGH: sync `plan_apps` via API; `is_default` lock; `max_users` atômico; testes legacy+OccPanel | **concluída** | 6 | Product, Customers, Occ, API v1 | ISSUE-051 campanha; PR #141; validation R1 APROVADA | 5623+ |
 | F17    | F         | Product Governance polish: OPS-F16-001 catalog fallback; `PlanNotFound`; `groups: []` override | **concluída** | 5 | Product, Integration, DevOps | CQ-N43-002 deferido (sem projeção apps) | 5706+ |
-| F18    | F         | Remover `max_apps`; apps do plano = designação `plan_apps`; enable valida ⊆ plano | planejada | 4 | Product, Customers, API v1 | Decisão produto CQ-N43-002 (2026-07-06) | 5724+ |
+| F18    | F         | Remover `max_apps`; apps do plano = designação `plan_apps`; enable valida ⊆ plano | **concluída** | 4 | Product, Customers, API v1 | ARCH-7; PR #143; validation R1 APROVADA; deploy LAB `e8b1ad6` | 5724+ |
+| F19    | F         | Correção 7 findings F18 (enable happy path, migration hygiene, plan_apps vazio) | **concluída** | 6 | Product, Database, API v1 | PR #144; validation R1 APROVADA | — |
+| F20    | F         | CQ-F19-001/002 LOW (asserções empty-plan + migration `down()` guard) | **concluída** | 2 | Product, Database | PR #145; deploy LAB `2313ea1` | — |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -99,9 +101,9 @@
 | N38    | N         | LAB: assets Vite servidos pelo nginx; form `/customers/create` com `image_mode` + UX domínio/slug; deploy `.110` smoke | **concluída** (3/3) | 3 | Livewire, DevOps | ISSUE-048: gap N36 no painel + FOUC LAB (compose volume) | 5168+ |
 | N39    | N         | UX provisionamento + OCC operacional: FQDN normalizado; progresso/readiness visível; lista usuários OCC; erro create inline; CI verde | **concluída** (7/7) | 7 | Livewire, Customers, Occ, Jobs, ClusterServers | ISSUE-049: DESIGN.md §8 UX Audit 2026-07-05 | 5182+ |
 | N40    | N         | Aba Usuários lê projeção local `tenant_users` (zero SSH síncrono no load); create/delete/provision refletem na projeção via webhook; `tenant-users:sync` reconcilia + detecta drift; grupo/username `admin` bloqueados painel+API; CI verde | **concluída** (6/6) | 6 | Customers, Occ, Jobs/Webhook, Livewire, DB | ISSUE-050: read model tenant_users + política sem admin p/ clientes; merge `ddaded7` | 5417+ |
-| N41    | N         | Módulo Product fatia 1 — CRUD planos (`plans`+`plan_apps`), `customers.plan_slug` FK, quota default do plano em users:create, scopes `product:*`, API `/plans`, painel admin, seed `default`; CI verde | planejada | 6 | Product, Customers, DB, API v1, Livewire | ISSUE-051 fatia 1; ADR-010/011 | — |
-| N42    | N         | Catálogo de apps (`app_catalog_entries` + `app-catalog:sync`); create tenant herda apps do plano; validação apps ⊆ plano ∪ catálogo; picker no painel | planejada | 6 | Product, Customers, API v1, Livewire | ISSUE-051 fatia 2; depende N41 | — |
-| N43    | N         | Templates de usuário + PolicyResolver (permissions schema v1, `max_users`/`max_apps` → 422 `plan_limit_exceeded`); `user_template_slug` em API/painel/projeção | planejada | 6 | Product, Customers, Occ, API v1 | ISSUE-051 fatia 3; depende N42 | — |
+| N41    | N         | Módulo Product fatia 1 — CRUD planos (`plans`+`plan_apps`), `customers.plan_slug` FK, quota default do plano em users:create, scopes `product:*`, API `/plans`, painel admin, seed `default`; CI verde | **concluída** | 6 | Product, Customers, DB, API v1, Livewire | ISSUE-051 fatia 1; PR #138 | — |
+| N42    | N         | Catálogo de apps (`app_catalog_entries` + `app-catalog:sync`); create tenant herda apps do plano; validação apps ⊆ plano ∪ catálogo; picker no painel | **concluída** | 6 | Product, Customers, API v1, Livewire | ISSUE-051 fatia 2; PR #139 | — |
+| N43    | N         | Templates de usuário + PolicyResolver (permissions schema v1, `max_users` → 422 `plan_limit_exceeded`); apps por designação `plan_apps` (F18); `user_template_slug` em API/painel/projeção | **concluída** | 6 | Product, Customers, Occ, API v1 | ISSUE-051 fatia 3; PR #140; validation R1 → F16 | — |
 
 ---
 
@@ -5565,28 +5567,30 @@ Cenários de teste:
 ## Sprint N41 — Planos comerciais + quotas (ISSUE-051 fatia 1)
 
 > Categoria: N
+> Status: **concluída**
 > Gate: tabelas `plans` + `plan_apps` + migration `customers.plan_slug` FK nullable; CRUD painel admin; endpoints `GET/POST/PATCH /v1/plans` (scopes `product:read`/`product:write` registrados em `config/api-scopes.php`); create tenant aceita `plan_slug` (persiste FK; herança de apps fica p/ N42); `users:create` sem quota explícita herda `default_quota` do plano do customer; seed plano `default` com quota `5 GB`; testes Pest; CI verde.
 > review: senior+qa
 > Gerado via `/pmo plan` em 2026-07-06; refatiado 2026-07-06 pós-review (FK+quota antecipados de N42 conforme §10.1 do ARCHITECTURE.md).
 > Fonte: ISSUE-051, `ARCHITECTURE.md` §10.1, ADR-010/011.
-> Fora de escopo: catálogo de apps e herança de apps do plano (N42), templates (N43), enforcement `max_users`/`max_apps` (N43).
+> Fora de escopo: catálogo de apps e herança de apps do plano (N42), templates (N43), enforcement `max_users` (N43); apps por designação `plan_apps` (F18 removeu `max_apps`).
 > MariaDB 11: `is_default` único é enforcement app-level no `PlanService` (transação) — partial unique index não existe; cenário de teste obrigatório.
 > Pré-execução: gerar Quality Brief (`docs/.briefs/N41.brief.md`) + verifier via pipeline `/pmo plan` antes do primeiro executor.
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | N41.1 — Migrations `plans`, `plan_apps`, `customers.plan_slug` (FK nullable) + models Eloquent + factories | laravel-migration | — |
-| [ ] | M | N41.2 — `PlanService` CRUD + `is_default` único app-level (transação) + junction app_ids | laravel-api | N41.1 |
-| [ ] | M | N41.3 — Controllers API v1 `/plans` + FormRequests + resources; registrar `product:read`/`product:write` em `config/api-scopes.php` (badge no painel N37 herda automático) | api-rest-patterns | N41.2 |
-| [ ] | M | N41.4 — Livewire admin Plans (list/create/edit) + select de plano no create customer | laravel-livewire | N41.2 |
-| [ ] | M | N41.5 — `plan_slug` no `CreateTenantRequest`/`ProvisionCustomerRequest` (persiste FK) + quota default do plano em `users:create` sem quota explícita | laravel-api | N41.1 |
-| [ ] | P | N41.6 — Seeder `default` plan + testes feature API + Livewire (incl. cenário `is_default` concorrente) | testing-patterns | N41.3, N41.4, N41.5 |
+| [x] | P | N41.1 — Migrations `plans`, `plan_apps`, `customers.plan_slug` (FK nullable) + models Eloquent + factories | laravel-migration | — |
+| [x] | M | N41.2 — `PlanService` CRUD + `is_default` único app-level (transação) + junction app_ids | laravel-api | N41.1 |
+| [x] | M | N41.3 — Controllers API v1 `/plans` + FormRequests + resources; registrar `product:read`/`product:write` em `config/api-scopes.php` (badge no painel N37 herda automático) | api-rest-patterns | N41.2 |
+| [x] | M | N41.4 — Livewire admin Plans (list/create/edit) + select de plano no create customer | laravel-livewire | N41.2 |
+| [x] | M | N41.5 — `plan_slug` no `CreateTenantRequest`/`ProvisionCustomerRequest` (persiste FK) + quota default do plano em `users:create` sem quota explícita | laravel-api | N41.1 |
+| [x] | P | N41.6 — Seeder `default` plan + testes feature API + Livewire (incl. cenário `is_default` concorrente) | testing-patterns | N41.3, N41.4, N41.5 |
 
 ---
 
 ## Sprint N42 — Catálogo de apps + herança de apps do plano (ISSUE-051 fatia 2)
 
 > Categoria: N
+> Status: **concluída**
 > Gate: tabela `app_catalog_entries`; CRUD `/v1/app-catalog`; create tenant com `plan_slug` e `apps` omitido herda `app_ids` do plano; `apps` explícito validado contra catálogo ativo (⊆ plano quando `plan_slug` presente); painel create customer com picker de apps do plano; CI verde.
 > review: senior+qa
 > Depende de: N41
@@ -5595,31 +5599,32 @@ Cenários de teste:
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | N42.1 — Migration `app_catalog_entries` + command `app-catalog:sync` (importa `suite_catalog.json` local; idempotente) | laravel-migration | N41 |
-| [ ] | M | N42.2 — `AppCatalogService` + API `/app-catalog` | api-rest-patterns | N42.1 |
-| [ ] | M | N42.3 — Resolver de apps no provision: `plan_slug` + `apps` omitido → herda do plano; explícito → valida ⊆ plano ∪ catálogo ativo (SuiteCatalogValidator permanece como gate upstream) | laravel-api | N42.1 |
-| [ ] | M | N42.4 — Painel create customer: picker de apps filtrado pelo plano selecionado | laravel-livewire | N42.3 |
-| [ ] | P | N42.5 — Testes provision com plano + app fora do plano/catálogo → 422 | testing-patterns | N42.4 |
-| [ ] | P | N42.6 — Docs DATABASE + openapi alinhados (delta pós-implementação) | — | N42.5 |
+| [x] | P | N42.1 — Migration `app_catalog_entries` + command `app-catalog:sync` (importa `suite_catalog.json` local; idempotente) | laravel-migration | N41 |
+| [x] | M | N42.2 — `AppCatalogService` + API `/app-catalog` | api-rest-patterns | N42.1 |
+| [x] | M | N42.3 — Resolver de apps no provision: `plan_slug` + `apps` omitido → herda do plano; explícito → valida ⊆ plano ∪ catálogo ativo (SuiteCatalogValidator permanece como gate upstream) | laravel-api | N42.1 |
+| [x] | M | N42.4 — Painel create customer: picker de apps filtrado pelo plano selecionado | laravel-livewire | N42.3 |
+| [x] | P | N42.5 — Testes provision com plano + app fora do plano/catálogo → 422 | testing-patterns | N42.4 |
+| [x] | P | N42.6 — Docs DATABASE + openapi alinhados (delta pós-implementação) | — | N42.5 |
 
 ---
 
 ## Sprint N43 — Templates de usuário + enforcement (ISSUE-051 fatia 3)
 
 > Categoria: N
-> Gate: tabelas `user_templates`, `user_template_apps`; coluna `tenant_users.user_template_slug` (sem FK constraint — audit trail); CRUD `/v1/user-templates`; `POST .../users` aceita `user_template_slug` (merge groups/quota; explícito tem precedência); `PolicyResolver` valida `permissions` (schema v1 no FormRequest) + limites `max_users`/`max_apps` do plano → 422 `plan_limit_exceeded` + AuditLog `policy_denied`; painel OccPanel select de template; CI verde.
+> Status: **concluída**
+> Gate: tabelas `user_templates`, `user_template_apps`; coluna `tenant_users.user_template_slug` (sem FK constraint — audit trail); CRUD `/v1/user-templates`; `POST .../users` aceita `user_template_slug` (merge groups/quota; explícito tem precedência); `PolicyResolver` valida `permissions` (schema v1 no FormRequest) + limite `max_users` do plano → 422 `plan_limit_exceeded` + AuditLog `policy_denied`; apps por designação `plan_apps` (F18 removeu `max_apps`); painel OccPanel select de template; CI verde.
 > review: senior+qa
 > Depende de: N42
 > Pré-execução: Quality Brief + verifier (`docs/.briefs/N43.brief.md`).
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | N43.1 — Migrations `user_templates`, `user_template_apps`, `tenant_users.user_template_slug` (coluna indexada, sem FK) | laravel-migration | N42 |
-| [ ] | M | N43.2 — `UserTemplateService` + API CRUD; `permissions` validado contra schema v1 no FormRequest (rejeitar chaves desconhecidas + `schema_version` obrigatório) | api-rest-patterns | N43.1 |
-| [ ] | M | N43.3 — `UserCreateTemplateResolver` no fluxo API v1 + OccPanel (merge template → campos explícitos vencem) | laravel-api / laravel-livewire | N43.2 |
-| [ ] | M | N43.4 — `PolicyResolver`: permissions JSON v1 + enforcement `max_users`/`max_apps` (422 `plan_limit_exceeded`; AuditLog `policy_denied`) | laravel-api | N43.2 |
-| [ ] | P | N43.5 — Seeds templates `supervisor`, `collaborator` + testes E2E create user | testing-patterns | N43.3, N43.4 |
-| [ ] | P | N43.6 — Projeção `tenant_users` grava `user_template_slug` no webhook create | webhook-receiver | N43.3 |
+| [x] | P | N43.1 — Migrations `user_templates`, `user_template_apps`, `tenant_users.user_template_slug` (coluna indexada, sem FK) | laravel-migration | N42 |
+| [x] | M | N43.2 — `UserTemplateService` + API CRUD; `permissions` validado contra schema v1 no FormRequest (rejeitar chaves desconhecidas + `schema_version` obrigatório) | api-rest-patterns | N43.1 |
+| [x] | M | N43.3 — `UserCreateTemplateResolver` no fluxo API v1 + OccPanel (merge template → campos explícitos vencem) | laravel-api / laravel-livewire | N43.2 |
+| [x] | M | N43.4 — `PolicyResolver`: permissions JSON v1 + enforcement `max_users` (422 `plan_limit_exceeded`; AuditLog `policy_denied`) | laravel-api | N43.2 |
+| [x] | P | N43.5 — Seeds templates `supervisor`, `collaborator` + testes E2E create user | testing-patterns | N43.3, N43.4 |
+| [x] | P | N43.6 — Projeção `tenant_users` grava `user_template_slug` no webhook create | webhook-receiver | N43.3 |
 
 ---
 
@@ -5636,12 +5641,12 @@ Cenários de teste:
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | F16.1 — [FIX] `PlanService` sync `app_ids` → `plan_apps` (espelhar `UserTemplateService::syncAppIds`); `PlanResource` expõe apps; `Rule::exists` em `app_ids.*` | laravel-api | — |
-| [ ] | M | F16.2 — [FIX] `is_default` uniqueness sob concorrência: `lockForUpdate` em `clearDefaultFlag`/`setAsDefault` + teste paralelo | laravel-api | — |
-| [ ] | M | F16.3 — [FIX] `max_users` TOCTOU: reserva atômica de slot antes de `LifecycleAsyncAction` dispatch (ou revalidação no projector com falha de job) | laravel-api | — |
-| [ ] | P | F16.4 — [TEST] `PolicyResolverTest`: rota legada `POST /api/customers/{slug}/apps/enable` → 422 `plan_limit_exceeded` quando `max_apps` excedido | laravel-testing | F16.3 |
-| [ ] | P | F16.5 — [TEST] `OccPanelUserTemplateTest`: `createUser` com plano `max_users` atingido → mensagem amigável, SSH não chamado | laravel-testing | F16.3 |
-| [ ] | P | F16.6 — Atualizar `docs/FINDINGS.md` (5 HIGH → corrigido) + `/qa validar F16` | `/qa validar` | F16.1–F16.5 |
+| [x] | M | F16.1 — [FIX] `PlanService` sync `app_ids` → `plan_apps` (espelhar `UserTemplateService::syncAppIds`); `PlanResource` expõe apps; `Rule::exists` em `app_ids.*` | laravel-api | — |
+| [x] | M | F16.2 — [FIX] `is_default` uniqueness sob concorrência: `lockForUpdate` em `clearDefaultFlag`/`setAsDefault` + teste paralelo | laravel-api | — |
+| [x] | M | F16.3 — [FIX] `max_users` TOCTOU: reserva atômica de slot antes de `LifecycleAsyncAction` dispatch (ou revalidação no projector com falha de job) | laravel-api | — |
+| [x] | P | F16.4 — [TEST] `PolicyResolverTest`: rota legada `apps/enable` + limite de plano (F18 substituiu `max_apps` por validação `plan_apps`) | laravel-testing | F16.3 |
+| [x] | P | F16.5 — [TEST] `OccPanelUserTemplateTest`: `createUser` com plano `max_users` atingido → mensagem amigável, SSH não chamado | laravel-testing | F16.3 |
+| [x] | P | F16.6 — Atualizar `docs/FINDINGS.md` (5 HIGH → corrigido) + `/qa validar F16` | `/qa validar` | F16.1–F16.5 |
 
 ### Task F16.1 — Persistir `app_ids` em planos via API
 
@@ -5727,22 +5732,55 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 ## Sprint F18 — Remover `max_apps`; enforcement por designação `plan_apps`
 
 > Categoria: F
-> Status: **planejada**
+> Status: **concluída**
 > Gate: `plans.max_apps` removido do contrato API/DB; `POST .../apps/enable` (v1 e legado) valida apps ⊆ `plan_apps` via `PlanAppResolver` (422 validation); `PolicyResolver` não usa contagem numérica; testes substituem cenários `max_apps`; CQ-N43-002 → `descartado`.
 > review: senior+qa
 > Decisão produto (2026-07-06): apps do plano são **designados** (`plan_apps`), não limitados por quantidade (`max_apps`).
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | F18.1 — Remover `assertCanEnableApps`; `enableApps` usa `PlanAppResolver` | laravel-api | — |
-| [ ] | M | F18.2 — Remover `max_apps` de API/model/migration/openapi/DATABASE | laravel-api | — |
-| [ ] | P | F18.3 — Testes: apps fora do plano → 422; remover testes `max_apps` | laravel-testing | F18.1 |
-| [ ] | P | F18.4 — FINDINGS CQ-N43-002 descartado + nota SETUP-DECISIONS | `/qa validar` | F18.1–F18.3 |
+| [x] | M | F18.1 — Remover `assertCanEnableApps`; `enableApps` usa `PlanAppResolver` | laravel-api | — |
+| [x] | M | F18.2 — Remover `max_apps` de API/model/migration/openapi/DATABASE | laravel-api | — |
+| [x] | P | F18.3 — Testes: apps fora do plano → 422; remover testes `max_apps` | laravel-testing | F18.1 |
+| [x] | P | F18.4 — FINDINGS CQ-N43-002 descartado + nota SETUP-DECISIONS | `/qa validar` | F18.1–F18.3 |
+
+---
+
+## Sprint F19 — Correção findings F18 (enable happy path + migration hygiene)
+
+> Categoria: F
+> Status: **concluída**
+> Gate: 7 findings F18 (CQ/QA) corrigidos — happy path enable v1+legado; `loadMissing('plan')` removido; hygiene migration `000001`/`000002`; testes `empty-plan`, `PlanApiTest`, `DropMaxAppsMigrationTest`; validation R1 APROVADA.
+> review: senior+qa
+> Fonte: `docs/FINDINGS.md` — CQ-F18-001 a QA-F18-005.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | F19.1 — Happy path enable v1+legado + empty `plan_apps` + asserções QA-F18-005 | laravel-testing | — |
+| [x] | P | F19.2 — Migration hygiene (`000001` sem `max_apps`; `000002` up/down guardados) + `DropMaxAppsMigrationTest` | laravel-migration | — |
+| [x] | P | F19.3 — `PlanApiTest` assertJsonMissing `max_apps` + POST ignorado | laravel-testing | — |
+| [x] | P | F19.4 — Remover `loadMissing('plan')` em `enableApps` | laravel-api | — |
+| [x] | P | F19.5 — `/qa validar F19` + docs FINDINGS | `/qa validar` | F19.1–F19.4 |
+
+---
+
+## Sprint F20 — CQ-F19-001/002 LOW (test parity + migration rollback)
+
+> Categoria: F
+> Status: **concluída**
+> Gate: testes `empty-plan` espelham asserções QA-F18-005; `down()` de `drop_max_apps` guardado por `Schema::hasColumn`; deploy LAB `2313ea1`.
+> review: skip (trivial hygiene)
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F20.1 — CQ-F19-001: asserções `assertJsonMissingPath('error')` + AuditLog nos testes empty-plan | laravel-testing | — |
+| [x] | P | F20.2 — CQ-F19-002: guard `down()` migration drop_max_apps | laravel-migration | — |
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-06 | 0.50   | Sprints F18–F20 concluídas; N41–N43 marcadas concluídas (ISSUE-051); deploy LAB `2313ea1`. | docs sync pós-F20 |
 | 2026-07-06 | 0.47   | Sprint F18 planejada — remover max_apps; enforcement por plan_apps (decisão produto). | `/pmo plan` via `/rock` |
 | 2026-07-06 | 0.45   | Sprint F16 concluída — ISSUE-051 campanha; PR #141; deploy LAB. | sprint-finalizer |
 | 2026-07-06 | 0.44   | Review do plano N41–N43 aplicada: MariaDB 11 confirmado como engine (DATABASE.md decisão corrigida); `is_default` app-level; FK `customers.plan_slug` + quota default antecipadas p/ N41; scopes `product:*` explícitos (config/api-scopes.php); `apps_selection` removido do contrato; soft delete removido de plans/user_templates; enforcement max_users/max_apps em N43; `user_template_slug` sem FK. | review `/rock` |

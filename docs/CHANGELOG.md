@@ -4,7 +4,10 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **docs(sprint-F20)**: ROADMAP/ISSUES/FINDINGS sincronizados pós-F18–F20; N41–N43 marcadas concluídas; ISSUE-051 fase 1 entregue; deploy LAB `2313ea1` em OPERATIONS.
 - **test(sprint-F20)**: CQ-F19-001/002 corrigidos — testes `empty-plan` (v1+legado) em `PolicyResolverTest` espelham asserções QA-F18-005 (`assertJsonMissingPath('error')` + `AuditLog policy_denied` false); `down()` de `drop_max_apps_from_plans_table` guardado por `Schema::hasColumn` (rollback idempotente em fresh install). 14 testes verdes (PolicyResolver + DropMaxAppsMigration).
+- **fix(sprint-F19)**: 7 findings F18 corrigidos — happy path enable v1+legado; `empty-plan`; migration hygiene; `PlanApiTest` sem `max_apps`; `loadMissing('plan')` removido (PR #144).
+- **fix(sprint-F18)**: remove `max_apps`; enforcement enable apps via `plan_apps` + ARCH-7; deploy LAB `e8b1ad6` (PR #143).
 - **docs(sprint-finalize)**: Sprints N37 e N39 fechadas pós-merge — ISSUE-047 (API Console fase 1: Scalar `/docs/api`, scopes credenciais) e ISSUE-049 (UX provisionamento + OCC); deploy LAB `8e58fed`.
 - **feat(sprint-N39)**: ISSUE-049 — FQDN normalize server-side; OccPanel users list; async user-create feedback; `customers/show` poll + job link + throttled tail log; readiness probe card; M3 retrofit `customers/*`; cluster soft-delete UI with active-tenant guard (PR #135).
 - **feat(sprint-N37)**: ISSUE-047 fase 1 — private Scalar API docs viewer `/docs/api`; API key scopes selection + badges; sidebar link with `manage-operators` gate (PR #136).
@@ -448,8 +451,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-06 14:32** `661033e` — Merge pull request #142 from SoftwareBeesy/sprint/F17
 - **2026-07-06 14:42** `661033e` — Merge pull request #142 from SoftwareBeesy/sprint/F17
 - **2026-07-06 15:22** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
-- **2026-07-06 16:15** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
-- **2026-07-06 16:49** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
 - **2026-07-06 17:14** `a623f8e` — docs(sprint-F18): record QA validation APROVADA + LAB deploy
 - **2026-07-06 17:43** `887b53f` — fix(sprint-F19): close F18 QA findings (enable tests, migration hygiene) (#144)
 - **2026-07-06 17:50** `53951a1` — docs(sprint-F19): record QA validation APROVADA
+- **2026-07-06 18:25** `2313ea1` — test(sprint-F20): fix CQ-F19-001/002 test + migration hygiene (#145)

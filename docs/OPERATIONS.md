@@ -1,5 +1,14 @@
 # Operations log
 
+## 2026-07-06T21:58:00Z — Deploy LAB pós-merge F20 (CQ-F19-001/002 hygiene)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `2313ea1` (F20: asserções empty-plan QA-F18-005; `down()` migration `drop_max_apps` guardado por `hasColumn`); deploy via SSH `mecloud360@128.201.61.110` (`MECLOUD_SSH_KEY`); sync `git archive` tar (preservando `.env` + `storage`; avisos tar em dirs docker-owned — não bloqueante).
+- **Stack:** `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker nginx && up -d`.
+- **Migration:** nada pendente (`Nothing to migrate`); coluna `max_apps` ausente (F18 já aplicado).
+- **Pós-deploy:** `app-catalog:sync` OK.
+- **Smoke:** `/up` 200; `/login` 200; containers app/worker/nginx/db/redis healthy.
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-06T19:50:00Z — Deploy LAB pós-merge F18 (remoção max_apps + plan_apps enable)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `e8b1ad6` (F18: drop `max_apps`, `enableApps` via `PlanAppResolver`); deploy via SSH `mecloud360@128.201.61.110` (`MECLOUD_SSH_KEY`); sync `git archive` tar (preservando `.env` + `storage`; avisos tar em dirs docker-owned — não bloqueante).
