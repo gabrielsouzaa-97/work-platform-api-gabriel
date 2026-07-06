@@ -33,7 +33,7 @@ final class PlanV1Controller extends Controller
         $plan = Plan::query()->with('appCatalogEntries')->find($slug);
 
         if ($plan === null) {
-            return RenderDomainError::response(DomainError::TenantNotFound);
+            return RenderDomainError::response(DomainError::PlanNotFound);
         }
 
         return $this->v1SyncEnvelope(new PlanResource($plan));
@@ -51,7 +51,7 @@ final class PlanV1Controller extends Controller
         $plan = Plan::query()->with('appCatalogEntries')->find($slug);
 
         if ($plan === null) {
-            return RenderDomainError::response(DomainError::TenantNotFound);
+            return RenderDomainError::response(DomainError::PlanNotFound);
         }
 
         $updated = $this->planService->update($slug, $request->validated());

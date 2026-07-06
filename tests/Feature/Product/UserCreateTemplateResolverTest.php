@@ -199,6 +199,34 @@ it('POST /api/v1/tenants/{slug}/users explicit groups override template groups',
     )->assertStatus(202);
 });
 
+it('POST /api/v1/tenants/{slug}/users explicit empty groups clears template groups', function (): void {
+    $cluster = resolverCluster();
+    $slug = 'tpl-clear-g-'.substr(uniqid(), -6);
+    resolverCustomer($slug, $cluster->id);
+    seedResolverTemplate('supervisor');
+    $jobId = Str::uuid()->toString();
+    $rawToken = resolverV1ApiKey($slug);
+
+    mockResolverSsh($jobId, function (?string $stdin): bool {
+        $decoded = json_decode($stdin ?? '', true);
+
+        return is_array($decoded)
+            && array_key_exists('groups', $decoded)
+            && $decoded['groups'] === [];
+    });
+
+    $this->postJson(
+        "/api/v1/tenants/{$slug}/users",
+        [
+            'username' => 'cleared',
+            'password' => 'Secret123!',
+            'user_template_slug' => 'supervisor',
+            'groups' => [],
+        ],
+        ['Authorization' => "Bearer {$rawToken}"],
+    )->assertStatus(202);
+});
+
 it('POST /api/v1/tenants/{slug}/users explicit quota overrides template default_quota', function (): void {
     $cluster = resolverCluster();
     $slug = 'tpl-override-q-'.substr(uniqid(), -6);

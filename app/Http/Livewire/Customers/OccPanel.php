@@ -353,14 +353,19 @@ class OccPanel extends Component
                 array_map('trim', explode(',', $this->userGroups)),
                 static fn (string $g): bool => $g !== '',
             ));
+            $explicitGroups = $this->userGroups !== '' ? $groups : null;
             $templateSlug = $this->userTemplateSlug !== '' ? $this->userTemplateSlug : null;
-            $resolved = $templateResolver->resolve($templateSlug, $groups, null);
+            $resolved = $templateResolver->resolve($templateSlug, $explicitGroups, null);
 
             $stdinPayload = UserCreateStdinPayload::build(
                 password: $this->userPasswordPlain,
                 email: $this->userEmail !== '' ? $this->userEmail : null,
                 groups: $resolved->groups,
             );
+
+            if ($explicitGroups !== null) {
+                $stdinPayload['groups'] = $explicitGroups;
+            }
 
             if ($resolved->quota !== null && $resolved->quota !== '') {
                 $stdinPayload['quota'] = $resolved->quota;

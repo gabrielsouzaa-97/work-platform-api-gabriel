@@ -93,6 +93,28 @@ it('GET /api/v1/plans/{slug} returns single plan resource', function (): void {
     $response->assertJsonPath('data.name', 'Pro');
 });
 
+it('GET /api/v1/plans/{slug} returns plan_not_found for missing slug', function (): void {
+    $rawToken = createPlanApiKey(scopes: ['product:read']);
+
+    $response = $this->getJson('/api/v1/plans/missing-plan', planApiBearer($rawToken));
+
+    $response->assertNotFound();
+    $response->assertJsonPath('error.code', 'plan_not_found');
+});
+
+it('PATCH /api/v1/plans/{slug} returns plan_not_found for missing slug', function (): void {
+    $rawToken = createPlanApiKey(scopes: ['product:write']);
+
+    $response = $this->patchJson(
+        '/api/v1/plans/missing-plan',
+        ['name' => 'Nope'],
+        planApiBearer($rawToken),
+    );
+
+    $response->assertNotFound();
+    $response->assertJsonPath('error.code', 'plan_not_found');
+});
+
 it('denies GET /api/v1/plans without product read scope', function (): void {
     $rawToken = createPlanApiKey(scopes: ['tenants:read']);
 

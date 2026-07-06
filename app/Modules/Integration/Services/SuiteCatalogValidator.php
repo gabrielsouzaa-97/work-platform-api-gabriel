@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Integration\Services;
 
+use App\Modules\Integration\Support\SuiteCatalogPathResolver;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 final class SuiteCatalogValidator
 {
@@ -68,8 +70,9 @@ final class SuiteCatalogValidator
             return $this->catalog;
         }
 
-        $path = config('platform.suite_catalog.path');
-        if (! is_string($path) || ! is_readable($path)) {
+        try {
+            $path = SuiteCatalogPathResolver::resolve();
+        } catch (RuntimeException) {
             throw ValidationException::withMessages([
                 'suite_catalog' => 'Suite catalog JSON is not readable.',
             ]);

@@ -57,9 +57,10 @@ final class CustomerLifecycleController extends Controller
         $templateSlug = $request->filled('user_template_slug')
             ? $request->string('user_template_slug')->toString()
             : null;
+        $explicitGroups = $request->has('groups') ? $request->array('groups') : null;
         $resolved = $this->userCreateTemplateResolver->resolve(
             $templateSlug,
-            $request->array('groups', []),
+            $explicitGroups,
             $explicitQuota,
         );
 
@@ -70,6 +71,10 @@ final class CustomerLifecycleController extends Controller
             groups: $resolved->groups,
             subadminGroups: $request->array('subadmin_groups', []),
         );
+
+        if ($explicitGroups !== null) {
+            $stdinPayload['groups'] = $explicitGroups;
+        }
 
         $this->applyResolvedQuotaToStdin(
             $stdinPayload,

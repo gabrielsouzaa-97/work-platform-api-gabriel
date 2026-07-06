@@ -68,3 +68,16 @@ it('app-catalog:sync updates existing rows without duplicating app_id', function
     expect(AppCatalogEntry::where('app_id', 'mail')->count())->toBe(1);
     expect(AppCatalogEntry::where('app_id', 'mail')->value('is_active'))->toBeTrue();
 });
+
+it('app-catalog:sync falls back to bundled storage path when configured path is missing', function (): void {
+    config(['platform.suite_catalog.path' => '/nonexistent/suite_catalog.json']);
+
+    $this->artisan('app-catalog:sync')->assertSuccessful();
+
+    foreach (activeFixtureAppIds() as $appId) {
+        $this->assertDatabaseHas('app_catalog_entries', [
+            'app_id' => $appId,
+            'is_active' => true,
+        ]);
+    }
+});
