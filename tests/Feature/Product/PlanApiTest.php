@@ -205,7 +205,7 @@ it('POST /api/v1/plans persists app_ids into plan_apps junction', function (): v
     );
 
     $response->assertCreated();
-    $response->assertJsonPath('data.app_ids', ['mail', 'deck']);
+    expect($response->json('data.app_ids'))->toEqual(['deck', 'mail']);
     $this->assertDatabaseHas('plan_apps', [
         'plan_slug' => $slug,
         'app_catalog_id' => $mailId,

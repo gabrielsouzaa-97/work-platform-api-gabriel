@@ -27,7 +27,7 @@ final class PlanResource extends JsonResource
             'status' => $this->status,
             'app_ids' => $this->whenLoaded(
                 'appCatalogEntries',
-                fn () => $this->appCatalogEntries->pluck('app_id')->values()->all(),
+                fn () => $this->appCatalogEntries->pluck('app_id')->sort()->values()->all(),
                 [],
             ),
         ];
