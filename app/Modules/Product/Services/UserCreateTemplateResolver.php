@@ -12,17 +12,17 @@ final class UserCreateTemplateResolver
     public function __construct(private readonly UserTemplateService $userTemplateService) {}
 
     /**
-     * @param  list<string>  $explicitGroups
+     * @param  list<string>|null  $explicitGroups
      */
     public function resolve(
         ?string $templateSlug,
-        array $explicitGroups,
+        ?array $explicitGroups,
         ?string $explicitQuota,
     ): ResolvedUserCreateTemplate {
         if ($templateSlug === null || $templateSlug === '') {
             return new ResolvedUserCreateTemplate(
                 userTemplateSlug: null,
-                groups: $explicitGroups,
+                groups: $explicitGroups ?? [],
                 quota: $explicitQuota,
             );
         }
@@ -31,7 +31,7 @@ final class UserCreateTemplateResolver
 
         return new ResolvedUserCreateTemplate(
             userTemplateSlug: $templateSlug,
-            groups: $explicitGroups !== [] ? $explicitGroups : ($template?->groups ?? []),
+            groups: $explicitGroups !== null ? $explicitGroups : ($template?->groups ?? []),
             quota: $explicitQuota ?? $template?->default_quota,
         );
     }

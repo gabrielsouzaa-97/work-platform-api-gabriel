@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Product\Services;
 
 use App\Models\AppCatalogEntry;
+use App\Modules\Integration\Support\SuiteCatalogPathResolver;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
 
@@ -12,11 +13,7 @@ final class AppCatalogSyncService
 {
     public function sync(?string $path = null): void
     {
-        $catalogPath = $path ?? config('platform.suite_catalog.path');
-
-        if (! is_string($catalogPath) || ! File::isReadable($catalogPath)) {
-            throw new RuntimeException('Suite catalog JSON is not readable.');
-        }
+        $catalogPath = SuiteCatalogPathResolver::resolve($path);
 
         $decoded = json_decode((string) File::get($catalogPath), true);
 

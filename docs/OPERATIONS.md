@@ -1,5 +1,12 @@
 # Operations log
 
+## 2026-07-06T16:30:00Z — Deploy LAB pós-merge F16 (ISSUE-051 campanha) + catalog sync
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `f73c149` (F16 Product Governance HIGH); deploy via SSH `mecloud360@128.201.61.110` (`MECLOUD_SSH_KEY` em `~/.config/beesy/cloud.env`); **sync tar** (host sem `.git`).
+- **Stack:** `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker nginx && up -d`; 7 migrations; seeders `PlanSeeder` + `UserTemplateSeeder`; `/up` 200.
+- **App catalog:** `php artisan app-catalog:sync` — path default (`../work-platform-scripts/...`) inexistente na imagem; workaround manual `docker compose cp` + sync. **F17** adiciona fallback `storage/app/suite_catalog.json` e env `NC_SUITE_CATALOG_JSON`.
+- **Pós-deploy:** `/qa validar` smoke APROVADA; finding **OPS-F16-001** (MEDIUM) registrado.
+
 ## 2026-07-06T00:50:00Z — Deploy LAB pós-merge N40 (ISSUE-050) + backfill `pacoteste`
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`, sid=65) — código `main` SHA `ddaded7` (N40 + poll/projector fix); deploy via SSH `mecloud360@128.201.61.110` (`MECLOUD_SSH_KEY` em `cloud.env`); sync tar (host sem `.git`; repo privado).
