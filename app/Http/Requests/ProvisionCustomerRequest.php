@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Modules\Integration\Services\SuiteCatalogValidator;
+use App\Modules\Product\Services\PlanAppResolver;
 use App\Rules\Fqdn;
 use App\Rules\Slug;
 use App\Support\DomainNormalizer;
@@ -90,21 +91,40 @@ class ProvisionCustomerRequest extends FormRequest
                 }
             }
 
-            if (! $this->usesSuiteCatalogMode()) {
-                return;
-            }
-
-            $apps = $this->input('apps', []);
-            if (! is_array($apps) || $apps === []) {
-                return;
-            }
+            $planSlug = $this->filled('plan_slug') ? $this->string('plan_slug')->toString() : null;
+            $apps = $this->input('apps');
+            $apps = is_array($apps) ? $apps : [];
 
             try {
-                app(SuiteCatalogValidator::class)->validateAppIds($apps);
+                $resolvedApps = app(PlanAppResolver::class)->resolve($planSlug, $apps);
+                $this->merge(['apps' => $resolvedApps]);
             } catch (ValidationException $e) {
                 foreach ($e->errors() as $field => $messages) {
                     foreach ($messages as $message) {
                         $v->errors()->add($field, $message);
+                    }
+                }
+
+                return;
+            }
+
+            if (! $this->usesSuiteCatalogMode()) {
+                return;
+            }
+
+            $resolvedApps = $this->input('apps', []);
+            if (! is_array($resolvedApps) || $resolvedApps === []) {
+                return;
+            }
+
+            try {
+                app(SuiteCatalogValidator::class)->validateAppIds($resolvedApps);
+            } catch (ValidationException $e) {
+                foreach ($e->errors() as $field => $messages) {
+                    $targetField = str_starts_with($field, 'apps.') ? 'apps' : $field;
+
+                    foreach ($messages as $message) {
+                        $v->errors()->add($targetField, $message);
                     }
                 }
             }
