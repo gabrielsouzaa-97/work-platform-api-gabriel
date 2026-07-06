@@ -56,7 +56,7 @@
 | ISSUE-048 | bug | Painel LAB sem CSS (nginx sem `public/build`) + Livewire `/customers/create` não envia `image_mode` (gap N36) | Livewire, DevOps | HIGH | **fixed (2026-07-05)** — Sprint N38; deploy LAB `.110` |
 | ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
 | ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | **planned — Sprint N40** (2026-07-05; brief PASS_WITH_NOTES) |
-| ISSUE-051 | change_request | Control plane de produto: planos (quotas), tenant com seleção de apps, templates de usuário (papéis/permissões) — API-first, sem apps NC nesta fase | Product, Customers, Livewire, API v1, DB | HIGH | **planned** — `/arquiteto dados` + `/arquiteto contratos` + `/pmo plan` (2026-07-06); sprints N41–N43 no ROADMAP |
+| ISSUE-051 | change_request | Control plane de produto: planos (quotas), tenant com seleção de apps, templates de usuário (papéis/permissões) — API-first, sem apps NC nesta fase | Product, Customers, Livewire, API v1, DB | HIGH | **concluída (fase 1)** — N41–N43 + F16–F20 (2026-07-06); backlog F17 MEDIUM/LOW em FINDINGS |
 
 ---
 
@@ -64,7 +64,7 @@
 
 - **Tipo**: change_request / arquitetura (FEATURE)
 - **Prioridade**: HIGH
-- **Status**: **planned** (2026-07-06) — `DATABASE.md` §Product Governance, `db-schema.dbml`, `openapi-external.yaml` (draft ISSUE-051); sprints **N41–N43** no ROADMAP; implementação via `/rock executar sprint`
+- **Status**: **concluída (fase 1)** (2026-07-06) — N41 (PR #138), N42 (PR #139), N43 (PR #140); correções F16–F20; ARCH-7 (`plan_apps` em vez de `max_apps`); deploy LAB `2313ea1`. Backlog não-bloqueante: findings F17 MEDIUM/LOW em `docs/FINDINGS.md`.
 - **Registrado em**: 2026-07-06 (triagem via `/rock` — usuário quer o **meio** no control plane para governar produto via API até existirem apps Nextcloud customizados)
 - **Módulos afetados**: novo módulo `Product` (ou `Catalog`), `Customers` (provision), `tenant_users` (N40), Livewire admin, API v1, migrations
 
@@ -82,7 +82,7 @@ Hoje o provisionamento aceita flags técnicas (`suite_catalog`, `image_mode`, `a
 
 ### Escopo proposto (para `/arquiteto dados` + `/pmo plan`)
 
-1. CRUD **plans** (quota default, limites opcionais: max_users, max_apps)
+1. CRUD **plans** (quota default, limite opcional `max_users`; apps designados via `plan_apps` — sem `max_apps` desde F18/ARCH-7)
 2. CRUD **app_catalog** (app_id alinhado ao upstream `suite_catalog.json` / `occ app:enable`)
 3. CRUD **user_templates** (slug, label, apps[], permissions json)
 4. **Provision** referencia `plan_id` + `app_ids[]` resolvidos do catálogo
