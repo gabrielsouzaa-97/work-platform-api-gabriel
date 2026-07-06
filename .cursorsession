@@ -34,7 +34,7 @@
   ],
   "fase_atual": "13",
   "fase_nome": "N40 validada — PR #137 CI verde, aguardando merge",
-  "sprint_atual": "N40",
+  "sprint_atual": "F18",
   "previous_sprint": "N39",
   "sprint_branch": "sprint/N40",
   "sprint_pending_merge": "sprint/N40 (PR #137)",
@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-06T13:58:39Z",
+  "ultimo_update": "2026-07-06T17:42:40Z",
   "next_sprint_planned": "F16",
   "modulos": [
     "Core",
@@ -220,11 +220,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-06T05:19:37Z",
-    "usage_percent": 99.31,
-    "messages_lost": 348
+    "compacted_at": "2026-07-06T17:51:18Z",
+    "usage_percent": 90.2765,
+    "messages_lost": 296
   },
-  "compact_count": 8,
+  "compact_count": 9,
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
@@ -237,39 +237,40 @@
     "verify_status": "green",
     "verify_evidence": "gh pr checks 137 (2026-07-05T22:56Z): Lint, Test Pest, OpenAPI Redocly, Security, coverage-check, security-review — all pass",
     "validation_gate_qa": {
-      "sprint": "N41+N42+N43",
-      "produced_by": "/qa validar campanha ISSUE-051 (auditor-senior + auditor-qa)",
-      "result": "COM_RESSALVAS",
+      "sprint": "F17",
+      "produced_by": "/qa validar F17 (auditor-senior 8aba1a5a)",
+      "result": "APROVADA",
       "validation_round": 1,
-      "validation_mode": "campaign",
-      "senior_review_status": "FAIL",
-      "findings_found": 28,
+      "validation_mode": "revalidation",
+      "senior_review_status": "PASS",
+      "scope": "f73c149...661033e (PR #142)",
+      "findings_found": 4,
       "findings_registered": [
-        "CQ-N41-001",
-        "CQ-N41-002",
+        "CQ-F17-001",
+        "CQ-F17-002",
+        "CQ-F17-003",
+        "CQ-F17-004"
+      ],
+      "findings_validated": [
+        "OPS-F16-001",
         "CQ-N41-003",
-        "CQ-N43-001",
-        "CQ-N43-002",
-        "CQ-N43-003",
-        "CQ-N42-001",
-        "CQ-N43-004",
-        "CQ-N43-005",
-        "QA-N41-001",
-        "QA-N43-001",
-        "QA-N43-002"
+        "CQ-N43-003"
       ],
-      "findings_high_pending": [
-        "CQ-N41-001",
-        "CQ-N41-002",
-        "CQ-N43-001",
-        "QA-N43-001",
-        "QA-N43-002"
+      "findings_high_pending": [],
+      "deferred": [
+        "CQ-N43-002"
       ],
+      "tests_evidence": "Docker Pest Product+Livewire/Customers+Api/V1: 185 passed, 789 assertions (2026-07-06)",
+      "ci_verify": "PR #142 merged; CI green (Lint, Pest, OpenAPI, security, coverage)",
+      "deploy_lab": "SHA 661033e; app-catalog:sync 11 apps sem workaround; /up+/login 200",
+      "last_validated_sha": "661033e7e7d9b3b303491f1d9eb4377b359fae3b",
+      "stamped_at": "2026-07-06T17:15:00Z"
+    },
+    "validation_gate_qa_campaign_archived": {
+      "sprint": "N41+N42+N43",
+      "result": "COM_RESSALVAS",
       "next_sprint_planned": "F16",
-      "user_decision": "fix_high via /pmo plan",
-      "tests_evidence": "Docker Pest delta N41-N43: 179 passed, 527 assertions (2026-07-06)",
-      "ci_verify": "PR #140 (N43) OPEN CI verde; N41/N42 merged",
-      "askquestion_shown": true,
+      "note": "Campanha ISSUE-051 — 5 HIGH → F16 (APROVADA); MEDIUM/LOW → F17 (CQ-N41-003, CQ-N43-003 validados; CQ-N43-002 deferido)",
       "stamped_at": "2026-07-06T14:00:00Z"
     },
     "validation_gate": {
@@ -278,14 +279,18 @@
       "validation_mode": "full",
       "gates": [
         {
-          "cmd": "docker compose exec -T app ./vendor/bin/pint --test",
+          "cmd": "docker compose run --rm --no-TTY app ./vendor/bin/pint --test",
+          "exit_code": 0
+        },
+        {
+          "cmd": "docker compose run --rm --no-TTY app php artisan test tests/Feature/Product/ tests/Feature/Api/V1/ --no-coverage",
           "exit_code": 0
         }
       ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "a0ba0921b3eb37e6b8ed47da1ae302d13b3c6564",
-      "stamped_at": "2026-07-06T14:23:27Z"
+      "last_validated_sha": "4b378133a4df90552514abdcac21b1a3ec78ce13",
+      "stamped_at": "2026-07-06T18:13:43Z"
     }
   },
   "checkpoint_n36_archived": {

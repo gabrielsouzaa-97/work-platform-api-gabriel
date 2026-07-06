@@ -22,6 +22,7 @@ use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Product\Exceptions\PlanLimitExceededException;
+use App\Modules\Product\Services\PlanAppResolver;
 use App\Modules\Product\Services\PolicyResolver;
 use App\Modules\Product\Services\UserCreateTemplateResolver;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +34,7 @@ final class CustomerLifecycleController extends Controller
         private readonly LifecycleAsyncAction $action,
         private readonly UserCreateTemplateResolver $userCreateTemplateResolver,
         private readonly PolicyResolver $policyResolver,
+        private readonly PlanAppResolver $planAppResolver,
     ) {}
 
     /** POST /customers/{customer}/users */
@@ -162,14 +164,8 @@ final class CustomerLifecycleController extends Controller
     /** POST /customers/{customer}/apps/enable */
     public function enableApps(Customer $customer, EnableAppsRequest $request): JsonResponse
     {
-        /** @var Operator $actor */
-        $actor = $request->user();
-
-        try {
-            $this->policyResolver->assertCanEnableApps($customer, $request->array('apps'), $actor);
-        } catch (PlanLimitExceededException) {
-            return RenderDomainError::response(DomainError::PlanLimitExceeded);
-        }
+        $customer->loadMissing('plan');
+        $this->planAppResolver->resolve($customer->plan_slug, $request->array('apps'));
 
         return $this->dispatchAppsCsv($customer, 'apps:enable', $request->array('apps'), $request);
     }

@@ -44,7 +44,6 @@ function validPlanCreatePayload(string $slug = 'starter'): array
         'description' => 'Entry tier',
         'default_quota' => '5 GB',
         'max_users' => 50,
-        'max_apps' => 10,
         'status' => 'active',
         'app_ids' => [],
     ];

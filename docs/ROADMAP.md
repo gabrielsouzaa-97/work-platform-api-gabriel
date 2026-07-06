@@ -87,6 +87,7 @@
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
 | F16    | F         | Product Governance HIGH: sync `plan_apps` via API; `is_default` lock; `max_users` atômico; testes legacy+OccPanel | **concluída** | 6 | Product, Customers, Occ, API v1 | ISSUE-051 campanha; PR #141; validation R1 APROVADA | 5623+ |
 | F17    | F         | Product Governance polish: OPS-F16-001 catalog fallback; `PlanNotFound`; `groups: []` override | **concluída** | 5 | Product, Integration, DevOps | CQ-N43-002 deferido (sem projeção apps) | 5706+ |
+| F18    | F         | Remover `max_apps`; apps do plano = designação `plan_apps`; enable valida ⊆ plano | planejada | 4 | Product, Customers, API v1 | Decisão produto CQ-N43-002 (2026-07-06) | 5724+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -5723,9 +5724,26 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 
 ---
 
+## Sprint F18 — Remover `max_apps`; enforcement por designação `plan_apps`
+
+> Categoria: F
+> Status: **planejada**
+> Gate: `plans.max_apps` removido do contrato API/DB; `POST .../apps/enable` (v1 e legado) valida apps ⊆ `plan_apps` via `PlanAppResolver` (422 validation); `PolicyResolver` não usa contagem numérica; testes substituem cenários `max_apps`; CQ-N43-002 → `descartado`.
+> review: senior+qa
+> Decisão produto (2026-07-06): apps do plano são **designados** (`plan_apps`), não limitados por quantidade (`max_apps`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F18.1 — Remover `assertCanEnableApps`; `enableApps` usa `PlanAppResolver` | laravel-api | — |
+| [ ] | M | F18.2 — Remover `max_apps` de API/model/migration/openapi/DATABASE | laravel-api | — |
+| [ ] | P | F18.3 — Testes: apps fora do plano → 422; remover testes `max_apps` | laravel-testing | F18.1 |
+| [ ] | P | F18.4 — FINDINGS CQ-N43-002 descartado + nota SETUP-DECISIONS | `/qa validar` | F18.1–F18.3 |
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| 2026-07-06 | 0.46   | Sprint F17 concluída — catalog fallback, PlanNotFound, groups override; PR merge. | sprint-finalizer |
+| 2026-07-06 | 0.47   | Sprint F18 planejada — remover max_apps; enforcement por plan_apps (decisão produto). | `/pmo plan` via `/rock` |
 | 2026-07-06 | 0.45   | Sprint F16 concluída — ISSUE-051 campanha; PR #141; deploy LAB. | sprint-finalizer |
 | 2026-07-06 | 0.44   | Review do plano N41–N43 aplicada: MariaDB 11 confirmado como engine (DATABASE.md decisão corrigida); `is_default` app-level; FK `customers.plan_slug` + quota default antecipadas p/ N41; scopes `product:*` explícitos (config/api-scopes.php); `apps_selection` removido do contrato; soft delete removido de plans/user_templates; enforcement max_users/max_apps em N43; `user_template_slug` sem FK. | review `/rock` |
 | 2026-07-06 | 0.43   | Sprints N41–N43 planejadas — ISSUE-051 Product Governance (planos, catálogo, templates); DATABASE.md + db-schema.dbml + openapi-external.yaml; N40 marcada concluída pós-merge `ddaded7`. | `/pmo plan` + `/rock` |

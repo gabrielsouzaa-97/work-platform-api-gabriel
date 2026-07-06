@@ -1230,9 +1230,6 @@ components:
         max_users:
           type: integer
           nullable: true
-        max_apps:
-          type: integer
-          nullable: true
         is_default:
           type: boolean
         status:
@@ -1260,9 +1257,6 @@ components:
         max_users:
           type: integer
           minimum: 1
-        max_apps:
-          type: integer
-          minimum: 1
         is_default:
           type: boolean
           default: false
@@ -1281,9 +1275,6 @@ components:
         default_quota:
           type: string
         max_users:
-          type: integer
-          nullable: true
-        max_apps:
           type: integer
           nullable: true
         status:

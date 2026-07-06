@@ -85,7 +85,7 @@ final class PlanService
     {
         $attributes = [];
 
-        foreach (['slug', 'name', 'description', 'default_quota', 'max_users', 'max_apps', 'status'] as $field) {
+        foreach (['slug', 'name', 'description', 'default_quota', 'max_users', 'status'] as $field) {
             if (array_key_exists($field, $data)) {
                 $attributes[$field] = $data[$field];
             }

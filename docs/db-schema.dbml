@@ -154,7 +154,6 @@ Table plans {
   description text [null]
   default_quota varchar(64) [not null]
   max_users integer [null]
-  max_apps integer [null]
   is_default boolean [not null, default: false, note: 'unico true — enforcement app-level (PlanService, transacao)']
   status varchar(20) [not null, default: 'active', note: 'active|inactive — sem soft delete']
   created_at timestamp [default: `now()`]

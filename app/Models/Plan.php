@@ -27,7 +27,6 @@ class Plan extends Model
         'description',
         'default_quota',
         'max_users',
-        'max_apps',
         'is_default',
         'status',
     ];
@@ -37,7 +36,6 @@ class Plan extends Model
         return [
             'is_default' => 'boolean',
             'max_users' => 'integer',
-            'max_apps' => 'integer',
         ];
     }
 

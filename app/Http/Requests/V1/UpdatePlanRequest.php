@@ -21,7 +21,6 @@ final class UpdatePlanRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'default_quota' => ['sometimes', 'string', 'max:64'],
             'max_users' => ['nullable', 'integer', 'min:1'],
-            'max_apps' => ['nullable', 'integer', 'min:1'],
             'is_default' => ['sometimes', 'boolean'],
             'status' => ['sometimes', 'string', Rule::in(['active', 'inactive'])],
             'app_ids' => ['nullable', 'array'],

@@ -3,9 +3,9 @@ synced_at: 2026-07-06
 open_critical: 0
 open_high: 9
 open_medium: 51
-open_low: 42
+open_low: 44
 sprints_with_open_blockers:
-notes: F16 R1 APROVADA (2026-07-06) — 5 HIGH N41-N43 corrigidos; 135 testes Product regressão verdes. N41-N43 campanha COM RESSALVAS R1 → F16 fix.
+notes: F17 R1 APROVADA (2026-07-06) — OPS-F16-001 + CQ-N41-003 + CQ-N43-003 validados; 185 testes verdes; deploy LAB 661033e. 2 MEDIUM (CQ-F17-001/002) + 2 LOW (CQ-F17-003/004) backlog; CQ-N43-002 deferido. F16 R1 APROVADA — 5 HIGH N41-N43 corrigidos.
 FINDINGS-INDEX -->
 
 
@@ -47,6 +47,17 @@ FINDINGS-INDEX -->
 | N41 | 0 | 2 | 1 | 1 | 4 | 0 | 0 |
 | N42 | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 | N43 | 0 | 3 | 5 | 2 | 10 | 0 | 0 |
+| F17 | 0 | 0 | 3 | 2 | 4 | 0 | 3 |
+
+> **Validação F17 R1** (2026-07-06, `/qa validar F17`): scope = delta `f73c149...661033e` (PR #142, 8 arquivos-fonte). **Review**: senior+qa. **Testes**: Pest Docker **185 passed, 789 assertions** (`Product/`, `Livewire/Customers/`, `Api/V1/`) incluindo os 3 testes novos F17 (PlanApi 404, AppCatalogSync fallback, resolver groups []). **auditor-senior** ([`8aba1a5a`](8aba1a5a-6116-45d1-91a9-d193115747df)) → 0 CRITICAL, 0 HIGH, 2 MEDIUM, 2 LOW. **Findings-alvo validados**: OPS-F16-001 (fallback catalog), CQ-N41-003 (PlanNotFound), CQ-N43-003 (groups override). **Deploy LAB**: SHA `661033e`, `app-catalog:sync` OK 11 apps sem workaround, `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 2 MEDIUM + 2 LOW novos non-blocking em backlog.
+
+### Findings — Sprint F17 (validação R1)
+
+- **[OPS-F16-001] MEDIUM — validado (F17.1)**: `app-catalog:sync` quebrava no container quando `platform.suite_catalog.path` apontava para sibling `work-platform-scripts` inexistente na imagem. Fix: `SuiteCatalogPathResolver` com fallback `storage/app/suite_catalog.json` + env `NC_SUITE_CATALOG_JSON`; `AppCatalogSyncService` e `SuiteCatalogValidator` adotam o resolver. Validado no deploy LAB `661033e` (sync 11 apps sem `docker compose cp`).
+- **[CQ-F17-001] MEDIUM — pendente**: emissão de `groups: []` depende de override pós-`build()` nos call sites, não de `UserCreateStdinPayload::build()` (que ainda omite `groups` vazio via `if ($groups !== [])`). Novo entry point que use `UserCreateTemplateResolver` sem o override regride silenciosamente. **Correção sugerida**: mover a emissão de groups vazio para `UserCreateStdinPayload` (flag tri-state `?array $groups` + `bool $emitEmptyGroups` ou helper `withGroups`), removendo os overrides duplicados de controller+Livewire. `app/Modules/Customers/Support/UserCreateStdinPayload.php:46-48`.
+- **[CQ-F17-002] MEDIUM — pendente**: OccPanel sem teste para override explícito de groups vazio (API tem cobertura; Livewire só cobre merge + override não-vazio). **Correção sugerida**: teste Pest em `OccPanelUserTemplateTest` com template com groups + `userGroups` que parseia para `[]` (ex.: `','`) asserindo stdin `"groups": []`. `app/Http/Livewire/Customers/OccPanel.php:356-368`.
+- **[CQ-F17-003] LOW — pendente**: `groups: null` no JSON é tratado como `[]` explícito (via `$request->has` + cast `(array) null`) em vez de herdar template. **Correção sugerida**: `$request->exists('groups') && is_array($request->input('groups')) ? $request->array('groups') : null`. `app/Http/Controllers/Api/CustomerLifecycleController.php:60`.
+- **[CQ-F17-004] LOW — pendente**: `SuiteCatalogPathResolver` sem unit test dedicado (só coberto indiretamente via `AppCatalogSyncCommandTest`). **Correção sugerida**: teste Pest stubando `config()` + temp files em `storage/app/` asserindo first-readable-wins, fallthrough de path inexistente, `RuntimeException` quando todos ilegíveis. `app/Modules/Integration/Support/SuiteCatalogPathResolver.php:11-29`.
 
 > **Validação F16 R1** (2026-07-06, `/qa validar F16` via `/rock`): scope = sprint/F16 pós-merge PR #140. **Testes**: Pest Docker **33 passed** (suite F16) + **135 passed** regressão Product/Livewire/Jobs (402 assertions). **Fixes**: F16.1 sync `plan_apps` via API; F16.2 `is_default` lockForUpdate; F16.3 `max_users` inflight jobs + re-check no persist; F16.4/F16.5 testes legacy+OccPanel. **5 HIGH** N41–N43 → corrigido. **Resultado: APROVADA** — 0 HIGH pendentes da campanha ISSUE-051.
 
@@ -62,9 +73,9 @@ FINDINGS-INDEX -->
 
 ### Findings MEDIUM/LOW — Campanha N41-N43 (backlog non-blocking)
 
-- **[CQ-N41-003] MEDIUM**: `PlanV1Controller` retorna `TenantNotFound` para plano inexistente (falta `DomainError::PlanNotFound`); contrato inconsistente com catalog/templates que têm 404 próprio (`PlanV1Controller.php:35-36,53-54`).
-- **[CQ-N43-002] MEDIUM**: `max_apps` valida só o tamanho do lote, não o cumulativo do tenant — confirmar semântica com produto (`PolicyResolver.php:37-48`).
-- **[CQ-N43-003] MEDIUM**: `groups: []` explícito não sobrescreve groups do template (`!== []` trata vazio como ausente) — `UserCreateTemplateResolver.php:34`.
+- **[CQ-N41-003] MEDIUM — validado (F17.2)**: `PlanV1Controller` agora retorna `DomainError::PlanNotFound` (404 `plan_not_found`) em `show`/`update`; testes `PlanApiTest` GET/PATCH plano inexistente. Validado `/qa validar F17` R1.
+- **[CQ-N43-002] MEDIUM — descartado**: Decisão produto: apps por designação `plan_apps`; `max_apps` removido F18.
+- **[CQ-N43-003] MEDIUM — validado (F17.3)**: `groups: []` explícito sobrescreve groups do template — `UserCreateTemplateResolver::resolve` usa `?array $explicitGroups` (null=herda, []=limpa); call sites API+OccPanel + stdin emitem `groups: []`. Validado `/qa validar F17` R1.
 - **[CQ-N42-001] LOW**: `PlanAppResolver::validateSubset` ignora silenciosamente app IDs não-string/vazios (`PlanAppResolver.php:60-63`).
 - **[CQ-N43-004] LOW**: `PermissionsSchemaV1` não valida `schema_version` internamente (depende de regra duplicada nos FormRequests).
 - **[CQ-N43-005] LOW**: rota API user-create não passa `origin` no `payload_sanitized` (projector defaulta `'api'`; trilha de auditoria incompleta).

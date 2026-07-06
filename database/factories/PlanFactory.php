@@ -24,7 +24,6 @@ class PlanFactory extends Factory
             'description' => null,
             'default_quota' => '5 GB',
             'max_users' => null,
-            'max_apps' => null,
             'is_default' => false,
             'status' => 'active',
         ];

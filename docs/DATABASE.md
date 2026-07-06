@@ -107,7 +107,6 @@ Camada de produto no control plane — **API-first**; apps Nextcloud customizado
 | `description` | text nullable | |
 | `default_quota` | varchar(64) | Ex. `5 GB`, `default` — aplicada a novos usuários sem override |
 | `max_users` | int unsigned nullable | Limite opcional de usuários por tenant |
-| `max_apps` | int unsigned nullable | Limite opcional de apps no tenant |
 | `is_default` | boolean | Plano fallback para tenants legados (único `true`) |
 | `status` | varchar(20) | `active` \| `inactive` |
 | `created_at` / `updated_at` | timestamps | Sem soft delete — desativação via `status: inactive` (slug PK reutilizável não se aplica; slug é permanente) |
@@ -167,7 +166,7 @@ PK composta `(user_template_slug, app_catalog_id)`.
 | `customers` | `plan_slug` | varchar(64) nullable FK → `plans.slug` (Sprint N41) |
 | `tenant_users` | `user_template_slug` | varchar(64) nullable **sem FK constraint** — trilha de auditoria de qual template originou o create; índice simples, não bloqueia gestão de templates (Sprint N43) |
 
-Limites `max_users`/`max_apps`: enforcement no `PolicyResolver` (Sprint N43) — 422 `plan_limit_exceeded` + AuditLog `policy_denied`. Fora de N41/N42.
+Limite `max_users`: enforcement no `PolicyResolver` (Sprint N43) — 422 `plan_limit_exceeded` + AuditLog `policy_denied`. Apps do plano: designação via junction `plan_apps`; enable/provision valida ⊆ plano via `PlanAppResolver` (422 validation). Fora de N41/N42.
 
 #### Schema `permissions` (JSON, versionado)
 

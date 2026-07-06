@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\ApiKey;
+use App\Models\AppCatalogEntry;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
@@ -11,6 +12,7 @@ use App\Models\Operator;
 use App\Models\Plan;
 use App\Models\TenantUser;
 use App\Modules\Core\Ssh\SshClientInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
@@ -24,17 +26,45 @@ function policyResolverCluster(): ClusterServer
     return ClusterServer::factory()->create(['status' => 'active']);
 }
 
-function policyResolverPlan(string $slug, ?int $maxUsers = null, ?int $maxApps = null): Plan
+function policyResolverPlan(string $slug, ?int $maxUsers = null): Plan
 {
     return Plan::create([
         'slug' => $slug,
         'name' => ucfirst($slug),
         'default_quota' => '5 GB',
         'max_users' => $maxUsers,
-        'max_apps' => $maxApps,
         'is_default' => false,
         'status' => 'active',
     ]);
+}
+
+function policyResolverSeedCatalogApp(string $appId): string
+{
+    return AppCatalogEntry::create([
+        'app_id' => $appId,
+        'label' => ucfirst($appId),
+        'is_active' => true,
+    ])->id;
+}
+
+function policyResolverSeedPlanWithCatalogApps(string $slug, array $appIds): Plan
+{
+    Plan::create([
+        'slug' => $slug,
+        'name' => ucfirst($slug),
+        'default_quota' => '5 GB',
+        'is_default' => false,
+        'status' => 'active',
+    ]);
+
+    foreach ($appIds as $appId) {
+        DB::table('plan_apps')->insert([
+            'plan_slug' => $slug,
+            'app_catalog_id' => policyResolverSeedCatalogApp($appId),
+        ]);
+    }
+
+    return Plan::findOrFail($slug);
 }
 
 function policyResolverCustomer(string $slug, string $clusterId, string $planSlug): Customer
@@ -127,32 +157,12 @@ it('max_users plan_limit_exceeded records AuditLog policy_denied', function (): 
         ->exists())->toBeTrue();
 });
 
-it('POST /api/v1/tenants/{slug}/apps returns 422 plan_limit_exceeded when max_apps exceeded', function (): void {
+it('POST /api/v1/tenants/{slug}/apps rejects app outside plan_apps with 422', function (): void {
     $cluster = policyResolverCluster();
-    $slug = 'limit-apps-'.substr(uniqid(), -6);
-    policyResolverPlan('apps-plan', maxApps: 1);
+    $slug = 'enable-apps-v1-'.substr(uniqid(), -6);
+    policyResolverSeedPlanWithCatalogApps('apps-plan', ['calendar']);
+    policyResolverSeedCatalogApp('deck');
     policyResolverCustomer($slug, $cluster->id, 'apps-plan');
-    $rawToken = policyResolverV1Key($slug, ['apps:write']);
-
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldNotReceive('runAsync');
-    app()->instance(SshClientInterface::class, $ssh);
-
-    $response = $this->postJson(
-        "/api/v1/tenants/{$slug}/apps",
-        ['apps' => ['calendar', 'contacts']],
-        ['Authorization' => "Bearer {$rawToken}"],
-    );
-
-    $response->assertStatus(422);
-    $response->assertJsonPath('error.code', 'plan_limit_exceeded');
-});
-
-it('max_apps plan_limit_exceeded records AuditLog policy_denied', function (): void {
-    $cluster = policyResolverCluster();
-    $slug = 'audit-apps-'.substr(uniqid(), -6);
-    policyResolverPlan('apps-audit', maxApps: 1);
-    policyResolverCustomer($slug, $cluster->id, 'apps-audit');
     $rawToken = policyResolverV1Key($slug, ['apps:write']);
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -161,13 +171,31 @@ it('max_apps plan_limit_exceeded records AuditLog policy_denied', function (): v
 
     $this->postJson(
         "/api/v1/tenants/{$slug}/apps",
-        ['apps' => ['calendar', 'deck']],
+        ['apps' => ['deck']],
         ['Authorization' => "Bearer {$rawToken}"],
-    )->assertStatus(422);
+    )
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['apps']);
+});
 
-    expect(AuditLog::where('action', 'policy_denied')
-        ->where('resource_id', $slug)
-        ->exists())->toBeTrue();
+it('POST /api/customers/{slug}/apps/enable rejects app outside plan_apps with 422', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'legacy-enable-plan-apps-'.substr(uniqid(), -6);
+    policyResolverSeedPlanWithCatalogApps('legacy-apps-plan', ['calendar']);
+    policyResolverSeedCatalogApp('deck');
+    $customer = policyResolverCustomer($slug, $cluster->id, 'legacy-apps-plan');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", [
+            'apps' => ['deck'],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['apps']);
 });
 
 it('POST /api/customers/{slug}/users enforces max_users via PolicyResolver on legacy route', function (): void {
@@ -236,50 +264,6 @@ it('PolicyResolver skips SSH when max_users already reached on legacy customers 
         ->postJson("/api/customers/{$customer->slug}/users", [
             'username' => 'bob',
             'password' => 'Secret123!',
-        ])
-        ->assertStatus(422)
-        ->assertJsonPath('error.code', 'plan_limit_exceeded');
-});
-
-it('max_apps plan_limit_exceeded AuditLog payload includes limit dimension', function (): void {
-    $cluster = policyResolverCluster();
-    $slug = 'audit-apps-payload-'.substr(uniqid(), -6);
-    policyResolverPlan('apps-audit-payload', maxApps: 1);
-    policyResolverCustomer($slug, $cluster->id, 'apps-audit-payload');
-    $rawToken = policyResolverV1Key($slug, ['apps:write']);
-
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldNotReceive('runAsync');
-    app()->instance(SshClientInterface::class, $ssh);
-
-    $this->postJson(
-        "/api/v1/tenants/{$slug}/apps",
-        ['apps' => ['calendar', 'deck']],
-        ['Authorization' => "Bearer {$rawToken}"],
-    )->assertStatus(422);
-
-    $log = AuditLog::where('action', 'policy_denied')
-        ->where('resource_id', $slug)
-        ->first();
-
-    expect($log)->not->toBeNull()
-        ->and($log->payload['limit'] ?? null)->toBe('max_apps');
-});
-
-it('POST /api/customers/{slug}/apps/enable enforces max_apps on legacy route', function (): void {
-    $cluster = policyResolverCluster();
-    $slug = 'legacy-enable-limit-'.substr(uniqid(), -6);
-    policyResolverPlan('legacy-enable-plan', maxApps: 1);
-    $customer = policyResolverCustomer($slug, $cluster->id, 'legacy-enable-plan');
-    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
-
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldNotReceive('runAsync');
-    app()->instance(SshClientInterface::class, $ssh);
-
-    $this->actingAs($operator)
-        ->postJson("/api/customers/{$customer->slug}/apps/enable", [
-            'apps' => ['calendar', 'contacts'],
         ])
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'plan_limit_exceeded');

@@ -36,23 +36,6 @@ final class PolicyResolver
         }
     }
 
-    /**
-     * @param  list<string>  $apps
-     */
-    public function assertCanEnableApps(Customer $customer, array $apps, Operator $actor): void
-    {
-        $customer->loadMissing('plan');
-        $maxApps = $customer->plan?->max_apps;
-
-        if ($maxApps === null) {
-            return;
-        }
-
-        if (count($apps) > $maxApps) {
-            $this->deny($customer, $actor, 'max_apps');
-        }
-    }
-
     private function detectUserCreateViolation(Customer $customer): ?string
     {
         return DB::transaction(function () use ($customer): ?string {

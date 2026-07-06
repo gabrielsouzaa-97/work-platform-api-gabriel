@@ -22,7 +22,6 @@ final class PlanResource extends JsonResource
             'description' => $this->description,
             'default_quota' => $this->default_quota,
             'max_users' => $this->max_users,
-            'max_apps' => $this->max_apps,
             'is_default' => $this->is_default,
             'status' => $this->status,
             'app_ids' => $this->whenLoaded(
