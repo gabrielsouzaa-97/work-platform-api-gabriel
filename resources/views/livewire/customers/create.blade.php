@@ -68,7 +68,7 @@
                 <select
                     id="planSlug"
                     class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary cursor-pointer color-scheme-dark"
-                    wire:model="planSlug"
+                    wire:model.live="planSlug"
                 >
                     <option value="">Selecione…</option>
                     @foreach ($plans as $plan)
@@ -79,6 +79,31 @@
                     <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
                 @enderror
             </div>
+
+            @if ($planSlug)
+                <div>
+                    <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Apps do plano</span>
+                    <div class="space-y-sm">
+                        @foreach ($this->availableApps as $app)
+                            <div class="flex items-start gap-sm">
+                                <input
+                                    type="checkbox"
+                                    wire:model="selectedAppIds"
+                                    value="{{ $app->app_id }}"
+                                    id="app-{{ $app->app_id }}"
+                                    class="mt-[2px]"
+                                >
+                                <label for="app-{{ $app->app_id }}" class="text-[13px] text-on-surface cursor-pointer">
+                                    {{ $app->label }}
+                                </label>
+                            </div>
+                        @endforeach
+                    </div>
+                    @error('selectedAppIds')
+                        <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
 
             <div class="space-y-sm">
                 <div class="flex items-start gap-sm">

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Livewire\Customers;
 
+use App\Models\AppCatalogEntry;
 use App\Models\ClusterServer;
 use App\Models\Operator;
 use App\Models\Plan;
@@ -15,7 +16,9 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
 use App\Support\DomainNormalizer;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -33,13 +36,14 @@ class Create extends Component
     public string $clusterServerId = '';
 
     #[Validate('nullable|string|exists:plans,slug')]
-    public string $planSlug = '';
+    public ?string $planSlug = null;
 
     #[Validate('required|string|max:253')]
     public string $domain = '';
 
+    /** @var list<string> */
     #[Validate('nullable|array')]
-    public array $apps = [];
+    public array $selectedAppIds = [];
 
     #[Validate('boolean')]
     public bool $fullApps = false;
@@ -64,16 +68,24 @@ class Create extends Component
 
     public function mount(): void
     {
-        $defaultPlan = Plan::query()->where('is_default', true)->value('slug');
+        $defaultSlug = Plan::query()
+            ->where('is_default', true)
+            ->where('status', 'active')
+            ->value('slug');
 
-        if (is_string($defaultPlan) && $defaultPlan !== '') {
-            $this->planSlug = $defaultPlan;
+        if (is_string($defaultSlug) && $defaultSlug !== '') {
+            $this->planSlug = $defaultSlug;
         }
     }
 
     public function updatedDomain(): void
     {
         $this->normalizedDomain = DomainNormalizer::normalize($this->domain);
+    }
+
+    public function updatedPlanSlug(): void
+    {
+        $this->selectedAppIds = [];
     }
 
     public function updatedClusterServerId(): void
@@ -134,6 +146,24 @@ class Create extends Component
         }
     }
 
+    /**
+     * @return Collection<int, AppCatalogEntry>
+     */
+    #[Computed]
+    public function availableApps(): Collection
+    {
+        if ($this->planSlug === null || $this->planSlug === '') {
+            return AppCatalogEntry::query()->whereRaw('1 = 0')->get();
+        }
+
+        return AppCatalogEntry::query()
+            ->select('app_catalog_entries.*')
+            ->join('plan_apps', 'plan_apps.app_catalog_id', '=', 'app_catalog_entries.id')
+            ->where('plan_apps.plan_slug', $this->planSlug)
+            ->orderBy('app_catalog_entries.label')
+            ->get();
+    }
+
     public function submit(ProvisionCustomerAction $action): void
     {
         $this->save($action);
@@ -159,13 +189,13 @@ class Create extends Component
             slug: $this->slug,
             domain: DomainNormalizer::normalize($this->domain),
             clusterServerId: $this->clusterServerId,
-            apps: $this->apps,
+            apps: $this->selectedAppIds,
             fullApps: $this->fullApps,
             logoPath: $this->logo?->getRealPath(),
             backgroundPath: $this->background?->getRealPath(),
             suiteCatalog: $this->suiteCatalog,
             imageMode: $this->imageMode,
-            planSlug: $this->planSlug !== '' ? $this->planSlug : null,
+            planSlug: $this->planSlug !== null && $this->planSlug !== '' ? $this->planSlug : null,
         );
 
         try {

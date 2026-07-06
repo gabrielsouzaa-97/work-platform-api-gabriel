@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AppCatalogV1Controller;
 use App\Http\Controllers\Api\V1\BrandingV1Controller;
 use App\Http\Controllers\Api\V1\JobV1Controller;
 use App\Http\Controllers\Api\V1\OnboardingV1Controller;
@@ -71,4 +72,20 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
     Route::patch('/plans/{slug}', [PlanV1Controller::class, 'update'])
         ->middleware('api.scope:product:write')
         ->name('api.v1.plans.update');
+
+    Route::get('/app-catalog', [AppCatalogV1Controller::class, 'index'])
+        ->middleware('api.scope:product:read')
+        ->name('api.v1.app-catalog.index');
+
+    Route::get('/app-catalog/{app_id}', [AppCatalogV1Controller::class, 'show'])
+        ->middleware('api.scope:product:read')
+        ->name('api.v1.app-catalog.show');
+
+    Route::post('/app-catalog', [AppCatalogV1Controller::class, 'store'])
+        ->middleware('api.scope:product:write')
+        ->name('api.v1.app-catalog.store');
+
+    Route::patch('/app-catalog/{app_id}', [AppCatalogV1Controller::class, 'update'])
+        ->middleware('api.scope:product:write')
+        ->name('api.v1.app-catalog.update');
 });
