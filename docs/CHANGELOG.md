@@ -449,3 +449,5 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-06 15:22** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
 - **2026-07-06 16:15** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
 - **2026-07-06 16:49** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
+- **2026-07-06 17:14** `a623f8e` — docs(sprint-F18): record QA validation APROVADA + LAB deploy
+- **2026-07-06 17:43** `887b53f` — fix(sprint-F19): close F18 QA findings (enable tests, migration hygiene) (#144)

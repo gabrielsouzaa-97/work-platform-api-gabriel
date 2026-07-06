@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-06T19:49:21Z",
+  "ultimo_update": "2026-07-06T20:43:34Z",
   "next_sprint_planned": "F16",
   "modulos": [
     "Core",
@@ -237,15 +237,19 @@
     "verify_status": "green",
     "verify_evidence": "gh pr checks 137 (2026-07-05T22:56Z): Lint, Test Pest, OpenAPI Redocly, Security, coverage-check, security-review — all pass",
     "validation_gate_qa": {
-      "sprint": "F18",
-      "produced_by": "/qa validar F18 (auditor-senior bb41562f + auditor-qa 6ba5046a)",
+      "sprint": "F19",
+      "produced_by": "/qa validar F19 (auditor-senior d14c0e14)",
       "result": "APROVADA",
       "validation_round": 1,
       "validation_mode": "revalidation",
       "senior_review_status": "PASS",
-      "scope": "661033e...e8b1ad6 (PR #143)",
-      "findings_found": 7,
+      "scope": "a623f8e...887b53f (PR #144)",
+      "findings_found": 2,
       "findings_registered": [
+        "CQ-F19-001",
+        "CQ-F19-002"
+      ],
+      "findings_validated": [
         "CQ-F18-001",
         "QA-F18-002",
         "CQ-F18-002",
@@ -259,10 +263,9 @@
       "askquestion_shown": true,
       "contract_source": "bootstrap",
       "in_contract": [],
-      "tests_evidence": "Pest Docker Product+Api/V1: 120 passed, 591 assertions (2026-07-06)",
-      "deploy_lab": "e8b1ad6; migration drop_max_apps DONE; app-catalog:sync OK; /up+/login 200",
-      "ci_verify": "PR #143 merged; CI green (Lint, Pest, OpenAPI, Security, coverage)",
-      "stamped_at": "2026-07-06T20:00:00Z"
+      "tests_evidence": "Pest Docker Product+Api/V1+Database+Customers: 259 passed, 1075 assertions (2026-07-06)",
+      "ci_verify": "PR #144 merged; CI green (Lint, Pest, OpenAPI, Security, coverage)",
+      "stamped_at": "2026-07-06T20:45:00Z"
     },
     "validation_gate_qa_campaign_archived": {
       "sprint": "N41+N42+N43",
@@ -281,14 +284,14 @@
           "exit_code": 0
         },
         {
-          "cmd": "docker compose run --rm --no-TTY app php artisan test tests/Feature/Product/ tests/Feature/Api/V1/ --no-coverage",
+          "cmd": "docker compose run --rm --no-TTY app php artisan test tests/Feature/Product/ tests/Feature/Database/ --no-coverage",
           "exit_code": 0
         }
       ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "26c748432750f420917d16ee4f02b0caebd6ba28",
-      "stamped_at": "2026-07-06T20:14:20Z"
+      "last_validated_sha": "da9952d7e35d417ad050c38d6d9b9e299ed8091b",
+      "stamped_at": "2026-07-06T20:49:43Z"
     }
   },
   "checkpoint_n36_archived": {
