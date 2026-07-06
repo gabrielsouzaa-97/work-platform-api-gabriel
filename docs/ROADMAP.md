@@ -85,7 +85,8 @@
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
-| F16    | F         | Product Governance HIGH: sync `plan_apps` via API; `is_default` lock; `max_users` atômico; testes legacy+OccPanel | planejada | 6 | Product, Customers, Occ, API v1 | Findings N41–N43 validação R1 COM RESSALVAS | 5623+ |
+| F16    | F         | Product Governance HIGH: sync `plan_apps` via API; `is_default` lock; `max_users` atômico; testes legacy+OccPanel | **concluída** | 6 | Product, Customers, Occ, API v1 | ISSUE-051 campanha; PR #141; validation R1 APROVADA | 5623+ |
+| F17    | F         | Product Governance polish: OPS-F16-001 catalog fallback; `PlanNotFound`; `groups: []` override | **concluída** | 5 | Product, Integration, DevOps | CQ-N43-002 deferido (sem projeção apps) | 5706+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -5624,7 +5625,7 @@ Cenários de teste:
 ## Sprint F16 — Product Governance HIGH findings (N41–N43 validação R1)
 
 > Categoria: F
-> Status: **planejada**
+> Status: **concluída**
 > Gate: `POST/PATCH /v1/plans` persiste `app_ids` em `plan_apps` e `GET` expõe apps; `is_default` protegido com `lockForUpdate` sob concorrência; `max_users` com reserva atômica antes do dispatch async; testes cobrem rota legada `apps/enable` + OccPanel limite de plano; findings HIGH N41–N43 → `corrigido`; CI verde.
 > review: senior+qa
 > Gerado via `/pmo plan` em 2026-07-06 pós `/qa validar` campanha ISSUE-051 (N41+N42+N43 COM RESSALVAS).
@@ -5705,9 +5706,27 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 
 ---
 
+## Sprint F17 — Product Governance polish (OPS-F16-001 + MEDIUM backlog)
+
+> Categoria: F
+> Status: **concluída**
+> Gate: `app-catalog:sync` funciona sem sibling `work-platform-scripts`; `GET/PATCH /v1/plans/{slug}` → `plan_not_found`; `groups: []` sobrescreve template; CQ-N43-002 deferido.
+> Fonte: OPS-F16-001, CQ-N41-003, CQ-N43-003.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | F17.1 — SuiteCatalogPathResolver + fallback bundled | laravel-api | — |
+| [x] | M | F17.2 — DomainError::PlanNotFound | laravel-api | — |
+| [x] | M | F17.3 — UserCreateTemplateResolver `?array $explicitGroups` | laravel-api | — |
+| [x] | P | F17.4 — Testes PlanApi, AppCatalogSync, resolver groups | laravel-testing | F17.1–F17.3 |
+| [x] | P | F17.5 — OPERATIONS.md runbook LAB | me360-deployer | F17.1 |
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| 2026-07-06 | 0.45   | Sprint F16 planejada — 5 HIGH da validação N41–N43 (sync plan_apps, is_default lock, max_users atômico, testes legacy+OccPanel). | `/pmo plan` pós `/qa validar` |
+| 2026-07-06 | 0.46   | Sprint F17 concluída — catalog fallback, PlanNotFound, groups override; PR merge. | sprint-finalizer |
+| 2026-07-06 | 0.45   | Sprint F16 concluída — ISSUE-051 campanha; PR #141; deploy LAB. | sprint-finalizer |
 | 2026-07-06 | 0.44   | Review do plano N41–N43 aplicada: MariaDB 11 confirmado como engine (DATABASE.md decisão corrigida); `is_default` app-level; FK `customers.plan_slug` + quota default antecipadas p/ N41; scopes `product:*` explícitos (config/api-scopes.php); `apps_selection` removido do contrato; soft delete removido de plans/user_templates; enforcement max_users/max_apps em N43; `user_template_slug` sem FK. | review `/rock` |
 | 2026-07-06 | 0.43   | Sprints N41–N43 planejadas — ISSUE-051 Product Governance (planos, catálogo, templates); DATABASE.md + db-schema.dbml + openapi-external.yaml; N40 marcada concluída pós-merge `ddaded7`. | `/pmo plan` + `/rock` |
 | 2026-07-05 | 0.42   | Sprint N40 planejada — ISSUE-050 read model `tenant_users` + política sem admin p/ clientes: 6 tasks (3P+3M); gate aba Usuários sem SSH síncrono + projeção via webhook + sync drift; brief PASS_WITH_NOTES + verifier PASS; review senior+qa. | `/pmo plan` |
