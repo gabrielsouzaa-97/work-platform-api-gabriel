@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\BrandingV1Controller;
 use App\Http\Controllers\Api\V1\JobV1Controller;
 use App\Http\Controllers\Api\V1\OnboardingV1Controller;
+use App\Http\Controllers\Api\V1\PlanV1Controller;
 use App\Http\Controllers\Api\V1\TenantAppsController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantUserController;
@@ -54,4 +55,20 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
     Route::get('/jobs/{id}', [JobV1Controller::class, 'show'])
         ->middleware('api.scope:jobs:read')
         ->name('api.v1.jobs.show');
+
+    Route::get('/plans', [PlanV1Controller::class, 'index'])
+        ->middleware('api.scope:product:read')
+        ->name('api.v1.plans.index');
+
+    Route::get('/plans/{slug}', [PlanV1Controller::class, 'show'])
+        ->middleware('api.scope:product:read')
+        ->name('api.v1.plans.show');
+
+    Route::post('/plans', [PlanV1Controller::class, 'store'])
+        ->middleware('api.scope:product:write')
+        ->name('api.v1.plans.store');
+
+    Route::patch('/plans/{slug}', [PlanV1Controller::class, 'update'])
+        ->middleware('api.scope:product:write')
+        ->name('api.v1.plans.update');
 });

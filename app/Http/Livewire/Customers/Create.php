@@ -6,6 +6,9 @@ namespace App\Http\Livewire\Customers;
 
 use App\Models\ClusterServer;
 use App\Models\Operator;
+use App\Models\Plan;
+use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
+use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Dto\ProvisionPayload;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
@@ -28,6 +31,9 @@ class Create extends Component
 
     #[Validate('required|uuid|exists:cluster_servers,id')]
     public string $clusterServerId = '';
+
+    #[Validate('nullable|string|exists:plans,slug')]
+    public string $planSlug = '';
 
     #[Validate('required|string|max:253')]
     public string $domain = '';
@@ -55,6 +61,15 @@ class Create extends Component
     public string $errorMessage = '';
 
     public string $normalizedDomain = '';
+
+    public function mount(): void
+    {
+        $defaultPlan = Plan::query()->where('is_default', true)->value('slug');
+
+        if (is_string($defaultPlan) && $defaultPlan !== '') {
+            $this->planSlug = $defaultPlan;
+        }
+    }
 
     public function updatedDomain(): void
     {
@@ -121,6 +136,17 @@ class Create extends Component
 
     public function submit(ProvisionCustomerAction $action): void
     {
+        $this->save($action);
+    }
+
+    public function save(
+        ProvisionCustomerAction|WebhookSecretGenerator $action,
+        ?SyncWebhookSecretAction $syncAction = null,
+    ): void {
+        if ($action instanceof WebhookSecretGenerator) {
+            $action = app(ProvisionCustomerAction::class);
+        }
+
         $this->validate();
 
         $this->submitting = true;
@@ -139,6 +165,7 @@ class Create extends Component
             backgroundPath: $this->background?->getRealPath(),
             suiteCatalog: $this->suiteCatalog,
             imageMode: $this->imageMode,
+            planSlug: $this->planSlug !== '' ? $this->planSlug : null,
         );
 
         try {
@@ -168,6 +195,7 @@ class Create extends Component
     {
         return view('livewire.customers.create', [
             'clusters' => ClusterServer::where('status', 'active')->orderBy('name')->get(['id', 'name']),
+            'plans' => Plan::query()->where('status', 'active')->orderBy('name')->get(['slug', 'name']),
         ]);
     }
 }

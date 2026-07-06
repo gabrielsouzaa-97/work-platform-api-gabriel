@@ -73,6 +73,7 @@ class ProvisionCustomerRequest extends FormRequest
             'mail' => ['nullable', 'array'],
             'mail.provision_domain' => ['nullable', 'boolean'],
             'mail.default_mailbox' => ['nullable', 'string', 'email', 'max:255'],
+            'plan_slug' => ['nullable', 'string', Rule::exists('plans', 'slug')->where('status', 'active')],
         ];
     }
 

@@ -184,6 +184,7 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
                     'image_mode' => $payload->imageMode,
+                    'plan_slug' => $payload->planSlug,
                     'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),
                 ]);
@@ -195,6 +196,7 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
                     'image_mode' => $payload->imageMode,
+                    'plan_slug' => $payload->planSlug,
                     'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),
                 ]);

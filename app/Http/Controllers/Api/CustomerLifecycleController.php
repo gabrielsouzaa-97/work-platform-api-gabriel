@@ -30,17 +30,25 @@ final class CustomerLifecycleController extends Controller
     /** POST /customers/{customer}/users */
     public function createUser(Customer $customer, CreateUserRequest $request): JsonResponse
     {
-        // Upstream `user create` accepts a single positional <username>; all other fields
-        // travel via JSON `--payload-stdin`. See ISSUE-006 §DP3 and upstream schema
-        // {password, display_name?, email?, quota?, groups?, subadmin_groups?}.
+        $explicitQuota = $request->filled('quota')
+            ? $request->string('quota')->toString()
+            : null;
+        $inheritedQuota = $explicitQuota === null
+            ? $this->resolveInheritedQuota($customer)
+            : null;
+
         $stdinPayload = UserCreateStdinPayload::build(
             password: $request->string('password')->toString(),
             displayName: $request->string('display_name', '')->toString() ?: null,
             email: $request->string('email', '')->toString() ?: null,
-            quota: $request->string('quota', '')->toString() ?: null,
+            quota: $explicitQuota,
             groups: $request->array('groups', []),
             subadminGroups: $request->array('subadmin_groups', []),
         );
+
+        if ($inheritedQuota !== null && $inheritedQuota !== '') {
+            $stdinPayload['quota'] = $inheritedQuota;
+        }
 
         return $this->dispatch(
             $customer,
@@ -208,6 +216,13 @@ final class CustomerLifecycleController extends Controller
             'job_id' => $job->job_id,
             'apps_csv' => $appsCsv,
         ], 202);
+    }
+
+    private function resolveInheritedQuota(Customer $customer): ?string
+    {
+        $customer->loadMissing('plan');
+
+        return $customer->plan?->default_quota;
     }
 
     /**

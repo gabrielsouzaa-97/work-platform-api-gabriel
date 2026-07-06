@@ -63,6 +63,23 @@
                 @enderror
             </div>
 
+            <div>
+                <label for="planSlug" class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Plano</label>
+                <select
+                    id="planSlug"
+                    class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary cursor-pointer color-scheme-dark"
+                    wire:model="planSlug"
+                >
+                    <option value="">Selecione…</option>
+                    @foreach ($plans as $plan)
+                        <option value="{{ $plan->slug }}">{{ $plan->name }}</option>
+                    @endforeach
+                </select>
+                @error('planSlug')
+                    <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
+                @enderror
+            </div>
+
             <div class="space-y-sm">
                 <div class="flex items-start gap-sm">
                     <input type="checkbox" wire:model="imageMode" id="imageMode" class="mt-[2px]">
