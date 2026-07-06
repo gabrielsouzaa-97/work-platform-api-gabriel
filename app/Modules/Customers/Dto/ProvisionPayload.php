@@ -24,6 +24,7 @@ final readonly class ProvisionPayload
         public bool $suiteCatalog = true,
         public bool $legacyVendor = false,
         public bool $imageMode = false,
+        public ?string $planSlug = null,
     ) {}
 
     public function usesSuiteCatalog(): bool
@@ -69,6 +70,7 @@ final readonly class ProvisionPayload
             suiteCatalog: $suiteCatalog,
             legacyVendor: $request->boolean('legacy_vendor', false),
             imageMode: $imageMode,
+            planSlug: $request->filled('plan_slug') ? $request->string('plan_slug')->toString() : null,
         );
     }
 

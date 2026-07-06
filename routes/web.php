@@ -20,6 +20,7 @@ use App\Http\Livewire\Jobs\Show as JobsShow;
 use App\Http\Livewire\Operators\Create;
 use App\Http\Livewire\Operators\Edit as OperatorsEdit;
 use App\Http\Livewire\Operators\Index;
+use App\Http\Livewire\Product\Plans\Index as PlansIndex;
 use App\Http\Livewire\Profile\ChangePassword;
 use App\Http\Livewire\Settings\WebhookIpAllowlist;
 use App\Models\ApiKey;
@@ -156,6 +157,10 @@ Route::middleware(['auth', 'active.operator'])->group(function () {
     Route::get('/farms', FarmsIndex::class)
         ->middleware('can:manage-operators')
         ->name('farms.index');
+
+    Route::get('/plans', PlansIndex::class)
+        ->middleware('can:manage-operators')
+        ->name('plans.index');
 });
 
 Route::get('/operators/{operator}/accept-invite', AcceptInvite::class)

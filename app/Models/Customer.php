@@ -27,6 +27,7 @@ class Customer extends Model
         'domain',
         'status',
         'tier',
+        'plan_slug',
         'image_mode',
         'branding_meta',
         'mail_provision_payload',
@@ -47,6 +48,11 @@ class Customer extends Model
     public function clusterServer(): BelongsTo
     {
         return $this->belongsTo(ClusterServer::class, 'cluster_server_id');
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'plan_slug', 'slug');
     }
 
     public function jobs(): HasMany
