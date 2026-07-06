@@ -139,7 +139,7 @@ it('POST users without explicit quota inherits plan default_quota in upstream st
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
         ->once()
-        ->withArgs(function ($c, $cmd, $args, $stdin) use ($customer): bool {
+        ->withArgs(function ($c, $cmd, $args, $stdin): bool {
             $decoded = json_decode($stdin ?? '', true);
 
             return is_array($decoded)

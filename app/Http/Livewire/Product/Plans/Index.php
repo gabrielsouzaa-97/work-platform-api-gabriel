@@ -116,7 +116,7 @@ class Index extends Component
         ]);
     }
 
-  /**
+    /**
      * @return array<string, mixed>
      */
     private function createRules(): array
