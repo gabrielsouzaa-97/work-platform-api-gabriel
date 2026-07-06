@@ -286,11 +286,16 @@
       "produced_by": "validation-stamp.py",
       "result": "APROVADA",
       "validation_mode": "full",
-      "gates": [],
+      "gates": [
+        {
+          "cmd": "docker compose exec -T app php artisan test tests/Feature/Product/ tests/Feature/Jobs/WebhookUserTemplateProjectionTest.php tests/Feature/Livewire/Customers/OccPanelUserTemplateTest.php",
+          "exit_code": 0
+        }
+      ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "d12169f989dd65969dda904869551184f9f3cfc3",
-      "stamped_at": "2026-07-06T04:40:13Z"
+      "last_validated_sha": "ed28af163a4aad9f9855ac36f3f2b204c58742bb",
+      "stamped_at": "2026-07-06T04:59:46Z"
     }
   },
   "checkpoint_n36_archived": {
