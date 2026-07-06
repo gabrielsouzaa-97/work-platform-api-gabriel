@@ -278,14 +278,14 @@
       "validation_mode": "full",
       "gates": [
         {
-          "cmd": "docker compose exec -T app ./vendor/bin/pint --test",
+          "cmd": "docker compose exec -T app php artisan test tests/Feature/Product/ tests/Feature/Livewire/Customers/OccPanelUserTemplateTest.php",
           "exit_code": 0
         }
       ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "bc7d04c4bd2eeae5337f6346c9ba718e9c360bc7",
-      "stamped_at": "2026-07-06T05:01:03Z"
+      "last_validated_sha": "233989e48e70de6d179c6ae3ff556c3621eb2e74",
+      "stamped_at": "2026-07-06T14:21:44Z"
     }
   },
   "checkpoint_n36_archived": {
