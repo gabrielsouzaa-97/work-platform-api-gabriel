@@ -34,7 +34,7 @@
   ],
   "fase_atual": "13",
   "fase_nome": "N40 validada — PR #137 CI verde, aguardando merge",
-  "sprint_atual": "F18",
+  "sprint_atual": "F20",
   "previous_sprint": "N39",
   "sprint_branch": "sprint/N40",
   "sprint_pending_merge": "sprint/N40 (PR #137)",
@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-06T20:43:34Z",
+  "ultimo_update": "2026-07-06T20:50:06Z",
   "next_sprint_planned": "F16",
   "modulos": [
     "Core",
@@ -220,11 +220,11 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-06T17:51:18Z",
-    "usage_percent": 90.2765,
-    "messages_lost": 296
+    "compacted_at": "2026-07-06T21:16:11Z",
+    "usage_percent": 92.297,
+    "messages_lost": 307
   },
-  "compact_count": 9,
+  "compact_count": 10,
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
@@ -278,20 +278,11 @@
       "produced_by": "validation-stamp.py",
       "result": "APROVADA",
       "validation_mode": "full",
-      "gates": [
-        {
-          "cmd": "docker compose run --rm --no-TTY app ./vendor/bin/pint --test",
-          "exit_code": 0
-        },
-        {
-          "cmd": "docker compose run --rm --no-TTY app php artisan test tests/Feature/Product/ tests/Feature/Database/ --no-coverage",
-          "exit_code": 0
-        }
-      ],
+      "gates": [],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "da9952d7e35d417ad050c38d6d9b9e299ed8091b",
-      "stamped_at": "2026-07-06T20:49:43Z"
+      "last_validated_sha": "dbc0494bb5807621445fe9911901a99f7200d374",
+      "stamped_at": "2026-07-06T21:18:36Z"
     }
   },
   "checkpoint_n36_archived": {
@@ -361,59 +352,18 @@
   },
   "sprint_tasks": [
     {
-      "id": "N40.1",
-      "status": "pending",
+      "id": "F20.1",
+      "status": "completed",
       "size": "P",
-      "title": "Migration create_tenant_users_table + model TenantUser (FK customer_slug)",
-      "file": "database/migrations/2026_07_05_000002_create_tenant_users_table.php"
+      "title": "CQ-F19-001: espelhar asserções QA-F18-005 (assertJsonMissingPath('error') + AuditLog policy_denied false) nos testes empty-plan v1+legado",
+      "file": "tests/Feature/Product/PolicyResolverTest.php"
     },
     {
-      "id": "N40.2",
-      "status": "pending",
-      "size": "M",
-      "title": "TenantUserProjector + hooks pós-transação no WebhookHandler + payload_sanitized enriquecido",
-      "file": "app/Modules/Customers/Services/TenantUserProjector.php",
-      "depends": [
-        "N40.1"
-      ]
-    },
-    {
-      "id": "N40.3",
-      "status": "pending",
-      "size": "M",
-      "title": "tenant-users:sync command + TenantUserSyncService (reconciliação + drift AuditLog + scheduler)",
-      "file": "app/Modules/Customers/Services/TenantUserSyncService.php",
-      "depends": [
-        "N40.1"
-      ]
-    },
-    {
-      "id": "N40.4",
-      "status": "pending",
-      "size": "M",
-      "title": "OccPanel lê projeção local; Atualizar = sync on-demand; poll recarrega projeção",
-      "file": "app/Http/Livewire/Customers/OccPanel.php",
-      "depends": [
-        "N40.2",
-        "N40.3"
-      ]
-    },
-    {
-      "id": "N40.5",
-      "status": "pending",
+      "id": "F20.2",
+      "status": "completed",
       "size": "P",
-      "title": "Enforcement admin em groups/subadmin_groups/username (CreateUserRequest API v1 + OccPanel)",
-      "file": "app/Http/Requests/Lifecycle/CreateUserRequest.php"
-    },
-    {
-      "id": "N40.6",
-      "status": "pending",
-      "size": "P",
-      "title": "Docs: DATABASE.md + db-schema.dbml + ISSUE-050 + nota cross-repo",
-      "file": "docs/DATABASE.md",
-      "depends": [
-        "N40.1"
-      ]
+      "title": "CQ-F19-002: guardar down() de drop_max_apps com if (! Schema::hasColumn) — rollback idempotente em fresh install",
+      "file": "database/migrations/2026_07_06_000002_drop_max_apps_from_plans_table.php"
     }
   ],
   "sprint_tasks_n36_archived": [

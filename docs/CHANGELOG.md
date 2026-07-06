@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **test(sprint-F20)**: CQ-F19-001/002 corrigidos — testes `empty-plan` (v1+legado) em `PolicyResolverTest` espelham asserções QA-F18-005 (`assertJsonMissingPath('error')` + `AuditLog policy_denied` false); `down()` de `drop_max_apps_from_plans_table` guardado por `Schema::hasColumn` (rollback idempotente em fresh install). 14 testes verdes (PolicyResolver + DropMaxAppsMigration).
 - **docs(sprint-finalize)**: Sprints N37 e N39 fechadas pós-merge — ISSUE-047 (API Console fase 1: Scalar `/docs/api`, scopes credenciais) e ISSUE-049 (UX provisionamento + OCC); deploy LAB `8e58fed`.
 - **feat(sprint-N39)**: ISSUE-049 — FQDN normalize server-side; OccPanel users list; async user-create feedback; `customers/show` poll + job link + throttled tail log; readiness probe card; M3 retrofit `customers/*`; cluster soft-delete UI with active-tenant guard (PR #135).
 - **feat(sprint-N37)**: ISSUE-047 fase 1 — private Scalar API docs viewer `/docs/api`; API key scopes selection + badges; sidebar link with `manage-operators` gate (PR #136).
@@ -451,3 +452,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-06 16:49** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
 - **2026-07-06 17:14** `a623f8e` — docs(sprint-F18): record QA validation APROVADA + LAB deploy
 - **2026-07-06 17:43** `887b53f` — fix(sprint-F19): close F18 QA findings (enable tests, migration hygiene) (#144)
+- **2026-07-06 17:50** `53951a1` — docs(sprint-F19): record QA validation APROVADA

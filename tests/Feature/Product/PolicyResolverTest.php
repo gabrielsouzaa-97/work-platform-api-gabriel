@@ -284,7 +284,12 @@ it('POST /api/v1/tenants/{slug}/apps rejects any app when plan has empty plan_ap
         ['Authorization' => "Bearer {$rawToken}"],
     )
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['apps']);
+        ->assertJsonValidationErrors(['apps'])
+        ->assertJsonMissingPath('error');
+
+    expect(AuditLog::where('action', 'policy_denied')
+        ->where('resource_id', $slug)
+        ->exists())->toBeFalse();
 });
 
 it('POST /api/customers/{slug}/apps/enable rejects any app when plan has empty plan_apps', function (): void {
@@ -304,7 +309,12 @@ it('POST /api/customers/{slug}/apps/enable rejects any app when plan has empty p
             'apps' => ['calendar'],
         ])
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['apps']);
+        ->assertJsonValidationErrors(['apps'])
+        ->assertJsonMissingPath('error');
+
+    expect(AuditLog::where('action', 'policy_denied')
+        ->where('resource_id', $customer->slug)
+        ->exists())->toBeFalse();
 });
 
 it('POST /api/customers/{slug}/users enforces max_users via PolicyResolver on legacy route', function (): void {

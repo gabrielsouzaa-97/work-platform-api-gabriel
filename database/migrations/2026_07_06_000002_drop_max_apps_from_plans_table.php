@@ -19,8 +19,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('plans', function (Blueprint $table): void {
-            $table->unsignedInteger('max_apps')->nullable()->after('max_users');
-        });
+        if (! Schema::hasColumn('plans', 'max_apps')) {
+            Schema::table('plans', function (Blueprint $table): void {
+                $table->unsignedInteger('max_apps')->nullable()->after('max_users');
+            });
+        }
     }
 };
