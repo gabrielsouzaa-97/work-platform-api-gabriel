@@ -25,6 +25,11 @@ final class PlanResource extends JsonResource
             'max_apps' => $this->max_apps,
             'is_default' => $this->is_default,
             'status' => $this->status,
+            'app_ids' => $this->whenLoaded(
+                'appCatalogEntries',
+                fn () => $this->appCatalogEntries->pluck('app_id')->sort()->values()->all(),
+                [],
+            ),
         ];
     }
 }

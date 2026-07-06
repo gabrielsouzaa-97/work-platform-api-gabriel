@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Product\Services;
 
+use App\Models\AppCatalogEntry;
 use App\Models\Plan;
 use Illuminate\Support\Facades\DB;
 
@@ -21,7 +22,10 @@ final class PlanService
                 $this->clearDefaultFlag();
             }
 
-            return Plan::create($this->planAttributes($data, $isDefault));
+            $plan = Plan::create($this->planAttributes($data, $isDefault));
+            $this->syncAppIds($plan, $data['app_ids'] ?? []);
+
+            return $plan->refresh()->load('appCatalogEntries');
         });
     }
 
@@ -31,7 +35,7 @@ final class PlanService
     public function update(string $slug, array $data): Plan
     {
         return DB::transaction(function () use ($slug, $data): Plan {
-            $plan = Plan::query()->findOrFail($slug);
+            $plan = Plan::query()->where('slug', $slug)->lockForUpdate()->firstOrFail();
             $isDefault = array_key_exists('is_default', $data)
                 ? (bool) $data['is_default']
                 : $plan->is_default;
@@ -45,14 +49,18 @@ final class PlanService
             $plan->fill($this->planAttributes($data, $isDefault, existing: $plan));
             $plan->save();
 
-            return $plan->refresh();
+            if (array_key_exists('app_ids', $data)) {
+                $this->syncAppIds($plan, is_array($data['app_ids']) ? $data['app_ids'] : []);
+            }
+
+            return $plan->refresh()->load('appCatalogEntries');
         });
     }
 
     public function setAsDefault(string $slug): void
     {
         DB::transaction(function () use ($slug): void {
-            Plan::query()->findOrFail($slug);
+            Plan::query()->where('slug', $slug)->lockForUpdate()->firstOrFail();
             $this->clearDefaultFlag(exceptSlug: $slug);
             Plan::query()->where('slug', $slug)->update(['is_default' => true]);
         });
@@ -66,7 +74,7 @@ final class PlanService
             $query->where('slug', '!=', $exceptSlug);
         }
 
-        $query->update(['is_default' => false]);
+        $query->lockForUpdate()->update(['is_default' => false]);
     }
 
     /**
@@ -88,5 +96,31 @@ final class PlanService
         }
 
         return $attributes;
+    }
+
+    /**
+     * @param  list<string>  $appIds
+     */
+    private function syncAppIds(Plan $plan, array $appIds): void
+    {
+        if ($appIds === []) {
+            $plan->appCatalogEntries()->detach();
+
+            return;
+        }
+
+        $catalogIds = AppCatalogEntry::query()
+            ->whereIn('app_id', $appIds)
+            ->pluck('id', 'app_id');
+
+        $syncPayload = [];
+        foreach ($appIds as $appId) {
+            $catalogId = $catalogIds->get($appId);
+            if ($catalogId !== null) {
+                $syncPayload[$catalogId] = [];
+            }
+        }
+
+        $plan->appCatalogEntries()->sync($syncPayload);
     }
 }

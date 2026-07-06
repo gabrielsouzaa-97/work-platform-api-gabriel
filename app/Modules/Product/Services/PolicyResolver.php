@@ -6,28 +6,33 @@ namespace App\Modules\Product\Services;
 
 use App\Models\AuditLog;
 use App\Models\Customer;
+use App\Models\Job;
 use App\Models\Operator;
 use App\Models\TenantUser;
 use App\Modules\Product\Exceptions\PlanLimitExceededException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class PolicyResolver
 {
     public function assertCanCreateUser(Customer $customer, Operator $actor): void
     {
-        $customer->loadMissing('plan');
-        $maxUsers = $customer->plan?->max_users;
+        $limit = $this->detectUserCreateViolation($customer);
 
-        if ($maxUsers === null) {
-            return;
+        if ($limit !== null) {
+            $this->deny($customer, $actor, $limit);
         }
+    }
 
-        $currentCount = TenantUser::query()
-            ->where('customer_slug', $customer->slug)
-            ->count();
+    /**
+     * Must be called from within an active DB transaction (e.g. job persist).
+     */
+    public function assertCanCreateUserForJobPersist(Customer $customer, Operator $actor): void
+    {
+        $limit = $this->detectUserCreateViolation($customer);
 
-        if ($currentCount >= $maxUsers) {
-            $this->deny($customer, $actor, 'max_users');
+        if ($limit !== null) {
+            $this->deny($customer, $actor, $limit);
         }
     }
 
@@ -46,6 +51,44 @@ final class PolicyResolver
         if (count($apps) > $maxApps) {
             $this->deny($customer, $actor, 'max_apps');
         }
+    }
+
+    private function detectUserCreateViolation(Customer $customer): ?string
+    {
+        return DB::transaction(function () use ($customer): ?string {
+            $locked = Customer::query()
+                ->where('slug', $customer->slug)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $locked->loadMissing('plan');
+            $maxUsers = $locked->plan?->max_users;
+
+            if ($maxUsers === null) {
+                return null;
+            }
+
+            if ($this->countUserSlotsInUse($locked->slug) >= $maxUsers) {
+                return 'max_users';
+            }
+
+            return null;
+        });
+    }
+
+    private function countUserSlotsInUse(string $customerSlug): int
+    {
+        $projected = TenantUser::query()
+            ->where('customer_slug', $customerSlug)
+            ->count();
+
+        $inflight = Job::query()
+            ->where('customer_slug', $customerSlug)
+            ->where('job_type', 'users:create')
+            ->whereIn('state', ['queued', 'running'])
+            ->count();
+
+        return $projected + $inflight;
     }
 
     private function deny(Customer $customer, Operator $actor, string $limit): void

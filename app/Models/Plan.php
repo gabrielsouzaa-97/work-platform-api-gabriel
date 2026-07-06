@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Plan extends Model
@@ -43,5 +44,17 @@ class Plan extends Model
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class, 'plan_slug', 'slug');
+    }
+
+    public function appCatalogEntries(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AppCatalogEntry::class,
+            'plan_apps',
+            'plan_slug',
+            'app_catalog_id',
+            'slug',
+            'id',
+        );
     }
 }

@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-06T04:44:05Z",
-  "next_sprint_planned": "N40",
+  "ultimo_update": "2026-07-06T13:58:39Z",
+  "next_sprint_planned": "F16",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -79,12 +79,10 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Investigar causa raiz ISSUE-046 em work-platform-scripts (suite-deploy .108→.112 misdirecionado + apply-lab.sh ausente) → /pmo fix após diagnóstico",
-    "Investigar callback_failed do webhook de job failed (.108→.110) — comparar com fluxo OK de canario-n36e",
-    "Após fix ISSUE-046: retomar N25.4 (canário + gates R1–R8 + settings 16/16 + ISSUE-031 smoke)",
-    "ISSUE-031 (SSO memail↔Roundcube) e settings_matrix (16/16) permanecem escopo separado — não bloquear N25.4 core (create_canary) por eles",
-    "Merge PR work-platform #1 após sign-off",
-    "PLATFORM_LAB_SIGNOFF=approved + /qa validar N25 (após N25.4 desbloqueada)"
+    "Merge PR #140 (N43) em main — pré-requisito F16",
+    "/pmo sprint F16 — corrigir 5 HIGH da validação N41–N43 (prioridade CQ-N41-002 sync plan_apps)",
+    "/qa validar F16 após implementação",
+    "sprint-finalizer: marcar N41/N42/N43 concluídas no ROADMAP pós-merge #140"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -209,24 +207,24 @@
     "/pmo plan -> planejador-tarefas"
   ],
   "anchor": {
-    "persona": "planejador-melhorias",
-    "phase": "Sprint N40 planejada (pendente)",
-    "intent": "ISSUE-050 read model local tenant_users + política 'nenhum cliente tem admin NC' — aba Usuários sem SSH síncrono, projeção via webhook, sync drift; 6 tasks (3P+3M)",
-    "changes_made": "ISSUE-050 registrada (triagem) e marcada planned; Sprint N40 no ROADMAP (índice + seção + histórico 0.42); brief N40 PASS_WITH_NOTES + verifier PASS; next_sprint_planned=N40",
-    "decisions": "FK customer_slug (não customer_id — PB-N40-001); projector pós-transação non-fatal no WebhookHandler (PB-N40-003); payload_sanitized enriquecido sem password (PB-N40-002); admin plataforma nunca é drift; ordem N40.1 → (N40.2∥N40.3∥N40.5) → N40.4 → N40.6; review senior+qa",
-    "next_steps": "/pmo sprint iniciar N40 (pipeline); N25.4 segue blocked por ISSUE-046; coordenação cross-repo política upstream fora do escopo N40",
-    "updated_at": "2026-07-05T21:15:00Z"
+    "persona": "planejador-correcoes",
+    "phase": "Sprint F16 planejada (pendente execução)",
+    "intent": "Corrigir 5 HIGH da validação N41–N43 (ISSUE-051): sync plan_apps, is_default lock, max_users atômico, testes legacy+OccPanel",
+    "changes_made": "/qa validar N41+N42+N43 → COM RESSALVAS; FINDINGS.md atualizado; Sprint F16 inserida no ROADMAP (6 tasks); user escolheu fix_high",
+    "decisions": "Prioridade F16.1 (CQ-N41-002 funcional); merge PR #140 antes de branch F16",
+    "next_steps": "1. /git merge PR #140 → main  2. /pmo sprint F16  3. /qa validar F16",
+    "updated_at": "2026-07-06T14:00:00Z"
   },
   "autopilot": {
     "active": false
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-05T19:53:35Z",
-    "usage_percent": 94.963,
-    "messages_lost": 328
+    "compacted_at": "2026-07-06T05:19:37Z",
+    "usage_percent": 99.31,
+    "messages_lost": 348
   },
-  "compact_count": 7,
+  "compact_count": 8,
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
@@ -239,48 +237,40 @@
     "verify_status": "green",
     "verify_evidence": "gh pr checks 137 (2026-07-05T22:56Z): Lint, Test Pest, OpenAPI Redocly, Security, coverage-check, security-review — all pass",
     "validation_gate_qa": {
-      "sprint": "N40",
-      "produced_by": "/qa validar N40 R2 (revalidação — auditor-senior independente)",
-      "result": "APROVADA",
-      "validation_round": 2,
-      "validation_mode": "revalidation",
-      "senior_review_status": "PASS",
-      "findings_found": 0,
-      "findings_validated": [
-        "N40-001",
-        "CQ-N40-001",
-        "CQ-N40-002",
-        "QA-N40-001",
-        "QA-N40-002",
-        "QA-N40-006"
+      "sprint": "N41+N42+N43",
+      "produced_by": "/qa validar campanha ISSUE-051 (auditor-senior + auditor-qa)",
+      "result": "COM_RESSALVAS",
+      "validation_round": 1,
+      "validation_mode": "campaign",
+      "senior_review_status": "FAIL",
+      "findings_found": 28,
+      "findings_registered": [
+        "CQ-N41-001",
+        "CQ-N41-002",
+        "CQ-N41-003",
+        "CQ-N43-001",
+        "CQ-N43-002",
+        "CQ-N43-003",
+        "CQ-N42-001",
+        "CQ-N43-004",
+        "CQ-N43-005",
+        "QA-N41-001",
+        "QA-N43-001",
+        "QA-N43-002"
       ],
-      "findings_backlog_low": [
-        "CQ-N40-003",
-        "QA-N40-003",
-        "QA-N40-004"
+      "findings_high_pending": [
+        "CQ-N41-001",
+        "CQ-N41-002",
+        "CQ-N43-001",
+        "QA-N43-001",
+        "QA-N43-002"
       ],
-      "gate_tamper_check": "PASS",
-      "tests_evidence": "Docker Pest R2: 789 passed, 7 skipped, 2609 assertions (2026-07-05T23:05Z)",
-      "ci_verify": "PR #137 MERGEABLE/CLEAN — Lint, Pest, OpenAPI, Security, coverage, security-review all pass",
-      "stamped_at": "2026-07-05T23:10:00Z",
-      "r1": {
-        "produced_by": "/qa validar N40 R1 via /rock (verifier + auditor-senior + auditor-qa)",
-        "result": "APROVADA",
-        "senior_review_status": "PASS_WITH_NOTES",
-        "qa_review_status": "PASS_WITH_NOTES",
-        "verifier_status": "PASS_WITH_NOTES",
-        "findings_found": 9,
-        "findings_fixed_in_sprint": [
-          "N40-001",
-          "CQ-N40-001",
-          "CQ-N40-002",
-          "QA-N40-001",
-          "QA-N40-002",
-          "QA-N40-006"
-        ],
-        "tests_evidence": "Docker app: 789 passed, 7 skipped (2026-07-05); suites N40 93 passed",
-        "stamped_at": "2026-07-05T22:40:00Z"
-      }
+      "next_sprint_planned": "F16",
+      "user_decision": "fix_high via /pmo plan",
+      "tests_evidence": "Docker Pest delta N41-N43: 179 passed, 527 assertions (2026-07-06)",
+      "ci_verify": "PR #140 (N43) OPEN CI verde; N41/N42 merged",
+      "askquestion_shown": true,
+      "stamped_at": "2026-07-06T14:00:00Z"
     },
     "validation_gate": {
       "produced_by": "validation-stamp.py",
@@ -294,8 +284,8 @@
       ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "bc7d04c4bd2eeae5337f6346c9ba718e9c360bc7",
-      "stamped_at": "2026-07-06T05:01:03Z"
+      "last_validated_sha": "a0ba0921b3eb37e6b8ed47da1ae302d13b3c6564",
+      "stamped_at": "2026-07-06T14:23:27Z"
     }
   },
   "checkpoint_n36_archived": {
