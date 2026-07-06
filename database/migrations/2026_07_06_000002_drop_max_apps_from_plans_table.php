@@ -10,9 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('plans', function (Blueprint $table): void {
-            $table->dropColumn('max_apps');
-        });
+        if (Schema::hasColumn('plans', 'max_apps')) {
+            Schema::table('plans', function (Blueprint $table): void {
+                $table->dropColumn('max_apps');
+            });
+        }
     }
 
     public function down(): void

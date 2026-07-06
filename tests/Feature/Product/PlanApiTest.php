@@ -90,6 +90,7 @@ it('GET /api/v1/plans/{slug} returns single plan resource', function (): void {
     $response->assertOk();
     $response->assertJsonPath('data.slug', 'pro');
     $response->assertJsonPath('data.name', 'Pro');
+    $response->assertJsonMissingPath('data.max_apps');
 });
 
 it('GET /api/v1/plans/{slug} returns plan_not_found for missing slug', function (): void {
@@ -121,6 +122,22 @@ it('denies GET /api/v1/plans without product read scope', function (): void {
 
     $response->assertForbidden();
     $response->assertJsonPath('error.code', 'forbidden_scope');
+});
+
+it('POST /api/v1/plans ignores max_apps in request body', function (): void {
+    $rawToken = createPlanApiKey(scopes: ['product:write']);
+    $slug = 'no-max-apps-'.substr(uniqid(), -6);
+
+    $response = $this->postJson(
+        '/api/v1/plans',
+        array_merge(validPlanCreatePayload($slug), ['max_apps' => 99]),
+        planApiBearer($rawToken),
+    );
+
+    $response->assertCreated();
+    $response->assertJsonMissingPath('data.max_apps');
+    $plan = Plan::findOrFail($slug);
+    expect($plan->getAttributes())->not->toHaveKey('max_apps');
 });
 
 it('POST /api/v1/plans creates plan with product write scope', function (): void {

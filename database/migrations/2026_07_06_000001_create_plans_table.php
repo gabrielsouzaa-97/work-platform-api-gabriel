@@ -16,7 +16,6 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('default_quota', 64);
             $table->unsignedInteger('max_users')->nullable();
-            $table->unsignedInteger('max_apps')->nullable();
             $table->boolean('is_default')->default(false);
             $table->string('status', 20)->default('active');
             $table->timestamps();

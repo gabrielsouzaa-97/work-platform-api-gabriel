@@ -11,6 +11,7 @@ use App\Models\Job;
 use App\Models\Operator;
 use App\Models\Plan;
 use App\Models\TenantUser;
+use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -95,6 +96,16 @@ function policyResolverV1Key(string $tenantSlug, array $scopes): string
     return $rawToken;
 }
 
+function policyResolverSshSuccess(string $jobId): SshResponse
+{
+    return new SshResponse(
+        stdout: json_encode(['job_id' => $jobId]),
+        stderr: '',
+        exitCode: 0,
+        parsedJson: ['job_id' => $jobId],
+    );
+}
+
 function seedPolicyTenantUser(string $customerSlug, string $username): void
 {
     TenantUser::create([
@@ -157,6 +168,53 @@ it('max_users plan_limit_exceeded records AuditLog policy_denied', function (): 
         ->exists())->toBeTrue();
 });
 
+it('POST /api/v1/tenants/{slug}/apps enables calendar when in plan_apps', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'enable-happy-v1-'.substr(uniqid(), -6);
+    policyResolverSeedPlanWithCatalogApps('happy-plan-v1', ['calendar']);
+    policyResolverCustomer($slug, $cluster->id, 'happy-plan-v1');
+    $rawToken = policyResolverV1Key($slug, ['apps:write']);
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andReturn(policyResolverSshSuccess($jobId));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $response = $this->postJson(
+        "/api/v1/tenants/{$slug}/apps",
+        ['apps' => ['calendar']],
+        ['Authorization' => "Bearer {$rawToken}"],
+    );
+
+    $response->assertStatus(202);
+    $response->assertJsonPath('meta.job_id', $jobId);
+});
+
+it('POST /api/customers/{slug}/apps/enable enables calendar when in plan_apps', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'enable-happy-legacy-'.substr(uniqid(), -6);
+    policyResolverSeedPlanWithCatalogApps('happy-plan-legacy', ['calendar']);
+    $customer = policyResolverCustomer($slug, $cluster->id, 'happy-plan-legacy');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andReturn(policyResolverSshSuccess($jobId));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $response = $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", [
+            'apps' => ['calendar'],
+        ]);
+
+    $response->assertStatus(202);
+    $response->assertJsonPath('job_id', $jobId);
+});
+
 it('POST /api/v1/tenants/{slug}/apps rejects app outside plan_apps with 422', function (): void {
     $cluster = policyResolverCluster();
     $slug = 'enable-apps-v1-'.substr(uniqid(), -6);
@@ -175,7 +233,12 @@ it('POST /api/v1/tenants/{slug}/apps rejects app outside plan_apps with 422', fu
         ['Authorization' => "Bearer {$rawToken}"],
     )
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['apps']);
+        ->assertJsonValidationErrors(['apps'])
+        ->assertJsonMissingPath('error');
+
+    expect(AuditLog::where('action', 'policy_denied')
+        ->where('resource_id', $slug)
+        ->exists())->toBeFalse();
 });
 
 it('POST /api/customers/{slug}/apps/enable rejects app outside plan_apps with 422', function (): void {
@@ -193,6 +256,52 @@ it('POST /api/customers/{slug}/apps/enable rejects app outside plan_apps with 42
     $this->actingAs($operator)
         ->postJson("/api/customers/{$customer->slug}/apps/enable", [
             'apps' => ['deck'],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['apps'])
+        ->assertJsonMissingPath('error');
+
+    expect(AuditLog::where('action', 'policy_denied')
+        ->where('resource_id', $slug)
+        ->exists())->toBeFalse();
+});
+
+it('POST /api/v1/tenants/{slug}/apps rejects any app when plan has empty plan_apps', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'empty-plan-v1-'.substr(uniqid(), -6);
+    policyResolverPlan('empty-plan-v1');
+    policyResolverSeedCatalogApp('calendar');
+    policyResolverCustomer($slug, $cluster->id, 'empty-plan-v1');
+    $rawToken = policyResolverV1Key($slug, ['apps:write']);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $this->postJson(
+        "/api/v1/tenants/{$slug}/apps",
+        ['apps' => ['calendar']],
+        ['Authorization' => "Bearer {$rawToken}"],
+    )
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['apps']);
+});
+
+it('POST /api/customers/{slug}/apps/enable rejects any app when plan has empty plan_apps', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'empty-plan-legacy-'.substr(uniqid(), -6);
+    policyResolverPlan('empty-plan-legacy');
+    policyResolverSeedCatalogApp('calendar');
+    $customer = policyResolverCustomer($slug, $cluster->id, 'empty-plan-legacy');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", [
+            'apps' => ['calendar'],
         ])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['apps']);

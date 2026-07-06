@@ -164,7 +164,6 @@ final class CustomerLifecycleController extends Controller
     /** POST /customers/{customer}/apps/enable */
     public function enableApps(Customer $customer, EnableAppsRequest $request): JsonResponse
     {
-        $customer->loadMissing('plan');
         $this->planAppResolver->resolve($customer->plan_slug, $request->array('apps'));
 
         return $this->dispatchAppsCsv($customer, 'apps:enable', $request->array('apps'), $request);
