@@ -23,14 +23,14 @@ final class PlanV1Controller extends Controller
 
     public function index(): JsonResponse
     {
-        $plans = Plan::query()->orderBy('name')->get();
+        $plans = Plan::query()->with('appCatalogEntries')->orderBy('name')->get();
 
         return $this->v1SyncEnvelope(PlanResource::collection($plans));
     }
 
     public function show(string $slug): JsonResponse
     {
-        $plan = Plan::query()->find($slug);
+        $plan = Plan::query()->with('appCatalogEntries')->find($slug);
 
         if ($plan === null) {
             return RenderDomainError::response(DomainError::TenantNotFound);
@@ -48,7 +48,7 @@ final class PlanV1Controller extends Controller
 
     public function update(string $slug, UpdatePlanRequest $request): JsonResponse
     {
-        $plan = Plan::query()->find($slug);
+        $plan = Plan::query()->with('appCatalogEntries')->find($slug);
 
         if ($plan === null) {
             return RenderDomainError::response(DomainError::TenantNotFound);

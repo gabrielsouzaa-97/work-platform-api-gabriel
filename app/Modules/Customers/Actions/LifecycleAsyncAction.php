@@ -22,6 +22,7 @@ use App\Modules\Integration\Exceptions\PortIdempotencyConflictException;
 use App\Modules\Integration\Exceptions\PortStateConflictException;
 use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
 use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Product\Services\PolicyResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -34,6 +35,7 @@ final class LifecycleAsyncAction
     public function __construct(
         private readonly PlatformPortFactory $platformPortFactory,
         private readonly JobTypeTranslator $translator,
+        private readonly PolicyResolver $policyResolver,
     ) {}
 
     /**
@@ -242,6 +244,10 @@ final class LifecycleAsyncAction
             $actor,
             $projectionOrigin,
         ): Job {
+            if ($cmd === 'users:create') {
+                $this->policyResolver->assertCanCreateUserForJobPersist($customer, $actor);
+            }
+
             $job = Job::create([
                 'job_id' => $jobId,
                 'customer_slug' => $customer->slug,

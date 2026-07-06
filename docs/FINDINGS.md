@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-07-05
+synced_at: 2026-07-06
 open_critical: 0
 open_high: 9
-open_medium: 44
-open_low: 36
+open_medium: 51
+open_low: 42
 sprints_with_open_blockers:
-notes: N40 R1 APROVADA (2026-07-05) — 0 HIGH; 4 MEDIUM + QA-N40-001/006 corrigidos in-sprint; 3 LOW backlog (CQ-N40-003≡QA-N40-005, QA-N40-003, QA-N40-004). 789 passed Docker.
+notes: F16 R1 APROVADA (2026-07-06) — 5 HIGH N41-N43 corrigidos; 135 testes Product regressão verdes. N41-N43 campanha COM RESSALVAS R1 → F16 fix.
 FINDINGS-INDEX -->
 
 
@@ -44,6 +44,31 @@ FINDINGS-INDEX -->
 | N29 | 0 | 3 | 0 | 0 | 0 | 0 | 3 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 | N40 | 0 | 0 | 4 | 5 | 3 | 6 | 0 |
+| N41 | 0 | 2 | 1 | 1 | 4 | 0 | 0 |
+| N42 | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
+| N43 | 0 | 3 | 5 | 2 | 10 | 0 | 0 |
+
+> **Validação F16 R1** (2026-07-06, `/qa validar F16` via `/rock`): scope = sprint/F16 pós-merge PR #140. **Testes**: Pest Docker **33 passed** (suite F16) + **135 passed** regressão Product/Livewire/Jobs (402 assertions). **Fixes**: F16.1 sync `plan_apps` via API; F16.2 `is_default` lockForUpdate; F16.3 `max_users` inflight jobs + re-check no persist; F16.4/F16.5 testes legacy+OccPanel. **5 HIGH** N41–N43 → corrigido. **Resultado: APROVADA** — 0 HIGH pendentes da campanha ISSUE-051.
+
+> **Validação N41+N42+N43 R1** (2026-07-06, `/qa validar` — campanha Product Governance ISSUE-051): scope = delta combinado `a1e5c79..sprint/N43` (9 commits, 73 arquivos, +4786 linhas; N41/N42 já em `main`, N43 = PR #140 aberto/CI verde). **Review**: senior+qa (conforme `review:` das 3 sprints). **Testes**: Pest Docker **179 passed, 527 assertions** nas suites do delta (`Product/`, `Livewire/Product/`, `Livewire/Customers/`, `Jobs/`); suite completa não medida por OOM local (`memory_limit`) — ambiente, não código. **auditor-senior** ([`77709b41`](77709b41-184e-4f47-bca1-a608c9cb80a5)) → 0 CRITICAL, 3 HIGH, 3 MEDIUM, 3 LOW. **auditor-qa** ([`ad825a89`](ad825a89-1ee9-498f-acd2-def3cd6c5681)) → 0 CRITICAL, 3 HIGH, 12 MEDIUM, 4 LOW. **Resultado: COM RESSALVAS** — features entregues e testadas, mas 5 HIGH pendentes (1 defeito funcional + 2 concorrência justificáveis para ferramenta interna + 2 gaps de teste). Nenhum HIGH bloqueia o merge de PR #140, mas **CQ-N41-002 deve ser corrigido antes de considerar Product Governance production-ready**.
+
+### Findings HIGH — Campanha N41-N43 (pendentes)
+
+- **[CQ-N41-002 ≡ QA-N41-001] HIGH — corrigido (F16.1)**: `POST/PATCH /api/v1/plans` persiste `app_ids` em `plan_apps`; `PlanResource` expõe apps; `Rule::exists` em FormRequests.
+- **[CQ-N41-001] HIGH — corrigido (F16.2)**: `is_default` com `lockForUpdate` em `clearDefaultFlag`/`update`/`setAsDefault`.
+- **[CQ-N43-001] HIGH — corrigido (F16.3)**: `max_users` conta `tenant_users` + jobs `users:create` inflight; re-check em `persistJobAndAudit`; `AuditLog` fora do rollback.
+- **[QA-N43-001] HIGH — corrigido (F16.4)**: teste legado `POST /api/customers/{slug}/apps/enable` → 422 `plan_limit_exceeded`.
+- **[QA-N43-002] HIGH — corrigido (F16.5)**: teste Livewire OccPanel `max_users` excedido.
+
+### Findings MEDIUM/LOW — Campanha N41-N43 (backlog non-blocking)
+
+- **[CQ-N41-003] MEDIUM**: `PlanV1Controller` retorna `TenantNotFound` para plano inexistente (falta `DomainError::PlanNotFound`); contrato inconsistente com catalog/templates que têm 404 próprio (`PlanV1Controller.php:35-36,53-54`).
+- **[CQ-N43-002] MEDIUM**: `max_apps` valida só o tamanho do lote, não o cumulativo do tenant — confirmar semântica com produto (`PolicyResolver.php:37-48`).
+- **[CQ-N43-003] MEDIUM**: `groups: []` explícito não sobrescreve groups do template (`!== []` trata vazio como ausente) — `UserCreateTemplateResolver.php:34`.
+- **[CQ-N42-001] LOW**: `PlanAppResolver::validateSubset` ignora silenciosamente app IDs não-string/vazios (`PlanAppResolver.php:60-63`).
+- **[CQ-N43-004] LOW**: `PermissionsSchemaV1` não valida `schema_version` internamente (depende de regra duplicada nos FormRequests).
+- **[CQ-N43-005] LOW**: rota API user-create não passa `origin` no `payload_sanitized` (projector defaulta `'api'`; trilha de auditoria incompleta).
+- **QA MEDIUM/LOW (auditor-qa `ad825a89`)**: QA-004 boundary de sucesso de limites; QA-005 plano zero-apps no provision; QA-006 401 não-autenticado nos 3 recursos; QA-007 PATCH 403 scope; QA-008 404 GET/PATCH plans; QA-009 permissions malformadas (5+ casos); QA-010 template inativo rota legada; QA-011 OccPanel template inativo em `createUser`; QA-012 herança quota v1; QA-013 precedência quota plano×template; QA-014 `syncAppIds` update/detach/inválido; QA-015 regressão OccPanel template+poll; QA-016 `AppCatalogSync` error paths; QA-017 limites `null`; QA-018 assert fraco `max_apps` audit; QA-019 PATCH 404. Detalhes completos no output do subagent.
 
 > **Re-validação N40 R2** (2026-07-05, `/qa validar`): revalidação independente (auditor-senior). **Testes**: Pest Docker **789 passed, 7 skipped** (2609 assertions). **auditor-senior R2** → **PASS** (0 findings) — confirmados item-a-item os 6 fixes R1 (`N40-001`, `CQ-N40-001` drift subadmin, `CQ-N40-002` guard admin plataforma, `QA-N40-001` summary-recovery, `QA-N40-002` parser tests, `QA-N40-006` senha API min 10) + guardrails #213 intactos (projector pós-transação non-fatal, password nunca na projeção, enforcement admin sem bypass, `origin` não vaza ao upstream). 3 LOW parkados confirmados non-blocking; nenhuma regressão nova. **CI**: PR #137 MERGEABLE/CLEAN, todos os checks verdes. **Resultado: APROVADA**.
 

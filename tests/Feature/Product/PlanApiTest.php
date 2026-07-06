@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\ApiKey;
+use App\Models\AppCatalogEntry;
 use App\Models\Operator;
 use App\Models\Plan;
 use Illuminate\Support\Str;
@@ -179,4 +180,75 @@ it('POST /api/v1/plans with is_default clears previous default plan', function (
     expect(Plan::where('is_default', true)->count())->toBe(1);
     expect(Plan::find('legacy-default')?->is_default)->toBeFalse();
     expect(Plan::find($slug)?->is_default)->toBeTrue();
+});
+
+it('POST /api/v1/plans persists app_ids into plan_apps junction', function (): void {
+    $mailId = AppCatalogEntry::create([
+        'app_id' => 'mail',
+        'label' => 'Mail',
+        'is_active' => true,
+    ])->id;
+    AppCatalogEntry::create([
+        'app_id' => 'deck',
+        'label' => 'Deck',
+        'is_active' => true,
+    ]);
+
+    $rawToken = createPlanApiKey(scopes: ['product:write']);
+    $slug = 'apps-plan-'.substr(uniqid(), -6);
+
+    $response = $this->postJson(
+        '/api/v1/plans',
+        array_merge(validPlanCreatePayload($slug), ['app_ids' => ['mail', 'deck']]),
+        planApiBearer($rawToken),
+    );
+
+    $response->assertCreated();
+    $response->assertJsonPath('data.app_ids', ['mail', 'deck']);
+    $this->assertDatabaseHas('plan_apps', [
+        'plan_slug' => $slug,
+        'app_catalog_id' => $mailId,
+    ]);
+});
+
+it('PATCH /api/v1/plans/{slug} replaces app_ids in plan_apps', function (): void {
+    $mailId = AppCatalogEntry::create([
+        'app_id' => 'mail',
+        'label' => 'Mail',
+        'is_active' => true,
+    ])->id;
+    $calendarId = AppCatalogEntry::create([
+        'app_id' => 'calendar',
+        'label' => 'Calendar',
+        'is_active' => true,
+    ])->id;
+
+    Plan::create([
+        'slug' => 'swap-apps',
+        'name' => 'Swap',
+        'default_quota' => '5 GB',
+        'is_default' => false,
+        'status' => 'active',
+    ]);
+    \Illuminate\Support\Facades\DB::table('plan_apps')->insert([
+        'plan_slug' => 'swap-apps',
+        'app_catalog_id' => $mailId,
+    ]);
+
+    $rawToken = createPlanApiKey(scopes: ['product:write']);
+
+    $this->patchJson(
+        '/api/v1/plans/swap-apps',
+        ['app_ids' => ['calendar']],
+        planApiBearer($rawToken),
+    )->assertOk()->assertJsonPath('data.app_ids', ['calendar']);
+
+    $this->assertDatabaseMissing('plan_apps', [
+        'plan_slug' => 'swap-apps',
+        'app_catalog_id' => $mailId,
+    ]);
+    $this->assertDatabaseHas('plan_apps', [
+        'plan_slug' => 'swap-apps',
+        'app_catalog_id' => $calendarId,
+    ]);
 });

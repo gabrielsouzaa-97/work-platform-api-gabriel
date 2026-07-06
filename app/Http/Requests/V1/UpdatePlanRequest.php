@@ -25,7 +25,7 @@ final class UpdatePlanRequest extends FormRequest
             'is_default' => ['sometimes', 'boolean'],
             'status' => ['sometimes', 'string', Rule::in(['active', 'inactive'])],
             'app_ids' => ['nullable', 'array'],
-            'app_ids.*' => ['string', 'max:100'],
+            'app_ids.*' => ['string', 'max:100', Rule::exists('app_catalog_entries', 'app_id')],
         ];
     }
 }

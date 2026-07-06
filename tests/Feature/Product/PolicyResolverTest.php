@@ -6,6 +6,7 @@ use App\Models\ApiKey;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
+use App\Models\Job;
 use App\Models\Operator;
 use App\Models\Plan;
 use App\Models\TenantUser;
@@ -237,5 +238,83 @@ it('PolicyResolver skips SSH when max_users already reached on legacy customers 
             'password' => 'Secret123!',
         ])
         ->assertStatus(422)
+        ->assertJsonPath('error.code', 'plan_limit_exceeded');
+});
+
+it('max_apps plan_limit_exceeded AuditLog payload includes limit dimension', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'audit-apps-payload-'.substr(uniqid(), -6);
+    policyResolverPlan('apps-audit-payload', maxApps: 1);
+    policyResolverCustomer($slug, $cluster->id, 'apps-audit-payload');
+    $rawToken = policyResolverV1Key($slug, ['apps:write']);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $this->postJson(
+        "/api/v1/tenants/{$slug}/apps",
+        ['apps' => ['calendar', 'deck']],
+        ['Authorization' => "Bearer {$rawToken}"],
+    )->assertStatus(422);
+
+    $log = AuditLog::where('action', 'policy_denied')
+        ->where('resource_id', $slug)
+        ->first();
+
+    expect($log)->not->toBeNull()
+        ->and($log->payload['limit'] ?? null)->toBe('max_apps');
+});
+
+it('POST /api/customers/{slug}/apps/enable enforces max_apps on legacy route', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'legacy-enable-limit-'.substr(uniqid(), -6);
+    policyResolverPlan('legacy-enable-plan', maxApps: 1);
+    $customer = policyResolverCustomer($slug, $cluster->id, 'legacy-enable-plan');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/apps/enable", [
+            'apps' => ['calendar', 'contacts'],
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'plan_limit_exceeded');
+});
+
+it('max_users counts inflight users:create jobs before allowing another create', function (): void {
+    $cluster = policyResolverCluster();
+    $slug = 'inflight-limit-'.substr(uniqid(), -6);
+    policyResolverPlan('inflight-plan', maxUsers: 1);
+    policyResolverCustomer($slug, $cluster->id, 'inflight-plan');
+    $rawToken = policyResolverV1Key($slug, ['users:write']);
+
+    Job::create([
+        'job_id' => Str::uuid()->toString(),
+        'customer_slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'cmd_canonical' => 'users:create',
+        'job_type' => 'users:create',
+        'state' => 'queued',
+        'idempotency_key' => Str::uuid()->toString(),
+        'correlation_id' => Str::uuid()->toString(),
+        'queued_at' => now(),
+    ]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $this->postJson(
+        "/api/v1/tenants/{$slug}/users",
+        [
+            'username' => 'bob',
+            'password' => 'Secret123!',
+        ],
+        ['Authorization' => "Bearer {$rawToken}"],
+    )->assertStatus(422)
         ->assertJsonPath('error.code', 'plan_limit_exceeded');
 });

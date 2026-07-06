@@ -85,6 +85,7 @@
 | F13    | F         | Job `create` inclui branding no contrato upstream: `branding.logo_data_url` via stdin ou `--staging-id` via SFTP | **concluída** | 4 | Customers, Core/Ssh | ISSUE-019 — validação senior+qa APROVADA R1 | 4256+ |
 | F14    | F         | CI verde no main: regressão N19 (6 testes) + bump phpseclib >=3.0.54 | **concluída** | 4 | Audit, ClusterServers, Core | ISSUE-039 — validação APROVADA (2026-06-16) | 4372+ |
 | F15    | F         | AuthZ ApiKey: scopes aplicados + binding tenant (SEC-V1-001 / ISSUE-037) | **concluída** | 5 | Core, Auth, Customers, Audit | PR #114 mergeada; validation R2 APROVADA | 4420+ |
+| F16    | F         | Product Governance HIGH: sync `plan_apps` via API; `is_default` lock; `max_users` atômico; testes legacy+OccPanel | planejada | 6 | Product, Customers, Occ, API v1 | Findings N41–N43 validação R1 COM RESSALVAS | 5623+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -5620,8 +5621,93 @@ Cenários de teste:
 
 ---
 
+## Sprint F16 — Product Governance HIGH findings (N41–N43 validação R1)
+
+> Categoria: F
+> Status: **planejada**
+> Gate: `POST/PATCH /v1/plans` persiste `app_ids` em `plan_apps` e `GET` expõe apps; `is_default` protegido com `lockForUpdate` sob concorrência; `max_users` com reserva atômica antes do dispatch async; testes cobrem rota legada `apps/enable` + OccPanel limite de plano; findings HIGH N41–N43 → `corrigido`; CI verde.
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-06 pós `/qa validar` campanha ISSUE-051 (N41+N42+N43 COM RESSALVAS).
+> Fonte: `docs/FINDINGS.md` — CQ-N41-001, CQ-N41-002≡QA-N41-001, CQ-N43-001, QA-N43-001, QA-N43-002.
+> Pré-requisito: merge PR #140 (N43) em `main` antes de branch `sprint/F16`.
+> Pré-execução: Quality Brief (`docs/.briefs/F16.brief.md`) + verifier via pipeline `/pmo plan`.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F16.1 — [FIX] `PlanService` sync `app_ids` → `plan_apps` (espelhar `UserTemplateService::syncAppIds`); `PlanResource` expõe apps; `Rule::exists` em `app_ids.*` | laravel-api | — |
+| [ ] | M | F16.2 — [FIX] `is_default` uniqueness sob concorrência: `lockForUpdate` em `clearDefaultFlag`/`setAsDefault` + teste paralelo | laravel-api | — |
+| [ ] | M | F16.3 — [FIX] `max_users` TOCTOU: reserva atômica de slot antes de `LifecycleAsyncAction` dispatch (ou revalidação no projector com falha de job) | laravel-api | — |
+| [ ] | P | F16.4 — [TEST] `PolicyResolverTest`: rota legada `POST /api/customers/{slug}/apps/enable` → 422 `plan_limit_exceeded` quando `max_apps` excedido | laravel-testing | F16.3 |
+| [ ] | P | F16.5 — [TEST] `OccPanelUserTemplateTest`: `createUser` com plano `max_users` atingido → mensagem amigável, SSH não chamado | laravel-testing | F16.3 |
+| [ ] | P | F16.6 — Atualizar `docs/FINDINGS.md` (5 HIGH → corrigido) + `/qa validar F16` | `/qa validar` | F16.1–F16.5 |
+
+### Task F16.1 — Persistir `app_ids` em planos via API
+
+**Finding(s)**: CQ-N41-002 ≡ QA-N41-001 (HIGH — funcional)
+**Arquivo(s)**: `app/Modules/Product/Services/PlanService.php`, `app/Http/Resources/V1/PlanResource.php`, `app/Http/Requests/V1/StorePlanRequest.php`, `app/Http/Requests/V1/UpdatePlanRequest.php`, `tests/Feature/Product/PlanApiTest.php`
+**ANTES**: `StorePlanRequest` aceita `app_ids`; `PlanService::planAttributes()` descarta o campo; `plan_apps` vazio → `PlanAppResolver` retorna `[]`.
+**DEPOIS**: `create`/`update` chamam `syncAppIds` (extrair método privado ou `PlanAppSyncService`); `GET/PATCH` retornam `app_ids`; `app_ids.*` com `Rule::exists('app_catalog_entries','app_id')`.
+**Validação**: `POST /api/v1/plans` com `app_ids: ['mail','deck']` → linhas em `plan_apps`; `PlanAppInheritanceTest` com plano criado via API (não insert manual).
+
+**executor_prompt**:
+Fix: Implementar sync de `plan_apps` no `PlanService` espelhando `UserTemplateService::syncAppIds`.
+Contexto: Validação N41–N43 R1 detectou contrato API↔persistência quebrado — herança N42 inoperante para planos criados via API.
+Objetivo: `app_ids` aceitos em POST/PATCH são persistidos em `plan_apps`; resource expõe lista; testes assertam junction.
+Arquivos: `PlanService.php`, `PlanResource.php`, FormRequests, `PlanApiTest.php`.
+Critério de pronto: teste feature cria plano com apps via API e provision herda apps sem seed manual.
+
+### Task F16.2 — `is_default` com lock pessimista
+
+**Finding(s)**: CQ-N41-001 (HIGH — concorrência)
+**Arquivo(s)**: `app/Modules/Product/Services/PlanService.php`, `tests/Feature/Product/PlanServiceTest.php`
+**ANTES**: `clearDefaultFlag()` sem lock; duas transações paralelas podem deixar múltiplos `is_default=true`.
+**DEPOIS**: `Plan::query()->where('is_default', true)->lockForUpdate()` antes de clear+set; teste com `DB::transaction` aninhado ou `parallel` Pest quando disponível.
+**Validação**: após swap concorrente simulado, exatamente um plano com `is_default=true`.
+
+**executor_prompt**:
+Fix: Adicionar `lockForUpdate()` na sequência `clearDefaultFlag` / `setAsDefault`.
+Contexto: MariaDB 11 sem partial unique index; invariante é app-level.
+Objetivo: escritas concorrentes não produzem múltiplos defaults.
+Arquivos: `PlanService.php`, `PlanServiceTest.php`.
+Critério de pronto: teste reproduz race (duas chamadas `setAsDefault` ou `create is_default` em paralelo) → 1 default.
+
+### Task F16.3 — Reserva atômica `max_users`
+
+**Finding(s)**: CQ-N43-001 (HIGH — concorrência)
+**Arquivo(s)**: `app/Modules/Product/Services/PolicyResolver.php`, `app/Http/Controllers/Api/CustomerLifecycleController.php`, `app/Http/Livewire/Customers/OccPanel.php`, possivelmente `TenantUserProjector.php`
+**ANTES**: `COUNT(*)` em `tenant_users` + dispatch async → TOCTOU; jobs pendentes não contam.
+**DEPOIS**: Opção preferida: dentro de transação, `lockForUpdate` no customer + incrementar contador reservado OU re-count incluindo jobs `users:create` queued/running para o customer; alternativa: projector revalida e marca job failed se limite excedido.
+**Validação**: teste com 2 requests paralelos no limite `max_users` → apenas 1 sucesso 202.
+
+**executor_prompt**:
+Fix: Eliminar TOCTOU em `PolicyResolver::assertCanCreateUser`.
+Contexto: N43 integrou limites mas count+async permite violação sob carga.
+Objetivo: no máximo N usuários projetados+reservados por plano; segunda request paralela no limite → 422.
+Arquivos: `PolicyResolver.php`, callers (`CustomerLifecycleController`, `OccPanel`), testes em `PolicyResolverTest.php`.
+Critério de pronto: teste de concorrência ou sequência rápida no boundary; AuditLog `policy_denied` na rejeição.
+
+### Task F16.4 — Teste rota legada `apps/enable` + plan limit
+
+**Finding(s)**: QA-N43-001 (HIGH — cobertura)
+**Arquivo(s)**: `tests/Feature/Product/PolicyResolverTest.php` ou `tests/Feature/LifecycleTest.php`
+**DEPOIS**: Customer com `plan_slug` + `max_apps: 1`, `POST /api/customers/{slug}/apps/enable` com 2 apps → 422 `plan_limit_exceeded`, SSH mock não chamado, AuditLog `limit: max_apps`.
+
+### Task F16.5 — Teste OccPanel limite `max_users`
+
+**Finding(s)**: QA-N43-002 (HIGH — cobertura)
+**Arquivo(s)**: `tests/Feature/Livewire/Customers/OccPanelUserTemplateTest.php`
+**DEPOIS**: Plano `max_users: 1`, 1 `TenantUser` existente, `createUser` → `errorMessage` com limite excedido, SSH não disparado.
+
+### Task F16.6 — Fechar findings + re-validar
+
+**Arquivo(s)**: `docs/FINDINGS.md`
+**DEPOIS**: CQ-N41-001/002, CQ-N43-001, QA-N43-001/002 marcados `corrigido`; `/qa validar F16` → APROVADA.
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-06 | 0.45   | Sprint F16 planejada — 5 HIGH da validação N41–N43 (sync plan_apps, is_default lock, max_users atômico, testes legacy+OccPanel). | `/pmo plan` pós `/qa validar` |
 | 2026-07-06 | 0.44   | Review do plano N41–N43 aplicada: MariaDB 11 confirmado como engine (DATABASE.md decisão corrigida); `is_default` app-level; FK `customers.plan_slug` + quota default antecipadas p/ N41; scopes `product:*` explícitos (config/api-scopes.php); `apps_selection` removido do contrato; soft delete removido de plans/user_templates; enforcement max_users/max_apps em N43; `user_template_slug` sem FK. | review `/rock` |
 | 2026-07-06 | 0.43   | Sprints N41–N43 planejadas — ISSUE-051 Product Governance (planos, catálogo, templates); DATABASE.md + db-schema.dbml + openapi-external.yaml; N40 marcada concluída pós-merge `ddaded7`. | `/pmo plan` + `/rock` |
 | 2026-07-05 | 0.42   | Sprint N40 planejada — ISSUE-050 read model `tenant_users` + política sem admin p/ clientes: 6 tasks (3P+3M); gate aba Usuários sem SSH síncrono + projeção via webhook + sync drift; brief PASS_WITH_NOTES + verifier PASS; review senior+qa. | `/pmo plan` |

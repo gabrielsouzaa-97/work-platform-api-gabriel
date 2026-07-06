@@ -7,6 +7,8 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Models\Plan;
+use App\Models\TenantUser;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\DB;
@@ -206,5 +208,44 @@ it('createUser rejects unknown userTemplateSlug before SSH', function (): void {
         ->set('userTemplateSlug', 'missing-template')
         ->call('createUser')
         ->assertHasErrors(['userTemplateSlug'])
+        ->assertSet('userPasswordPlain', '');
+});
+
+it('createUser shows plan limit message when max_users reached', function (): void {
+    $cluster = occTemplateCluster();
+    $planSlug = 'occ-limit-'.substr(uniqid(), -6);
+    Plan::create([
+        'slug' => $planSlug,
+        'name' => 'Limited',
+        'default_quota' => '5 GB',
+        'max_users' => 1,
+        'is_default' => false,
+        'status' => 'active',
+    ]);
+    $customer = Customer::create([
+        'slug' => 'occ-limit-cust-'.substr(uniqid(), -6),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'occ-limit.example.com',
+        'status' => 'active',
+        'plan_slug' => $planSlug,
+    ]);
+    TenantUser::create([
+        'id' => Str::uuid()->toString(),
+        'customer_slug' => $customer->slug,
+        'username' => 'alice',
+        'origin' => 'api',
+    ]);
+    $operator = occTemplateOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'bob')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('errorMessage', 'Limite do plano excedido para criação de usuários.')
         ->assertSet('userPasswordPlain', '');
 });
