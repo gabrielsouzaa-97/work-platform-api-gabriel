@@ -63,6 +63,7 @@ class TenantUserProjector
                 'quota' => $payload['quota'] ?? null,
                 'groups' => $payload['groups'] ?? null,
                 'origin' => $this->resolveCreateOrigin($payload),
+                'user_template_slug' => $payload['user_template_slug'] ?? null,
             ],
         );
     }

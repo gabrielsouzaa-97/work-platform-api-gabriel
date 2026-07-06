@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-06T03:28:12Z",
+  "ultimo_update": "2026-07-06T04:44:05Z",
   "next_sprint_planned": "N40",
   "modulos": [
     "Core",
@@ -288,14 +288,14 @@
       "validation_mode": "full",
       "gates": [
         {
-          "cmd": "/usr/bin/docker compose exec -T app php artisan test tests/Feature/Livewire/Customers/OccPanelTest.php tests/Feature/Jobs/WebhookTenantUserProjectionTest.php tests/Feature/Customers/TenantUserSyncTest.php tests/Feature/Customers/CreateUserPolicyTest.php",
+          "cmd": "docker compose exec -T app ./vendor/bin/pint --test",
           "exit_code": 0
         }
       ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "ddaded7c55ac0c49b760a473c3f220d3a51eddf8",
-      "stamped_at": "2026-07-06T00:26:23Z"
+      "last_validated_sha": "bc7d04c4bd2eeae5337f6346c9ba718e9c360bc7",
+      "stamped_at": "2026-07-06T05:01:03Z"
     }
   },
   "checkpoint_n36_archived": {

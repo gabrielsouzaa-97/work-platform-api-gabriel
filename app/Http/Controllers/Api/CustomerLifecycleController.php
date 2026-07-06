@@ -14,22 +14,39 @@ use App\Http\Requests\Lifecycle\EnableAppsRequest;
 use App\Http\Requests\Lifecycle\RemoveUserFromGroupRequest;
 use App\Models\Customer;
 use App\Models\Operator;
+use App\Modules\Core\Domain\DomainError;
 use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
+use App\Modules\Product\Exceptions\PlanLimitExceededException;
+use App\Modules\Product\Services\PolicyResolver;
+use App\Modules\Product\Services\UserCreateTemplateResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 final class CustomerLifecycleController extends Controller
 {
-    public function __construct(private readonly LifecycleAsyncAction $action) {}
+    public function __construct(
+        private readonly LifecycleAsyncAction $action,
+        private readonly UserCreateTemplateResolver $userCreateTemplateResolver,
+        private readonly PolicyResolver $policyResolver,
+    ) {}
 
     /** POST /customers/{customer}/users */
     public function createUser(Customer $customer, CreateUserRequest $request): JsonResponse
     {
+        /** @var Operator $actor */
+        $actor = $request->user();
+
+        try {
+            $this->policyResolver->assertCanCreateUser($customer, $actor);
+        } catch (PlanLimitExceededException) {
+            return RenderDomainError::response(DomainError::PlanLimitExceeded);
+        }
+
         $explicitQuota = $request->filled('quota')
             ? $request->string('quota')->toString()
             : null;
@@ -37,17 +54,33 @@ final class CustomerLifecycleController extends Controller
             ? $this->resolveInheritedQuota($customer)
             : null;
 
+        $templateSlug = $request->filled('user_template_slug')
+            ? $request->string('user_template_slug')->toString()
+            : null;
+        $resolved = $this->userCreateTemplateResolver->resolve(
+            $templateSlug,
+            $request->array('groups', []),
+            $explicitQuota,
+        );
+
         $stdinPayload = UserCreateStdinPayload::build(
             password: $request->string('password')->toString(),
             displayName: $request->string('display_name', '')->toString() ?: null,
             email: $request->string('email', '')->toString() ?: null,
-            quota: $explicitQuota,
-            groups: $request->array('groups', []),
+            groups: $resolved->groups,
             subadminGroups: $request->array('subadmin_groups', []),
         );
 
-        if ($inheritedQuota !== null && $inheritedQuota !== '') {
-            $stdinPayload['quota'] = $inheritedQuota;
+        $this->applyResolvedQuotaToStdin(
+            $stdinPayload,
+            $request->filled('quota') ? $request->string('quota')->toString() : null,
+            $resolved->quota,
+            $inheritedQuota,
+            $templateSlug !== null,
+        );
+
+        if ($resolved->userTemplateSlug !== null) {
+            $stdinPayload['user_template_slug'] = $resolved->userTemplateSlug;
         }
 
         return $this->dispatch(
@@ -124,6 +157,15 @@ final class CustomerLifecycleController extends Controller
     /** POST /customers/{customer}/apps/enable */
     public function enableApps(Customer $customer, EnableAppsRequest $request): JsonResponse
     {
+        /** @var Operator $actor */
+        $actor = $request->user();
+
+        try {
+            $this->policyResolver->assertCanEnableApps($customer, $request->array('apps'), $actor);
+        } catch (PlanLimitExceededException) {
+            return RenderDomainError::response(DomainError::PlanLimitExceeded);
+        }
+
         return $this->dispatchAppsCsv($customer, 'apps:enable', $request->array('apps'), $request);
     }
 
@@ -223,6 +265,35 @@ final class CustomerLifecycleController extends Controller
         $customer->loadMissing('plan');
 
         return $customer->plan?->default_quota;
+    }
+
+    /**
+     * @param  array<string, mixed>  $stdinPayload
+     */
+    private function applyResolvedQuotaToStdin(
+        array &$stdinPayload,
+        ?string $explicitQuota,
+        ?string $templateQuota,
+        ?string $inheritedQuota,
+        bool $hasTemplate,
+    ): void {
+        if ($explicitQuota !== null && $explicitQuota !== '') {
+            $stdinPayload['quota'] = $hasTemplate
+                ? $explicitQuota
+                : UserCreateStdinPayload::normalizeQuota($explicitQuota);
+
+            return;
+        }
+
+        if ($templateQuota !== null && $templateQuota !== '') {
+            $stdinPayload['quota'] = $templateQuota;
+
+            return;
+        }
+
+        if ($inheritedQuota !== null && $inheritedQuota !== '') {
+            $stdinPayload['quota'] = $inheritedQuota;
+        }
     }
 
     /**

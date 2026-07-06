@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
 use App\Models\TenantUser;
+use App\Models\UserTemplate;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Translators\Exceptions\BlockedOnUpstreamException;
@@ -24,8 +25,13 @@ use App\Modules\Customers\Support\TenantUserListParser;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 use App\Modules\Jobs\Support\JobSummaryParser;
+use App\Modules\Product\Exceptions\PlanLimitExceededException;
+use App\Modules\Product\Services\PolicyResolver;
+use App\Modules\Product\Services\UserCreateTemplateResolver;
+use App\Modules\Product\Validation\ActiveUserTemplate;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -90,6 +96,8 @@ class OccPanel extends Component
     public string $userEmail = '';
 
     public string $userGroups = ''; // comma-separated
+
+    public string $userTemplateSlug = '';
 
     public string $deleteUsername = '';
 
@@ -295,63 +303,73 @@ class OccPanel extends Component
         }
     }
 
-    public function createUser(LifecycleAsyncAction $action): void
-    {
-        // Senha viaja em $this->userPasswordPlain (bound via wire:model na view).
-        // O método valida >=10 chars (política NC 33) antes de qualquer chamada
-        // upstream e zera a propriedade no finally — produção e testes percorrem
-        // o MESMO caminho (F5.11 elimina test/production divergence QA-F5-019).
-        $this->validate([
-            'userUsername' => [
-                'required',
-                'string',
-                'regex:/^[a-zA-Z0-9._-]+$/',
-                'max:64',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (strtolower((string) $value) === 'admin') {
-                        $fail('Username reservado (criado no provisionamento).');
-                    }
-                },
-            ],
-            'userEmail' => ['nullable', 'email'],
-            'userGroups' => [
-                'nullable',
-                'string',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    $groups = array_map('trim', explode(',', (string) $value));
-                    foreach ($groups as $group) {
-                        if ($group !== '' && strtolower($group) === 'admin') {
-                            $fail('Grupo admin é reservado da plataforma.');
-                        }
-                    }
-                },
-            ],
-        ]);
-
-        if (strlen($this->userPasswordPlain) < 10) {
-            $this->addError('userPassword', 'Senha deve ter ao menos 10 caracteres.');
-
-            return;
-        }
-
-        $this->clearMessages();
-
-        /** @var Operator $actor */
-        $actor = auth()->user();
-
-        // Upstream `user create` accepts only <username> as positional; other fields
-        // travel via JSON --payload-stdin. See ISSUE-006 §DP3.
-        $groups = array_values(array_filter(
-            array_map('trim', explode(',', $this->userGroups)),
-            static fn (string $g): bool => $g !== '',
-        ));
-        $stdinPayload = UserCreateStdinPayload::build(
-            password: $this->userPasswordPlain,
-            email: $this->userEmail !== '' ? $this->userEmail : null,
-            groups: $groups,
-        );
-
+    public function createUser(
+        LifecycleAsyncAction $action,
+        UserCreateTemplateResolver $templateResolver,
+        PolicyResolver $policyResolver,
+    ): void {
         try {
+            $this->validate([
+                'userUsername' => [
+                    'required',
+                    'string',
+                    'regex:/^[a-zA-Z0-9._-]+$/',
+                    'max:64',
+                    function (string $attribute, mixed $value, \Closure $fail): void {
+                        if (strtolower((string) $value) === 'admin') {
+                            $fail('Username reservado (criado no provisionamento).');
+                        }
+                    },
+                ],
+                'userEmail' => ['nullable', 'email'],
+                'userGroups' => [
+                    'nullable',
+                    'string',
+                    function (string $attribute, mixed $value, \Closure $fail): void {
+                        $groups = array_map('trim', explode(',', (string) $value));
+                        foreach ($groups as $group) {
+                            if ($group !== '' && strtolower($group) === 'admin') {
+                                $fail('Grupo admin é reservado da plataforma.');
+                            }
+                        }
+                    },
+                ],
+                'userTemplateSlug' => ['nullable', 'string', 'max:64', new ActiveUserTemplate],
+            ]);
+
+            if (strlen($this->userPasswordPlain) < 10) {
+                $this->addError('userPassword', 'Senha deve ter ao menos 10 caracteres.');
+
+                return;
+            }
+
+            $this->clearMessages();
+
+            /** @var Operator $actor */
+            $actor = auth()->user();
+            $policyResolver->assertCanCreateUser($this->customer, $actor);
+
+            $groups = array_values(array_filter(
+                array_map('trim', explode(',', $this->userGroups)),
+                static fn (string $g): bool => $g !== '',
+            ));
+            $templateSlug = $this->userTemplateSlug !== '' ? $this->userTemplateSlug : null;
+            $resolved = $templateResolver->resolve($templateSlug, $groups, null);
+
+            $stdinPayload = UserCreateStdinPayload::build(
+                password: $this->userPasswordPlain,
+                email: $this->userEmail !== '' ? $this->userEmail : null,
+                groups: $resolved->groups,
+            );
+
+            if ($resolved->quota !== null && $resolved->quota !== '') {
+                $stdinPayload['quota'] = $resolved->quota;
+            }
+
+            if ($resolved->userTemplateSlug !== null) {
+                $stdinPayload['user_template_slug'] = $resolved->userTemplateSlug;
+            }
+
             $job = $action->execute(
                 $this->customer,
                 'users:create',
@@ -363,12 +381,15 @@ class OccPanel extends Component
             $this->pendingUserCreateJobId = $job->job_id;
             $this->pendingUserCreateJobStartedAt = now()->timestamp;
             $this->successMessage = "Usuário enfileirado — job {$job->job_id}.";
-            $this->userUsername = $this->userEmail = $this->userGroups = '';
+            $this->userUsername = $this->userEmail = $this->userGroups = $this->userTemplateSlug = '';
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (PlanLimitExceededException) {
+            $this->errorMessage = 'Limite do plano excedido para criação de usuários.';
         } catch (\Throwable $e) {
             $this->errorMessage = $this->formatError($e);
         } finally {
             $this->userPasswordPlain = '';
-            unset($stdinPayload);
         }
     }
 
@@ -473,6 +494,10 @@ class OccPanel extends Component
     {
         return view('livewire.customers.occ-panel', [
             'quotaOptions' => OccPassthroughService::quotaOptions(),
+            'userTemplates' => UserTemplate::query()
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(['slug', 'name']),
         ]);
     }
 

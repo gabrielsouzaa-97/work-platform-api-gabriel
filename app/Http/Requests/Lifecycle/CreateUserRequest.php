@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Lifecycle;
 
+use App\Modules\Product\Validation\ActiveUserTemplate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -57,6 +58,7 @@ class CreateUserRequest extends FormRequest
             'subadmin_groups.*' => ['string', 'max:256', $forbiddenAdminGroup],
             'subadmin' => ['nullable', 'array'],
             'subadmin.*' => ['string', 'max:256', $forbiddenAdminGroup],
+            'user_template_slug' => ['nullable', 'string', 'max:64', new ActiveUserTemplate],
         ];
     }
 

@@ -53,5 +53,7 @@ class DatabaseSeeder extends Seeder
                 'valid_until' => null,
             ], (string) $cluster->webhook_secret_encrypted);
         }
+
+        $this->call(UserTemplateSeeder::class);
     }
 }

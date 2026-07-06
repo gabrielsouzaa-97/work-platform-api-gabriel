@@ -236,6 +236,18 @@
                     <p class="mt-1 text-[11px] text-outline">Nextcloud 33 exige ≥10 caracteres; senhas comuns são rejeitadas.</p>
                 </div>
                 <div>
+                    <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Template de usuário</label>
+                    <select class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="userTemplateSlug">
+                        <option value="">— nenhum —</option>
+                        @foreach ($userTemplates as $template)
+                            <option value="{{ $template->slug }}">{{ $template->slug }}</option>
+                        @endforeach
+                    </select>
+                    @error('userTemplateSlug')
+                        <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
                     <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Grupos (separados por vírgula)</label>
                     <input class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="userGroups" placeholder="admins, editors">
                 </div>
