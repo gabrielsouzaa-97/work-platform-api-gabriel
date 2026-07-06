@@ -293,7 +293,7 @@ final class LifecycleAsyncAction
             return $payload;
         }
 
-        foreach (['email', 'groups', 'quota'] as $field) {
+        foreach (['email', 'groups', 'quota', 'user_template_slug'] as $field) {
             if (array_key_exists($field, $stdinPayload)) {
                 $payload[$field] = $stdinPayload[$field];
             }
@@ -316,7 +316,7 @@ final class LifecycleAsyncAction
         }
 
         $upstream = $stdinPayload;
-        unset($upstream['origin']);
+        unset($upstream['origin'], $upstream['user_template_slug']);
 
         return json_encode($upstream);
     }

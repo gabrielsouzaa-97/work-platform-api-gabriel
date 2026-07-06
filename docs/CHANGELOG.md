@@ -440,3 +440,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-06 00:23** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
 - **2026-07-06 00:25** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
 - **2026-07-06 00:28** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
+- **2026-07-06 01:44** `d12169f` — feat(sprint-N42): app catalog sync, API, and plan app inheritance

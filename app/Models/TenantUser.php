@@ -36,6 +36,7 @@ class TenantUser extends Model
         'quota',
         'groups',
         'origin',
+        'user_template_slug',
         'synced_at',
         'created_at',
         'updated_at',

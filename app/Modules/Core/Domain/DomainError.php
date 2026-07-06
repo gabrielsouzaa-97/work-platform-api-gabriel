@@ -21,14 +21,16 @@ enum DomainError: string
     case RouteNotFound = 'route_not_found';
     case MethodNotAllowed = 'method_not_allowed';
     case AppCatalogNotFound = 'app_catalog_not_found';
+    case UserTemplateNotFound = 'user_template_not_found';
+    case PlanLimitExceeded = 'plan_limit_exceeded';
 
     public function httpStatus(): int
     {
         return match ($this) {
-            self::ValidationFailed => 422,
+            self::ValidationFailed, self::PlanLimitExceeded => 422,
             self::Unauthenticated => 401,
             self::ForbiddenScope => 403,
-            self::TenantNotFound, self::CapabilityNotAvailable, self::AppCatalogNotFound => 404,
+            self::TenantNotFound, self::CapabilityNotAvailable, self::AppCatalogNotFound, self::UserTemplateNotFound => 404,
             self::IdempotencyConflict, self::StateConflict => 409,
             self::RateLimited => 429,
             self::NotImplemented => 501,
@@ -57,6 +59,8 @@ enum DomainError: string
             self::RouteNotFound => 'The requested route was not found.',
             self::MethodNotAllowed => 'The HTTP method is not allowed for this route.',
             self::AppCatalogNotFound => 'The requested app catalog entry was not found.',
+            self::UserTemplateNotFound => 'The requested user template was not found.',
+            self::PlanLimitExceeded => 'The operation exceeds the tenant plan limits.',
         };
     }
 }

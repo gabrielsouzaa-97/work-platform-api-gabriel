@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\PlanV1Controller;
 use App\Http\Controllers\Api\V1\TenantAppsController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TenantUserController;
+use App\Http\Controllers\Api\V1\UserTemplateV1Controller;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->group(function (): void {
@@ -88,4 +89,20 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
     Route::patch('/app-catalog/{app_id}', [AppCatalogV1Controller::class, 'update'])
         ->middleware('api.scope:product:write')
         ->name('api.v1.app-catalog.update');
+
+    Route::get('/user-templates', [UserTemplateV1Controller::class, 'index'])
+        ->middleware('api.scope:product:read')
+        ->name('api.v1.user-templates.index');
+
+    Route::get('/user-templates/{slug}', [UserTemplateV1Controller::class, 'show'])
+        ->middleware('api.scope:product:read')
+        ->name('api.v1.user-templates.show');
+
+    Route::post('/user-templates', [UserTemplateV1Controller::class, 'store'])
+        ->middleware('api.scope:product:write')
+        ->name('api.v1.user-templates.store');
+
+    Route::patch('/user-templates/{slug}', [UserTemplateV1Controller::class, 'update'])
+        ->middleware('api.scope:product:write')
+        ->name('api.v1.user-templates.update');
 });
