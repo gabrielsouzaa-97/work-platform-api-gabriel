@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-05T22:26:11Z",
+  "ultimo_update": "2026-07-06T03:28:12Z",
   "next_sprint_planned": "N40",
   "modulos": [
     "Core",
@@ -270,7 +270,14 @@
         "qa_review_status": "PASS_WITH_NOTES",
         "verifier_status": "PASS_WITH_NOTES",
         "findings_found": 9,
-        "findings_fixed_in_sprint": ["N40-001", "CQ-N40-001", "CQ-N40-002", "QA-N40-001", "QA-N40-002", "QA-N40-006"],
+        "findings_fixed_in_sprint": [
+          "N40-001",
+          "CQ-N40-001",
+          "CQ-N40-002",
+          "QA-N40-001",
+          "QA-N40-002",
+          "QA-N40-006"
+        ],
         "tests_evidence": "Docker app: 789 passed, 7 skipped (2026-07-05); suites N40 93 passed",
         "stamped_at": "2026-07-05T22:40:00Z"
       }
@@ -279,11 +286,16 @@
       "produced_by": "validation-stamp.py",
       "result": "APROVADA",
       "validation_mode": "full",
-      "gates": [],
+      "gates": [
+        {
+          "cmd": "/usr/bin/docker compose exec -T app php artisan test tests/Feature/Livewire/Customers/OccPanelTest.php tests/Feature/Jobs/WebhookTenantUserProjectionTest.php tests/Feature/Customers/TenantUserSyncTest.php tests/Feature/Customers/CreateUserPolicyTest.php",
+          "exit_code": 0
+        }
+      ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "26eee76e26be584e2117075a309b836c93adda1e",
-      "stamped_at": "2026-07-05T22:15:04Z"
+      "last_validated_sha": "ddaded7c55ac0c49b760a473c3f220d3a51eddf8",
+      "stamped_at": "2026-07-06T00:26:23Z"
     }
   },
   "checkpoint_n36_archived": {

@@ -8,7 +8,7 @@
 
 | Decisão | Escolha | Alternativa descartada | Motivo |
 |---------|---------|----------------------|--------|
-| BD principal | PostgreSQL 16 | MariaDB 11.8 | O ecossistema em torno de `JSONB` no Postgres é superior e será vastamente utilizado para salvar payloads do audit log e os summaries arbitrários dos webhooks recebidos do upstream. |
+| BD principal | MariaDB 11 | PostgreSQL 16 | Decisão E10 (ARCHITECTURE.md v0.3, 2026-05-14): migração para MariaDB 11 — alinhamento com a infra já operada no work (docker-compose `mariadb:11`, driver `mysql`). Colunas `json` (não `jsonb`) para payloads de audit log e summaries de webhook. Sem partial unique index — unicidades condicionais são enforcement app-level. |
 | Tier de infra | Tier 1 (Single Node) | Tier 2 (Replicas) | Escala atual (50 customers, 1 servidor scripts no MVP) não justifica HA de banco de dados ou divisões de leitura/escrita. Custo inicial mantido entre $20-50/mês. |
 | Composição | Nível 1 | Nível 2 | Relatórios complexos sobre jobs e logs não constam no MVP; não há sentido em adicionar um banco analítico ou Elasticsearch. Redis cumpre o cache e o rate-limit estrito. |
 
@@ -22,6 +22,9 @@
 | `cluster_servers` | Gestão dos servidores nextcloud upstream | `has_many Customers`, `has_many Jobs` |
 | `customers` | Réplica de customers instalados (sync) | `belongs_to ClusterServer`, `has_many Jobs`, `has_many TenantUsers` |
 | `tenant_users` | Read model local de usuários de tenant (projeção webhook + sync) | `belongs_to Customer` (FK `customer_slug`) |
+| `plans` | Planos comerciais/técnicos — quota default e limites | `has_many Customers`, `has_many PlanApps` |
+| `app_catalog_entries` | Catálogo de apps habilitáveis (app_id upstream) | `has_many PlanApps`, `has_many UserTemplateApps` |
+| `user_templates` | Perfis reutilizáveis (Admin, Supervisor, Colaborador) | `has_many UserTemplateApps` |
 | `jobs` | Réplica de fila e execuções no upstream | `belongs_to Customer`, `belongs_to ClusterServer` |
 | `audit_logs` | Logs do painel de administração e API | `belongs_to Operator`, `belongs_to ClusterServer`, `belongs_to Job` |
 | `webhook_secret_history` | Histórico de secrets para grace period 24h | `belongs_to ClusterServer` |
@@ -48,6 +51,20 @@
  +---------------+                +------------------+
  | tenant_users  |                | idempotency_keys |
  +---------------+                +------------------+
+         ^
+         | optional user_template_slug
+ +---------------+       N:M      +----------------------+
+ | user_templates|<---------------->| user_template_apps   |
+ +---------------+                +----------------------+
+         |                                  ^
+ +---------------+       N:M                |
+ |    plans      |<------+ plan_apps --------+----> app_catalog_entries
+ +---------------+
+         | 1:N
+         v
+ +---------------+  (customers.plan_slug FK nullable)
+ |   customers   |
+ +---------------+
 ```
 
 ### Convenções aplicadas
@@ -70,11 +87,109 @@ Read model local de usuários de tenant — alimentado por projeção webhook (`
 | `email` | varchar(255) nullable | |
 | `quota` | varchar(64) nullable | |
 | `groups` | json nullable | Lista de grupos NC |
+| `user_template_slug` | varchar(64) nullable | ISSUE-051 — audit trail (N43); sem FK constraint |
 | `origin` | varchar(20) | `api`, `panel`, `sync`, `provision` |
 | `synced_at` | timestamp nullable | Preenchido em paths de sync/reconciliação |
 | `created_at` / `updated_at` | timestamps | |
 
 Índices: `uniq_tenant_users_customer_username`, `idx_tenant_users_customer_slug`.
+
+### Product Governance (ISSUE-051 — Sprint N41–N43)
+
+Camada de produto no control plane — **API-first**; apps Nextcloud customizados consomem metadados em fase posterior. Ver `docs/ARCHITECTURE.md` §10.1.
+
+#### `plans`
+
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `slug` | varchar(64) PK | `^[a-z0-9-]+$` — ex. `basic`, `pro` |
+| `name` | varchar(255) | Label operador |
+| `description` | text nullable | |
+| `default_quota` | varchar(64) | Ex. `5 GB`, `default` — aplicada a novos usuários sem override |
+| `max_users` | int unsigned nullable | Limite opcional de usuários por tenant |
+| `max_apps` | int unsigned nullable | Limite opcional de apps no tenant |
+| `is_default` | boolean | Plano fallback para tenants legados (único `true`) |
+| `status` | varchar(20) | `active` \| `inactive` |
+| `created_at` / `updated_at` | timestamps | Sem soft delete — desativação via `status: inactive` (slug PK reutilizável não se aplica; slug é permanente) |
+
+Unicidade de `is_default`: MariaDB 11 não suporta partial unique index — **enforcement app-level** no `PlanService`, dentro de transação (desmarcar o default anterior + marcar o novo atomicamente), com cenário de teste dedicado (N41).
+
+#### `app_catalog_entries`
+
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `app_id` | varchar(100) UNIQUE | Alinhado a `suite_catalog.json` / `occ app:enable` |
+| `label` | varchar(255) | |
+| `description` | text nullable | |
+| `category` | varchar(64) nullable | Ex. `collaboration`, `integration` |
+| `cluster_server_id` | uuid nullable FK | `null` = global; senão restrito ao cluster |
+| `is_active` | boolean | |
+| `created_at` / `updated_at` | timestamps | |
+
+Índices: `uniq_app_catalog_app_id`, `idx_app_catalog_cluster`.
+
+#### `plan_apps` (junction)
+
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `plan_slug` | varchar(64) FK → `plans.slug` | ON DELETE CASCADE |
+| `app_catalog_id` | uuid FK → `app_catalog_entries.id` | ON DELETE CASCADE |
+
+PK composta `(plan_slug, app_catalog_id)`.
+
+#### `user_templates`
+
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `slug` | varchar(64) PK | Ex. `supervisor`, `collaborator` |
+| `name` | varchar(255) | |
+| `description` | text nullable | |
+| `default_quota` | varchar(64) nullable | Override do plano; null = herdar plano |
+| `groups` | json | Grupos NC aplicados no `users:create` |
+| `permissions` | json | Permissões lógicas (control plane only) — ver schema abaixo |
+| `status` | varchar(20) | `active` \| `inactive` |
+| `created_at` / `updated_at` | timestamps | Sem soft delete — desativação via `status: inactive` |
+
+#### `user_template_apps` (junction)
+
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `user_template_slug` | varchar(64) FK → `user_templates.slug` | |
+| `app_catalog_id` | uuid FK → `app_catalog_entries.id` | Apps que o perfil pode usar |
+
+PK composta `(user_template_slug, app_catalog_id)`.
+
+#### Alterações em entidades existentes
+
+| Tabela | Coluna | Notas |
+|--------|--------|-------|
+| `customers` | `plan_slug` | varchar(64) nullable FK → `plans.slug` (Sprint N41) |
+| `tenant_users` | `user_template_slug` | varchar(64) nullable **sem FK constraint** — trilha de auditoria de qual template originou o create; índice simples, não bloqueia gestão de templates (Sprint N43) |
+
+Limites `max_users`/`max_apps`: enforcement no `PolicyResolver` (Sprint N43) — 422 `plan_limit_exceeded` + AuditLog `policy_denied`. Fora de N41/N42.
+
+#### Schema `permissions` (JSON, versionado)
+
+```json
+{
+  "schema_version": 1,
+  "users": {
+    "hire": false,
+    "block": false,
+    "activate": false
+  },
+  "apps": {
+    "install_from_store": false,
+    "create_integration": false
+  },
+  "audit": {
+    "read": false
+  }
+}
+```
+
+Enforcement na API (`PolicyResolver`) antes de SSH; apps NC leem via `GET /v1/tenants/{slug}/policy` (fase posterior).
 
 ## 3. Infraestrutura de Dados
 
@@ -87,7 +202,7 @@ Read model local de usuários de tenant — alimentado por projeção webhook (`
         |                   |
         v                   v
  +------------+      +--------------+
- | Redis Node |      | Postgres Node|
+ | Redis Node |      | MariaDB Node |
  | (Sessão,   |      | (Primary DB) |
  |  Fila ext.)|      +--------------+
  +------------+
@@ -95,7 +210,7 @@ Read model local de usuários de tenant — alimentado por projeção webhook (`
 
 ### Connection Pooling
 
-- Ferramenta: Built-in (Pool próprio do PDO via Laravel Database na porta 5432 direta)
+- Ferramenta: Built-in (Pool próprio do PDO via Laravel Database na porta 3306 direta)
 - Modo: session (conexões persistentes do FPM)
 - Pool size: base nos workers (ex: `max_connections = 100`)
 

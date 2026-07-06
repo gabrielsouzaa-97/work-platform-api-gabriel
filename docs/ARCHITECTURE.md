@@ -329,6 +329,100 @@ mework360-deployer/
 **Integrações críticas:**
 - Observa eventos de todos os outros módulos.
 
+### Product (novo — ISSUE-051)
+
+**Anti-patterns a evitar:**
+- Duplicar o catálogo upstream (`suite_catalog.json`) sem estratégia de sync — drift silencioso.
+- Hardcodar permissões de negócio em `if` espalhados no OccPanel — usar policy engine central.
+- Conflitar template de usuário com conta `admin` de plataforma (N40 / ISSUE-050).
+
+**Decisões de implementação:**
+- Novo módulo `app/Modules/Product/` com agregados: `Plan`, `AppCatalogEntry`, `UserTemplate`.
+- `plan_id` opcional em `customers` (nullable FK); quota default vem do plano no provision.
+- `user_template_id` no `users:create` resolve: `groups[]`, `apps[]` a habilitar, `quota`, `permissions` (JSON schema versionado).
+- Catálogo `app_id` validado contra lista conhecida do cluster/upstream (sync command futuro, padrão `customers:sync`).
+- Enforcement **síncrono na API** antes de SSH — rejeita operação não permitida pelo template/plano mesmo sem app NC.
+- Metadados expostos para apps futuros via API interna (`GET /api/v1/tenants/{slug}/policy` ou extensão do tenant resource).
+
+**Edge cases conhecidos:**
+- Tenant legado sem `plan_id`: plano "default" implícito ou obrigar backfill no primeiro sync.
+- Template referencia app removido do catálogo: validação soft (warn) vs hard (422) — decidir em `/arquiteto dados`.
+- Permissões ainda não implementadas no NC: API registra intenção + audit; app NC lê depois.
+
+**Integrações críticas:**
+- `Customers` (provision, users:create), `tenant_users` (N40), `Audit`, API v1.
+
+---
+
+## 10.1 Domínio Product Governance (ISSUE-051)
+
+> Delta arquitetural — 2026-07-06 (`/arquiteto planejar` via `/rock`). Implementação somente após `/pmo plan`.
+
+### Contexto
+
+O control plane hoje orquestra infraestrutura (provision, jobs, OCC). Falta uma **camada de produto** que permita ao operador definir **o que** cada tenant e cada usuário pode fazer — antes de existirem apps Nextcloud que consumam essas regras na UI.
+
+### Bounded context: Product
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Mod: Product (novo)                                        │
+│  ┌─────────┐  ┌──────────────┐  ┌─────────────────────┐  │
+│  │  Plans  │  │ App Catalog  │  │  User Templates     │  │
+│  │ (quota) │  │ (app_id)     │  │  (roles/permissions)│  │
+│  └────┬────┘  └──────┬───────┘  └──────────┬──────────┘  │
+│       │              │                        │             │
+│       └──────────────┼────────────────────────┘             │
+│                      ▼                                      │
+│            PolicyResolver + Enforcement                       │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                 ▼
+   Provision         users:create      (futuro) apps NC
+   (Customers)       (Lifecycle)       leem policy API
+```
+
+### Fluxos principais
+
+| Fluxo | Entrada | Saída / efeito |
+|-------|---------|----------------|
+| Cadastrar plano | Admin UI / API | `plans` row; quota default |
+| Cadastrar template | Admin UI / API | `user_templates` + apps + permissions JSON |
+| Criar tenant | `plan_id` + `app_ids[]` | `ProvisionPayload` enriquecido; argv upstream com apps do catálogo |
+| Criar usuário | `user_template_id` | `users:create` com groups/quota/apps derivados; projeção `tenant_users` (N40) |
+| Enforcement | Qualquer mutação | 422 se violar plano/template; AuditLog `policy_denied` |
+
+### ADR-010: Product Governance API-first (sem apps NC na fase 1)
+
+- **Status**: Proposta (2026-07-06)
+- **Contexto**: Usuário precisa gerenciar planos, apps e papéis via API antes de desenvolver apps customizados no Nextcloud.
+- **Decisão**: Modelar planos, catálogo e templates no control plane; enforcement na API; apps NC consomem metadados em fase posterior.
+- **Alternativas descartadas**:
+  1. Só grupos NC — insuficiente para permissões de negócio (loja, integrações, contratação).
+  2. Construir apps NC primeiro — bloqueia gestão operacional até app pronto.
+- **Trade-offs**: Dupla fonte temporária (API policy vs realidade NC) até apps implementarem leitura; mitigado por `tenant-users:sync` e audit de drift.
+
+### ADR-011: User Template mapeia para NC + metadata
+
+- **Status**: Proposta (2026-07-06)
+- **Decisão**: Template gera `groups[]` e `quota` para upstream **e** persiste `permissions` JSON só no control plane (não enviado ao NC).
+- **Rationale**: Groups/quota já têm caminho SSH; permissões de negócio (ex.: `users.hire`, `apps.install`, `integrations.create`) são domínio da API até app existir.
+
+### Fatiamento sugerido para `/pmo plan` (não aprovado)
+
+| Sprint candidata | Entrega |
+|----------------|---------|
+| N41 | Plans CRUD + FK em customers + quota no provision |
+| N42 | App catalog + picker no create tenant |
+| N43 | User templates + apply em users:create + enforcement + UI admin |
+
+### Próximos artefatos
+
+- [ ] `/arquiteto dados` — `DATABASE.md` + db-schema (`plans`, `app_catalog`, `user_templates`, junction tables)
+- [ ] `/arquiteto contratos` — OpenAPI v1 `/plans`, `/app-catalog`, `/user-templates`
+- [ ] `/pmo plan` — sprints N41+
+
 ---
 
 ## 11. Mapa de Dependências
@@ -340,6 +434,7 @@ mework360-deployer/
 4. **Audit** (raiz — append-only, observa todos)
 5. **Jobs** (depende: ClusterServers, Core) — webhook receiver, polling
 6. **Customers** (depende: Jobs, ClusterServers, Core) — orquestração OCC e provisioning
+7. **Product** (depende: Customers, Audit) — planos, catálogo, templates, enforcement *(ISSUE-051)*
 
 ### Matriz de impacto
 | Módulo alterado | Impacta |
@@ -349,7 +444,8 @@ mework360-deployer/
 | Auth | Todos (middleware/UI) |
 | Audit | Nenhum (apenas observa) |
 | Jobs | Customers |
-| Customers | Nenhum (ponta da cadeia) |
+| Customers | Nenhum (ponta da cadeia SSH) |
+| Product | Customers (provision, users:create), API v1, Livewire admin |
 
 ---
 
@@ -374,3 +470,4 @@ mework360-deployer/
 | 2026-05-07 | 0.1 | Proposta inicial e aprovação | Arquiteto de Soluções (IA) |
 | 2026-05-07 | 0.2 | Adição do Mapa de Dependências e DBML | Analista de Sistemas (IA) |
 | 2026-05-14 | 0.3 | E10: PostgreSQL→MariaDB 11; E1: manage.sh→nextcloud-manage; E13: Bearer tokens disponíveis no MVP via `/api-keys` | IA (D8 Polish) |
+| 2026-07-06 | 0.4 | §10.1 Product Governance (ISSUE-051): planos, catálogo apps, templates usuário; ADR-010/011; módulo Product | Arquiteto (via `/rock`) |

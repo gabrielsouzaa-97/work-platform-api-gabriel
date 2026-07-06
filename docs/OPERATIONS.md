@@ -1,5 +1,13 @@
 # Operations log
 
+## 2026-07-06T00:50:00Z — Deploy LAB pós-merge N40 (ISSUE-050) + backfill `pacoteste`
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`, sid=65) — código `main` SHA `ddaded7` (N40 + poll/projector fix); deploy via SSH `mecloud360@128.201.61.110` (`MECLOUD_SSH_KEY` em `cloud.env`); sync tar (host sem `.git`; repo privado).
+- **Stack:** `docker compose -f docker-compose.yml -f docker-compose.lab.yml build && up -d`; migration `tenant_users` aplicada; `/up` 200.
+- **Backfill `pacoteste`:** `TenantUserProjector` manual nos jobs `provision` + `user_create` (Carlos) — `tenant-users:sync` retornou `inserted=0` (upstream `user:list` devolve mapa `{"admin":"admin","Carlos":"Carlos"}` fora do parser N40; triagem pendente).
+- **Projeção:** `admin` origin=provision, `Carlos` origin=api — visíveis na aba Usuários do OccPanel.
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-05T18:55:00Z — Deploy LAB pós-merge N37 + N39 (ISSUE-047 / ISSUE-049)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — deploy `main` SHA `8e58fed` (merge PR #135 N39 sobre PR #136 N37); `/up` 200.

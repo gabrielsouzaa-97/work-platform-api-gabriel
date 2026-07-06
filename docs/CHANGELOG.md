@@ -433,3 +433,10 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-05 16:33** `d8cf61a` — chore(sprint-finalize): session checkpoint and version 0.1.8 for N37/N39
 - **2026-07-05 16:53** `d674ce2` — docs(triage): register ISSUE-050 tenant users read model + no-client-admin policy
 - **2026-07-05 18:26** `7453833` — docs(sprint-N40): planning output
+- **2026-07-05 21:30** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
+- **2026-07-05 21:33** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
+- **2026-07-05 21:47** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
+- **2026-07-06 00:14** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
+- **2026-07-06 00:23** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
+- **2026-07-06 00:25** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
+- **2026-07-06 00:28** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload

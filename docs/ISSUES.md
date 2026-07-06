@@ -56,6 +56,57 @@
 | ISSUE-048 | bug | Painel LAB sem CSS (nginx sem `public/build`) + Livewire `/customers/create` não envia `image_mode` (gap N36) | Livewire, DevOps | HIGH | **fixed (2026-07-05)** — Sprint N38; deploy LAB `.110` |
 | ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
 | ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | **planned — Sprint N40** (2026-07-05; brief PASS_WITH_NOTES) |
+| ISSUE-051 | change_request | Control plane de produto: planos (quotas), tenant com seleção de apps, templates de usuário (papéis/permissões) — API-first, sem apps NC nesta fase | Product, Customers, Livewire, API v1, DB | HIGH | **planned** — `/arquiteto dados` + `/arquiteto contratos` + `/pmo plan` (2026-07-06); sprints N41–N43 no ROADMAP |
+
+---
+
+## ISSUE-051 — Product Governance: planos, catálogo de apps e templates de usuário (API-first)
+
+- **Tipo**: change_request / arquitetura (FEATURE)
+- **Prioridade**: HIGH
+- **Status**: **planned** (2026-07-06) — `DATABASE.md` §Product Governance, `db-schema.dbml`, `openapi-external.yaml` (draft ISSUE-051); sprints **N41–N43** no ROADMAP; implementação via `/rock executar sprint`
+- **Registrado em**: 2026-07-06 (triagem via `/rock` — usuário quer o **meio** no control plane para governar produto via API até existirem apps Nextcloud customizados)
+- **Módulos afetados**: novo módulo `Product` (ou `Catalog`), `Customers` (provision), `tenant_users` (N40), Livewire admin, API v1, migrations
+
+### Descrição
+
+Hoje o provisionamento aceita flags técnicas (`suite_catalog`, `image_mode`, `apps[]`) sem UX de produto. Quotas são por OCC/usuário, não por **plano**. Não há cadastro reutilizável de **papéis de usuário** (Admin, Supervisor, Colaborador) com apps e permissões de negócio.
+
+**Objetivo (fase 1):** construir na API + painel o cadastro e a aplicação de:
+
+1. **Planos** — definem quota (e limites opcionais) herdados pelo tenant
+2. **Catálogo de apps** — apps disponíveis na suíte; seleção na criação do tenant
+3. **Templates de usuário** — perfis com apps permitidos + permissões lógicas (ex.: contratar usuários, habilitar app da loja, criar integração, auditoria)
+
+**Premissa explícita:** **não** desenvolver apps Nextcloud (Gestão do Work, loja, auditoria) nesta fase — apenas modelar, expor via API e **enforçar** no control plane até os apps consumirem os metadados.
+
+### Escopo proposto (para `/arquiteto dados` + `/pmo plan`)
+
+1. CRUD **plans** (quota default, limites opcionais: max_users, max_apps)
+2. CRUD **app_catalog** (app_id alinhado ao upstream `suite_catalog.json` / `occ app:enable`)
+3. CRUD **user_templates** (slug, label, apps[], permissions json)
+4. **Provision** referencia `plan_id` + `app_ids[]` resolvidos do catálogo
+5. **users:create** aceita `user_template_id` → aplica groups/apps/quota conforme template
+6. **Enforcement** na API (422/403) quando operação viola plano ou template — independente de app NC existir
+7. Painel Livewire: áreas Planos, Catálogo, Templates + picker no create tenant/user
+
+### Fora de escopo (fase 1)
+
+- Apps Nextcloud customizados (Work, loja, integrações UI)
+- Billing WHMCS / cobrança por plano (ISSUE-022 / N22)
+- Marketplace self-service para cliente final
+
+### Relacionado
+
+- ISSUE-050 / N40 (`tenant_users`, projeção local)
+- ISSUE-038 (API v1, scopes)
+- `ProvisionPayload` (`apps`, `suite_catalog`)
+- REQUIREMENTS F3/F6 (provision + lifecycle users)
+- `docs/ARCHITECTURE.md` §10.1 (delta arquitetural)
+
+### Próximo passo
+
+`/arquiteto dados` → `/arquiteto contratos` → `/pmo plan`
 
 ---
 

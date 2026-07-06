@@ -58,6 +58,8 @@ tags:
     description: Personalização visual (bloqueada até D-02)
   - name: Onboarding
     description: Saga composta de onboarding (tenant, admin, apps, branding opcional)
+  - name: Product
+    description: Planos, catálogo de apps e templates de usuário (ISSUE-051)
 
 paths:
   /tenants:
@@ -701,6 +703,292 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
+  /plans:
+    get:
+      tags: [Product]
+      summary: Listar planos
+      description: Lista planos ativos disponíveis para provisionamento.
+      operationId: listPlans
+      x-required-scope: product:read
+      responses:
+        "200":
+          description: Lista de planos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanResource"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+    post:
+      tags: [Product]
+      summary: Criar plano
+      operationId: createPlan
+      x-required-scope: product:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanRequest"
+      responses:
+        "201":
+          description: Plano criado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlanResource"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /plans/{slug}:
+    get:
+      tags: [Product]
+      summary: Obter plano
+      operationId: getPlan
+      x-required-scope: product:read
+      parameters:
+        - $ref: "#/components/parameters/PlanSlug"
+      responses:
+        "200":
+          description: Plano
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlanResource"
+        "404":
+          $ref: "#/components/responses/PlanNotFound"
+    patch:
+      tags: [Product]
+      summary: Atualizar plano
+      operationId: updatePlan
+      x-required-scope: product:write
+      parameters:
+        - $ref: "#/components/parameters/PlanSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanRequest"
+      responses:
+        "200":
+          description: Plano atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PlanResource"
+        "404":
+          $ref: "#/components/responses/PlanNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /app-catalog:
+    get:
+      tags: [Product]
+      summary: Listar catálogo de apps
+      operationId: listAppCatalog
+      x-required-scope: product:read
+      parameters:
+        - name: cluster_server_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtra entradas globais + do cluster informado.
+      responses:
+        "200":
+          description: Entradas do catálogo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AppCatalogEntryResource"
+    post:
+      tags: [Product]
+      summary: Registrar app no catálogo
+      operationId: createAppCatalogEntry
+      x-required-scope: product:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppCatalogEntryRequest"
+      responses:
+        "201":
+          description: Entrada criada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AppCatalogEntryResource"
+
+  /app-catalog/{app_id}:
+    get:
+      tags: [Product]
+      summary: Obter entrada do catálogo
+      operationId: getAppCatalogEntry
+      x-required-scope: product:read
+      parameters:
+        - $ref: "#/components/parameters/AppCatalogAppId"
+      responses:
+        "200":
+          description: Entrada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AppCatalogEntryResource"
+        "404":
+          $ref: "#/components/responses/AppCatalogNotFound"
+    patch:
+      tags: [Product]
+      summary: Atualizar entrada do catálogo
+      operationId: updateAppCatalogEntry
+      x-required-scope: product:write
+      parameters:
+        - $ref: "#/components/parameters/AppCatalogAppId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAppCatalogEntryRequest"
+      responses:
+        "200":
+          description: Entrada atualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AppCatalogEntryResource"
+
+  /user-templates:
+    get:
+      tags: [Product]
+      summary: Listar templates de usuário
+      operationId: listUserTemplates
+      x-required-scope: product:read
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserTemplateResource"
+    post:
+      tags: [Product]
+      summary: Criar template de usuário
+      operationId: createUserTemplate
+      x-required-scope: product:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserTemplateRequest"
+      responses:
+        "201":
+          description: Template criado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserTemplateResource"
+
+  /user-templates/{slug}:
+    get:
+      tags: [Product]
+      summary: Obter template de usuário
+      operationId: getUserTemplate
+      x-required-scope: product:read
+      parameters:
+        - $ref: "#/components/parameters/UserTemplateSlug"
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserTemplateResource"
+        "404":
+          $ref: "#/components/responses/UserTemplateNotFound"
+    patch:
+      tags: [Product]
+      summary: Atualizar template de usuário
+      operationId: updateUserTemplate
+      x-required-scope: product:write
+      parameters:
+        - $ref: "#/components/parameters/UserTemplateSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserTemplateRequest"
+      responses:
+        "200":
+          description: Template atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserTemplateResource"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -753,6 +1041,31 @@ components:
         type: string
         format: uuid
       example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    PlanSlug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9-]+$"
+        minLength: 3
+        maxLength: 64
+    AppCatalogAppId:
+      name: app_id
+      in: path
+      required: true
+      schema:
+        type: string
+        maxLength: 100
+    UserTemplateSlug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9-]+$"
+        minLength: 3
+        maxLength: 64
 
   schemas:
     Envelope:
@@ -894,7 +1207,228 @@ components:
           type: string
           format: date-time
           nullable: true
+        plan_slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+          nullable: true
+          description: Plano associado (ISSUE-051). Null em tenants legados.
 
+    PlanResource:
+      type: object
+      required: [slug, name, default_quota, status]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        default_quota:
+          type: string
+        max_users:
+          type: integer
+          nullable: true
+        max_apps:
+          type: integer
+          nullable: true
+        is_default:
+          type: boolean
+        status:
+          type: string
+          enum: [active, inactive]
+        app_ids:
+          type: array
+          items:
+            type: string
+          description: App IDs habilitados no plano (via junction plan_apps).
+
+    CreatePlanRequest:
+      type: object
+      required: [slug, name, default_quota]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+        name:
+          type: string
+        description:
+          type: string
+        default_quota:
+          type: string
+        max_users:
+          type: integer
+          minimum: 1
+        max_apps:
+          type: integer
+          minimum: 1
+        is_default:
+          type: boolean
+          default: false
+        app_ids:
+          type: array
+          items:
+            type: string
+
+    UpdatePlanRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        default_quota:
+          type: string
+        max_users:
+          type: integer
+          nullable: true
+        max_apps:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive]
+        app_ids:
+          type: array
+          items:
+            type: string
+
+    AppCatalogEntryResource:
+      type: object
+      required: [app_id, label, is_active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        app_id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        cluster_server_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_active:
+          type: boolean
+
+    CreateAppCatalogEntryRequest:
+      type: object
+      required: [app_id, label]
+      properties:
+        app_id:
+          type: string
+          maxLength: 100
+        label:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        cluster_server_id:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+          default: true
+
+    UpdateAppCatalogEntryRequest:
+      type: object
+      properties:
+        label:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        is_active:
+          type: boolean
+
+    UserTemplateResource:
+      type: object
+      required: [slug, name, groups, permissions, status]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        default_quota:
+          type: string
+          nullable: true
+        groups:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: object
+          description: Permissões lógicas versionadas (control plane).
+          additionalProperties: true
+        app_ids:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, inactive]
+
+    CreateUserTemplateRequest:
+      type: object
+      required: [slug, name, groups, permissions]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+        name:
+          type: string
+        description:
+          type: string
+        default_quota:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: object
+          additionalProperties: true
+        app_ids:
+          type: array
+          items:
+            type: string
+
+    UpdateUserTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        default_quota:
+          type: string
+          nullable: true
+        groups:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: object
+          additionalProperties: true
+        app_ids:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, inactive]
 
     OnboardingAccepted:
       type: object
@@ -1076,6 +1610,14 @@ components:
           type: boolean
           default: false
           description: Força caminho legado vendor-apps-bom (sem suite catalog).
+        plan_slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+          description: |
+            Plano comercial (ISSUE-051 / N41). Quando informado com `apps` omitido, o tenant
+            herda os `app_ids` do plano; `apps` explícito tem precedência (validado contra o
+            catálogo). Quota default do plano aplica-se a usuários criados sem override.
+            Mantém exclusividade mútua existente com `full_apps`.
 
     CreateTenantRequestMultipart:
       allOf:
@@ -1147,6 +1689,12 @@ components:
           items:
             type: string
             maxLength: 256
+        user_template_slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+          description: |
+            Template de usuário (ISSUE-051). Quando informado, aplica `groups`, `quota` e
+            `permissions` do template; campos explícitos `groups`/`quota`/`subadmin_groups` têm precedência.
 
     JobResource:
       type: object
@@ -1230,6 +1778,27 @@ components:
                 error:
                   code: tenant_not_found
                   message: Tenant not found.
+
+    PlanNotFound:
+      description: Plano não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+
+    AppCatalogNotFound:
+      description: Entrada do catálogo não encontrada
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+
+    UserTemplateNotFound:
+      description: Template de usuário não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
 
     TenantNotReady:
       description: Tenant ainda em provisionamento — operação de usuário bloqueada

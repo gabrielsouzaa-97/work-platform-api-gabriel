@@ -1,5 +1,6 @@
 // Gerado pelo analista-sistema na Fase 5
-// Banco: PostgreSQL 16 conforme DATABASE.md e ARCHITECTURE.md
+// Banco: MariaDB 11 (decisão E10 — ARCHITECTURE.md v0.3); tipos "jsonb" legados devem ser lidos como JSON
+// Colunas json = tipo JSON do MariaDB; sem partial unique indexes (enforcement app-level)
 
 Table operators {
   id uuid [pk, default: `uuid_generate_v4()`]
@@ -44,6 +45,7 @@ Table cluster_servers {
 Table customers {
   slug varchar(64) [pk, note: '^[a-z0-9-]+$']
   cluster_server_id uuid [not null, ref: > cluster_servers.id]
+  plan_slug varchar(64) [null, ref: > plans.slug, note: 'ISSUE-051 — nullable']
   domain varchar(255) [not null]
   status varchar(50) [not null, default: 'provisioning', note: 'provisioning|provisioning_finishing|active|failed|error|removing|removed']
   branding_meta jsonb [null]
@@ -130,6 +132,7 @@ Table tenant_users {
   email varchar(255) [null]
   quota varchar(64) [null]
   groups jsonb [null, note: 'NC group membership']
+  user_template_slug varchar(64) [null, note: 'ISSUE-051 (N43) — audit trail; SEM FK constraint, indice simples']
   origin varchar(20) [not null, note: 'api|panel|sync|provision']
   synced_at timestamp [null, note: 'last reconciliation via tenant-users:sync']
   created_at timestamp [default: `now()`]
@@ -141,6 +144,63 @@ Table tenant_users {
   }
 
   Note: 'Read model — webhook projection + tenant-users:sync reconciliation (ISSUE-050 / Sprint N40)'
+}
+
+// --- Product Governance (ISSUE-051 / Sprints N41–N43) ---
+
+Table plans {
+  slug varchar(64) [pk, note: '^[a-z0-9-]+$']
+  name varchar(255) [not null]
+  description text [null]
+  default_quota varchar(64) [not null]
+  max_users integer [null]
+  max_apps integer [null]
+  is_default boolean [not null, default: false, note: 'unico true — enforcement app-level (PlanService, transacao)']
+  status varchar(20) [not null, default: 'active', note: 'active|inactive — sem soft delete']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table app_catalog_entries {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  app_id varchar(100) [unique, not null]
+  label varchar(255) [not null]
+  description text [null]
+  category varchar(64) [null]
+  cluster_server_id uuid [null, ref: > cluster_servers.id, note: 'null = global']
+  is_active boolean [not null, default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table plan_apps {
+  plan_slug varchar(64) [not null, ref: > plans.slug]
+  app_catalog_id uuid [not null, ref: > app_catalog_entries.id]
+
+  indexes {
+    (plan_slug, app_catalog_id) [pk]
+  }
+}
+
+Table user_templates {
+  slug varchar(64) [pk, note: '^[a-z0-9-]+$']
+  name varchar(255) [not null]
+  description text [null]
+  default_quota varchar(64) [null]
+  groups json [not null, default: '[]']
+  permissions json [not null, note: 'schema_version + logical permissions']
+  status varchar(20) [not null, default: 'active', note: 'active|inactive — sem soft delete']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table user_template_apps {
+  user_template_slug varchar(64) [not null, ref: > user_templates.slug]
+  app_catalog_id uuid [not null, ref: > app_catalog_entries.id]
+
+  indexes {
+    (user_template_slug, app_catalog_id) [pk]
+  }
 }
 
 Table idempotency_keys {
