@@ -24,11 +24,11 @@ use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\TenantUserListParser;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
+use App\Modules\Jobs\Support\JobSummaryParser;
 use App\Modules\Product\Exceptions\PlanLimitExceededException;
 use App\Modules\Product\Services\PolicyResolver;
 use App\Modules\Product\Services\UserCreateTemplateResolver;
 use App\Modules\Product\Validation\ActiveUserTemplate;
-use App\Modules\Jobs\Support\JobSummaryParser;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -334,7 +334,7 @@ class OccPanel extends Component
                         }
                     },
                 ],
-                'userTemplateSlug' => ['nullable', 'string', 'max:64', new ActiveUserTemplate()],
+                'userTemplateSlug' => ['nullable', 'string', 'max:64', new ActiveUserTemplate],
             ]);
 
             if (strlen($this->userPasswordPlain) < 10) {

@@ -58,7 +58,7 @@ class CreateUserRequest extends FormRequest
             'subadmin_groups.*' => ['string', 'max:256', $forbiddenAdminGroup],
             'subadmin' => ['nullable', 'array'],
             'subadmin.*' => ['string', 'max:256', $forbiddenAdminGroup],
-            'user_template_slug' => ['nullable', 'string', 'max:64', new ActiveUserTemplate()],
+            'user_template_slug' => ['nullable', 'string', 'max:64', new ActiveUserTemplate],
         ];
     }
 

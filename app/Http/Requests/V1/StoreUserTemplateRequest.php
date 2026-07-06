@@ -24,7 +24,7 @@ final class StoreUserTemplateRequest extends FormRequest
             'default_quota' => ['nullable', 'string', 'max:64'],
             'groups' => ['required', 'array'],
             'groups.*' => ['string', 'max:256'],
-            'permissions' => ['required', 'array', new PermissionsSchemaV1()],
+            'permissions' => ['required', 'array', new PermissionsSchemaV1],
             'permissions.schema_version' => ['required', 'integer', 'in:1'],
             'permissions.users.hire' => ['required', 'boolean'],
             'permissions.users.block' => ['required', 'boolean'],
