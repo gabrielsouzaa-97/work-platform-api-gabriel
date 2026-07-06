@@ -17,6 +17,7 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Services\TenantUserSyncService;
 use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\TenantUserListParser;
@@ -24,6 +25,7 @@ use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 use App\Modules\Jobs\Support\JobSummaryParser;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -508,6 +510,7 @@ class OccPanel extends Component
         $this->clearMessages();
 
         if ($job->state === 'success') {
+            $this->projectUserCreateIntoReadModel($job);
             $this->successMessage = 'Usuário criado com sucesso.';
             $this->loadUsers();
 
@@ -515,6 +518,20 @@ class OccPanel extends Component
         }
 
         $this->errorMessage = JobSummaryParser::failureMessage($job);
+    }
+
+    private function projectUserCreateIntoReadModel(Job $job): void
+    {
+        try {
+            app(TenantUserProjector::class)->handleTerminalJob($job, 'success');
+        } catch (\Throwable $e) {
+            Log::warning('tenant_users.projection.poll_failed', [
+                'job_id' => $job->job_id,
+                'customer_slug' => $job->customer_slug,
+                'job_type' => $job->job_type,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function formatError(\Throwable $e): string

@@ -724,7 +724,7 @@ it('syncUsers chama TenantUserSyncService mockado e recarrega lista local', func
 
 // ── User create poll (N39.3 — async feedback até terminal) ───────────────────
 
-it('createUser poll até job success recarrega projeção local sem OccPassthroughService', function () {
+it('createUser poll até job success projeta via TenantUserProjector e recarrega lista local', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
@@ -745,17 +745,13 @@ it('createUser poll até job success recarrega projeção local sem OccPassthrou
     $component = Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
         ->set('userUsername', 'newuser')
+        ->set('userEmail', 'new@example.com')
         ->set('userPasswordPlain', 'Secret123!')
         ->call('createUser')
         ->assertSet('pendingUserCreateJobId', $jobId)
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
 
-    seedOccPanelTenantUser($customer, [
-        'username' => 'newuser',
-        'email' => 'new@example.com',
-        'quota' => '5 GB',
-        'groups' => ['users'],
-    ]);
+    expect(TenantUser::query()->where('customer_slug', $customer->slug)->count())->toBe(0);
 
     Job::query()->where('job_id', $jobId)->update([
         'state' => 'success',
@@ -767,7 +763,17 @@ it('createUser poll até job success recarrega projeção local sem OccPassthrou
         ->assertSet('pendingUserCreateJobId', '')
         ->assertSet('successMessage', 'Usuário criado com sucesso.')
         ->assertCount('tenantUsers', 1)
-        ->assertSet('tenantUsers.0.username', 'newuser');
+        ->assertSet('tenantUsers.0.username', 'newuser')
+        ->assertSet('tenantUsers.0.email', 'new@example.com');
+
+    $projected = TenantUser::query()
+        ->where('customer_slug', $customer->slug)
+        ->where('username', 'newuser')
+        ->first();
+
+    expect($projected)->not->toBeNull()
+        ->and($projected->origin)->toBe('panel')
+        ->and($projected->email)->toBe('new@example.com');
 });
 
 it('createUser poll job failed com summary → errorMessage inline', function () {
