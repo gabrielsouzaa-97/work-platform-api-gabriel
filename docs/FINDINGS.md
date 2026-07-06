@@ -2,10 +2,10 @@
 synced_at: 2026-07-06
 open_critical: 0
 open_high: 9
-open_medium: 51
-open_low: 44
+open_medium: 53
+open_low: 49
 sprints_with_open_blockers:
-notes: F17 R1 APROVADA (2026-07-06) — OPS-F16-001 + CQ-N41-003 + CQ-N43-003 validados; 185 testes verdes; deploy LAB 661033e. 2 MEDIUM (CQ-F17-001/002) + 2 LOW (CQ-F17-003/004) backlog; CQ-N43-002 deferido. F16 R1 APROVADA — 5 HIGH N41-N43 corrigidos.
+notes: F18 R1 APROVADA (2026-07-06) — max_apps removido (ARCH-7), enable valida plan_apps (v1+legado); 120 testes verdes; deploy LAB e8b1ad6, migration drop_max_apps DONE. 2 MEDIUM + 5 LOW backlog non-blocking. F17 R1 APROVADA — OPS-F16-001 + CQ-N41-003 + CQ-N43-003 validados.
 FINDINGS-INDEX -->
 
 
@@ -48,8 +48,21 @@ FINDINGS-INDEX -->
 | N42 | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 | N43 | 0 | 3 | 5 | 2 | 10 | 0 | 0 |
 | F17 | 0 | 0 | 3 | 2 | 4 | 0 | 3 |
+| F18 | 0 | 0 | 2 | 5 | 7 | 0 | 0 |
 
-> **Validação F17 R1** (2026-07-06, `/qa validar F17`): scope = delta `f73c149...661033e` (PR #142, 8 arquivos-fonte). **Review**: senior+qa. **Testes**: Pest Docker **185 passed, 789 assertions** (`Product/`, `Livewire/Customers/`, `Api/V1/`) incluindo os 3 testes novos F17 (PlanApi 404, AppCatalogSync fallback, resolver groups []). **auditor-senior** ([`8aba1a5a`](8aba1a5a-6116-45d1-91a9-d193115747df)) → 0 CRITICAL, 0 HIGH, 2 MEDIUM, 2 LOW. **Findings-alvo validados**: OPS-F16-001 (fallback catalog), CQ-N41-003 (PlanNotFound), CQ-N43-003 (groups override). **Deploy LAB**: SHA `661033e`, `app-catalog:sync` OK 11 apps sem workaround, `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 2 MEDIUM + 2 LOW novos non-blocking em backlog.
+> **Validação F18 R1** (2026-07-06, `/qa validar F18`): scope = delta `661033e...e8b1ad6` (PR #143, 12 arquivos-fonte — remoção `max_apps`, enable via `PlanAppResolver`, ARCH-7). **Review**: senior+qa. **Preflight**: PROC-025/027 PASS; parity gate skip (delta sem `install.*`/`scripts/*.py`/`hooks/*.sh`). **Testes**: Pest Docker **120 passed, 591 assertions** (`Product/`, `Api/V1/`) incluindo os 2 novos casos de rejeição enable (v1+legado, app fora de `plan_apps` → 422, SSH não chamado). **auditor-senior** ([`bb41562f`](bb41562f-bfc4-4453-8695-4df944026b41)) → 0 CRITICAL, 0 HIGH, 1 MEDIUM, 2 LOW. **auditor-qa** ([`6ba5046a`](6ba5046a-c680-47e5-880b-d26dfb653bcf)) → 0 CRITICAL, 0 HIGH, 2 MEDIUM, 3 LOW (dedup: senior CQ-001 ≡ qa QA-001 = happy path enable). **Deploy LAB**: SHA `e8b1ad6`, migration `drop_max_apps` DONE (coluna ausente), `app-catalog:sync` OK, `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 2 MEDIUM + 5 LOW novos non-blocking em backlog.
+
+### Findings — Sprint F18 (validação R1)
+
+- **[CQ-F18-001 ≡ QA-F18-001] MEDIUM — pendente**: enable com `plan_slug` + app ⊆ `plan_apps` sem teste de sucesso (202 + SSH `runAsync` uma vez) em v1 e legado; delta só adiciona casos de rejeição. **Correção sugerida**: 2 testes espelhando `PlanAppInheritanceTest` com mock SSH `shouldReceive('runAsync')->once()`. `tests/Feature/Product/PolicyResolverTest.php`.
+- **[QA-F18-002] MEDIUM — pendente**: edge plano com `plan_apps` vazio no caminho `enable` não coberto (só provision via QA-005 backlog). Plano sem junction + tenant com `plan_slug` → qualquer app deve dar 422. **Correção sugerida**: teste `empty-plan` sem inserts em `plan_apps` → `POST .../apps` 422 (v1+legado). `PlanAppResolver.php`, `PolicyResolverTest.php`.
+- **[CQ-F18-002] LOW — pendente**: `CustomerLifecycleController::enableApps` chama `$customer->loadMissing('plan')` mas o resolver usa `$customer->plan_slug` — relação nunca lida (código morto + query extra). **Correção sugerida**: remover `loadMissing('plan')`. `app/Http/Controllers/Api/CustomerLifecycleController.php:167`.
+- **[CQ-F18-003] LOW — pendente**: `create_plans_table` (000001) ainda define `max_apps`, removida logo em 000002 — ruído no histórico de schema. **Correção sugerida**: sprint de hygiene remove `max_apps` de 000001 (se política permitir squash). `database/migrations/2026_07_06_000001_create_plans_table.php:19`.
+- **[QA-F18-003] LOW — pendente**: migration `drop_max_apps_from_plans_table` sem teste de schema (`Schema::hasColumn('plans','max_apps')->toBeFalse()` + rollback `down()`/`up()`). `tests/Feature/Database/`.
+- **[QA-F18-004] LOW — pendente**: `PlanApiTest` não assere ausência de `max_apps` no `PlanResource` (`assertJsonMissing(['max_apps'])`) nem que POST com `max_apps` no body é ignorado — risco de drift de contrato. `tests/Feature/Product/PlanApiTest.php`.
+- **[QA-F18-005] LOW — pendente**: rejeição do enable pós-F18 não documenta por teste que é `422 validation` (não `plan_limit_exceeded`) nem que `AuditLog policy_denied` não é mais gerado. **Correção sugerida**: `assertJsonMissing` do code legado + `expect(AuditLog::where('action','policy_denied')->exists())->toBeFalse()`. `PolicyResolverTest.php`.
+
+### Findings — Sprint F17 (validação R1) (2026-07-06, `/qa validar F17`): scope = delta `f73c149...661033e` (PR #142, 8 arquivos-fonte). **Review**: senior+qa. **Testes**: Pest Docker **185 passed, 789 assertions** (`Product/`, `Livewire/Customers/`, `Api/V1/`) incluindo os 3 testes novos F17 (PlanApi 404, AppCatalogSync fallback, resolver groups []). **auditor-senior** ([`8aba1a5a`](8aba1a5a-6116-45d1-91a9-d193115747df)) → 0 CRITICAL, 0 HIGH, 2 MEDIUM, 2 LOW. **Findings-alvo validados**: OPS-F16-001 (fallback catalog), CQ-N41-003 (PlanNotFound), CQ-N43-003 (groups override). **Deploy LAB**: SHA `661033e`, `app-catalog:sync` OK 11 apps sem workaround, `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 2 MEDIUM + 2 LOW novos non-blocking em backlog.
 
 ### Findings — Sprint F17 (validação R1)
 

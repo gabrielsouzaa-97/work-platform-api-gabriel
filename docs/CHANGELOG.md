@@ -441,3 +441,11 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-06 00:25** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
 - **2026-07-06 00:28** `ddaded7` — fix(sprint-N40): project tenant user on poll success before reload
 - **2026-07-06 01:44** `d12169f` — feat(sprint-N42): app catalog sync, API, and plan app inheritance
+- **2026-07-06 13:53** `35615ae` — docs(sprint-F17): mark F16/F17 complete in ROADMAP index
+- **2026-07-06 14:07** `661033e` — Merge pull request #142 from SoftwareBeesy/sprint/F17
+- **2026-07-06 14:26** `661033e` — Merge pull request #142 from SoftwareBeesy/sprint/F17
+- **2026-07-06 14:32** `661033e` — Merge pull request #142 from SoftwareBeesy/sprint/F17
+- **2026-07-06 14:42** `661033e` — Merge pull request #142 from SoftwareBeesy/sprint/F17
+- **2026-07-06 15:22** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
+- **2026-07-06 16:15** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)
+- **2026-07-06 16:49** `e8b1ad6` — fix(sprint-F18): remove max_apps; enforce enable apps via plan_apps (#143)

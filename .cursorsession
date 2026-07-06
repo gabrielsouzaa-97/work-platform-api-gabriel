@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-06T17:42:40Z",
+  "ultimo_update": "2026-07-06T19:49:21Z",
   "next_sprint_planned": "F16",
   "modulos": [
     "Core",
@@ -237,34 +237,32 @@
     "verify_status": "green",
     "verify_evidence": "gh pr checks 137 (2026-07-05T22:56Z): Lint, Test Pest, OpenAPI Redocly, Security, coverage-check, security-review — all pass",
     "validation_gate_qa": {
-      "sprint": "F17",
-      "produced_by": "/qa validar F17 (auditor-senior 8aba1a5a)",
+      "sprint": "F18",
+      "produced_by": "/qa validar F18 (auditor-senior bb41562f + auditor-qa 6ba5046a)",
       "result": "APROVADA",
       "validation_round": 1,
       "validation_mode": "revalidation",
       "senior_review_status": "PASS",
-      "scope": "f73c149...661033e (PR #142)",
-      "findings_found": 4,
+      "scope": "661033e...e8b1ad6 (PR #143)",
+      "findings_found": 7,
       "findings_registered": [
-        "CQ-F17-001",
-        "CQ-F17-002",
-        "CQ-F17-003",
-        "CQ-F17-004"
-      ],
-      "findings_validated": [
-        "OPS-F16-001",
-        "CQ-N41-003",
-        "CQ-N43-003"
+        "CQ-F18-001",
+        "QA-F18-002",
+        "CQ-F18-002",
+        "CQ-F18-003",
+        "QA-F18-003",
+        "QA-F18-004",
+        "QA-F18-005"
       ],
       "findings_high_pending": [],
-      "deferred": [
-        "CQ-N43-002"
-      ],
-      "tests_evidence": "Docker Pest Product+Livewire/Customers+Api/V1: 185 passed, 789 assertions (2026-07-06)",
-      "ci_verify": "PR #142 merged; CI green (Lint, Pest, OpenAPI, security, coverage)",
-      "deploy_lab": "SHA 661033e; app-catalog:sync 11 apps sem workaround; /up+/login 200",
-      "last_validated_sha": "661033e7e7d9b3b303491f1d9eb4377b359fae3b",
-      "stamped_at": "2026-07-06T17:15:00Z"
+      "files_modified_outside_findings": 0,
+      "askquestion_shown": true,
+      "contract_source": "bootstrap",
+      "in_contract": [],
+      "tests_evidence": "Pest Docker Product+Api/V1: 120 passed, 591 assertions (2026-07-06)",
+      "deploy_lab": "e8b1ad6; migration drop_max_apps DONE; app-catalog:sync OK; /up+/login 200",
+      "ci_verify": "PR #143 merged; CI green (Lint, Pest, OpenAPI, Security, coverage)",
+      "stamped_at": "2026-07-06T20:00:00Z"
     },
     "validation_gate_qa_campaign_archived": {
       "sprint": "N41+N42+N43",
@@ -289,8 +287,8 @@
       ],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "4b378133a4df90552514abdcac21b1a3ec78ce13",
-      "stamped_at": "2026-07-06T18:13:43Z"
+      "last_validated_sha": "26c748432750f420917d16ee4f02b0caebd6ba28",
+      "stamped_at": "2026-07-06T20:14:20Z"
     }
   },
   "checkpoint_n36_archived": {
