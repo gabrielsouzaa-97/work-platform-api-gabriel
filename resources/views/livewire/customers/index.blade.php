@@ -44,7 +44,7 @@
         <h1 class="page-title">Customers</h1>
         <div style="display:flex;gap:.5rem;align-items:center">
             @can('manage-operators')
-            <button class="btn-secondary" wire:click="resync" wire:loading.attr="disabled" :disabled="$syncing">
+            <button class="btn-secondary" wire:click="resync" wire:loading.attr="disabled" wire:target="resync">
                 <span wire:loading.remove wire:target="resync">↻ Ressincronizar</span>
                 <span wire:loading wire:target="resync">Sincronizando…</span>
             </button>
