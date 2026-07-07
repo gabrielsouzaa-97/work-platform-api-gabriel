@@ -5797,24 +5797,31 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 
 ### Task F21.1 — OpenAPI spec disponível na imagem Docker
 
-**Estado atual**: `Dockerfile` stage `build` remove `docs/` (`rm -rf tests docs …`). `DocsController::spec()` lê `base_path('docs/openapi-external.yaml')` → 404 no LAB/prod. Scalar exibe `Document 'api-1' could not be loaded`.
+**Estado atual**: **causa primária** — `.dockerignore` exclui `docs` do contexto de build, então `COPY . .` nunca leva o spec para a imagem (o `rm -rf tests docs …` do stage `build` é redundante para `docs/`). `DocsController::spec()` lê `base_path('docs/openapi-external.yaml')` → 404 no LAB/prod (target `production`, sem volume de código). Scalar exibe `Document 'api-1' could not be loaded`; badge `Spec vunknown`.
 
 **Estado desejado**: arquivo preservado no artefato final (ex. `storage/app/openapi-external.yaml`); controller resolve via `config('platform.openapi.external_spec_path')` com fallback dev em `docs/`; Pest valida leitura do path de produção.
 
-**Módulo(s) afetado(s)**: `Dockerfile`, `config/platform.php`, `app/Http/Controllers/DocsController.php`, `tests/Feature/Docs/ApiDocsTest.php`
+**Módulo(s) afetado(s)**: `.dockerignore`, `Dockerfile`, `config/platform.php`, `app/Http/Controllers/DocsController.php`, `tests/Feature/Docs/ApiDocsTest.php`
 
 **executor_prompt (M)**:
 ```
-Contexto: N37 entregou Scalar em /docs/api mas o spec 404 na imagem Docker porque docs/ é removido no build.
+Contexto: N37 entregou Scalar em /docs/api mas o spec 404 na imagem Docker. Causa primária:
+.dockerignore exclui `docs` do contexto de build (COPY . . não inclui o spec); o rm -rf docs
+do Dockerfile é secundário/redundante para docs/.
 
-ANTES: DocsController lê base_path('docs/openapi-external.yaml'); Dockerfile faz rm -rf docs.
+ANTES: DocsController lê base_path('docs/openapi-external.yaml'); .dockerignore tem `docs`
+sem exceção; imagem production não contém o arquivo.
 
 DEPOIS:
-1. No Dockerfile build, ANTES de rm -rf docs: cp docs/openapi-external.yaml storage/app/openapi-external.yaml
-2. config/platform.php: openapi.external_spec_path default storage_path('app/openapi-external.yaml')
-3. DocsController usa config com fallback base_path('docs/openapi-external.yaml') para dev local
-4. Teste: admin GET /docs/api/spec → 200 + openapi: 3.0.3 (com arquivo no path de produção)
+1. .dockerignore: adicionar exceção `!docs/openapi-external.yaml` logo após a linha `docs`
+2. Dockerfile stage build, ANTES de rm -rf docs: cp docs/openapi-external.yaml storage/app/openapi-external.yaml
+3. config/platform.php: openapi.external_spec_path default storage_path('app/openapi-external.yaml')
+4. DocsController (spec + resolveSpecVersion) usa config com fallback base_path('docs/openapi-external.yaml') para dev local
+5. Teste: admin GET /docs/api/spec → 200 + openapi: 3.0.3 (com arquivo no path de produção)
+6. Validar build: docker build --target production e conferir /var/www/html/storage/app/openapi-external.yaml na imagem
 
+Atenção: entrypoint.sh/production faz mkdir de storage/framework — garantir que o cp não seja
+sobrescrito por volume de storage no compose (LAB não monta storage; conferir docker-compose.lab.yml).
 Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 ```
 
@@ -5840,6 +5847,7 @@ Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-07 | 0.51   | Sprint F21 planejada — ISSUE-052 (`/docs/api/spec` 404: `.dockerignore` exclui docs do build) + ISSUE-053 (sidebar sem Planos/Fazendas); 4 tasks (1M+3P); gate spec 200 no container + sidebar + smoke RUNBOOK. | `/pmo plan` |
 | 2026-07-06 | 0.50   | Sprints F18–F20 concluídas; N41–N43 marcadas concluídas (ISSUE-051); deploy LAB `2313ea1`. | docs sync pós-F20 |
 | 2026-07-06 | 0.47   | Sprint F18 planejada — remover max_apps; enforcement por plan_apps (decisão produto). | `/pmo plan` via `/rock` |
 | 2026-07-06 | 0.45   | Sprint F16 concluída — ISSUE-051 campanha; PR #141; deploy LAB. | sprint-finalizer |

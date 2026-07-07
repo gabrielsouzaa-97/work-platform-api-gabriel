@@ -72,7 +72,7 @@
 
 ### Descrição
 
-Sprint N37 (ISSUE-047) entregou viewer Scalar em `/docs/api` lendo `base_path('docs/openapi-external.yaml')` via `GET /docs/api/spec`. Localmente e no CI (Pest) passa; na imagem Docker de produção/LAB o spec retorna **404** porque o stage `build` executa `rm -rf tests docs layout .cursor .github` (`Dockerfile:112`). O `.dockerignore` também exclui `docs/` do contexto inicial.
+Sprint N37 (ISSUE-047) entregou viewer Scalar em `/docs/api` lendo `base_path('docs/openapi-external.yaml')` via `GET /docs/api/spec`. Localmente e no CI (Pest) passa; na imagem Docker de produção/LAB o spec retorna **404**. **Causa primária**: `.dockerignore` exclui `docs` do contexto de build — o `COPY . .` do stage `build` nunca leva o spec para a imagem. O `rm -rf tests docs layout .cursor .github` (`Dockerfile:112`) é secundário/redundante para `docs/`. LAB usa `target: production` sem volume de código (`docker-compose.lab.yml`), então só o conteúdo da imagem conta.
 
 Validação pós-deploy N37 (`8e58fed`) checou página `/docs/api` + manifest `docs-api.js` + `/up` 200, mas **não** validou `/docs/api/spec` dentro do container.
 
@@ -84,9 +84,10 @@ Validação pós-deploy N37 (`8e58fed`) checou página `/docs/api` + manifest `d
 
 ### Correção proposta (F21.1)
 
-1. Preservar `openapi-external.yaml` no build (ex.: copiar para `storage/app/openapi-external.yaml` antes do `rm -rf docs`)
-2. `DocsController` ler path via config com fallback dev (`docs/openapi-external.yaml`)
-3. Teste Pest cobrindo path de produção + smoke pós-deploy documentado
+1. `.dockerignore`: exceção `!docs/openapi-external.yaml` após a linha `docs`
+2. `Dockerfile` (stage build): copiar o spec para `storage/app/openapi-external.yaml` antes do `rm -rf docs`
+3. `DocsController` ler path via config com fallback dev (`docs/openapi-external.yaml`)
+4. Teste Pest cobrindo path de produção + smoke pós-deploy documentado
 
 ---
 
