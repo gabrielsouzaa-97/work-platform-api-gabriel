@@ -57,6 +57,62 @@
 | ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
 | ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | **planned — Sprint N40** (2026-07-05; brief PASS_WITH_NOTES) |
 | ISSUE-051 | change_request | Control plane de produto: planos (quotas), tenant com seleção de apps, templates de usuário (papéis/permissões) — API-first, sem apps NC nesta fase | Product, Customers, Livewire, API v1, DB | HIGH | **concluída (fase 1)** — N41–N43 + F16–F20 (2026-07-06); backlog F17 MEDIUM/LOW em FINDINGS |
+| ISSUE-052 | bug | `/docs/api/spec` retorna 404 na imagem Docker de produção/LAB — `openapi-external.yaml` ausente após `rm -rf docs` no Dockerfile | DevOps, Livewire, docs | HIGH | **open** — Sprint F21 planejada (2026-07-07) |
+| ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **open** — Sprint F21 planejada (2026-07-07) |
+
+---
+
+## ISSUE-052 — `/docs/api/spec` 404 na imagem Docker (Scalar não carrega contrato)
+
+- **Tipo**: bug (regressão de empacotamento pós-N37)
+- **Prioridade**: HIGH
+- **Status**: **open** — Sprint F21 planejada (2026-07-07)
+- **Registrado em**: 2026-07-07 (diagnóstico operador LAB — `/docs/api` renderiza Scalar mas spec falha; badge `Spec vunknown`)
+- **Módulos afetados**: `Dockerfile`, `.dockerignore`, `app/Http/Controllers/DocsController.php`, `tests/Feature/Docs/ApiDocsTest.php`
+
+### Descrição
+
+Sprint N37 (ISSUE-047) entregou viewer Scalar em `/docs/api` lendo `base_path('docs/openapi-external.yaml')` via `GET /docs/api/spec`. Localmente e no CI (Pest) passa; na imagem Docker de produção/LAB o spec retorna **404** porque o stage `build` executa `rm -rf tests docs layout .cursor .github` (`Dockerfile:112`). O `.dockerignore` também exclui `docs/` do contexto inicial.
+
+Validação pós-deploy N37 (`8e58fed`) checou página `/docs/api` + manifest `docs-api.js` + `/up` 200, mas **não** validou `/docs/api/spec` dentro do container.
+
+### Evidência
+
+- LAB: `GET /docs/api/spec` → 404 (autenticado como admin)
+- Scalar: `Document 'api-1' could not be loaded`
+- `DocsController::resolveSpecVersion()` → `unknown` (arquivo ilegível no runtime)
+
+### Correção proposta (F21.1)
+
+1. Preservar `openapi-external.yaml` no build (ex.: copiar para `storage/app/openapi-external.yaml` antes do `rm -rf docs`)
+2. `DocsController` ler path via config com fallback dev (`docs/openapi-external.yaml`)
+3. Teste Pest cobrindo path de produção + smoke pós-deploy documentado
+
+---
+
+## ISSUE-053 — Sidebar sem links para Planos e Fazendas
+
+- **Tipo**: bug (gap de UX pós-N41/N18)
+- **Prioridade**: MEDIUM
+- **Status**: **open** — Sprint F21 planejada (2026-07-07)
+- **Registrado em**: 2026-07-07 (operador LAB não encontrou CRUD de planos no menu; URL `/plans` funciona)
+- **Módulos afetados**: `resources/views/layouts/app.blade.php`, `tests/Feature/Livewire/Product/PlansIndexTest.php`, `tests/Feature/Livewire/Farms/FarmCapacityPanelTest.php`
+
+### Descrição
+
+N41.4 entregou Livewire `GET /plans` (gate `manage-operators`) e N18 entregou `GET /farms`, mas `layouts/app.blade.php` não inclui entradas no `$navItems`. N37.4 adicionou padrão de link na sidebar para Documentação API; o mesmo padrão não foi replicado para Product/Farms.
+
+Operador precisa conhecer URL direta — sensação de que “nada foi deployado” apesar do LAB estar em `2313ea1` com N41–N43.
+
+### Correção proposta (F21.2 + F21.3)
+
+1. Adicionar **Planos** (`route: plans.index`, gate `manage-operators`, highlight `plans.*`)
+2. Adicionar **Fazendas** (`route: farms.index`, gate `manage-operators`, highlight `farms.*`)
+3. Testes Pest espelhando `ApiDocsTest` (admin vê / operador não vê)
+
+### Fora de escopo (Sprint N futura)
+
+Painéis admin de **Catálogo** e **Templates** (ISSUE-051 item 7) — hoje só API v1 + pickers em create customer/OCC.
 
 ---
 

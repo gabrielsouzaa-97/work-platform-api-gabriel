@@ -90,6 +90,7 @@
 | F18    | F         | Remover `max_apps`; apps do plano = designação `plan_apps`; enable valida ⊆ plano | **concluída** | 4 | Product, Customers, API v1 | ARCH-7; PR #143; validation R1 APROVADA; deploy LAB `e8b1ad6` | 5724+ |
 | F19    | F         | Correção 7 findings F18 (enable happy path, migration hygiene, plan_apps vazio) | **concluída** | 6 | Product, Database, API v1 | PR #144; validation R1 APROVADA | — |
 | F20    | F         | CQ-F19-001/002 LOW (asserções empty-plan + migration `down()` guard) | **concluída** | 2 | Product, Database | PR #145; deploy LAB `2313ea1` | — |
+| F21    | F         | `/docs/api/spec` 200 na imagem Docker; sidebar Planos+Fazendas; smoke pós-deploy documentado | **planejada** | 4 | DevOps, Livewire, docs | ISSUE-052 + ISSUE-053 | — |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -5775,6 +5776,65 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 |--------|---------|--------|---------------|------------|
 | [x] | P | F20.1 — CQ-F19-001: asserções `assertJsonMissingPath('error')` + AuditLog nos testes empty-plan | laravel-testing | — |
 | [x] | P | F20.2 — CQ-F19-002: guard `down()` migration drop_max_apps | laravel-migration | — |
+
+---
+
+## Sprint F21 — LAB visibility: OpenAPI spec no Docker + sidebar Product/Farms (ISSUE-052 / ISSUE-053)
+
+> Categoria: F
+> Status: **planejada**
+> Gate: imagem Docker de produção serve `GET /docs/api/spec` → 200 com `openapi: 3.0.3` (admin autenticado); badge do viewer mostra versão do spec (não `unknown`); sidebar exibe **Planos** e **Fazendas** só para `manage-operators`; smoke pós-deploy em `RUNBOOK.md` inclui `/docs/api/spec` + `/plans`; CI verde (Pest + Redocly).
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-07. Fonte: diagnóstico operador LAB (Scalar 404 + planos invisíveis no menu).
+> Pré-execução: Quality Brief (`docs/.briefs/F21.brief.md`) + verifier via pipeline `/pmo sprint F21`.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F21.1 — Preservar `openapi-external.yaml` no build Docker + `DocsController` path configurável + teste spec em contexto produção | laravel-docker / api-rest-patterns | — |
+| [ ] | P | F21.2 — Link **Planos** na sidebar (`plans.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
+| [ ] | P | F21.3 — Link **Fazendas** na sidebar (`farms.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
+| [ ] | P | F21.4 — Atualizar smoke pós-deploy (`RUNBOOK.md` + template `OPERATIONS.md`): `/docs/api/spec`, `/plans`, `/farms` | me360-deployer | F21.1 |
+
+### Task F21.1 — OpenAPI spec disponível na imagem Docker
+
+**Estado atual**: `Dockerfile` stage `build` remove `docs/` (`rm -rf tests docs …`). `DocsController::spec()` lê `base_path('docs/openapi-external.yaml')` → 404 no LAB/prod. Scalar exibe `Document 'api-1' could not be loaded`.
+
+**Estado desejado**: arquivo preservado no artefato final (ex. `storage/app/openapi-external.yaml`); controller resolve via `config('platform.openapi.external_spec_path')` com fallback dev em `docs/`; Pest valida leitura do path de produção.
+
+**Módulo(s) afetado(s)**: `Dockerfile`, `config/platform.php`, `app/Http/Controllers/DocsController.php`, `tests/Feature/Docs/ApiDocsTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: N37 entregou Scalar em /docs/api mas o spec 404 na imagem Docker porque docs/ é removido no build.
+
+ANTES: DocsController lê base_path('docs/openapi-external.yaml'); Dockerfile faz rm -rf docs.
+
+DEPOIS:
+1. No Dockerfile build, ANTES de rm -rf docs: cp docs/openapi-external.yaml storage/app/openapi-external.yaml
+2. config/platform.php: openapi.external_spec_path default storage_path('app/openapi-external.yaml')
+3. DocsController usa config com fallback base_path('docs/openapi-external.yaml') para dev local
+4. Teste: admin GET /docs/api/spec → 200 + openapi: 3.0.3 (com arquivo no path de produção)
+
+Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
+```
+
+### Task F21.2 — Sidebar Planos
+
+**Estado atual**: rota `GET /plans` existe (N41.4) mas `$navItems` em `layouts/app.blade.php` não inclui entrada.
+
+**Estado desejado**: item **Planos** visível para admin (`manage-operators`); highlight em `plans.*`; teste Pest admin vê / operador não vê.
+
+### Task F21.3 — Sidebar Fazendas
+
+**Estado atual**: rota `GET /farms` existe (N18) sem entrada no menu.
+
+**Estado desejado**: item **Fazendas** visível para admin; highlight em `farms.*`; teste Pest.
+
+### Task F21.4 — Smoke pós-deploy
+
+**Estado atual**: `RUNBOOK.md` valida só `/up` + login manual; N37/N41 deploys não checaram endpoints de feature no container.
+
+**Estado desejado**: checklist documentado com curl/browser para `/docs/api/spec`, `/plans`, `/farms` (autenticado admin).
 
 ---
 
