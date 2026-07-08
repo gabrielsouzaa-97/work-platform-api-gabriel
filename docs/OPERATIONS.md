@@ -1,5 +1,15 @@
 # Operations log
 
+## 2026-07-08T22:15:00Z — Deploy LAB N44.5 (PR #157 merged — readiness test harness + objectstore migration)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `cf9d7b0` (merge PR #157 `campanha/n56-objectstore-s3` → `main`; inclui `fix(sprint-N44): isolate readiness probe DI in test harness` + migration `add_objectstore_to_customers_table`).
+- **CI:** PR #157 checks green (run `28979263228`) — Characterization, `--group readiness-isolated`, suite completa PASS.
+- **Deploy:** SSH `mecloud360@128.201.61.110`; sync `git archive` tar (`.env` preservado); `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker nginx && up -d`.
+- **Migration:** `2026_07_08_000001_add_objectstore_to_customers_table` — DONE.
+- **Containers:** app/worker/nginx/db/redis healthy pós-deploy.
+- **Smoke:** `GET https://api.lab.mework360.com.br/up` → **200** (`ok`).
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-08T03:40:00Z — Deploy LAB F22-q.2→q.4 (ISSUE-054 follow-ups: modal width + dropdown custom)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `7492358` (conteúdo = `main` `c50c9ea` pós-merge PRs #150/#151/#153): fix `max-w-[32rem]` nos modais (Tailwind v4 `--spacing-lg` colapsava `max-w-lg` para 24px); componente `x-select-menu` (Alpine) substitui `<select>` nativo em `/plans` e `/customers/create` — popup nativo OS-rendered (GTK dark) ignora CSS da página.
