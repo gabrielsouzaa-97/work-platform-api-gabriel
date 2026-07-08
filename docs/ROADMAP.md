@@ -91,7 +91,7 @@
 | F19    | F         | Correção 7 findings F18 (enable happy path, migration hygiene, plan_apps vazio) | **concluída** | 6 | Product, Database, API v1 | PR #144; validation R1 APROVADA | — |
 | F20    | F         | CQ-F19-001/002 LOW (asserções empty-plan + migration `down()` guard) | **concluída** | 2 | Product, Database | PR #145; deploy LAB `2313ea1` | — |
 | F21    | F         | `/docs/api/spec` 200 na imagem Docker; sidebar Planos+Fazendas; smoke pós-deploy documentado | **concluída** | 4 | DevOps, Livewire, docs | ISSUE-052 + ISSUE-053; deploy LAB `95d1152` | — |
-| F22-q  | F         | Contraste dark theme em painéis Product (inputs/selects/tabela Planos) | **concluída** | 2 | Livewire, CSS | ISSUE-054; deploy LAB `308fec4` | — |
+| F22-q  | F         | Contraste dark theme em painéis Product + dropdown custom `x-select-menu` (popup nativo OS-rendered ilegível) | **concluída** | 4 | Livewire, CSS | ISSUE-054; PRs #149/#150/#151/#153; deploy LAB `7492358`; validado pelo operador | — |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -5854,13 +5854,18 @@ Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [x] | M | F22-q.1 — CSS global `input`/`select`/`textarea` + classes nos modais Planos | laravel-livewire | — |
-| [x] | P | F22-q.2 — Teste Pest dark-theme classes no modal create | testing-patterns | F22-q.1 |
+| [x] | M | F22-q.1 — CSS global `input`/`select`/`textarea` + classes nos modais Planos (PR #149) | laravel-livewire | — |
+| [x] | P | F22-q.2 — `max-w-lg`→`max-w-[32rem]` (Tailwind v4 spacing override colapsava modal) + `select option` + apps picker container (PR #150) | laravel-livewire | F22-q.1 |
+| [x] | P | F22-q.3 — `color-scheme: light` no select (tentativa CSS popup nativo) (PR #151) | laravel-livewire | F22-q.2 |
+| [x] | M | F22-q.4 — Componente `x-select-menu` (Alpine listbox) substitui selects nativos em `/plans` + `/customers/create` — popup OS-rendered ignora CSS (PR #153) | laravel-livewire | F22-q.3 |
+
+> **Backlog (sprint futura)**: migrar selects nativos restantes para `x-select-menu` — filtros `/customers` e `/operators`, OccPanel (quota/template), Audit.
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |
 | 2026-07-08 | 0.52   | Sprint F22-q concluída — ISSUE-054 contraste dark theme Planos; deploy LAB `308fec4`. Sprint F21 marcada concluída (`95d1152`). | `/rock` |
 | 2026-07-07 | 0.51   | Sprint F21 planejada — ISSUE-052 (`/docs/api/spec` 404: `.dockerignore` exclui docs do build) + ISSUE-053 (sidebar sem Planos/Fazendas); 4 tasks (1M+3P); gate spec 200 no container + sidebar + smoke RUNBOOK. | `/pmo plan` |
 | 2026-07-06 | 0.50   | Sprints F18–F20 concluídas; N41–N43 marcadas concluídas (ISSUE-051); deploy LAB `2313ea1`. | docs sync pós-F20 |

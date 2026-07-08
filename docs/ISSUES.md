@@ -59,7 +59,7 @@
 | ISSUE-051 | change_request | Control plane de produto: planos (quotas), tenant com seleção de apps, templates de usuário (papéis/permissões) — API-first, sem apps NC nesta fase | Product, Customers, Livewire, API v1, DB | HIGH | **concluída (fase 1)** — N41–N43 + F16–F20 (2026-07-06); backlog F17 MEDIUM/LOW em FINDINGS |
 | ISSUE-052 | bug | `/docs/api/spec` retorna 404 na imagem Docker de produção/LAB — `openapi-external.yaml` ausente após `rm -rf docs` no Dockerfile | DevOps, Livewire, docs | HIGH | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
 | ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
-| ISSUE-054 | bug | Painéis Product admin (Planos etc.) com texto ilegível no dark theme — inputs/selects sem `text-on-surface` | Livewire, Product, CSS | MEDIUM | **fixed (2026-07-08)** — Sprint F22-q; deploy LAB `308fec4` |
+| ISSUE-054 | bug | Painéis Product admin (Planos etc.) com texto ilegível no dark theme — inputs/selects sem `text-on-surface`; popup nativo do `<select>` renderizado pelo OS (GTK dark) ignora CSS | Livewire, Product, CSS | MEDIUM | **fixed (2026-07-08)** — Sprint F22-q (+q.2/q.3/q.4); deploy LAB `7492358`; merge `c50c9ea` (PRs #149/#150/#151/#153); validado pelo operador |
 
 ---
 
@@ -67,20 +67,24 @@
 
 - **Tipo**: bug (UX)
 - **Prioridade**: MEDIUM
-- **Status**: **fixed** (2026-07-08) — Sprint F22-q; deploy LAB `308fec4`
-- **Registrado em**: 2026-07-08 (operador LAB — `/plans` com inputs e tabela quase invisíveis)
-- **Módulos afetados**: `resources/css/app.css`, `resources/views/livewire/product/plans/index.blade.php`, `tests/Feature/Livewire/Product/PlansIndexTest.php`
+- **Status**: **fixed** (2026-07-08) — Sprint F22-q + follow-ups q.2/q.3/q.4; deploy LAB `7492358`; merge `c50c9ea`; **validado pelo operador**
+- **Registrado em**: 2026-07-08 (operador LAB — `/plans` com inputs e tabela quase invisíveis; dropdowns com opções invisíveis)
+- **Módulos afetados**: `resources/css/app.css`, `resources/views/components/select-menu.blade.php` (novo), `resources/views/livewire/product/plans/index.blade.php`, `resources/views/livewire/customers/create.blade.php`, `resources/views/livewire/cluster-servers/index.blade.php`, `tests/Feature/Livewire/Product/PlansIndexTest.php`
 
 ### Descrição
 
-Formulários em `/plans` (e potencialmente futuros painéis Product) usavam `bg-surface-container-lowest` sem `text-on-surface`. O browser renderiza texto escuro/preto sobre fundo `#060e20`, tornando inputs, selects e linhas da tabela ilegíveis.
+Formulários em `/plans` usavam `bg-surface-container-lowest` sem `text-on-surface` (texto escuro sobre `#060e20`). Além disso, o **popup nativo do `<select>`** é renderizado pelo sistema operacional (GTK dark no Linux) e **ignora o CSS da página** — mesmo com `select option { background:#fff; color:#1e293b }` servido corretamente (verificado via curl no asset do LAB), as opções permaneciam ilegíveis.
 
-### Correção (F22-q)
+### Correção (F22-q → q.4, PRs #149/#150/#151/#153)
 
-1. Regra global em `app.css` para `input`/`select`/`textarea` (`color-scheme: dark` + tokens M3)
-2. Classes explícitas nos modais de Planos (padrão `customers/create`)
-3. `tbody` com `text-on-surface` na tabela de planos
-4. Teste Pest validando classes no modal create
+1. **q** (`308fec4`): regra global `input`/`select`/`textarea` + classes M3 nos modais + `tbody text-on-surface`
+2. **q.2** (`244740b`): `max-w-lg`→`max-w-[32rem]` (Tailwind v4 `--spacing-lg` sobrescrevia `max-w-lg` para 24px, colapsando o modal); `select option` explícito; container no apps picker
+3. **q.3** (`e5b158b`): `color-scheme: light` no select (tentativa CSS para o popup)
+4. **q.4** (`c50c9ea`, definitivo): componente **`x-select-menu`** (Blade + Alpine listbox, 100% controlado pelo tema; `$set` preserva hooks `.live`) substituindo selects nativos em `/plans` e `/customers/create`
+
+### Lição aprendida
+
+Popup de `<select>` nativo é OS-rendered — CSS da página não alcança. Em dark theme, usar dropdown customizado (`x-select-menu`). Selects nativos restantes (filtros Customers/Operators, OccPanel, Audit) têm o mesmo risco — migração em sprint futura.
 
 ---
 

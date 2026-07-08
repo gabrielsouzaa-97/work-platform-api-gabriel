@@ -1,5 +1,12 @@
 # Operations log
 
+## 2026-07-08T03:40:00Z — Deploy LAB F22-q.2→q.4 (ISSUE-054 follow-ups: modal width + dropdown custom)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `7492358` (conteúdo = `main` `c50c9ea` pós-merge PRs #150/#151/#153): fix `max-w-[32rem]` nos modais (Tailwind v4 `--spacing-lg` colapsava `max-w-lg` para 24px); componente `x-select-menu` (Alpine) substitui `<select>` nativo em `/plans` e `/customers/create` — popup nativo OS-rendered (GTK dark) ignora CSS da página.
+- **Stack:** `docker compose build app worker nginx && up -d`; sync `deployer_public` volume; view cache limpo.
+- **Smoke:** `/up` 200; asset CSS servido verificado via curl (`color-scheme:light`, `select option` rules presentes); **operador confirmou dropdowns legíveis**.
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-08T01:18:00Z — Deploy LAB pós F22-q (ISSUE-054 dark theme contrast)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `308fec4` (F22-q: CSS global form controls dark theme + modais Planos); deploy via SSH `mecloud360@128.201.61.110`; sync `git archive` tar (preservando `.env`; avisos tar docker-owned — não bloqueante).
