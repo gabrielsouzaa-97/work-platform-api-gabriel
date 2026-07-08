@@ -10,19 +10,44 @@ use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Integration\Adapters\AgentPlatformAdapter;
+use App\Modules\Integration\Adapters\SshPlatformAdapter;
+use App\Modules\Integration\Services\PlatformPortFactory;
+use Illuminate\Support\Facades\Config;
 
 beforeEach(function (): void {
     if (config('app.key') === '' || config('app.key') === null) {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
     }
 
-    config(['services.customer_readiness.probe_timeout_seconds' => 25]);
+    Config::set('services.agent.transport_enabled', false);
+    config([
+        'cache.default' => 'array',
+        'services.customer_readiness.probe_timeout_seconds' => 25,
+    ]);
+
+    resetCustomerReadinessProbeContainer();
 
     $gateway = Mockery::mock(AgentUpstreamGateway::class);
     $gateway->shouldNotReceive('run');
     $gateway->shouldNotReceive('runAsync');
     app()->instance(AgentUpstreamGateway::class, $gateway);
 });
+
+function resetCustomerReadinessProbeContainer(): void
+{
+    app()->forgetInstance(CustomerReadinessProbe::class);
+    app()->forgetInstance(PlatformPortFactory::class);
+    app()->forgetInstance(SshPlatformAdapter::class);
+    app()->forgetInstance(AgentPlatformAdapter::class);
+    app()->forgetInstance(SshClientInterface::class);
+}
+
+function bindCustomerReadinessProbeSsh(SshClientInterface $ssh): void
+{
+    resetCustomerReadinessProbeContainer();
+    app()->instance(SshClientInterface::class, $ssh);
+}
 
 function characterizationProbeCustomer(string $slug = 'char-probe-acme'): Customer
 {
@@ -81,7 +106,7 @@ function characterizationReadinessGateMock(): SshClientInterface
 it('characterizes readiness gates include app:list, user:list, and memail config', function (): void {
     $customer = characterizationProbeCustomer();
 
-    app()->instance(SshClientInterface::class, characterizationReadinessGateMock());
+    bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
     fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
@@ -90,7 +115,7 @@ it('characterizes readiness gates include app:list, user:list, and memail config
 it('characterizes all gates passing returns true', function (): void {
     $customer = characterizationProbeCustomer('char-probe-ok');
 
-    app()->instance(SshClientInterface::class, characterizationReadinessGateMock());
+    bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
     fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
@@ -106,7 +131,7 @@ it('characterizes non-zero exit returns false without throwing', function (): vo
         exitCode: 1,
         parsedJson: null,
     ));
-    app()->instance(SshClientInterface::class, $ssh);
+    bindCustomerReadinessProbeSsh($ssh);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
 });
@@ -116,7 +141,7 @@ it('characterizes SshConnectionException returns false without rethrow', functio
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->once()->andThrow(new SshConnectionException('down'));
-    app()->instance(SshClientInterface::class, $ssh);
+    bindCustomerReadinessProbeSsh($ssh);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
 });
@@ -126,7 +151,7 @@ it('characterizes SshTimeoutException returns false without rethrow', function (
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('timed out'));
-    app()->instance(SshClientInterface::class, $ssh);
+    bindCustomerReadinessProbeSsh($ssh);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
 });
@@ -142,7 +167,7 @@ it('characterizes inactive cluster returns false without SSH call', function ():
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('run');
-    app()->instance(SshClientInterface::class, $ssh);
+    bindCustomerReadinessProbeSsh($ssh);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
 });
