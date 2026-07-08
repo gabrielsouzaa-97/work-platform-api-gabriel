@@ -19,8 +19,6 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
-    Mockery::close();
-
     if (config('app.key') === '' || config('app.key') === null) {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
     }
@@ -31,15 +29,18 @@ beforeEach(function (): void {
         'services.customer_readiness.probe_timeout_seconds' => 25,
     ]);
 
-    Http::swap(new Factory);
-    Http::fake(['*' => Http::response('probe-not-ready', 503)]);
-
     resetCustomerReadinessProbeContainer();
 
     $gateway = Mockery::mock(AgentUpstreamGateway::class);
     $gateway->shouldNotReceive('run');
     $gateway->shouldNotReceive('runAsync');
     app()->instance(AgentUpstreamGateway::class, $gateway);
+});
+
+afterEach(function (): void {
+    Http::swap(app(Factory::class));
+    resetCustomerReadinessProbeContainer();
+    Mockery::close();
 });
 
 function resetCustomerReadinessProbeContainer(): void
