@@ -2,14 +2,43 @@
 
 namespace Tests;
 
+use App\Modules\Agents\Services\AgentTransportResolver;
+use App\Modules\Agents\Services\AgentUpstreamGateway;
+use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Integration\Adapters\AgentPlatformAdapter;
+use App\Modules\Integration\Adapters\SshPlatformAdapter;
+use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\Http;
 
 abstract class TestCase extends BaseTestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
+
+        config([
+            'cache.default' => 'array',
+            'services.agent.transport_enabled' => false,
+        ]);
+        Http::swap(new Factory);
+
+        foreach ([
+            CustomerReadinessProbe::class,
+            PlatformPortFactory::class,
+            SshPlatformAdapter::class,
+            AgentPlatformAdapter::class,
+            SshClientInterface::class,
+            AgentTransportResolver::class,
+            AgentUpstreamGateway::class,
+            TransportObservability::class,
+        ] as $abstract) {
+            $this->app->forgetInstance($abstract);
+        }
 
         $this->withoutVite();
     }
