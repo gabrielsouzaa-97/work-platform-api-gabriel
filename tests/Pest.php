@@ -15,6 +15,7 @@ use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
 use Mockery\MockInterface;
@@ -170,7 +171,7 @@ function fakeReadinessHttp(string $domain, string $path, int $status = 200): voi
 {
     Http::swap(new Factory);
     $needle = rtrim($path, '/');
-    Http::fake(function (\Illuminate\Http\Client\Request $request) use ($domain, $needle, $status) {
+    Http::fake(function (Request $request) use ($domain, $needle, $status) {
         $url = $request->url();
         if (! str_contains($url, $domain) || ! str_contains($url, $needle)) {
             return Http::response('unexpected', 599);
