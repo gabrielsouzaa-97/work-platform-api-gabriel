@@ -10,11 +10,13 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Modules\Agents\Services\AgentTransportResolver;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Http\Client\Factory;
@@ -28,10 +30,13 @@ beforeEach(function (): void {
     app()->forgetInstance(CustomerReadinessProbe::class);
     app()->forgetInstance(PlatformPortFactory::class);
     app()->forgetInstance(SshPlatformAdapter::class);
+    app()->forgetInstance(AgentPlatformAdapter::class);
     app()->forgetInstance(SshClientInterface::class);
+    app()->forgetInstance(AgentTransportResolver::class);
     Http::swap(new Factory);
 });
-it('POST users on provisioning_finishing returns 503 tenant_not_ready', function () {
+
+it('POST users on provisioning_finishing returns 503 tenant_not_ready', function (): void {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
     $customer = Customer::create([
         'slug' => 'ready-gate-'.substr(uniqid(), -6),
