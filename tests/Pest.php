@@ -141,7 +141,19 @@ function fakeReadinessGateR6Http(string $domain, int $status = 200): void
     ]);
 }
 
-function buildCustomerReadinessProbe(SshClientInterface $ssh): CustomerReadinessProbe
+function resetCustomerReadinessProbeContainer(): void
+{
+    app()->forgetInstance(CustomerReadinessProbe::class);
+    app()->forgetInstance(PlatformPortFactory::class);
+    app()->forgetInstance(SshPlatformAdapter::class);
+    app()->forgetInstance(AgentPlatformAdapter::class);
+    app()->forgetInstance(SshClientInterface::class);
+    app()->forgetInstance(AgentTransportResolver::class);
+    app()->forgetInstance(TransportObservability::class);
+    app()->forgetInstance(AgentUpstreamGateway::class);
+}
+
+function makeCustomerReadinessProbeWithSsh(SshClientInterface $ssh): CustomerReadinessProbe
 {
     $observability = new TransportObservability;
     $sshAdapter = new SshPlatformAdapter($ssh, $observability);

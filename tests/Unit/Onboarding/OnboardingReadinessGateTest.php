@@ -41,6 +41,8 @@ beforeEach(function (): void {
     Http::swap(new Factory);
 });
 
+afterEach(fn () => Mockery::close());
+
 function readinessGateOnboarding(string $slug = 'readiness-gate-acme'): Onboarding
 {
     return Onboarding::factory()->create([
@@ -86,7 +88,7 @@ function readinessGateSaga(?CustomerReadinessProbe $probe = null): OnboardingSag
     );
 }
 
-function mockReadinessProbeSsh(int $exitCode): SshClientInterface
+function mockReadinessProbeSsh(int $exitCode): CustomerReadinessProbe
 {
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->andReturnUsing(function (
@@ -102,16 +104,16 @@ function mockReadinessProbeSsh(int $exitCode): SshClientInterface
         );
     });
 
-    return $ssh;
+    return makeCustomerReadinessProbeWithSsh($ssh);
 }
 
 it('advanceAfterProvision marks wait_readiness pending when tenant is not ready', function (): void {
     $slug = 'readiness-not-ready';
     $onboarding = readinessGateOnboarding($slug);
     readinessGateCustomer($slug);
-    $ssh = mockReadinessProbeSsh(1);
+    $probe = mockReadinessProbeSsh(1);
 
-    readinessGateSaga(buildCustomerReadinessProbe($ssh))->advanceAfterProvision($onboarding->fresh());
+    readinessGateSaga($probe)->advanceAfterProvision($onboarding->fresh());
 
     $onboarding->refresh();
     expect($onboarding->current_step)->toBe(OnboardingStep::WaitReadiness)
@@ -139,7 +141,7 @@ it('advanceAfterProvision advances to create_admin when tenant is ready', functi
         ));
     app()->instance(SshClientInterface::class, $ssh);
 
-    readinessGateSaga(buildCustomerReadinessProbe($ssh))->advanceAfterProvision($onboarding->fresh());
+    readinessGateSaga(makeCustomerReadinessProbeWithSsh($ssh))->advanceAfterProvision($onboarding->fresh());
 
     $onboarding->refresh();
     expect($onboarding->current_step)->toBe(OnboardingStep::CreateAdmin)

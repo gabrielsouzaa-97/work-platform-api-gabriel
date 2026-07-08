@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 use App\Models\ClusterServer;
 use App\Models\Customer;
-use App\Modules\Agents\Services\AgentTransportResolver;
-use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
-use App\Modules\Customers\Services\CustomerReadinessProbe;
-use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Dto\ProbeReadinessCommand;
-use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Config;
@@ -37,37 +32,6 @@ afterEach(function (): void {
     resetCustomerReadinessProbeContainer();
     Mockery::close();
 });
-
-function resetCustomerReadinessProbeContainer(): void
-{
-    app()->forgetInstance(CustomerReadinessProbe::class);
-    app()->forgetInstance(PlatformPortFactory::class);
-    app()->forgetInstance(SshPlatformAdapter::class);
-    app()->forgetInstance(AgentPlatformAdapter::class);
-    app()->forgetInstance(SshClientInterface::class);
-    app()->forgetInstance(AgentTransportResolver::class);
-    app()->forgetInstance(TransportObservability::class);
-    app()->forgetInstance(AgentUpstreamGateway::class);
-}
-
-function bindCustomerReadinessProbeSsh(SshClientInterface $ssh): void
-{
-    resetCustomerReadinessProbeContainer();
-    app()->instance(SshClientInterface::class, $ssh);
-}
-
-function makeCustomerReadinessProbeWithSsh(SshClientInterface $ssh): CustomerReadinessProbe
-{
-    $observability = new TransportObservability;
-    $sshAdapter = new SshPlatformAdapter($ssh, $observability);
-    $resolver = new AgentTransportResolver;
-    $agentGateway = Mockery::mock(AgentUpstreamGateway::class);
-    $agentGateway->shouldIgnoreMissing();
-    $agentAdapter = new AgentPlatformAdapter($agentGateway, $resolver, $sshAdapter, $observability);
-    $factory = new PlatformPortFactory($resolver, $sshAdapter, $agentAdapter);
-
-    return new CustomerReadinessProbe($factory);
-}
 
 function characterizationProbeCustomer(string $slug = 'char-probe-acme'): Customer
 {
