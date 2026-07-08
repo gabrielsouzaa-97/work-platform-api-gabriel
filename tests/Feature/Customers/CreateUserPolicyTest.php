@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Operator;
+use App\Models\TenantGroup;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Str;
@@ -90,6 +91,15 @@ it('POST users válido sem admin passa validação e enfileira job', function ()
     $customer = policyCustomer($cluster);
     $operator = policyOperator();
     $jobId = Str::uuid()->toString();
+
+    foreach (['editors', 'financeiro'] as $groupName) {
+        TenantGroup::create([
+            'id' => Str::uuid()->toString(),
+            'customer_slug' => $customer->slug,
+            'name' => $groupName,
+            'origin' => 'api',
+        ]);
+    }
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
