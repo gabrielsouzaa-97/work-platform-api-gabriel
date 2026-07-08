@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 
+it('build emits groups key when groups array is empty (CQ-F17-001)', function (): void {
+    $payload = UserCreateStdinPayload::build(
+        password: 'Secret123!',
+        groups: [],
+    );
+
+    expect($payload)->toHaveKey('groups')
+        ->and($payload['groups'])->toBe([]);
+});
+
 it('builds upstream user create stdin payload with snake_case keys', function () {
     $payload = UserCreateStdinPayload::build(
         password: 'Secret123!',

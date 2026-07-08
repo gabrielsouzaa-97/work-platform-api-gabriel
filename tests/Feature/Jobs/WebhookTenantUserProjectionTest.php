@@ -305,3 +305,38 @@ it('payload_sanitized de users:create não contém password após enqueue', func
         ->and($job->payload_sanitized['groups'] ?? null)->toBe(['editors'])
         ->and($job->payload_sanitized['quota'] ?? null)->toBe('10 GB');
 });
+
+it('webhook job.started após terminal success não altera projeção tenant_users (QA-N40-003)', function (): void {
+    $cluster = projectionCluster();
+    $customer = projectionCustomer($cluster->id, 'acme-ooo-proj');
+    $job = projectionJob($cluster->id, $customer->slug, 'users:create', 'running', [
+        'args' => ['johndoe'],
+        'email' => 'john@acme.com',
+        'groups' => ['editors'],
+    ]);
+
+    $handler = app(WebhookHandler::class);
+    $finishedPayload = projectionFinishedPayload($job);
+
+    $handler->handle($cluster, $finishedPayload);
+
+    $row = TenantUser::where('customer_slug', $customer->slug)
+        ->where('username', 'johndoe')
+        ->first();
+
+    expect($row)->not->toBeNull()
+        ->and($row->email)->toBe('john@acme.com')
+        ->and($row->groups)->toBe(['editors']);
+
+    $handler->handle($cluster, [
+        'event' => 'job.started',
+        'job_id' => $job->job_id,
+        'state' => 'running',
+        'started_at' => now()->toIso8601String(),
+    ]);
+
+    $row->refresh();
+    expect($row->email)->toBe('john@acme.com')
+        ->and($row->groups)->toBe(['editors'])
+        ->and(TenantUser::where('customer_slug', $customer->slug)->count())->toBe(1);
+});

@@ -19,6 +19,7 @@ use App\Modules\Customers\Dto\TenantUserSyncReport;
 use App\Modules\Customers\Services\TenantGroupSyncService;
 use App\Modules\Customers\Services\TenantUserSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Jobs\Services\WebhookHandler;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -519,6 +520,39 @@ it('deleteUser dispara users:delete e limpa input', function () {
         ->assertSet('deleteUsername', '');
 });
 
+it('deleteUser poll até job success recarrega lista removendo usuário da projeção (CQ-N40-003)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+
+    seedOccPanelTenantUser($customer, ['username' => 'johndoe']);
+
+    bindSshAsyncSuccess($jobId);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->assertCount('tenantUsers', 1)
+        ->set('deleteUsername', 'johndoe')
+        ->call('deleteUser');
+
+    Job::query()->where('job_id', $jobId)->update([
+        'state' => 'success',
+        'summary' => ['[INFO] User johndoe deleted'],
+        'finished_at' => now(),
+    ]);
+
+    $component->call('pollPendingUserJob')
+        ->assertSet('successMessage', 'Usuário removido com sucesso.')
+        ->assertCount('tenantUsers', 0);
+
+    expect(TenantUser::query()
+        ->where('customer_slug', $customer->slug)
+        ->where('username', 'johndoe')
+        ->exists())->toBeFalse();
+});
+
 // ── Group create / delete (async lifecycle) ──────────────────────────────────
 
 it('createGroup dispara groups:create e limpa input', function () {
@@ -648,6 +682,64 @@ it('createGroup sucesso seta pendingGroupCreateJobId para poll terminal (CQ-N46-
         ->call('createGroup')
         ->assertSet('pendingGroupCreateJobId', $jobId)
         ->assertSet('groupName', '');
+});
+
+it('pollPendingGroupJob preserva mensagens create e delete no mesmo tick (CQ-F23-003)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $createJobId = Str::uuid()->toString();
+    $deleteJobId = Str::uuid()->toString();
+
+    seedOccPanelTenantGroup($customer, 'stale');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->twice()
+        ->andReturn(
+            new SshResponse(
+                stdout: json_encode(['job_id' => $createJobId]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['job_id' => $createJobId],
+            ),
+            new SshResponse(
+                stdout: json_encode(['job_id' => $deleteJobId]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['job_id' => $deleteJobId],
+            ),
+        );
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'groups')
+        ->set('groupName', 'financeiro')
+        ->call('createGroup')
+        ->assertSet('pendingGroupCreateJobId', $createJobId)
+        ->set('deleteGroupName', 'stale')
+        ->call('deleteGroup')
+        ->assertSet('pendingGroupDeleteJobId', $deleteJobId);
+
+    Job::query()->where('job_id', $createJobId)->update([
+        'state' => 'success',
+        'summary' => ['[INFO] Group financeiro created'],
+        'finished_at' => now(),
+    ]);
+    Job::query()->where('job_id', $deleteJobId)->update([
+        'state' => 'failed',
+        'summary' => ['[INFO] Starting group delete', '[ERROR] group still has members'],
+        'finished_at' => now(),
+        'exit_code' => 1,
+    ]);
+
+    $component->call('pollPendingGroupJob')
+        ->assertSet('pendingGroupCreateJobId', '')
+        ->assertSet('pendingGroupDeleteJobId', '');
+
+    expect($component->get('successMessage'))->not->toBe('')
+        ->and($component->get('errorMessage'))->not->toBe('');
 });
 
 // ── Add user to group → blocked-on-upstream (CQ-F5-007 closure) ─────────────
@@ -999,6 +1091,63 @@ it('createUser poll até job success projeta via TenantUserProjector e recarrega
     expect($projected)->not->toBeNull()
         ->and($projected->origin)->toBe('panel')
         ->and($projected->email)->toBe('new@example.com');
+});
+
+it('createUser poll após webhook terminal projeta usuário sem seed manual (QA-N40-004)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['job_id' => $jobId]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['job_id' => $jobId],
+        ));
+    $ssh->shouldReceive('run')->andReturn(new SshResponse(
+        stdout: '[]',
+        stderr: '',
+        exitCode: 0,
+        parsedJson: [],
+    ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'webhookuser')
+        ->set('userEmail', 'webhook@example.com')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('pendingUserCreateJobId', $jobId);
+
+    expect(TenantUser::query()->where('customer_slug', $customer->slug)->count())->toBe(0);
+
+    $job = Job::query()->where('job_id', $jobId)->first();
+    expect($job)->not->toBeNull();
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $jobId,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ]);
+
+    $component->call('pollPendingUserJob')
+        ->assertSet('pendingUserCreateJobId', '')
+        ->assertSet('successMessage', 'Usuário criado com sucesso.')
+        ->assertCount('tenantUsers', 1)
+        ->assertSet('tenantUsers.0.username', 'webhookuser')
+        ->assertSet('tenantUsers.0.email', 'webhook@example.com');
+
+    expect(TenantUser::query()
+        ->where('customer_slug', $customer->slug)
+        ->where('username', 'webhookuser')
+        ->exists())->toBeTrue();
 });
 
 it('createUser poll job failed com summary → errorMessage inline', function () {

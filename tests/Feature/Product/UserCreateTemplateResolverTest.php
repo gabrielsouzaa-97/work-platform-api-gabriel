@@ -369,3 +369,56 @@ it('POST /api/customers/{slug}/users merges template via UserCreateTemplateResol
         ->assertStatus(202)
         ->assertJsonPath('job_id', $jobId);
 });
+
+it('POST /api/customers/{slug}/users groups null inherits template groups (CQ-F17-003)', function (): void {
+    $cluster = resolverCluster();
+    $slug = 'tpl-null-g-'.substr(uniqid(), -6);
+    $customer = resolverCustomer($slug, $cluster->id);
+    seedResolverTemplate('supervisor');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $jobId = Str::uuid()->toString();
+
+    mockResolverSsh($jobId, function (?string $stdin): bool {
+        $decoded = json_decode($stdin ?? '', true);
+
+        return is_array($decoded)
+            && ($decoded['groups'] ?? null) === ['supervisors', 'staff'];
+    });
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'null-groups',
+            'password' => 'Secret123!',
+            'user_template_slug' => 'supervisor',
+            'groups' => null,
+        ])
+        ->assertStatus(202)
+        ->assertJsonPath('job_id', $jobId);
+});
+
+it('POST /api/customers/{slug}/users groups empty array clears template groups (CQ-F17-003)', function (): void {
+    $cluster = resolverCluster();
+    $slug = 'tpl-empty-g-'.substr(uniqid(), -6);
+    $customer = resolverCustomer($slug, $cluster->id);
+    seedResolverTemplate('supervisor');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $jobId = Str::uuid()->toString();
+
+    mockResolverSsh($jobId, function (?string $stdin): bool {
+        $decoded = json_decode($stdin ?? '', true);
+
+        return is_array($decoded)
+            && array_key_exists('groups', $decoded)
+            && $decoded['groups'] === [];
+    });
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'empty-groups',
+            'password' => 'Secret123!',
+            'user_template_slug' => 'supervisor',
+            'groups' => [],
+        ])
+        ->assertStatus(202)
+        ->assertJsonPath('job_id', $jobId);
+});

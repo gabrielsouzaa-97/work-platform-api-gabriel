@@ -141,6 +141,21 @@ it('sync exclui grupo admin do upstream', function (): void {
         ->toBe(['staff']);
 });
 
+it('sync incrementa updated em cenário misto insert e refresh de synced_at (CQ-F23-002)', function (): void {
+    $cluster = groupSyncCluster();
+    $customer = groupSyncCustomer($cluster, 'grp-sync-mixed');
+
+    groupSyncSeedGroup($customer->slug, 'editors', ['synced_at' => null]);
+
+    bindSyncGroupListViaSsh($customer, ['editors', 'financeiro']);
+
+    $report = app(TenantGroupSyncService::class)->sync($customer);
+
+    expect($report->inserted)->toBe(1)
+        ->and($report->updated)->toBeGreaterThanOrEqual(1)
+        ->and($report->deleted)->toBe(0);
+});
+
 it('sync incrementa updated quando row existente recebe refresh de synced_at (CQ-N46-007)', function (): void {
     $cluster = groupSyncCluster();
     $customer = groupSyncCustomer($cluster, 'grp-sync-updated');
