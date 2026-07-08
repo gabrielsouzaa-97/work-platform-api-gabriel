@@ -142,6 +142,13 @@ function fakeReadinessGateR6Http(string $domain, int $status = 200): void
     ]);
 }
 
+function beginReadinessIsolatedTest(): void
+{
+    resetCustomerReadinessProbeContainer();
+    Http::swap(new Factory);
+    expect((bool) config('services.agent.transport_enabled'))->toBeFalse();
+}
+
 function resetCustomerReadinessProbeContainer(): void
 {
     app()->forgetInstance(CustomerReadinessProbe::class);

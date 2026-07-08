@@ -31,11 +31,13 @@ beforeEach(function (): void {
         'platform.image_mode.default_mode' => false,
         'services.customer_readiness.probe_timeout_seconds' => 25,
     ]);
-    resetCustomerReadinessProbeContainer();
-    Http::swap(new Factory);
+    beginReadinessIsolatedTest();
 });
 
-afterEach(fn () => Mockery::close());
+afterEach(function (): void {
+    Mockery::close();
+    Http::swap(new Factory);
+});
 
 it('POST users on provisioning_finishing returns 503 tenant_not_ready', function (): void {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);

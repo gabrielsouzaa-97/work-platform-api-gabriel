@@ -34,11 +34,13 @@ beforeEach(function (): void {
         'services.customer_readiness.retry_after_seconds' => 60,
         'services.customer_readiness.probe_timeout_seconds' => 25,
     ]);
-    resetCustomerReadinessProbeContainer();
-    Http::swap(new Factory);
+    beginReadinessIsolatedTest();
 });
 
-afterEach(fn () => Mockery::close());
+afterEach(function (): void {
+    Mockery::close();
+    Http::swap(new Factory);
+});
 
 function readinessGateOnboarding(string $slug = 'readiness-gate-acme'): Onboarding
 {
@@ -73,14 +75,14 @@ function readinessGateCustomer(string $slug, string $status = 'provisioning_fini
     ]);
 }
 
-function readinessGateSaga(?CustomerReadinessProbe $probe = null): OnboardingSaga
+function readinessGateSaga(CustomerReadinessProbe $probe): OnboardingSaga
 {
     $provision = Mockery::mock(ProvisionsCustomer::class);
     $provision->shouldIgnoreMissing();
 
     return new OnboardingSaga(
         $provision,
-        $probe ?? app(CustomerReadinessProbe::class),
+        $probe,
         app(LifecycleAsyncAction::class),
         app(PlatformPortFactory::class),
     );
@@ -155,9 +157,8 @@ it('advanceAfterProvision ignores onboarding not at wait_readiness step', functi
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('run');
-    app()->instance(SshClientInterface::class, $ssh);
 
-    readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
+    readinessGateSaga(makeCustomerReadinessProbeWithSsh($ssh))->advanceAfterProvision($onboarding->fresh());
 
     $onboarding->refresh();
     expect($onboarding->current_step)->toBe(OnboardingStep::CreateAdmin);

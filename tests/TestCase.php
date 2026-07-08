@@ -22,8 +22,13 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         config([
+            'app.env' => 'testing',
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => ':memory:',
             'cache.default' => 'array',
+            'session.driver' => 'array',
             'services.agent.transport_enabled' => false,
+            'services.ssh.driver' => 'phpseclib3',
         ]);
         Http::swap(new Factory);
 
@@ -60,6 +65,10 @@ abstract class TestCase extends BaseTestCase
             'app.env' => 'testing',
             'database.default' => 'sqlite',
             'database.connections.sqlite.database' => ':memory:',
+            'cache.default' => 'array',
+            'session.driver' => 'array',
+            'services.agent.transport_enabled' => false,
+            'services.ssh.driver' => 'phpseclib3',
         ]);
 
         // Ensure migrate:fresh runs on the fresh SQLite DB even if a previous
