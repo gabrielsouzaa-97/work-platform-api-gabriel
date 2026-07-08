@@ -73,40 +73,45 @@ function readinessGateCustomer(string $slug, string $status = 'provisioning_fini
     ]);
 }
 
-function readinessGateSaga(): OnboardingSaga
+function readinessGateSaga(?CustomerReadinessProbe $probe = null): OnboardingSaga
 {
     $provision = Mockery::mock(ProvisionsCustomer::class);
     $provision->shouldIgnoreMissing();
 
     return new OnboardingSaga(
         $provision,
-        app(CustomerReadinessProbe::class),
+        $probe ?? app(CustomerReadinessProbe::class),
         app(LifecycleAsyncAction::class),
         app(PlatformPortFactory::class),
     );
 }
 
-function mockReadinessProbeSsh(int $exitCode): void
+function mockReadinessProbeSsh(int $exitCode): SshClientInterface
 {
     $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')
-        ->once()
-        ->andReturn(new SshResponse(
+    $ssh->shouldReceive('run')->andReturnUsing(function (
+        ClusterServer $clusterArg,
+        string $cmd,
+        array $argv,
+    ) use ($exitCode): SshResponse {
+        return new SshResponse(
             stdout: $exitCode === 0 ? '[]' : '',
             stderr: $exitCode === 0 ? '' : 'not ready',
             exitCode: $exitCode,
             parsedJson: $exitCode === 0 ? [] : null,
-        ));
-    app()->instance(SshClientInterface::class, $ssh);
+        );
+    });
+
+    return $ssh;
 }
 
 it('advanceAfterProvision marks wait_readiness pending when tenant is not ready', function (): void {
     $slug = 'readiness-not-ready';
     $onboarding = readinessGateOnboarding($slug);
     readinessGateCustomer($slug);
-    mockReadinessProbeSsh(1);
+    $ssh = mockReadinessProbeSsh(1);
 
-    readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
+    readinessGateSaga(buildCustomerReadinessProbe($ssh))->advanceAfterProvision($onboarding->fresh());
 
     $onboarding->refresh();
     expect($onboarding->current_step)->toBe(OnboardingStep::WaitReadiness)
@@ -122,9 +127,8 @@ it('advanceAfterProvision advances to create_admin when tenant is ready', functi
     Operator::factory()->create();
     $adminJobId = Str::uuid()->toString();
 
-    bindReadinessGateMocks($customer);
-
-    $ssh = app(SshClientInterface::class);
+    $ssh = readinessGateSshMockWithGatesR1ToR5();
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
     $ssh->shouldReceive('runAsync')
         ->once()
         ->andReturn(new SshResponse(
@@ -133,8 +137,9 @@ it('advanceAfterProvision advances to create_admin when tenant is ready', functi
             exitCode: 0,
             parsedJson: ['job_id' => $adminJobId],
         ));
+    app()->instance(SshClientInterface::class, $ssh);
 
-    readinessGateSaga()->advanceAfterProvision($onboarding->fresh());
+    readinessGateSaga(buildCustomerReadinessProbe($ssh))->advanceAfterProvision($onboarding->fresh());
 
     $onboarding->refresh();
     expect($onboarding->current_step)->toBe(OnboardingStep::CreateAdmin)

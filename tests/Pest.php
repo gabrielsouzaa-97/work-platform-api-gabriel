@@ -2,11 +2,19 @@
 
 use App\Models\ClusterServer;
 use App\Models\Customer;
+use App\Modules\Agents\Services\AgentTransportResolver;
+use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Integration\Adapters\AgentPlatformAdapter;
+use App\Modules\Integration\Adapters\SshPlatformAdapter;
+use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
 use Mockery\MockInterface;
@@ -130,6 +138,27 @@ function fakeReadinessGateR6Http(string $domain, int $status = 200): void
 {
     Http::fake([
         "https://{$domain}/apps/mework360_memail/*" => Http::response('OK', $status),
+    ]);
+}
+
+function buildCustomerReadinessProbe(SshClientInterface $ssh): CustomerReadinessProbe
+{
+    $observability = new TransportObservability;
+    $sshAdapter = new SshPlatformAdapter($ssh, $observability);
+    $resolver = new AgentTransportResolver;
+    $agentGateway = Mockery::mock(AgentUpstreamGateway::class);
+    $agentGateway->shouldIgnoreMissing();
+    $agentAdapter = new AgentPlatformAdapter($agentGateway, $resolver, $sshAdapter, $observability);
+    $factory = new PlatformPortFactory($resolver, $sshAdapter, $agentAdapter);
+
+    return new CustomerReadinessProbe($factory);
+}
+
+function fakeReadinessHttp(string $domain, string $path, int $status = 200): void
+{
+    Http::swap(new Factory);
+    Http::fake([
+        "https://{$domain}{$path}*" => Http::response($status === 200 ? 'OK' : 'Error', $status),
     ]);
 }
 

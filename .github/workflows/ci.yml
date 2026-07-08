@@ -127,12 +127,16 @@ jobs:
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
+          CACHE_STORE: array
+          SESSION_DRIVER: array
         run: php artisan test tests/Characterization/Integration/
 
       - name: Run tests
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
+          CACHE_STORE: array
+          SESSION_DRIVER: array
         run: php artisan test
 
   security:

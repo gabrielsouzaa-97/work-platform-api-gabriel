@@ -138,9 +138,7 @@ it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', fu
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
     ]);
 
-    Http::fake([
-        'https://probe-ok.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->times(4)->andReturnUsing(function (
@@ -184,7 +182,7 @@ it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', fu
         return new SshResponse(stdout: '', stderr: 'unexpected occ', exitCode: 1, parsedJson: null);
     });
     app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = buildCustomerReadinessProbe($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE)
@@ -200,12 +198,10 @@ it('ProbeCustomerReadinessJob keeps finishing when R6 meMail HTTP gate fails', f
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
     ]);
 
-    Http::fake([
-        'https://probe-r6.example.com/apps/mework360_memail/*' => Http::response('Service Unavailable', 503),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 503);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = buildCustomerReadinessProbe($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -229,12 +225,10 @@ it('ProbeCustomerReadinessJob promotes to active when R6 meMail HTTP returns 200
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
     ]);
 
-    Http::fake([
-        'https://probe-r6-ok.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = buildCustomerReadinessProbe($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/apps/mework360_memail/'));
@@ -282,7 +276,7 @@ it('ProbeCustomerReadinessJob keeps finishing when memail externalLocation gate 
         return new SshResponse(stdout: '', stderr: 'unexpected', exitCode: 1, parsedJson: null);
     });
     app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = buildCustomerReadinessProbe($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -306,7 +300,7 @@ it('ProbeCustomerReadinessJob keeps finishing when probe returns non-zero exit',
         parsedJson: null,
     ));
     app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = buildCustomerReadinessProbe($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -325,7 +319,7 @@ it('ProbeCustomerReadinessJob marks failed when deadline exceeded', function () 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('run');
     app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = buildCustomerReadinessProbe($ssh);
     (new ProbeCustomerReadinessJob($customer->slug, now()->subSecond()->timestamp))->handle($probe);
 
     expect($customer->fresh()->status)->toBe('failed')
@@ -422,12 +416,10 @@ it('ProbeCustomerReadinessJob promotes image-mode tenant when login HTTP gate re
         'image_mode' => true,
     ]);
 
-    Http::fake([
-        'https://probe-img.example.com/login' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/login', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithoutMemailApp());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithoutMemailApp();
+    $probe = buildCustomerReadinessProbe($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/login'));
@@ -445,12 +437,10 @@ it('ProbeCustomerReadinessJob keeps finishing when image-mode login HTTP gate fa
         'image_mode' => true,
     ]);
 
-    Http::fake([
-        'https://probe-img-fail.example.com/login' => Http::response('Service Unavailable', 500),
-    ]);
+    fakeReadinessHttp($customer->domain, '/login', 500);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = buildCustomerReadinessProbe($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -473,12 +463,10 @@ it('ProbeCustomerReadinessJob grava dois audits com attempt incremental em falha
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
     ]);
 
-    Http::fake([
-        'https://probe-inc.example.com/apps/mework360_memail/*' => Http::response('Service Unavailable', 503),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 503);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = buildCustomerReadinessProbe($ssh);
     $deadline = now()->addHour()->timestamp;
 
     foreach ([1, 2] as $attempt) {
@@ -635,12 +623,10 @@ it('ProbeCustomerReadinessJob promotes tenant when occ-exec shim returns envelop
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
     ]);
 
-    Http::fake([
-        'https://probe-shim.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithOccExecShimEnvelopes());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithOccExecShimEnvelopes();
+    $probe = buildCustomerReadinessProbe($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE)
@@ -657,12 +643,10 @@ it('ProbeCustomerReadinessJob legacy tenant still probes mework360_memail HTTP g
         'image_mode' => false,
     ]);
 
-    Http::fake([
-        'https://probe-legacy.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = buildCustomerReadinessProbe($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/apps/mework360_memail/'));
