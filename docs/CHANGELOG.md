@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **feat(sprint-N45-N46)**: ISSUE-056 — OCC groups UX governance (multi-select, pickers, wire:confirm, membership 501 hidden) + read model `tenant_groups` (webhook projection, sync command, API validation via `TenantGroupMembership`).
 - **fix(sprint-F22-q.4)**: ISSUE-054 definitivo — componente `x-select-menu` (Blade + Alpine listbox) substitui `<select>` nativo em `/plans` e `/customers/create`; popup nativo OS-rendered ignora CSS da página (PR #153, merge `c50c9ea`); validado pelo operador no LAB.
 - **fix(sprint-F22-q.2/q.3)**: modais `max-w-lg`→`max-w-[32rem]` (Tailwind v4 `--spacing-lg` sobrescrevia utilitário para 24px); `select option` + `color-scheme: light`; apps picker com container (PRs #150/#151).
 - **fix(sprint-F22-q)**: ISSUE-054 — contraste dark theme em painéis Product (`/plans`): CSS global para `input`/`select`/`textarea` + classes M3 nos modais; deploy LAB `308fec4`.
@@ -477,3 +478,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-07 22:24** `1b6a216` — docs(sprint-F22-q): close ISSUE-054 and mark F21/F22-q complete
 - **2026-07-07 22:36** `28f39e2` — fix(sprint-F22-q.3): use light color-scheme on native select dropdowns
 - **2026-07-07 23:14** `071096b` — fix(sprint-F22-q.3): replace native selects with custom Alpine dropdown
+- **2026-07-08 17:39** `9644864` — fix(sprint-N44): harden readiness HTTP fakes and CI test env isolation
+- **2026-07-08 18:10** `8862258` — style(sprint-N44): remove unused imports in readiness tests
+- **2026-07-08 18:41** `8862258` — style(sprint-N44): remove unused imports in readiness tests
+- **2026-07-08 18:44** `c908216` — chore: register CI failure on main

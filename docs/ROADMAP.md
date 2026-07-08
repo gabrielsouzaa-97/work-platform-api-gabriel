@@ -106,6 +106,9 @@
 | N41    | N         | Módulo Product fatia 1 — CRUD planos (`plans`+`plan_apps`), `customers.plan_slug` FK, quota default do plano em users:create, scopes `product:*`, API `/plans`, painel admin, seed `default`; CI verde | **concluída** | 6 | Product, Customers, DB, API v1, Livewire | ISSUE-051 fatia 1; PR #138 | — |
 | N42    | N         | Catálogo de apps (`app_catalog_entries` + `app-catalog:sync`); create tenant herda apps do plano; validação apps ⊆ plano ∪ catálogo; picker no painel | **concluída** | 6 | Product, Customers, API v1, Livewire | ISSUE-051 fatia 2; PR #139 | — |
 | N43    | N         | Templates de usuário + PolicyResolver (permissions schema v1, `max_users` → 422 `plan_limit_exceeded`); apps por designação `plan_apps` (F18); `user_template_slug` em API/painel/projeção | **concluída** | 6 | Product, Customers, Occ, API v1 | ISSUE-051 fatia 3; PR #140; validation R1 → F16 | — |
+| N44    | N         | Objectstore S3 no provision via API — bloqueada gate N56 upstream | planejada | 5 | Customers, API v1 | ISSUE-055 | — |
+| N45    | N         | OCC Groups UX Fase 1: UI honesta, confirmações, pickers (ISSUE-056) | **implementada** | 5 | Livewire, Occ | aguarda VERIFY | — |
+| N46    | N         | Read model `tenant_groups` + aba Grupos completa (ISSUE-056) | **implementada** | 6 | Customers, Occ, DB | aguarda VERIFY | — |
 
 ---
 
@@ -5863,6 +5866,8 @@ Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 
 ---
 
+---
+
 ## Sprint N44 — Objectstore S3 no provision via API (ISSUE-055 / ENH-014 Fase B)
 
 > Categoria: N
@@ -5911,8 +5916,40 @@ reuse_targets:
 
 ---
 
+## Sprint N45 — OCC Groups UX Fase 1 (ISSUE-056)
+
+> **Status**: implementada (2026-07-08) — aguarda VERIFY CI
+> Gate: membership 501 oculto; deletes com confirmação; CSV removido; pickers username/grupos; CI verde.
+
+| Status | Tamanho | Tarefa |
+|--------|---------|--------|
+| [x] | P | N45.1 — Ocultar form membership 501 + banner |
+| [x] | P | N45.2 — Confirmação delete user/group |
+| [x] | M | N45.3 — Pickers username (`x-select-menu`) |
+| [x] | M | N45.4 — Multi-select grupos (interim `tenant_users`) |
+| [x] | P | N45.5 — Polish quota/manutenção/template |
+
+---
+
+## Sprint N46 — Read model `tenant_groups` (ISSUE-056)
+
+> **Status**: implementada (2026-07-08) — aguarda VERIFY CI
+> Gate: aba Grupos com projeção local; sync `group:list`; validação existência API+UI; CI verde.
+
+| Status | Tamanho | Tarefa |
+|--------|---------|--------|
+| [x] | P | N46.1 — Migration `tenant_groups` + model |
+| [x] | M | N46.2 — `TenantGroupProjector` + webhook hooks |
+| [x] | M | N46.3 — `tenant-groups:sync` command |
+| [x] | M | N46.4 — OccPanel aba Grupos completa |
+| [x] | P | N46.5 — Validação `CreateUserRequest` + OccPanel |
+| [x] | P | N46.6 — Docs DATABASE.md + db-schema.dbml |
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.55   | Sprints N45+N46 implementadas — ISSUE-056 UX OCC Grupos (DESIGN.md §9); aguarda VERIFY CI. | `/rock` |
 | 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |
 | 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |
 | 2026-07-08 | 0.52   | Sprint F22-q concluída — ISSUE-054 contraste dark theme Planos; deploy LAB `308fec4`. Sprint F21 marcada concluída (`95d1152`). | `/rock` |

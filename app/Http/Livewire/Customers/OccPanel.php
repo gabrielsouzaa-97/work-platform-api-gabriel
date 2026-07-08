@@ -8,6 +8,7 @@ use App\Http\Exceptions\RenderDomainError;
 use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Models\TenantGroup;
 use App\Models\TenantUser;
 use App\Models\UserTemplate;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
@@ -18,9 +19,12 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Customers\Services\TenantGroupSyncService;
 use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Services\TenantUserSyncService;
 use App\Modules\Customers\Support\OccQuotaValue;
+use App\Modules\Customers\Support\TenantGroupListParser;
+use App\Modules\Customers\Support\TenantKnownGroups;
 use App\Modules\Customers\Support\TenantUserListParser;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
@@ -31,6 +35,7 @@ use App\Modules\Product\Services\UserCreateTemplateResolver;
 use App\Modules\Product\Validation\ActiveUserTemplate;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -95,7 +100,8 @@ class OccPanel extends Component
 
     public string $userEmail = '';
 
-    public string $userGroups = ''; // comma-separated
+    /** @var list<string> */
+    public array $userGroupSelection = [];
 
     public string $userTemplateSlug = '';
 
@@ -121,6 +127,13 @@ class OccPanel extends Component
 
     public string $deleteGroupName = '';
 
+    /** @var array<int, array{name: string, origin: string}> */
+    public array $tenantGroups = [];
+
+    public bool $groupsLoading = false;
+
+    public string $groupsError = '';
+
     public string $successMessage = '';
 
     public string $errorMessage = '';
@@ -139,15 +152,21 @@ class OccPanel extends Component
         if ($tab === 'users') {
             $this->loadUsers();
         }
+
+        if ($tab === 'groups') {
+            $this->loadGroups();
+        }
     }
 
     public function updatedTab(): void
     {
-        if ($this->tab !== 'users') {
-            return;
+        if ($this->tab === 'users') {
+            $this->loadUsers();
         }
 
-        $this->loadUsers();
+        if ($this->tab === 'groups') {
+            $this->loadGroups();
+        }
     }
 
     // ── Quota ────────────────────────────────────────────────────────────────
@@ -156,7 +175,13 @@ class OccPanel extends Component
     {
         $this->validate([
             'quotaValue' => ['required', 'string', 'regex:/^(\d+(\.\d+)?\s*(GB|MB|KB)|none|default)$/i'],
-            'quotaUsername' => ['nullable', 'string', 'max:64', 'regex:/^[a-zA-Z0-9._@-]*$/'],
+            'quotaUsername' => [
+                Rule::requiredIf(fn (): bool => $this->quotaScope === 'user'),
+                'nullable',
+                'string',
+                'max:64',
+                'regex:/^[a-zA-Z0-9._@-]*$/',
+            ],
         ]);
 
         $this->clearMessages();
@@ -303,12 +328,52 @@ class OccPanel extends Component
         }
     }
 
+    public function loadGroups(): void
+    {
+        $this->groupsLoading = true;
+        $this->groupsError = '';
+
+        try {
+            $rows = TenantGroup::query()
+                ->where('customer_slug', $this->customer->slug)
+                ->orderBy('name')
+                ->get();
+
+            $this->tenantGroups = $rows
+                ->map(static fn (TenantGroup $group): array => TenantGroupListParser::toDisplayRow($group))
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            $this->tenantGroups = [];
+            $this->groupsError = $this->formatError($e);
+        } finally {
+            $this->groupsLoading = false;
+        }
+    }
+
+    public function syncGroups(TenantGroupSyncService $sync): void
+    {
+        $this->groupsLoading = true;
+        $this->groupsError = '';
+
+        try {
+            $sync->sync($this->customer);
+            $this->loadGroups();
+        } catch (\Throwable $e) {
+            $this->groupsError = $this->formatError($e);
+        } finally {
+            $this->groupsLoading = false;
+        }
+    }
+
     public function createUser(
         LifecycleAsyncAction $action,
         UserCreateTemplateResolver $templateResolver,
         PolicyResolver $policyResolver,
     ): void {
         try {
+            $knownGroups = TenantKnownGroups::forCustomer($this->customer->slug);
+
             $this->validate([
                 'userUsername' => [
                     'required',
@@ -322,14 +387,24 @@ class OccPanel extends Component
                     },
                 ],
                 'userEmail' => ['nullable', 'email'],
-                'userGroups' => [
-                    'nullable',
-                    'string',
-                    function (string $attribute, mixed $value, \Closure $fail): void {
-                        $groups = array_map('trim', explode(',', (string) $value));
-                        foreach ($groups as $group) {
-                            if ($group !== '' && strtolower($group) === 'admin') {
+                'userGroupSelection' => [
+                    'array',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($knownGroups): void {
+                        if (! is_array($value)) {
+                            return;
+                        }
+
+                        foreach ($value as $group) {
+                            if (strtolower((string) $group) === 'admin') {
                                 $fail('Grupo admin é reservado da plataforma.');
+
+                                return;
+                            }
+
+                            if (! in_array((string) $group, $knownGroups, true)) {
+                                $fail("Grupo '{$group}' não encontrado. Crie o grupo antes de atribuí-lo.");
+
+                                return;
                             }
                         }
                     },
@@ -349,11 +424,9 @@ class OccPanel extends Component
             $actor = auth()->user();
             $policyResolver->assertCanCreateUser($this->customer, $actor);
 
-            $groups = array_values(array_filter(
-                array_map('trim', explode(',', $this->userGroups)),
-                static fn (string $g): bool => $g !== '',
-            ));
-            $explicitGroups = $this->userGroups !== '' ? $groups : null;
+            $explicitGroups = $this->userGroupSelection !== []
+                ? array_values($this->userGroupSelection)
+                : null;
             $templateSlug = $this->userTemplateSlug !== '' ? $this->userTemplateSlug : null;
             $resolved = $templateResolver->resolve($templateSlug, $explicitGroups, null);
 
@@ -386,7 +459,8 @@ class OccPanel extends Component
             $this->pendingUserCreateJobId = $job->job_id;
             $this->pendingUserCreateJobStartedAt = now()->timestamp;
             $this->successMessage = "Usuário enfileirado — job {$job->job_id}.";
-            $this->userUsername = $this->userEmail = $this->userGroups = $this->userTemplateSlug = '';
+            $this->userUsername = $this->userEmail = $this->userTemplateSlug = '';
+            $this->userGroupSelection = [];
         } catch (ValidationException $e) {
             throw $e;
         } catch (PlanLimitExceededException) {
@@ -454,7 +528,7 @@ class OccPanel extends Component
         $actor = auth()->user();
 
         try {
-            $job = $action->execute($this->customer, 'groups:create', [$this->groupName], null, $actor);
+            $job = $action->execute($this->customer, 'groups:create', [$this->groupName], null, $actor, 'panel');
             $this->successMessage = "Grupo enfileirado — job {$job->job_id}.";
             $this->groupName = '';
         } catch (\Throwable $e) {
@@ -474,7 +548,7 @@ class OccPanel extends Component
         $actor = auth()->user();
 
         try {
-            $job = $action->execute($this->customer, 'groups:delete', [$this->deleteGroupName], null, $actor);
+            $job = $action->execute($this->customer, 'groups:delete', [$this->deleteGroupName], null, $actor, 'panel');
             $this->successMessage = "Deleção de grupo enfileirada — job {$job->job_id}.";
             $this->deleteGroupName = '';
         } catch (\Throwable $e) {
@@ -497,12 +571,25 @@ class OccPanel extends Component
 
     public function render(): View
     {
+        $customerSlug = $this->customer->slug;
+
         return view('livewire.customers.occ-panel', [
             'quotaOptions' => OccPassthroughService::quotaOptions(),
             'userTemplates' => UserTemplate::query()
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['slug', 'name']),
+            'knownGroups' => TenantKnownGroups::forCustomer($customerSlug),
+            'usernameOptions' => TenantUser::query()
+                ->where('customer_slug', $customerSlug)
+                ->orderBy('username')
+                ->pluck('username', 'username')
+                ->all(),
+            'groupOptions' => TenantGroup::query()
+                ->where('customer_slug', $customerSlug)
+                ->orderBy('name')
+                ->pluck('name', 'name')
+                ->all(),
         ]);
     }
 

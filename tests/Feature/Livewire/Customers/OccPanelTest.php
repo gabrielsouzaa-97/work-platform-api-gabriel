@@ -8,12 +8,15 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Models\TenantGroup;
 use App\Models\TenantUser;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Dto\TenantGroupSyncReport;
 use App\Modules\Customers\Dto\TenantUserSyncReport;
+use App\Modules\Customers\Services\TenantGroupSyncService;
 use App\Modules\Customers\Services\TenantUserSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Carbon\Carbon;
@@ -103,6 +106,16 @@ function seedOccPanelTenantUser(Customer $customer, array $attrs = []): TenantUs
         'email' => 'alice@example.com',
         'quota' => '5 GB',
         'groups' => ['users'],
+        'origin' => 'api',
+    ], $attrs));
+}
+
+function seedOccPanelTenantGroup(Customer $customer, string $name, array $attrs = []): TenantGroup
+{
+    return TenantGroup::create(array_merge([
+        'id' => Str::uuid()->toString(),
+        'customer_slug' => $customer->slug,
+        'name' => $name,
         'origin' => 'api',
     ], $attrs));
 }
@@ -331,6 +344,8 @@ it('createUser dispara LifecycleAsyncAction com stdin payload e seta successMess
     $operator = makeOccPanelOperator();
     $jobId = Str::uuid()->toString();
 
+    seedOccPanelTenantGroup($customer, 'editors');
+
     // Real action runs; assert the SSH boundary receives the expected stdin payload.
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('runAsync')
@@ -358,7 +373,7 @@ it('createUser dispara LifecycleAsyncAction com stdin payload e seta successMess
         ->test(OccPanel::class, ['slug' => $customer->slug])
         ->set('userUsername', 'johndoe')
         ->set('userEmail', 'john@acme.com')
-        ->set('userGroups', 'editors')
+        ->set('userGroupSelection', ['editors'])
         ->set('userPasswordPlain', 'Secret123!')
         ->call('createUser')
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.")
@@ -550,19 +565,19 @@ it('createGroup com SshRemoteException exit 4 → "Recurso já existe"', functio
 
 // ── Add user to group → blocked-on-upstream (CQ-F5-007 closure) ─────────────
 
-it('addUserToGroup → BlockedOnUpstreamException renderiza mensagem amigável (CQ-F5-007)', function () {
+it('addUserToGroup → mensagem upstream pendente sem SSH (CQ-F5-007)', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
 
-    // BlockedOnUpstreamException is thrown by JobTypeTranslator BEFORE SSH is invoked.
-    // No SSH call should happen — the defensive contract verified end-to-end.
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('runAsync');
     app()->instance(SshClientInterface::class, $ssh);
 
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'groups')
+        ->assertSee('Membership usuário↔grupo estará disponível em release futura')
         ->set('groupAddUsername', 'johndoe')
         ->set('groupAddTarget', 'editors')
         ->call('addUserToGroup')
@@ -570,6 +585,76 @@ it('addUserToGroup → BlockedOnUpstreamException renderiza mensagem amigável (
         ->assertSet('successMessage', '');
 
     expect(IdempotencyKey::where('cmd', 'groups:add')->count())->toBe(0);
+});
+
+it('deleteUser e deleteGroup exibem wire:confirm com nome do alvo', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    seedOccPanelTenantUser($customer, ['username' => 'johndoe']);
+    seedOccPanelTenantGroup($customer, 'editors');
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'users')
+        ->set('deleteUsername', 'johndoe')
+        ->assertSeeHtml('wire:confirm="Remover o usuário \'johndoe\'? Esta ação não pode ser desfeita."')
+        ->call('setTab', 'groups')
+        ->set('deleteGroupName', 'editors')
+        ->assertSeeHtml('wire:confirm="Remover o grupo \'editors\'? Esta ação não pode ser desfeita."');
+});
+
+// ── Group list (N46.4 — projeção local tenant_groups) ───────────────────────
+
+it('loadGroups lê projeção local sem SSH e renderiza tabela', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    seedOccPanelTenantGroup($customer, 'editors', ['origin' => 'panel']);
+    seedOccPanelTenantGroup($customer, 'staff', ['origin' => 'sync']);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'groups')
+        ->assertSet('groupsLoading', false)
+        ->assertCount('tenantGroups', 2)
+        ->assertSee('editors')
+        ->assertSee('staff');
+});
+
+it('syncGroups chama TenantGroupSyncService mockado e recarrega lista local', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    seedOccPanelTenantGroup($customer, 'editors');
+
+    $sync = Mockery::mock(TenantGroupSyncService::class);
+    $sync->shouldReceive('sync')
+        ->once()
+        ->with(Mockery::on(fn (Customer $c) => $c->slug === $customer->slug))
+        ->andReturnUsing(function () use ($customer): TenantGroupSyncReport {
+            seedOccPanelTenantGroup($customer, 'financeiro', ['origin' => 'sync']);
+
+            $report = new TenantGroupSyncReport;
+            $report->inserted = 1;
+
+            return $report;
+        });
+    app()->instance(TenantGroupSyncService::class, $sync);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'groups')
+        ->call('syncGroups')
+        ->assertCount('tenantGroups', 2)
+        ->assertSee('financeiro')
+        ->assertSet('groupsError', '');
 });
 
 // ── User list (N40.4 — projeção local tenant_users) ─────────────────────────
@@ -648,7 +733,28 @@ it('createUser com username admin → validação rejeita antes de SSH', functio
         ->assertHasErrors(['userUsername']);
 });
 
-it('createUser com userGroups admin → validação rejeita antes de SSH', function () {
+it('createUser com userGroupSelection admin → validação rejeita antes de SSH', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    seedOccPanelTenantGroup($customer, 'editors');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'johndoe')
+        ->set('userGroupSelection', ['admin'])
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertHasErrors(['userGroupSelection']);
+});
+
+it('createUser com grupo desconhecido → validação rejeita antes de SSH', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
     $operator = makeOccPanelOperator();
@@ -661,10 +767,42 @@ it('createUser com userGroups admin → validação rejeita antes de SSH', funct
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
         ->set('userUsername', 'johndoe')
-        ->set('userGroups', 'editors, admin')
+        ->set('userGroupSelection', ['unknown-group'])
         ->set('userPasswordPlain', 'Secret123!')
         ->call('createUser')
-        ->assertHasErrors(['userGroups']);
+        ->assertHasErrors(['userGroupSelection']);
+});
+
+it('createUser com userGroupSelection vazio herda template sem enviar groups explícitos', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($clusterArg, $cmd, $args, $stdin) {
+            $decoded = json_decode($stdin ?? '', true);
+
+            return is_array($decoded)
+                && ! array_key_exists('groups', $decoded);
+        })
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['job_id' => $jobId]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['job_id' => $jobId],
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'johndoe')
+        ->set('userGroupSelection', [])
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
 });
 
 it('loadUsers com projeção vazia exibe empty-state com hint de sync', function () {

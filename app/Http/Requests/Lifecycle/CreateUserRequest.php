@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Lifecycle;
 
+use App\Models\Customer;
+use App\Modules\Customers\Validation\TenantGroupMembership;
 use App\Modules\Product\Validation\ActiveUserTemplate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
@@ -29,11 +31,11 @@ class CreateUserRequest extends FormRequest
 
     public function rules(): array
     {
-        $forbiddenAdminGroup = function (string $attribute, mixed $value, \Closure $fail): void {
-            if (strtolower((string) $value) === 'admin') {
-                $fail('Grupo admin é reservado da plataforma.');
-            }
-        };
+        $customer = $this->route('customer');
+        $customerSlug = $customer instanceof Customer
+            ? $customer->slug
+            : (string) $customer;
+        $groupMembership = new TenantGroupMembership($customerSlug);
 
         return [
             'username' => [
@@ -53,11 +55,11 @@ class CreateUserRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'quota' => ['nullable', 'string', 'regex:/^(\d+(\.\d+)?\s*(GB|MB|KB)|\d+(GB|MB|KB)|none|default|unlimited)$/i'],
             'groups' => ['nullable', 'array'],
-            'groups.*' => ['string', 'max:256', $forbiddenAdminGroup],
+            'groups.*' => ['string', 'max:256', $groupMembership],
             'subadmin_groups' => ['nullable', 'array'],
-            'subadmin_groups.*' => ['string', 'max:256', $forbiddenAdminGroup],
+            'subadmin_groups.*' => ['string', 'max:256', $groupMembership],
             'subadmin' => ['nullable', 'array'],
-            'subadmin.*' => ['string', 'max:256', $forbiddenAdminGroup],
+            'subadmin.*' => ['string', 'max:256', $groupMembership],
             'user_template_slug' => ['nullable', 'string', 'max:64', new ActiveUserTemplate],
         ];
     }

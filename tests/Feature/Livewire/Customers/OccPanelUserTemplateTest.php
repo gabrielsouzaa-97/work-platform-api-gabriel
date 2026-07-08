@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
 use App\Models\Plan;
+use App\Models\TenantGroup;
 use App\Models\TenantUser;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
@@ -123,11 +124,17 @@ it('createUser with selected template merges groups into upstream stdin', functi
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
 });
 
-it('createUser explicit userGroups override selected template groups', function (): void {
+it('createUser explicit userGroupSelection override selected template groups', function (): void {
     $cluster = occTemplateCluster();
     $customer = occTemplateCustomer($cluster);
     $operator = occTemplateOperator();
     seedOccUserTemplate('supervisor');
+    TenantGroup::create([
+        'id' => Str::uuid()->toString(),
+        'customer_slug' => $customer->slug,
+        'name' => 'financeiro',
+        'origin' => 'api',
+    ]);
     $jobId = Str::uuid()->toString();
 
     bindOccTemplateSsh($jobId, function (?string $stdin): bool {
@@ -142,7 +149,7 @@ it('createUser explicit userGroups override selected template groups', function 
         ->set('userUsername', 'alice')
         ->set('userPasswordPlain', 'Secret123!')
         ->set('userTemplateSlug', 'supervisor')
-        ->set('userGroups', 'financeiro')
+        ->set('userGroupSelection', ['financeiro'])
         ->call('createUser')
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
 });
