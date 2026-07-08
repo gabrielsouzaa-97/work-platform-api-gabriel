@@ -78,6 +78,30 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* Form controls on dark surfaces — browser defaults use dark text on dark bg */
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']),
+textarea {
+    color: var(--color-on-surface);
+}
+
+select {
+    color: var(--color-on-surface);
+    background-color: var(--color-surface-container-lowest);
+    /* Native dropdown popup: light scheme so options stay readable (Chrome/Linux) */
+    color-scheme: light;
+}
+
+select option {
+    background-color: #ffffff;
+    color: #1e293b;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file'])::placeholder,
+textarea::placeholder {
+    color: var(--color-on-surface-variant);
+    opacity: 1;
+}
+
 /* === Material Symbols === */
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';

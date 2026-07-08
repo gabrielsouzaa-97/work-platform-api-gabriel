@@ -29,8 +29,6 @@ class Index extends Component
     #[Url(as: 'search')]
     public string $searchFilter = '';
 
-    public bool $syncing = false;
-
     public function updatingStatusFilter(): void
     {
         $this->resetPage();
@@ -50,8 +48,6 @@ class Index extends Component
     {
         Gate::authorize('manage-operators');
 
-        $this->syncing = true;
-
         $clusters = $this->clusterFilter
             ? ClusterServer::where('id', $this->clusterFilter)->where('status', 'active')->get()
             : ClusterServer::where('status', 'active')->get();
@@ -64,7 +60,6 @@ class Index extends Component
             }
         }
 
-        $this->syncing = false;
         $this->dispatch('toast', type: 'success', msg: 'Sincronização concluída.');
     }
 

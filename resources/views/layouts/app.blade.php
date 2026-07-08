@@ -86,6 +86,8 @@
                 ['icon' => 'groups',        'label' => 'Clientes',               'route' => 'customers.index',     'gate' => null],
                 ['icon' => 'cloud_queue',   'label' => 'Logs de Provisionamento','route' => 'queue.index',         'gate' => null],
                 ['icon' => 'vpn_key',       'label' => 'Credenciais',            'route' => 'api-keys.index',      'gate' => 'manage-operators'],
+                ['icon' => 'sell',          'label' => 'Planos',                 'route' => 'plans.index',         'gate' => 'manage-operators'],
+                ['icon' => 'agriculture',   'label' => 'Fazendas',               'route' => 'farms.index',         'gate' => 'manage-operators'],
                 ['icon' => 'api',           'label' => 'Documentação API',       'route' => 'docs.api',            'gate' => 'manage-operators'],
                 ['icon' => 'list_alt',      'label' => 'Logs de Requisição',     'route' => 'audit.index',         'gate' => 'manage-operators'],
                 ['icon' => 'settings',      'label' => 'Configurações',          'route' => 'settings.index',      'gate' => 'manage-cluster-servers'],
@@ -97,7 +99,9 @@
             @php
                 $active = request()->routeIs($item['route'])
                     || ($item['route'] === 'settings.index' && request()->routeIs('cluster-servers.*'))
-                    || ($item['route'] === 'customers.index' && request()->routeIs('customers.*'));
+                    || ($item['route'] === 'customers.index' && request()->routeIs('customers.*'))
+                    || ($item['route'] === 'plans.index' && request()->routeIs('plans.*'))
+                    || ($item['route'] === 'farms.index' && request()->routeIs('farms.*'));
                 $routeUrl = null;
                 try { $routeUrl = route($item['route']); } catch (\Exception) {}
                 $allowed = $item['gate'] === null || auth()->user()?->can($item['gate']);

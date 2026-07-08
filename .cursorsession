@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-06T21:25:57Z",
-  "next_sprint_planned": "F16",
+  "ultimo_update": "2026-07-08T00:34:42Z",
+  "next_sprint_planned": "F21",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -79,10 +79,9 @@
     "Customers"
   ],
   "proximos_passos": [
-    "Merge PR #140 (N43) em main — pré-requisito F16",
-    "/pmo sprint F16 — corrigir 5 HIGH da validação N41–N43 (prioridade CQ-N41-002 sync plan_apps)",
-    "/qa validar F16 após implementação",
-    "sprint-finalizer: marcar N41/N42/N43 concluídas no ROADMAP pós-merge #140"
+    "/pmo sprint F21 — LAB visibility: OpenAPI spec no Docker (ISSUE-052) + sidebar Planos/Fazendas (ISSUE-053)",
+    "Deploy LAB pós-merge F21 + smoke /docs/api/spec, /plans, /farms",
+    "/qa validar F21 após implementação"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -208,12 +207,12 @@
   ],
   "anchor": {
     "persona": "planejador-correcoes",
-    "phase": "Sprint F16 planejada (pendente execução)",
-    "intent": "Corrigir 5 HIGH da validação N41–N43 (ISSUE-051): sync plan_apps, is_default lock, max_users atômico, testes legacy+OccPanel",
-    "changes_made": "/qa validar N41+N42+N43 → COM RESSALVAS; FINDINGS.md atualizado; Sprint F16 inserida no ROADMAP (6 tasks); user escolheu fix_high",
-    "decisions": "Prioridade F16.1 (CQ-N41-002 funcional); merge PR #140 antes de branch F16",
-    "next_steps": "1. /git merge PR #140 → main  2. /pmo sprint F16  3. /qa validar F16",
-    "updated_at": "2026-07-06T14:00:00Z"
+    "phase": "Sprint F21 planejada (pendente execução)",
+    "intent": "Corrigir visibilidade LAB: OpenAPI spec no Docker (ISSUE-052) + sidebar Planos/Fazendas (ISSUE-053) + smoke pós-deploy",
+    "changes_made": "Diagnóstico operador LAB; ISSUE-052/053 registradas; Sprint F21 no ROADMAP (4 tasks); F21.2 Planos parcialmente implementado local",
+    "decisions": "Catálogo/Templates admin UI fora de F21 (Sprint N futura); F21 aprovada completa pelo usuário",
+    "next_steps": "1. /pmo sprint F21  2. deploy LAB  3. /qa validar F21",
+    "updated_at": "2026-07-07T20:25:00Z"
   },
   "autopilot": {
     "active": false
@@ -281,8 +280,8 @@
       "gates": [],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "dbc0494bb5807621445fe9911901a99f7200d374",
-      "stamped_at": "2026-07-06T21:18:36Z"
+      "last_validated_sha": "f287e9e89ad124ce2d1494bea4206d65552b784c",
+      "stamped_at": "2026-07-08T00:47:39Z"
     }
   },
   "checkpoint_n36_archived": {
@@ -479,6 +478,27 @@
     "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-07-07T20:25:00Z",
+      "action": "/pmo plan — ISSUE-052/053 LAB visibility (OpenAPI Docker + sidebar)",
+      "sprints_generated": [
+        "F21"
+      ],
+      "issues_in_scope": [
+        "ISSUE-052",
+        "ISSUE-053"
+      ],
+      "findings_in_scope": [],
+      "split_strategy": "F21.1 Docker spec packaging (M) → F21.2/F21.3 sidebar links (P) → F21.4 smoke RUNBOOK (P); Catálogo/Templates admin UI → Sprint N futura",
+      "tasks_count": {
+        "P": 3,
+        "M": 1,
+        "total": 4
+      },
+      "review_level": "senior+qa",
+      "exec_mode": "pipeline",
+      "gate": "/docs/api/spec 200 no container; sidebar Planos+Fazendas; smoke documentado; CI verde"
+    },
     {
       "timestamp": "2026-07-05T21:15:00Z",
       "action": "/pmo plan — ISSUE-050 read model tenant_users + política sem admin p/ clientes",

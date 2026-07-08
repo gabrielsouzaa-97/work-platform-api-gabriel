@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AppCatalogV1Controller;
 use App\Http\Controllers\Api\V1\BrandingV1Controller;
 use App\Http\Controllers\Api\V1\JobV1Controller;
+use App\Http\Controllers\Api\V1\MaintenanceV1Controller;
 use App\Http\Controllers\Api\V1\OnboardingV1Controller;
 use App\Http\Controllers\Api\V1\PlanV1Controller;
 use App\Http\Controllers\Api\V1\TenantAppsController;
@@ -30,6 +31,10 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
         ->middleware(['api.tenant', 'api.scope:apps:write'])
         ->name('api.v1.tenants.apps.enable');
 
+    Route::get('/tenants/{slug}/users', [TenantUserController::class, 'index'])
+        ->middleware(['api.tenant', 'api.scope:users:read'])
+        ->name('api.v1.tenants.users.index');
+
     Route::post('/tenants/{customer}/users', [TenantUserController::class, 'createUser'])
         ->middleware(['api.tenant', 'api.scope:users:write'])
         ->name('api.v1.tenants.users.create');
@@ -45,6 +50,10 @@ Route::middleware(['auth:web,api-key', 'active.operator', 'throttle:120,1'])->gr
     Route::put('/tenants/{slug}/branding', [BrandingV1Controller::class, 'update'])
         ->middleware(['api.tenant', 'api.scope:branding:write'])
         ->name('api.v1.tenants.branding.update');
+
+    Route::post('/tenants/{slug}/maintenance', [MaintenanceV1Controller::class, 'toggle'])
+        ->middleware(['api.tenant', 'api.scope:maintenance:write'])
+        ->name('api.v1.tenants.maintenance.toggle');
 
     Route::post('/onboarding', [OnboardingV1Controller::class, 'store'])
         ->middleware('api.scope:onboarding:run')

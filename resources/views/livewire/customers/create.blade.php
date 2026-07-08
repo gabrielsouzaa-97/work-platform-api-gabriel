@@ -12,7 +12,7 @@
                 <input
                     id="slug"
                     type="text"
-                    class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary color-scheme-dark"
+                    class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary"
                     wire:model.live.debounce.300ms="slug"
                     placeholder="minha-empresa"
                     autocomplete="off"
@@ -30,7 +30,7 @@
                 <input
                     id="domain"
                     type="text"
-                    class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary color-scheme-dark"
+                    class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary"
                     wire:model.blur="domain"
                     placeholder="minha-empresa.image-pilot.mework360.com.br"
                     autocomplete="off"
@@ -47,34 +47,26 @@
             </div>
 
             <div>
-                <label for="clusterServerId" class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Cluster Server *</label>
-                <select
-                    id="clusterServerId"
-                    class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary cursor-pointer color-scheme-dark"
-                    wire:model.live="clusterServerId"
-                >
-                    <option value="">Selecione…</option>
-                    @foreach ($clusters as $c)
-                        <option value="{{ $c->id }}">{{ $c->name }}</option>
-                    @endforeach
-                </select>
+                <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Cluster Server *</span>
+                <x-select-menu
+                    model="clusterServerId"
+                    :selected="$clusterServerId"
+                    :options="$clusters->pluck('name', 'id')->all()"
+                    placeholder="Selecione…"
+                />
                 @error('clusterServerId')
                     <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
                 @enderror
             </div>
 
             <div>
-                <label for="planSlug" class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Plano</label>
-                <select
-                    id="planSlug"
-                    class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary cursor-pointer color-scheme-dark"
-                    wire:model.live="planSlug"
-                >
-                    <option value="">Selecione…</option>
-                    @foreach ($plans as $plan)
-                        <option value="{{ $plan->slug }}">{{ $plan->name }}</option>
-                    @endforeach
-                </select>
+                <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Plano</span>
+                <x-select-menu
+                    model="planSlug"
+                    :selected="$planSlug"
+                    :options="$plans->pluck('name', 'slug')->all()"
+                    placeholder="Selecione…"
+                />
                 @error('planSlug')
                     <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
                 @enderror
@@ -83,7 +75,7 @@
             @if ($planSlug)
                 <div>
                     <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Apps do plano</span>
-                    <div class="space-y-sm">
+                    <div class="rounded-md border border-outline-variant bg-surface-container-low p-md space-y-sm">
                         @foreach ($this->availableApps as $app)
                             <div class="flex items-start gap-sm">
                                 <input

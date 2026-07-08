@@ -13,6 +13,7 @@ use App\Http\Requests\V1\SetUserQuotaRequest;
 use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Models\Operator;
+use App\Models\TenantUser;
 use App\Modules\Core\Domain\DomainError;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Services\OccPassthroughService;
@@ -31,6 +32,25 @@ final class TenantUserController extends Controller
         private readonly CustomerLifecycleController $lifecycle,
         private readonly OccPassthroughService $occ,
     ) {}
+
+    public function index(string $slug): JsonResponse
+    {
+        $customer = Customer::query()->where('slug', $slug)->first();
+
+        if ($customer === null) {
+            return RenderDomainError::response(DomainError::TenantNotFound);
+        }
+
+        $users = TenantUser::query()
+            ->where('customer_slug', $slug)
+            ->orderBy('username')
+            ->get()
+            ->map(static fn (TenantUser $user): array => self::toApiRow($user))
+            ->values()
+            ->all();
+
+        return $this->v1SyncEnvelope(['users' => $users]);
+    }
 
     public function createUser(Customer $customer, CreateUserRequest $request): JsonResponse
     {
@@ -72,6 +92,27 @@ final class TenantUserController extends Controller
         $this->writeQuotaAuditLog($customer, $username, $request);
 
         return $this->v1SyncEnvelope($result);
+    }
+
+    /**
+     * @return array{username: string, email: string, quota: ?string, groups: list<string>}
+     */
+    private static function toApiRow(TenantUser $user): array
+    {
+        $groups = $user->groups ?? [];
+        $groupList = is_array($groups)
+            ? array_values(array_filter(array_map('strval', $groups), static fn (string $g): bool => $g !== ''))
+            : [];
+
+        $quota = $user->quota;
+        $quotaStr = is_string($quota) && $quota !== '' ? $quota : null;
+
+        return [
+            'username' => $user->username,
+            'email' => (string) ($user->email ?? ''),
+            'quota' => $quotaStr,
+            'groups' => $groupList,
+        ];
     }
 
     private function writeQuotaAuditLog(Customer $customer, string $username, SetUserQuotaRequest $request): void

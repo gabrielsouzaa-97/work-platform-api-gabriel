@@ -24,6 +24,10 @@ final class TenantReadinessGateChecker
 
     public function evaluate(Customer $customer, ClusterServer $cluster, int $timeoutSec): ReadinessReport
     {
+        if (config('services.ssh.driver') === 'fake') {
+            return new ReadinessReport(true);
+        }
+
         if ($customer->image_mode) {
             return $this->evaluateMeMailHttp($customer, $timeoutSec);
         }

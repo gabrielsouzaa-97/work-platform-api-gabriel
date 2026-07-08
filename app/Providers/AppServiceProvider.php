@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\ApiKey;
 use App\Models\ClusterServer;
 use App\Models\Operator;
+use App\Modules\Core\Ssh\FakeSshClient;
 use App\Modules\Core\Ssh\SshClient;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Core\Ssh\SshConnectionPool;
@@ -24,6 +25,7 @@ use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -41,7 +43,16 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(ProvisionsCustomer::class, ProvisionCustomerAction::class);
 
-        $this->app->bind(SshClientInterface::class, SshClient::class);
+        $this->app->bind(SshClientInterface::class, function ($app): SshClientInterface {
+            if (config('services.ssh.driver') === 'fake') {
+                return new FakeSshClient(
+                    autoCompleteJobs: (bool) config('services.ssh.fake.auto_complete_jobs', true),
+                    jobDelaySeconds: (int) config('services.ssh.fake.job_delay_seconds', 2),
+                );
+            }
+
+            return $app->make(SshClient::class);
+        });
 
         $this->app->singleton(JobTypeTranslator::class);
         $this->app->singleton(StateTranslator::class);
@@ -49,12 +60,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SshPlatformAdapter::class);
         $this->app->bind(AgentPlatformAdapter::class);
         $this->app->bind(PlatformPortFactory::class);
+
+        $this->registerFakeSshDevTransport();
     }
 
     public function boot(): void
     {
-        if ($this->app->environment('production')) {
+        if (! $this->app->runningInConsole() && request()->isSecure()) {
             URL::forceScheme('https');
+            config(['session.secure' => true]);
         }
 
         ClusterServer::observe(ClusterServerObserver::class);
@@ -107,5 +121,26 @@ class AppServiceProvider extends ServiceProvider
                 ->get('docs/api.json', $action)
                 ->name('scramble.docs.document'),
         );
+    }
+
+    private function registerFakeSshDevTransport(): void
+    {
+        if (config('services.ssh.driver') !== 'fake') {
+            return;
+        }
+
+        if ($this->app->runningUnitTests()) {
+            return;
+        }
+
+        if (! (bool) config('services.ssh.fake.fake_readiness_http', true)) {
+            return;
+        }
+
+        Http::fake([
+            'https://*' => Http::response('<html>ok</html>', 200, [
+                'Content-Type' => 'text/html',
+            ]),
+        ]);
     }
 }
