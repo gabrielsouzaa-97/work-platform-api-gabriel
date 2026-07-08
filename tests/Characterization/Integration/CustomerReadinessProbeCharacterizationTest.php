@@ -38,9 +38,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
-    Http::swap(app(Factory::class));
-    resetCustomerReadinessProbeContainer();
-    Mockery::close();
+    Http::swap(new Factory);
 });
 
 function resetCustomerReadinessProbeContainer(): void
