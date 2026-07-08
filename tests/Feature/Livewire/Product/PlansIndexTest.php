@@ -8,7 +8,6 @@ use App\Models\Plan;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
-use function Pest\Laravel\get;
 
 it('shows plans sidebar link only for manage-operators', function (): void {
     $admin = Operator::factory()->admin()->create();

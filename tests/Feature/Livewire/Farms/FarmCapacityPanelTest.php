@@ -27,7 +27,6 @@ function seedFarmCapacityPanelRow(
 }
 
 use function Pest\Laravel\actingAs;
-use function Pest\Laravel\get;
 
 it('shows farms sidebar link only for manage-operators', function (): void {
     $admin = Operator::factory()->admin()->create();
