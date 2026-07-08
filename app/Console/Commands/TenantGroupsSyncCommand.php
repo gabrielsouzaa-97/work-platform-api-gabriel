@@ -21,6 +21,8 @@ class TenantGroupsSyncCommand extends Command
             ? Customer::where('slug', $this->option('customer'))->get()
             : Customer::where('status', 'active')->orderBy('slug')->get();
 
+        $hadFailure = false;
+
         foreach ($customers as $customer) {
             try {
                 $report = $svc->sync($customer);
@@ -33,6 +35,7 @@ class TenantGroupsSyncCommand extends Command
                     $report->driftDetected,
                 ));
             } catch (\Throwable $e) {
+                $hadFailure = true;
                 $this->error("[{$customer->slug}] sync failed: {$e->getMessage()}");
                 Log::channel('security')->warning('tenant group sync failed', [
                     'customer' => $customer->slug,
@@ -41,6 +44,6 @@ class TenantGroupsSyncCommand extends Command
             }
         }
 
-        return self::SUCCESS;
+        return $hadFailure ? self::FAILURE : self::SUCCESS;
     }
 }

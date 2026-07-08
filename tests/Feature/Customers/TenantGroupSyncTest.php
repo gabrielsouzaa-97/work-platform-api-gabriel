@@ -141,7 +141,26 @@ it('sync exclui grupo admin do upstream', function (): void {
         ->toBe(['staff']);
 });
 
-it('tenant-groups:sync continua batch quando SSH falha em um customer', function (): void {
+it('sync incrementa updated quando row existente recebe refresh de synced_at (CQ-N46-007)', function (): void {
+    $cluster = groupSyncCluster();
+    $customer = groupSyncCustomer($cluster, 'grp-sync-updated');
+
+    groupSyncSeedGroup($customer->slug, 'editors', ['synced_at' => null]);
+
+    bindSyncGroupListViaSsh($customer, ['editors']);
+
+    $report = app(TenantGroupSyncService::class)->sync($customer);
+
+    expect($report->updated)->toBe(1)
+        ->and($report->inserted)->toBe(0)
+        ->and($report->deleted)->toBe(0);
+
+    $row = TenantGroup::where('customer_slug', $customer->slug)->where('name', 'editors')->first();
+    expect($row)->not->toBeNull()
+        ->and($row->synced_at)->not->toBeNull();
+});
+
+it('tenant-groups:sync retorna FAILURE quando SSH falha em um customer (CQ-N46-008)', function (): void {
     $cluster = groupSyncCluster();
     $customerA = groupSyncCustomer($cluster, 'grp-sync-fail-a');
     $customerB = groupSyncCustomer($cluster, 'grp-sync-fail-b');
@@ -164,7 +183,7 @@ it('tenant-groups:sync continua batch quando SSH falha em um customer', function
 
     $exitCode = Artisan::call('tenant-groups:sync');
 
-    expect($exitCode)->toBe(0)
+    expect($exitCode)->toBe(1)
         ->and(TenantGroup::where('customer_slug', $customerB->slug)->where('name', 'team')->exists())
         ->toBeTrue();
 });

@@ -64,7 +64,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Modules/Customers/Services/TenantGroupProjector.php:13-31`
 - **Sprint origem**: N46 (task N46.2 — TenantGroupProjector + webhook hooks)
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: P
 **Descrição**: `LifecycleAsyncAction` persiste `job_type` via `JobTypeTranslator::cmdToJobType()` como `group_create`/`group_delete`, mas o projector só trata `groups:create`/`groups:delete`. Webhook terminal não projeta `tenant_groups` até sync manual.
 **Correção sugerida**: Alinhar ao `TenantUserProjector`: `GROUP_CREATE_TYPES = ['group_create', 'groups:create']` e `GROUP_DELETE_TYPES = ['group_delete', 'groups:delete']`.
@@ -75,7 +75,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php`
 - **Sprint origem**: N46 (task N46.2)
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: P
 **Descrição**: Fixtures injetam `job_type => 'groups:create'|'groups:delete'`, mas jobs reais usam `group_create`/`group_delete`. Suite passa com CQ-N46-001 ativo.
 **Correção sugerida**: Fixtures com `group_create`/`group_delete` + teste integrado LifecycleAsyncAction → webhook → assert row.
@@ -86,7 +86,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:404-405`
 - **Sprint origem**: N46 (task N46.5)
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: P
 **Descrição**: Painel usa `in_array(..., true)` case-sensitive; API `TenantGroupMembership` compara `LOWER(name)`.
 **Correção sugerida**: Reutilizar `TenantGroupMembership` ou lookup case-insensitive idêntico.
@@ -97,7 +97,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:521-543`
 - **Sprint origem**: N45 (task N45.2/N45.5)
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: P
 **Descrição**: Painel aceita `required|string|max:256` sem `regex:/^[a-zA-Z0-9._\- ]+$/` da API.
 **Correção sugerida**: Extrair regras compartilhadas e aplicar no OccPanel.
@@ -108,7 +108,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Requests/Lifecycle/CreateGroupRequest.php` + `OccPanel::createGroup`
 - **Sprint origem**: N46
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: P
 **Descrição**: Membership bloqueia atribuir `admin`, mas create group não rejeita nome `admin`.
 **Correção sugerida**: Rule case-insensitive `strtolower($name) === 'admin'` em CreateGroupRequest e OccPanel.
@@ -119,7 +119,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:519-536`
 - **Sprint origem**: N45/N46
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: M
 **Descrição**: Após createGroup sucesso não há poll do job nem `loadGroups()` (assimetria com users).
 **Correção sugerida**: Após fix CQ-N46-001, poll terminal group_create/delete ou reload no success.
@@ -130,7 +130,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Modules/Customers/Services/TenantGroupSyncService.php:52-72`
 - **Sprint origem**: N46 (task N46.3)
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: P
 **Motivo LOW**: métrica operacional enganosa; sync funcional.
 **Correção sugerida**: Incrementar `$report->updated++` em row existente ou remover campo.
@@ -141,7 +141,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Console/Commands/TenantGroupsSyncCommand.php:35-44`
 - **Sprint origem**: N46 (task N46.3)
-- **Status**: pendente
+- **Status**: corrigido
 - **Esforço**: P
 **Motivo LOW**: cron não alerta; drift detectável via logs.
 **Correção sugerida**: Retornar FAILURE se qualquer customer falhar.

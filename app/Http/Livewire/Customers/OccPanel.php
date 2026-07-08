@@ -19,6 +19,7 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Services\OccPassthroughService;
+use App\Modules\Customers\Services\TenantGroupProjector;
 use App\Modules\Customers\Services\TenantGroupSyncService;
 use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Services\TenantUserSyncService;
@@ -27,6 +28,7 @@ use App\Modules\Customers\Support\TenantGroupListParser;
 use App\Modules\Customers\Support\TenantKnownGroups;
 use App\Modules\Customers\Support\TenantUserListParser;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
+use App\Modules\Customers\Validation\TenantGroupMembership;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 use App\Modules\Jobs\Support\JobSummaryParser;
 use App\Modules\Product\Exceptions\PlanLimitExceededException;
@@ -45,6 +47,8 @@ use Livewire\Component;
 class OccPanel extends Component
 {
     private const USER_CREATE_POLL_TIMEOUT_SECONDS = 120;
+
+    private const GROUP_JOB_POLL_TIMEOUT_SECONDS = 120;
 
     /** @var list<string> */
     private const JOB_TERMINAL_STATES = ['success', 'failed', 'cancelled'];
@@ -117,6 +121,14 @@ class OccPanel extends Component
     public string $pendingUserCreateJobId = '';
 
     public ?int $pendingUserCreateJobStartedAt = null;
+
+    public string $pendingGroupCreateJobId = '';
+
+    public ?int $pendingGroupCreateJobStartedAt = null;
+
+    public string $pendingGroupDeleteJobId = '';
+
+    public ?int $pendingGroupDeleteJobStartedAt = null;
 
     // Groups tab
     public string $groupName = '';
@@ -372,8 +384,6 @@ class OccPanel extends Component
         PolicyResolver $policyResolver,
     ): void {
         try {
-            $knownGroups = TenantKnownGroups::forCustomer($this->customer->slug);
-
             $this->validate([
                 'userUsername' => [
                     'required',
@@ -389,23 +399,14 @@ class OccPanel extends Component
                 'userEmail' => ['nullable', 'email'],
                 'userGroupSelection' => [
                     'array',
-                    function (string $attribute, mixed $value, \Closure $fail) use ($knownGroups): void {
+                    function (string $attribute, mixed $value, \Closure $fail): void {
                         if (! is_array($value)) {
                             return;
                         }
 
+                        $membership = new TenantGroupMembership($this->customer->slug);
                         foreach ($value as $group) {
-                            if (strtolower((string) $group) === 'admin') {
-                                $fail('Grupo admin é reservado da plataforma.');
-
-                                return;
-                            }
-
-                            if (! in_array((string) $group, $knownGroups, true)) {
-                                $fail("Grupo '{$group}' não encontrado. Crie o grupo antes de atribuí-lo.");
-
-                                return;
-                            }
+                            $membership->validate($attribute, $group, $fail);
                         }
                     },
                 ],
@@ -425,7 +426,7 @@ class OccPanel extends Component
             $policyResolver->assertCanCreateUser($this->customer, $actor);
 
             $explicitGroups = $this->userGroupSelection !== []
-                ? array_values($this->userGroupSelection)
+                ? $this->resolveCanonicalGroupNames($this->userGroupSelection)
                 : null;
             $templateSlug = $this->userTemplateSlug !== '' ? $this->userTemplateSlug : null;
             $resolved = $templateResolver->resolve($templateSlug, $explicitGroups, null);
@@ -474,6 +475,8 @@ class OccPanel extends Component
 
     public function pollPendingUserJob(): void
     {
+        $this->pollPendingGroupJob();
+
         if ($this->pendingUserCreateJobId === '') {
             return;
         }
@@ -519,7 +522,7 @@ class OccPanel extends Component
     public function createGroup(LifecycleAsyncAction $action): void
     {
         $this->validate([
-            'groupName' => ['required', 'string', 'max:256'],
+            'groupName' => $this->groupNameRules(),
         ]);
 
         $this->clearMessages();
@@ -529,6 +532,8 @@ class OccPanel extends Component
 
         try {
             $job = $action->execute($this->customer, 'groups:create', [$this->groupName], null, $actor, 'panel');
+            $this->pendingGroupCreateJobId = $job->job_id;
+            $this->pendingGroupCreateJobStartedAt = now()->timestamp;
             $this->successMessage = "Grupo enfileirado — job {$job->job_id}.";
             $this->groupName = '';
         } catch (\Throwable $e) {
@@ -539,7 +544,7 @@ class OccPanel extends Component
     public function deleteGroup(LifecycleAsyncAction $action): void
     {
         $this->validate([
-            'deleteGroupName' => ['required', 'string', 'max:256'],
+            'deleteGroupName' => $this->groupNameRules(),
         ]);
 
         $this->clearMessages();
@@ -549,10 +554,37 @@ class OccPanel extends Component
 
         try {
             $job = $action->execute($this->customer, 'groups:delete', [$this->deleteGroupName], null, $actor, 'panel');
+            $this->pendingGroupDeleteJobId = $job->job_id;
+            $this->pendingGroupDeleteJobStartedAt = now()->timestamp;
             $this->successMessage = "Deleção de grupo enfileirada — job {$job->job_id}.";
             $this->deleteGroupName = '';
         } catch (\Throwable $e) {
             $this->errorMessage = $this->formatError($e);
+        }
+    }
+
+    public function pollPendingGroupJob(): void
+    {
+        if ($this->pendingGroupCreateJobId !== '') {
+            $this->pollSingleGroupJob(
+                $this->pendingGroupCreateJobId,
+                $this->pendingGroupCreateJobStartedAt,
+                function (): void {
+                    $this->clearPendingGroupCreateJob();
+                },
+                'Grupo criado com sucesso.',
+            );
+        }
+
+        if ($this->pendingGroupDeleteJobId !== '') {
+            $this->pollSingleGroupJob(
+                $this->pendingGroupDeleteJobId,
+                $this->pendingGroupDeleteJobStartedAt,
+                function (): void {
+                    $this->clearPendingGroupDeleteJob();
+                },
+                'Grupo removido com sucesso.',
+            );
         }
     }
 
@@ -595,6 +627,22 @@ class OccPanel extends Component
 
     // ─────────────────────────────────────────────────────────────────────────
 
+    private function resolveCanonicalGroupNames(array $selection): array
+    {
+        return array_values(array_map(
+            fn (string $group): string => $this->canonicalGroupName($group) ?? $group,
+            $selection,
+        ));
+    }
+
+    private function canonicalGroupName(string $group): ?string
+    {
+        return TenantGroup::query()
+            ->where('customer_slug', $this->customer->slug)
+            ->whereRaw('LOWER(name) = ?', [strtolower($group)])
+            ->value('name');
+    }
+
     private function clearMessages(): void
     {
         $this->successMessage = '';
@@ -605,6 +653,90 @@ class OccPanel extends Component
     {
         $this->pendingUserCreateJobId = '';
         $this->pendingUserCreateJobStartedAt = null;
+    }
+
+    private function clearPendingGroupCreateJob(): void
+    {
+        $this->pendingGroupCreateJobId = '';
+        $this->pendingGroupCreateJobStartedAt = null;
+    }
+
+    private function clearPendingGroupDeleteJob(): void
+    {
+        $this->pendingGroupDeleteJobId = '';
+        $this->pendingGroupDeleteJobStartedAt = null;
+    }
+
+    /**
+     * @return list<string|\Closure>
+     */
+    private function groupNameRules(): array
+    {
+        return [
+            'required',
+            'string',
+            'max:256',
+            'regex:/^[a-zA-Z0-9._\- ]+$/',
+            function (string $attribute, mixed $value, \Closure $fail): void {
+                if (strtolower((string) $value) === 'admin') {
+                    $fail('Nome de grupo reservado (admin).');
+                }
+            },
+        ];
+    }
+
+    private function pollSingleGroupJob(
+        string $jobId,
+        ?int $startedAt,
+        \Closure $clearPending,
+        string $successText,
+    ): void {
+        if ($this->isGroupJobPollTimedOut($startedAt)) {
+            $clearPending();
+            $this->clearMessages();
+            $this->errorMessage = "Tempo esgotado — verifique /queue/{$jobId}";
+
+            return;
+        }
+
+        $job = Job::query()->where('job_id', $jobId)->first();
+        if ($job === null || ! in_array($job->state, self::JOB_TERMINAL_STATES, true)) {
+            return;
+        }
+
+        $clearPending();
+        $this->clearMessages();
+
+        if ($job->state === 'success') {
+            $this->projectGroupJobIntoReadModel($job);
+            $this->successMessage = $successText;
+            $this->loadGroups();
+
+            return;
+        }
+
+        $this->errorMessage = JobSummaryParser::failureMessage($job);
+    }
+
+    private function isGroupJobPollTimedOut(?int $startedAt): bool
+    {
+        $anchor = $startedAt ?? now()->timestamp;
+
+        return now()->timestamp - $anchor >= self::GROUP_JOB_POLL_TIMEOUT_SECONDS;
+    }
+
+    private function projectGroupJobIntoReadModel(Job $job): void
+    {
+        try {
+            app(TenantGroupProjector::class)->handleTerminalJob($job, 'success');
+        } catch (\Throwable $e) {
+            Log::warning('tenant_groups.projection.poll_failed', [
+                'job_id' => $job->job_id,
+                'customer_slug' => $job->customer_slug,
+                'job_type' => $job->job_type,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function isUserCreatePollTimedOut(): bool

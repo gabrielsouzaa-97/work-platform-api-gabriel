@@ -1,5 +1,5 @@
 <div
-    @if ($pendingUserCreateJobId !== '')
+    @if ($pendingUserCreateJobId !== '' || $pendingGroupCreateJobId !== '' || $pendingGroupDeleteJobId !== '')
         wire:poll.3s="pollPendingUserJob"
     @endif
     class="space-y-gutter"

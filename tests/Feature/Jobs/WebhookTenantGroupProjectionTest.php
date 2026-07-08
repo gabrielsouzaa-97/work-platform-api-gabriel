@@ -84,10 +84,10 @@ function groupProjectionHmacHeader(string $body, string $secret): string
     return 'sha256='.hash_hmac('sha256', $body, $secret);
 }
 
-it('webhook groups:create success projeta row em tenant_groups com payload_sanitized', function (): void {
+it('webhook group_create success projeta row em tenant_groups com payload_sanitized (CQ-N46-001)', function (): void {
     $cluster = groupProjectionCluster();
     $customer = groupProjectionCustomer($cluster->id);
-    $job = groupProjectionJob($cluster->id, $customer->slug, 'groups:create', payloadSanitized: [
+    $job = groupProjectionJob($cluster->id, $customer->slug, 'group_create', payloadSanitized: [
         'args' => ['editors'],
         'name' => 'editors',
         'origin' => 'panel',
@@ -103,7 +103,7 @@ it('webhook groups:create success projeta row em tenant_groups com payload_sanit
         ->and($row->origin)->toBe('panel');
 });
 
-it('webhook groups:delete success remove row da projeção', function (): void {
+it('webhook group_delete success remove row da projeção (CQ-N46-001)', function (): void {
     $cluster = groupProjectionCluster();
     $customer = groupProjectionCustomer($cluster->id, 'acme-grp-del');
 
@@ -114,7 +114,7 @@ it('webhook groups:delete success remove row da projeção', function (): void {
         'origin' => 'api',
     ]);
 
-    $job = groupProjectionJob($cluster->id, $customer->slug, 'groups:delete', payloadSanitized: [
+    $job = groupProjectionJob($cluster->id, $customer->slug, 'group_delete', payloadSanitized: [
         'args' => ['editors'],
         'name' => 'editors',
     ]);
@@ -128,7 +128,7 @@ it('webhook groups:delete success remove row da projeção', function (): void {
 it('webhook re-entregue com mesmo estado terminal não duplica row na projeção de grupos', function (): void {
     $cluster = groupProjectionCluster();
     $customer = groupProjectionCustomer($cluster->id, 'acme-grp-dup');
-    $job = groupProjectionJob($cluster->id, $customer->slug, 'groups:create', payloadSanitized: [
+    $job = groupProjectionJob($cluster->id, $customer->slug, 'group_create', payloadSanitized: [
         'args' => ['staff'],
         'name' => 'staff',
     ]);
@@ -144,7 +144,7 @@ it('webhook re-entregue com mesmo estado terminal não duplica row na projeção
 it('projector exception de grupos não impede webhook 204 e registra log warning', function (): void {
     $cluster = groupProjectionCluster();
     $customer = groupProjectionCustomer($cluster->id, 'acme-grp-err');
-    $job = groupProjectionJob($cluster->id, $customer->slug, 'groups:create', payloadSanitized: [
+    $job = groupProjectionJob($cluster->id, $customer->slug, 'group_create', payloadSanitized: [
         'args' => ['financeiro'],
         'name' => 'financeiro',
     ]);
@@ -223,19 +223,70 @@ it('payload_sanitized de groups:create inclui group name após enqueue', functio
 
     $job = Job::find($jobId);
     expect($job)->not->toBeNull()
+        ->and($job->job_type)->toBe('group_create')
         ->and($job->payload_sanitized['name'] ?? null)->toBe('editors')
         ->and($job->payload_sanitized['args'] ?? null)->toBe(['editors'])
         ->and($job->payload_sanitized['origin'] ?? null)->toBe('panel');
 });
 
-it('webhook groups:create success preserva propagação Customer.status inalterada', function (): void {
+it('LifecycleAsyncAction group_create terminal webhook projeta row em tenant_groups (CQ-N46-002)', function (): void {
+    $cluster = groupProjectionCluster();
+    $customer = groupProjectionCustomer($cluster->id, 'acme-grp-lifecycle');
+    $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
+    $jobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['job_id' => $jobId]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['job_id' => $jobId],
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    app(LifecycleAsyncAction::class)->execute(
+        $customer,
+        'groups:create',
+        ['financeiro'],
+        null,
+        $operator,
+        'panel',
+    );
+
+    $job = Job::find($jobId);
+    expect($job)->not->toBeNull()
+        ->and($job->job_type)->toBe('group_create');
+
+    app(WebhookHandler::class)->handle($cluster, groupProjectionFinishedPayload($job));
+
+    expect(TenantGroup::where('customer_slug', $customer->slug)->where('name', 'financeiro')->exists())
+        ->toBeTrue();
+});
+
+it('webhook groups:create alias ainda projeta row (compatibilidade regressão)', function (): void {
+    $cluster = groupProjectionCluster();
+    $customer = groupProjectionCustomer($cluster->id, 'acme-grp-alias');
+    $job = groupProjectionJob($cluster->id, $customer->slug, 'groups:create', payloadSanitized: [
+        'args' => ['legacy'],
+        'name' => 'legacy',
+    ]);
+
+    app(WebhookHandler::class)->handle($cluster, groupProjectionFinishedPayload($job));
+
+    expect(TenantGroup::where('customer_slug', $customer->slug)->where('name', 'legacy')->exists())
+        ->toBeTrue();
+});
+
+it('webhook group_create success preserva propagação Customer.status inalterada', function (): void {
     Queue::fake();
 
     $cluster = groupProjectionCluster();
     $customer = groupProjectionCustomer($cluster->id, 'acme-grp-reg');
     Customer::where('slug', $customer->slug)->update(['status' => 'active']);
 
-    $job = groupProjectionJob($cluster->id, $customer->slug, 'groups:create', payloadSanitized: [
+    $job = groupProjectionJob($cluster->id, $customer->slug, 'group_create', payloadSanitized: [
         'args' => ['team'],
         'name' => 'team',
     ]);
