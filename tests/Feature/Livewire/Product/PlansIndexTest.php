@@ -9,6 +9,22 @@ use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
 
+it('shows plans sidebar link only for manage-operators', function (): void {
+    $admin = Operator::factory()->admin()->create();
+    $operador = Operator::factory()->create(['role' => 'operador']);
+
+    actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Planos', false)
+        ->assertSee(route('plans.index'), false);
+
+    actingAs($operador)
+        ->get(route('customers.index'))
+        ->assertOk()
+        ->assertDontSee('Planos', false);
+});
+
 it('admin can access plans index page', function (): void {
     $admin = Operator::factory()->admin()->create();
 

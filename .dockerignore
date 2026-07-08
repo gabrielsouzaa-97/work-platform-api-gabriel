@@ -15,6 +15,7 @@
 
 # Project-only docs and design references
 docs
+!docs/openapi-external.yaml
 layout
 
 # Local environment / secrets
