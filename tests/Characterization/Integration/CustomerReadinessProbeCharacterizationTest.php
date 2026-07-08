@@ -15,6 +15,7 @@ use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Modules\Jobs\Services\TransportObservability;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
@@ -29,7 +30,7 @@ beforeEach(function (): void {
         'services.customer_readiness.probe_timeout_seconds' => 25,
     ]);
 
-    Http::swap(new \Illuminate\Http\Client\Factory);
+    Http::swap(new Factory);
     Http::fake(['*' => Http::response('probe-not-ready', 503)]);
 
     resetCustomerReadinessProbeContainer();
@@ -116,7 +117,7 @@ it('characterizes readiness gates include app:list, user:list, and memail config
     $customer = characterizationProbeCustomer();
 
     bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
-    Http::swap(new \Illuminate\Http\Client\Factory);
+    Http::swap(new Factory);
     fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
@@ -126,7 +127,7 @@ it('characterizes all gates passing returns true', function (): void {
     $customer = characterizationProbeCustomer('char-probe-ok');
 
     bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
-    Http::swap(new \Illuminate\Http\Client\Factory);
+    Http::swap(new Factory);
     fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
