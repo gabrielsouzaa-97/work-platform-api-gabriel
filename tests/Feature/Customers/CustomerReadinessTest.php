@@ -15,12 +15,22 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Integration\Adapters\SshPlatformAdapter;
+use App\Modules\Integration\Services\PlatformPortFactory;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
 
+beforeEach(function (): void {
+    app()->forgetInstance(CustomerReadinessProbe::class);
+    app()->forgetInstance(PlatformPortFactory::class);
+    app()->forgetInstance(SshPlatformAdapter::class);
+    app()->forgetInstance(SshClientInterface::class);
+    Http::swap(new Factory);
+});
 it('POST users on provisioning_finishing returns 503 tenant_not_ready', function () {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
     $customer = Customer::create([

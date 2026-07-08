@@ -11,10 +11,13 @@ use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Actions\LifecycleAsyncAction;
 use App\Modules\Customers\Contracts\ProvisionsCustomer;
 use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
@@ -26,6 +29,12 @@ beforeEach(function (): void {
         'services.customer_readiness.retry_after_seconds' => 60,
         'services.customer_readiness.probe_timeout_seconds' => 25,
     ]);
+
+    app()->forgetInstance(CustomerReadinessProbe::class);
+    app()->forgetInstance(PlatformPortFactory::class);
+    app()->forgetInstance(SshPlatformAdapter::class);
+    app()->forgetInstance(SshClientInterface::class);
+    Http::swap(new Factory);
 });
 
 function readinessGateOnboarding(string $slug = 'readiness-gate-acme'): Onboarding
