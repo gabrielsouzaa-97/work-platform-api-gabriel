@@ -84,6 +84,15 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
             $args[] = '--image-mode';
         }
 
+        if ($payload->usesImageMode() && $payload->usesObjectstore()) {
+            $args[] = '--objectstore';
+
+            $bucket = $payload->objectstoreBucket();
+            if ($bucket !== null) {
+                $args[] = "--objectstore-bucket={$bucket}";
+            }
+        }
+
         // Annexes: payloads that exceed SSH stdin cap go through SFTP staging (Canal B).
         $stdin = [];
         $stagingId = null;
@@ -184,6 +193,8 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
                     'image_mode' => $payload->imageMode,
+                    'objectstore_enabled' => $payload->usesObjectstore(),
+                    'objectstore_bucket' => $payload->objectstoreBucket(),
                     'plan_slug' => $payload->planSlug,
                     'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),
@@ -196,6 +207,8 @@ final class ProvisionCustomerAction implements ProvisionsCustomer
                     'domain' => $payload->domain,
                     'status' => 'provisioning',
                     'image_mode' => $payload->imageMode,
+                    'objectstore_enabled' => $payload->usesObjectstore(),
+                    'objectstore_bucket' => $payload->objectstoreBucket(),
                     'plan_slug' => $payload->planSlug,
                     'mail_provision_payload' => $payload->mail,
                     'last_sync_at' => now(),

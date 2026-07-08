@@ -25,7 +25,21 @@ final readonly class ProvisionPayload
         public bool $legacyVendor = false,
         public bool $imageMode = false,
         public ?string $planSlug = null,
+        /** @var array{enabled: bool, bucket: ?string}|null */
+        public ?array $objectstore = null,
     ) {}
+
+    public function usesObjectstore(): bool
+    {
+        return $this->objectstore !== null && ($this->objectstore['enabled'] ?? false);
+    }
+
+    public function objectstoreBucket(): ?string
+    {
+        $bucket = $this->objectstore['bucket'] ?? null;
+
+        return is_string($bucket) && $bucket !== '' ? $bucket : null;
+    }
 
     public function usesSuiteCatalog(): bool
     {
@@ -71,7 +85,30 @@ final readonly class ProvisionPayload
             legacyVendor: $request->boolean('legacy_vendor', false),
             imageMode: $imageMode,
             planSlug: $request->filled('plan_slug') ? $request->string('plan_slug')->toString() : null,
+            objectstore: self::resolveObjectstorePayload($request),
         );
+    }
+
+    /**
+     * @return array{enabled: bool, bucket: ?string}|null
+     */
+    private static function resolveObjectstorePayload(Request $request): ?array
+    {
+        if (! $request->has('objectstore')) {
+            return null;
+        }
+
+        $objectstore = $request->input('objectstore');
+        if (! is_array($objectstore)) {
+            return null;
+        }
+
+        $bucket = $objectstore['bucket'] ?? null;
+
+        return [
+            'enabled' => (bool) ($objectstore['enabled'] ?? false),
+            'bucket' => is_string($bucket) && $bucket !== '' ? $bucket : null,
+        ];
     }
 
     /**

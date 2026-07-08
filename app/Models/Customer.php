@@ -29,6 +29,8 @@ class Customer extends Model
         'tier',
         'plan_slug',
         'image_mode',
+        'objectstore_enabled',
+        'objectstore_bucket',
         'branding_meta',
         'mail_provision_payload',
         'last_sync_at',
@@ -38,6 +40,7 @@ class Customer extends Model
     {
         return [
             'image_mode' => 'boolean',
+            'objectstore_enabled' => 'boolean',
             'branding_meta' => 'array',
             'mail_provision_payload' => 'array',
             'last_sync_at' => 'datetime',

@@ -107,6 +107,19 @@ paths:
                   suite_catalog: true
                   image_mode: true
                   apps: [mail, spreed, deck, dashboard]
+              image_pilot_objectstore:
+                summary: Image-mode with S3 objectstore (MeStorage)
+                value:
+                  client: s3pilot2
+                  fqdn: s3pilot2.image-pilot.mework360.com.br
+                  cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  shell: true
+                  suite_catalog: true
+                  image_mode: true
+                  objectstore:
+                    enabled: true
+                    bucket: s3pilot2-store
+                  apps: [mail, spreed, deck, dashboard]
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/CreateTenantRequestMultipart"
@@ -1597,6 +1610,8 @@ components:
           type: boolean
           default: false
           description: Enables image-mode provisioning via upstream `--image-mode` flag.
+        objectstore:
+          $ref: "#/components/schemas/ObjectstoreProvisionRequest"
         legacy_vendor:
           type: boolean
           default: false
@@ -1623,6 +1638,24 @@ components:
               type: string
               format: binary
               description: PNG/JPEG, máx. 5120 KB.
+
+    ObjectstoreProvisionRequest:
+      type: object
+      description: |
+        Enables S3 primary storage (MeStorage) during image-mode provisioning.
+        Credentials and endpoint are resolved on the cluster host — never sent via API (D8).
+        Requires `image_mode: true`; `enabled` without image-mode returns 422.
+      properties:
+        enabled:
+          type: boolean
+          default: false
+          description: When true with image-mode, upstream receives `--objectstore`.
+        bucket:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{2,62}$"
+          description: |
+            Optional dedicated bucket name override. When omitted, upstream uses the default
+            naming convention. Maps to `--objectstore-bucket=` on dispatch.
 
     RemoveTenantRequest:
       type: object
