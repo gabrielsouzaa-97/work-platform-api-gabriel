@@ -1,5 +1,22 @@
 # Operations log
 
+## 2026-07-08T01:18:00Z — Deploy LAB pós F22-q (ISSUE-054 dark theme contrast)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `308fec4` (F22-q: CSS global form controls dark theme + modais Planos); deploy via SSH `mecloud360@128.201.61.110`; sync `git archive` tar (preservando `.env`; avisos tar docker-owned — não bloqueante).
+- **Stack:** `docker compose build app worker nginx && up -d`; sync `deployer_public` volume com `public/build` da imagem.
+- **Migration:** nada pendente.
+- **Smoke:** `/up` 200; CSS built com `color-scheme: dark` em `app-*.css`.
+- **Credenciais/secrets:** [REDACTED]
+
+## 2026-07-08T01:06:00Z — Deploy LAB pós-merge F21 + F21-q (ISSUE-052/053)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `95d1152` (F21: OpenAPI spec em `storage/app/openapi-external.yaml` no build production; sidebar Planos/Fazendas; F21-q: `.dockerignore docs/*`, job CI `docker-production`); deploy via SSH `mecloud360@128.201.61.110` (`MECLOUD_SSH_KEY`); sync `git archive` tar (preservando `.env` + `storage`; avisos tar em dirs docker-owned — não bloqueante).
+- **Stack:** `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker nginx && up -d`.
+- **Migration:** nada pendente (`Nothing to migrate`).
+- **Pós-deploy:** `app-catalog:sync` OK.
+- **Smoke:** `/up` 200; `/login` 200; `/docs/api/spec` 200 autenticado (`openapi: 3.0.3`); spec presente na imagem (`storage/app/openapi-external.yaml`); sidebar Planos/Fazendas no `app.blade.php`; containers app/worker/nginx/db/redis healthy.
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-06T21:58:00Z — Deploy LAB pós-merge F20 (CQ-F19-001/002 hygiene)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `2313ea1` (F20: asserções empty-plan QA-F18-005; `down()` migration `drop_max_apps` guardado por `hasColumn`); deploy via SSH `mecloud360@128.201.61.110` (`MECLOUD_SSH_KEY`); sync `git archive` tar (preservando `.env` + `storage`; avisos tar em dirs docker-owned — não bloqueante).

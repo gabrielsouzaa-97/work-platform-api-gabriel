@@ -4,7 +4,8 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
-- **docs(sprint-F20)**: ROADMAP/ISSUES/FINDINGS sincronizados pós-F18–F20; N41–N43 marcadas concluídas; ISSUE-051 fase 1 entregue; deploy LAB `2313ea1` em OPERATIONS.
+- **fix(sprint-F22-q)**: ISSUE-054 — contraste dark theme em painéis Product (`/plans`): CSS global para `input`/`select`/`textarea` + classes M3 nos modais; deploy LAB `308fec4`.
+- **docs(sprint-F22-q)**: Sprint F22-q concluída; F21 marcada concluída (ISSUE-052/053); ROADMAP 0.52.
 - **test(sprint-F20)**: CQ-F19-001/002 corrigidos — testes `empty-plan` (v1+legado) em `PolicyResolverTest` espelham asserções QA-F18-005 (`assertJsonMissingPath('error')` + `AuditLog policy_denied` false); `down()` de `drop_max_apps_from_plans_table` guardado por `Schema::hasColumn` (rollback idempotente em fresh install). 14 testes verdes (PolicyResolver + DropMaxAppsMigration).
 - **fix(sprint-F19)**: 7 findings F18 corrigidos — happy path enable v1+legado; `empty-plan`; migration hygiene; `PlanApiTest` sem `max_apps`; `loadMissing('plan')` removido (PR #144).
 - **fix(sprint-F18)**: remove `max_apps`; enforcement enable apps via `plan_apps` + ARCH-7; deploy LAB `e8b1ad6` (PR #143).
@@ -455,3 +456,18 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-06 17:43** `887b53f` — fix(sprint-F19): close F18 QA findings (enable tests, migration hygiene) (#144)
 - **2026-07-06 17:50** `53951a1` — docs(sprint-F19): record QA validation APROVADA
 - **2026-07-06 18:25** `2313ea1` — test(sprint-F20): fix CQ-F19-001/002 test + migration hygiene (#145)
+- **2026-07-06 19:37** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-06 19:40** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-06 23:17** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:10** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:15** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:16** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:18** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:20** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:24** `578f1e8` — docs(sprint-F21): plan LAB visibility fixes for OpenAPI spec and sidebar
+- **2026-07-07 17:28** `dea0e2b` — docs(sprint-F21): correct root cause to .dockerignore excluding docs from build context
+- **2026-07-07 21:24** `f4866f7` — fix(sprint-F21): preserve OpenAPI spec in Docker image and expose admin nav links
+- **2026-07-07 21:34** `fb8b039` — Merge pull request #147 from SoftwareBeesy/sprint/F21
+- **2026-07-07 21:57** `95d1152` — Merge pull request #148 from SoftwareBeesy/sprint/F21-q
+- **2026-07-07 22:06** `95d1152` — Merge pull request #148 from SoftwareBeesy/sprint/F21-q
+- **2026-07-07 22:10** `95d1152` — Merge pull request #148 from SoftwareBeesy/sprint/F21-q

@@ -89,6 +89,16 @@ it('admin can edit plan via Livewire', function (): void {
     ]);
 });
 
+it('plans create modal form controls expose dark-theme text classes', function (): void {
+    $admin = Operator::factory()->admin()->create();
+
+    Livewire::actingAs($admin)
+        ->test(Index::class)
+        ->call('openCreate')
+        ->assertSeeHtml('text-on-surface')
+        ->assertSeeHtml('placeholder:text-on-surface-variant');
+});
+
 it('plans index lists existing plans', function (): void {
     $admin = Operator::factory()->admin()->create();
 

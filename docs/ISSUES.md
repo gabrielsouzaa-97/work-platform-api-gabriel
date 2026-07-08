@@ -57,8 +57,30 @@
 | ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
 | ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | **planned — Sprint N40** (2026-07-05; brief PASS_WITH_NOTES) |
 | ISSUE-051 | change_request | Control plane de produto: planos (quotas), tenant com seleção de apps, templates de usuário (papéis/permissões) — API-first, sem apps NC nesta fase | Product, Customers, Livewire, API v1, DB | HIGH | **concluída (fase 1)** — N41–N43 + F16–F20 (2026-07-06); backlog F17 MEDIUM/LOW em FINDINGS |
-| ISSUE-052 | bug | `/docs/api/spec` retorna 404 na imagem Docker de produção/LAB — `openapi-external.yaml` ausente após `rm -rf docs` no Dockerfile | DevOps, Livewire, docs | HIGH | **open** — Sprint F21 planejada (2026-07-07) |
-| ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **open** — Sprint F21 planejada (2026-07-07) |
+| ISSUE-052 | bug | `/docs/api/spec` retorna 404 na imagem Docker de produção/LAB — `openapi-external.yaml` ausente após `rm -rf docs` no Dockerfile | DevOps, Livewire, docs | HIGH | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
+| ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
+| ISSUE-054 | bug | Painéis Product admin (Planos etc.) com texto ilegível no dark theme — inputs/selects sem `text-on-surface` | Livewire, Product, CSS | MEDIUM | **fixed (2026-07-08)** — Sprint F22-q; deploy LAB `308fec4` |
+
+---
+
+## ISSUE-054 — Contraste ilegível em painéis Product (dark theme)
+
+- **Tipo**: bug (UX)
+- **Prioridade**: MEDIUM
+- **Status**: **fixed** (2026-07-08) — Sprint F22-q; deploy LAB `308fec4`
+- **Registrado em**: 2026-07-08 (operador LAB — `/plans` com inputs e tabela quase invisíveis)
+- **Módulos afetados**: `resources/css/app.css`, `resources/views/livewire/product/plans/index.blade.php`, `tests/Feature/Livewire/Product/PlansIndexTest.php`
+
+### Descrição
+
+Formulários em `/plans` (e potencialmente futuros painéis Product) usavam `bg-surface-container-lowest` sem `text-on-surface`. O browser renderiza texto escuro/preto sobre fundo `#060e20`, tornando inputs, selects e linhas da tabela ilegíveis.
+
+### Correção (F22-q)
+
+1. Regra global em `app.css` para `input`/`select`/`textarea` (`color-scheme: dark` + tokens M3)
+2. Classes explícitas nos modais de Planos (padrão `customers/create`)
+3. `tbody` com `text-on-surface` na tabela de planos
+4. Teste Pest validando classes no modal create
 
 ---
 
@@ -66,7 +88,7 @@
 
 - **Tipo**: bug (regressão de empacotamento pós-N37)
 - **Prioridade**: HIGH
-- **Status**: **open** — Sprint F21 planejada (2026-07-07)
+- **Status**: **fixed** (2026-07-08) — Sprint F21; deploy LAB `95d1152`
 - **Registrado em**: 2026-07-07 (diagnóstico operador LAB — `/docs/api` renderiza Scalar mas spec falha; badge `Spec vunknown`)
 - **Módulos afetados**: `Dockerfile`, `.dockerignore`, `app/Http/Controllers/DocsController.php`, `tests/Feature/Docs/ApiDocsTest.php`
 
@@ -95,7 +117,7 @@ Validação pós-deploy N37 (`8e58fed`) checou página `/docs/api` + manifest `d
 
 - **Tipo**: bug (gap de UX pós-N41/N18)
 - **Prioridade**: MEDIUM
-- **Status**: **open** — Sprint F21 planejada (2026-07-07)
+- **Status**: **fixed** (2026-07-08) — Sprint F21; deploy LAB `95d1152`
 - **Registrado em**: 2026-07-07 (operador LAB não encontrou CRUD de planos no menu; URL `/plans` funciona)
 - **Módulos afetados**: `resources/views/layouts/app.blade.php`, `tests/Feature/Livewire/Product/PlansIndexTest.php`, `tests/Feature/Livewire/Farms/FarmCapacityPanelTest.php`
 

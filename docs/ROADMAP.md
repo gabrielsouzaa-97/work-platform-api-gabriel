@@ -90,7 +90,8 @@
 | F18    | F         | Remover `max_apps`; apps do plano = designação `plan_apps`; enable valida ⊆ plano | **concluída** | 4 | Product, Customers, API v1 | ARCH-7; PR #143; validation R1 APROVADA; deploy LAB `e8b1ad6` | 5724+ |
 | F19    | F         | Correção 7 findings F18 (enable happy path, migration hygiene, plan_apps vazio) | **concluída** | 6 | Product, Database, API v1 | PR #144; validation R1 APROVADA | — |
 | F20    | F         | CQ-F19-001/002 LOW (asserções empty-plan + migration `down()` guard) | **concluída** | 2 | Product, Database | PR #145; deploy LAB `2313ea1` | — |
-| F21    | F         | `/docs/api/spec` 200 na imagem Docker; sidebar Planos+Fazendas; smoke pós-deploy documentado | **planejada** | 4 | DevOps, Livewire, docs | ISSUE-052 + ISSUE-053 | — |
+| F21    | F         | `/docs/api/spec` 200 na imagem Docker; sidebar Planos+Fazendas; smoke pós-deploy documentado | **concluída** | 4 | DevOps, Livewire, docs | ISSUE-052 + ISSUE-053; deploy LAB `95d1152` | — |
+| F22-q  | F         | Contraste dark theme em painéis Product (inputs/selects/tabela Planos) | **concluída** | 2 | Livewire, CSS | ISSUE-054; deploy LAB `308fec4` | — |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -5782,7 +5783,7 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 ## Sprint F21 — LAB visibility: OpenAPI spec no Docker + sidebar Product/Farms (ISSUE-052 / ISSUE-053)
 
 > Categoria: F
-> Status: **planejada**
+> Status: **concluída** (2026-07-08) — deploy LAB `95d1152`; PR #147/#148
 > Gate: imagem Docker de produção serve `GET /docs/api/spec` → 200 com `openapi: 3.0.3` (admin autenticado); badge do viewer mostra versão do spec (não `unknown`); sidebar exibe **Planos** e **Fazendas** só para `manage-operators`; smoke pós-deploy em `RUNBOOK.md` inclui `/docs/api/spec` + `/plans`; CI verde (Pest + Redocly).
 > review: senior+qa
 > Gerado via `/pmo plan` em 2026-07-07. Fonte: diagnóstico operador LAB (Scalar 404 + planos invisíveis no menu).
@@ -5790,10 +5791,10 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | F21.1 — Preservar `openapi-external.yaml` no build Docker + `DocsController` path configurável + teste spec em contexto produção | laravel-docker / api-rest-patterns | — |
-| [ ] | P | F21.2 — Link **Planos** na sidebar (`plans.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
-| [ ] | P | F21.3 — Link **Fazendas** na sidebar (`farms.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
-| [ ] | P | F21.4 — Atualizar smoke pós-deploy (`RUNBOOK.md` + template `OPERATIONS.md`): `/docs/api/spec`, `/plans`, `/farms` | me360-deployer | F21.1 |
+| [x] | M | F21.1 — Preservar `openapi-external.yaml` no build Docker + `DocsController` path configurável + teste spec em contexto produção | laravel-docker / api-rest-patterns | — |
+| [x] | P | F21.2 — Link **Planos** na sidebar (`plans.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
+| [x] | P | F21.3 — Link **Fazendas** na sidebar (`farms.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
+| [x] | P | F21.4 — Atualizar smoke pós-deploy (`RUNBOOK.md` + template `OPERATIONS.md`): `/docs/api/spec`, `/plans`, `/farms` | me360-deployer | F21.1 |
 
 ### Task F21.1 — OpenAPI spec disponível na imagem Docker
 
@@ -5845,8 +5846,22 @@ Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 
 ---
 
+## Sprint F22-q — Dark theme contrast em painéis Product (ISSUE-054)
+
+> Categoria: F (sprint rápida)
+> Status: **concluída** (2026-07-08) — deploy LAB `308fec4`
+> Gate: inputs/selects legíveis em `/plans` no dark theme; CSS global para form controls; Pest `PlansIndexTest` verde.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | F22-q.1 — CSS global `input`/`select`/`textarea` + classes nos modais Planos | laravel-livewire | — |
+| [x] | P | F22-q.2 — Teste Pest dark-theme classes no modal create | testing-patterns | F22-q.1 |
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.52   | Sprint F22-q concluída — ISSUE-054 contraste dark theme Planos; deploy LAB `308fec4`. Sprint F21 marcada concluída (`95d1152`). | `/rock` |
 | 2026-07-07 | 0.51   | Sprint F21 planejada — ISSUE-052 (`/docs/api/spec` 404: `.dockerignore` exclui docs do build) + ISSUE-053 (sidebar sem Planos/Fazendas); 4 tasks (1M+3P); gate spec 200 no container + sidebar + smoke RUNBOOK. | `/pmo plan` |
 | 2026-07-06 | 0.50   | Sprints F18–F20 concluídas; N41–N43 marcadas concluídas (ISSUE-051); deploy LAB `2313ea1`. | docs sync pós-F20 |
 | 2026-07-06 | 0.47   | Sprint F18 planejada — remover max_apps; enforcement por plan_apps (decisão produto). | `/pmo plan` via `/rock` |
