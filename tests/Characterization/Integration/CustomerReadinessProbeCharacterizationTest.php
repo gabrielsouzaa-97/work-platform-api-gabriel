@@ -113,7 +113,7 @@ function probeReadinessWithSsh(Customer $customer, SshClientInterface $ssh): boo
 
 function evaluateReadinessGatesWithSsh(Customer $customer, SshClientInterface $ssh): bool
 {
-    $cluster = $customer->clusterServer;
+    $cluster = $customer->clusterServer ?? $customer->load('clusterServer')->clusterServer;
     if ($cluster === null) {
         throw new RuntimeException('cluster relation required');
     }
@@ -172,19 +172,19 @@ function characterizationReadinessGateMock(): SshClientInterface
 }
 
 it('characterizes non-zero exit returns false without throwing', function (): void {
-    $customer = characterizationProbeCustomerInMemory('char-probe-nz');
+    $customer = characterizationProbeCustomer('char-probe-nz');
 
     expect(evaluateReadinessGatesWithSsh($customer, new NonZeroExitSshStub))->toBeFalse();
 });
 
 it('characterizes SshConnectionException returns false without rethrow', function (): void {
-    $customer = characterizationProbeCustomerInMemory('char-probe-conn');
+    $customer = characterizationProbeCustomer('char-probe-conn');
 
     expect(evaluateReadinessGatesWithSsh($customer, new ConnectionFailSshStub))->toBeFalse();
 });
 
 it('characterizes SshTimeoutException returns false without rethrow', function (): void {
-    $customer = characterizationProbeCustomerInMemory('char-probe-timeout');
+    $customer = characterizationProbeCustomer('char-probe-timeout');
 
     expect(evaluateReadinessGatesWithSsh($customer, new TimeoutFailSshStub))->toBeFalse();
 });
