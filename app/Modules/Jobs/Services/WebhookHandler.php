@@ -11,6 +11,7 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Onboarding;
 use App\Modules\Core\Translators\StateTranslator;
+use App\Modules\Customers\Services\TenantGroupProjector;
 use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Jobs\Dto\WebhookPayload;
@@ -32,6 +33,7 @@ final class WebhookHandler
         private readonly TransportObservability $observability,
         private readonly OnboardingSaga $onboardingSaga,
         private readonly TenantUserProjector $tenantUserProjector,
+        private readonly TenantGroupProjector $tenantGroupProjector,
     ) {}
 
     public function handle(ClusterServer $cluster, array $rawPayload): void
@@ -235,6 +237,17 @@ final class WebhookHandler
                 $this->tenantUserProjector->handleTerminalJob($job->fresh(), $canonical);
             } catch (\Throwable $e) {
                 Log::warning('tenant_users.projection.failed', [
+                    'job_id' => $job->job_id,
+                    'customer_slug' => $job->customer_slug,
+                    'job_type' => $job->job_type,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            try {
+                $this->tenantGroupProjector->handleTerminalJob($job->fresh(), $canonical);
+            } catch (\Throwable $e) {
+                Log::warning('tenant_groups.projection.failed', [
                     'job_id' => $job->job_id,
                     'customer_slug' => $job->customer_slug,
                     'job_type' => $job->job_type,

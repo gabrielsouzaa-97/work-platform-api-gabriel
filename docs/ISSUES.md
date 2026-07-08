@@ -61,6 +61,7 @@
 | ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
 | ISSUE-054 | bug | Painéis Product admin (Planos etc.) com texto ilegível no dark theme — inputs/selects sem `text-on-surface`; popup nativo do `<select>` renderizado pelo OS (GTK dark) ignora CSS | Livewire, Product, CSS | MEDIUM | **fixed (2026-07-08)** — Sprint F22-q (+q.2/q.3/q.4); deploy LAB `7492358`; merge `c50c9ea` (PRs #149/#150/#151/#153); validado pelo operador |
 | ISSUE-055 | change_request | `POST /api/v1/tenants` com `objectstore: { enabled, bucket? }` — S3 primary storage MeStorage no provision image-mode (ENH-014 Fase B; credenciais resolvem no host, D8) | Customers, API v1, Livewire, Cross-repo (work-platform-scripts ENH-014) | HIGH | **planned — Sprint N44** (2026-07-08); bloqueada pelo gate da Sprint N56 upstream (Fase A) |
+| ISSUE-056 | change_request | UX OCC Grupos — governança explícita, projeção `tenant_groups`, pickers e confirmações (DESIGN.md §9) | Livewire, Customers, Occ, DB, API v1 | HIGH | **implemented — Sprints N45+N46** (2026-07-08); aguarda VERIFY CI |
 
 ---
 
@@ -74,6 +75,37 @@
 - **Contrato**: OpenAPI `CreateTenantRequest.objectstore` (`enabled`, `bucket` opcional); persistência `customers.objectstore_enabled` (bool) + bucket em metadado não-secreto
 - **Critério de aceite**: testes Pest argv (com/sem flag, bucket override, 422 sem image_mode); sanitização (`jobs.summary` sem credencial — padrão SEC-N30); OpenAPI atualizado; deploy LAB; canário `s3pilot2` **via API only** com gates G1–G6 do plano
 - **Reportado em**: 2026-07-08 (`/pmo plan` cross-repo)
+
+---
+
+## ISSUE-056 — UX OCC Grupos: governança explícita, projeção local e pickers (DESIGN.md §9)
+
+- **Tipo**: change_request / melhoria UX
+- **Prioridade**: HIGH
+- **Status**: **implemented — Sprints N45 + N46** (2026-07-08); aguarda VERIFY CI + deploy LAB
+- **Registrado em**: 2026-07-08 (audit `/designer` + execução `/rock`)
+- **Módulos afetados**: OccPanel, `tenant_groups`, `CreateUserRequest`, webhook projector, sync commands
+
+### Decisão âncora
+
+Grupo só nasce em fluxo **explícito** (aba Grupos / API). Na criação de usuário: **multi-select** de grupos existentes (vazio = herdar template).
+
+### Entregas
+
+| Sprint | Entregue |
+|--------|----------|
+| **N45** | Membership 501 oculto; confirmações destrutivas; pickers username; multi-select interim; polish quota/manutenção |
+| **N46** | `tenant_groups` + projector + `tenant-groups:sync` + aba Grupos + validação API/UI |
+
+### Fora de escopo
+
+- `groups:add`/`groups:remove` operacional (upstream 501)
+- CRUD admin templates/apps (ISSUE-051 item 7)
+
+### Fontes
+
+- `docs/design/DESIGN.md` §9
+- Espelho arquitetural N40 (`tenant_users`)
 
 ---
 

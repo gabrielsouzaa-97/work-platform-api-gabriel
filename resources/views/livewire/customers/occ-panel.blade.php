@@ -44,8 +44,13 @@
                 </select>
             </div>
             <div @class(['hidden' => $quotaScope !== 'user'])>
-                <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Username</label>
-                <input class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="quotaUsername" placeholder="johndoe">
+                <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Username</span>
+                <x-select-menu
+                    model="quotaUsername"
+                    :selected="$quotaUsername"
+                    :options="$usernameOptions"
+                    placeholder="Selecione…"
+                />
                 @error('quotaUsername')
                     <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
                 @enderror
@@ -120,7 +125,7 @@
         <div class="flex items-center gap-md mb-lg">
             <input type="checkbox" id="maintToggle" wire:model="maintenanceOn" class="cursor-pointer">
             <label for="maintToggle" class="text-[14px] text-on-surface cursor-pointer">
-                {{ $maintenanceOn ? 'Ativar manutenção' : 'Desativar manutenção' }}
+                Colocar tenant em modo manutenção
             </label>
         </div>
         <button
@@ -240,16 +245,37 @@
                     <select class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="userTemplateSlug">
                         <option value="">— nenhum —</option>
                         @foreach ($userTemplates as $template)
-                            <option value="{{ $template->slug }}">{{ $template->slug }}</option>
+                            <option value="{{ $template->slug }}">{{ $template->name }} ({{ $template->slug }})</option>
                         @endforeach
                     </select>
                     @error('userTemplateSlug')
                         <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
                     @enderror
                 </div>
-                <div>
-                    <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Grupos (separados por vírgula)</label>
-                    <input class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="userGroups" placeholder="admins, editors">
+                <div class="md:col-span-2">
+                    <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Grupos (opcional — vazio herda do template)</span>
+                    @if (count($knownGroups) === 0)
+                        <p class="text-[13px] text-on-surface-variant mb-sm">Nenhum grupo conhecido ainda. Crie na aba Grupos primeiro.</p>
+                        <button
+                            type="button"
+                            class="rounded-md border border-outline-variant bg-surface-container-high px-md py-2 text-[13px] text-primary hover:border-primary"
+                            wire:click="setTab('groups')"
+                        >
+                            Criar grupo →
+                        </button>
+                    @else
+                        <div class="flex flex-wrap gap-md rounded-md border border-outline-variant bg-surface-container-lowest px-md py-sm">
+                            @foreach ($knownGroups as $group)
+                                <label class="flex items-center gap-xs text-[13px] text-on-surface cursor-pointer" wire:key="group-opt-{{ $group }}">
+                                    <input type="checkbox" wire:model="userGroupSelection" value="{{ $group }}" class="cursor-pointer">
+                                    {{ $group }}
+                                </label>
+                            @endforeach
+                        </div>
+                    @endif
+                    @error('userGroupSelection')
+                        <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
+                    @enderror
                 </div>
             </div>
             <button type="submit" class="rounded-md border border-outline-variant bg-surface-container-high px-md py-2 text-[13px] text-primary hover:border-primary">Criar Usuário</button>
@@ -261,17 +287,79 @@
     <div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
         <div class="text-[14px] font-semibold text-on-surface mb-md">Remover Usuário (async)</div>
         <div>
-            <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Username</label>
-            <input class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="deleteUsername" placeholder="johndoe">
+            <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Username</span>
+            <x-select-menu
+                model="deleteUsername"
+                :selected="$deleteUsername"
+                :options="$usernameOptions"
+                placeholder="Selecione…"
+            />
             @error('deleteUsername')
                 <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
             @enderror
         </div>
-        <button type="button" class="mt-md rounded-md border border-error/50 bg-error-container px-md py-2 text-[13px] text-error hover:opacity-90" wire:click="deleteUser">Remover Usuário</button>
+        <button
+            type="button"
+            class="mt-md rounded-md border border-error/50 bg-error-container px-md py-2 text-[13px] text-error hover:opacity-90"
+            wire:click="deleteUser"
+            wire:confirm="Remover o usuário '{{ addslashes($deleteUsername) }}'? Esta ação não pode ser desfeita."
+        >Remover Usuário</button>
     </div>
     @endif
 
     @if ($tab === 'groups')
+    <div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
+        <div class="flex items-center justify-between mb-md">
+            <div class="text-[14px] font-semibold text-on-surface">Grupos ativos</div>
+            <button
+                type="button"
+                class="rounded-md border border-outline-variant bg-surface-container-high px-md py-2 text-[13px] text-primary hover:border-primary"
+                wire:click="syncGroups"
+                wire:loading.attr="disabled"
+                wire:target="syncGroups"
+            >
+                <span wire:loading.remove wire:target="syncGroups">Atualizar</span>
+                <span wire:loading wire:target="syncGroups">Carregando…</span>
+            </button>
+        </div>
+
+        @if ($groupsError)
+            <div class="bg-error/10 border border-error/30 rounded-md px-md py-sm text-[13px] text-error mb-md">{{ $groupsError }}</div>
+        @endif
+
+        @if ($groupsLoading)
+            <p class="text-[11px] text-outline">Carregando grupos…</p>
+        @else
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-[13px]">
+                    <thead>
+                        <tr class="border-b border-outline-variant">
+                            <th class="text-left px-md py-sm text-[12px] font-medium text-on-surface-variant">Nome</th>
+                            <th class="text-left px-md py-sm text-[12px] font-medium text-on-surface-variant">Origem</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-outline-variant/40">
+                        @forelse ($tenantGroups as $group)
+                            <tr wire:key="tenant-group-{{ $group['name'] }}" class="hover:bg-surface-container-high transition-colors">
+                                <td class="px-md py-sm font-mono text-[12px] text-on-surface">{{ $group['name'] }}</td>
+                                <td class="px-md py-sm text-on-surface">{{ $group['origin'] }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="2" class="px-md py-xl text-center text-on-surface-variant">
+                                    Nenhum grupo.
+                                    <span class="block mt-xs text-[11px] text-outline">Clique em Atualizar para sincronizar com o servidor.</span>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+
+    <hr class="border-outline-variant my-lg">
+
     <div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
         <div class="text-[14px] font-semibold text-on-surface mb-md">Criar Grupo (async)</div>
         <div>
@@ -287,24 +375,10 @@
     <hr class="border-outline-variant my-lg">
 
     <div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
-        <div class="text-[14px] font-semibold text-on-surface mb-md">Adicionar usuário a grupo (async)</div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
-            <div>
-                <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Username</label>
-                <input class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="groupAddUsername" placeholder="johndoe">
-                @error('groupAddUsername')
-                    <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Grupo</label>
-                <input class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="groupAddTarget" placeholder="editors">
-                @error('groupAddTarget')
-                    <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
-                @enderror
-            </div>
+        <div class="text-[14px] font-semibold text-on-surface mb-md">Membership usuário ↔ grupo</div>
+        <div class="bg-primary/10 border border-primary/30 rounded-md px-md py-sm text-[13px] text-on-surface-variant">
+            Membership usuário↔grupo estará disponível em release futura (aguardando upstream).
         </div>
-        <button type="button" class="mt-md rounded-md border border-outline-variant bg-surface-container-high px-md py-2 text-[13px] text-primary hover:border-primary" wire:click="addUserToGroup">Adicionar ao Grupo</button>
     </div>
 
     <hr class="border-outline-variant my-lg">
@@ -312,13 +386,23 @@
     <div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
         <div class="text-[14px] font-semibold text-on-surface mb-md">Remover Grupo (async)</div>
         <div>
-            <label class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Nome do grupo</label>
-            <input class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary" wire:model="deleteGroupName" placeholder="editors">
+            <span class="mb-1.5 block text-[12px] font-medium text-on-surface-variant">Nome do grupo</span>
+            <x-select-menu
+                model="deleteGroupName"
+                :selected="$deleteGroupName"
+                :options="$groupOptions"
+                placeholder="Selecione…"
+            />
             @error('deleteGroupName')
                 <p class="mt-1 text-[12px] text-error">{{ $message }}</p>
             @enderror
         </div>
-        <button type="button" class="mt-md rounded-md border border-error/50 bg-error-container px-md py-2 text-[13px] text-error hover:opacity-90" wire:click="deleteGroup">Remover Grupo</button>
+        <button
+            type="button"
+            class="mt-md rounded-md border border-error/50 bg-error-container px-md py-2 text-[13px] text-error hover:opacity-90"
+            wire:click="deleteGroup"
+            wire:confirm="Remover o grupo '{{ addslashes($deleteGroupName) }}'? Esta ação não pode ser desfeita."
+        >Remover Grupo</button>
     </div>
     @endif
 </div>

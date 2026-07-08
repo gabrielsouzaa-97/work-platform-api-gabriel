@@ -146,6 +146,23 @@ Table tenant_users {
   Note: 'Read model — webhook projection + tenant-users:sync reconciliation (ISSUE-050 / Sprint N40)'
 }
 
+Table tenant_groups {
+  id uuid [pk]
+  customer_slug varchar(64) [not null, ref: > customers.slug, note: 'FK customers.slug — ON DELETE CASCADE']
+  name varchar(256) [not null]
+  origin varchar(20) [not null, note: 'api|panel|sync']
+  synced_at timestamp [null, note: 'last reconciliation via tenant-groups:sync']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (customer_slug, name) [unique, name: 'uniq_tenant_groups_customer_name']
+    customer_slug [name: 'idx_tenant_groups_customer_slug']
+  }
+
+  Note: 'Read model — webhook projection + tenant-groups:sync reconciliation (ISSUE-056 / Sprint N46)'
+}
+
 // --- Product Governance (ISSUE-051 / Sprints N41–N43) ---
 
 Table plans {

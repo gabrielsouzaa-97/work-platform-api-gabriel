@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
 use App\Models\Operator;
+use App\Models\TenantGroup;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
@@ -33,6 +34,21 @@ function makeLifecycleCustomer(ClusterServer $cluster): Customer
 function makeLifecycleOperator(string $role = 'operador'): Operator
 {
     return Operator::factory()->create(['role' => $role, 'status' => 'active']);
+}
+
+/**
+ * @param  list<string>  $names
+ */
+function seedLifecycleTenantGroups(Customer $customer, array $names): void
+{
+    foreach ($names as $name) {
+        TenantGroup::create([
+            'id' => Str::uuid()->toString(),
+            'customer_slug' => $customer->slug,
+            'name' => $name,
+            'origin' => 'api',
+        ]);
+    }
 }
 
 function sshLifecycleSuccess(string $jobId): SshResponse
@@ -121,6 +137,7 @@ it('POST users com groups → stdin payload contém groups[]', function () {
     $cluster = makeLifecycleCluster();
     $customer = makeLifecycleCustomer($cluster);
     $operator = makeLifecycleOperator();
+    seedLifecycleTenantGroups($customer, ['editors', 'admins']);
     $jobId = Str::uuid()->toString();
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -160,6 +177,7 @@ it('POST users com display_name, quota e subadmin_groups → stdin payload upstr
     $cluster = makeLifecycleCluster();
     $customer = makeLifecycleCustomer($cluster);
     $operator = makeLifecycleOperator();
+    seedLifecycleTenantGroups($customer, ['staff', 'financeiro']);
     $jobId = Str::uuid()->toString();
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -195,10 +213,30 @@ it('POST users com display_name, quota e subadmin_groups → stdin payload upstr
         ->assertStatus(202);
 });
 
+it('POST users com grupo inexistente na projeção → 422 sem SSH', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/users", [
+            'username' => 'johndoe',
+            'password' => 'Secret123!',
+            'groups' => ['unknown-group'],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['groups.0']);
+});
+
 it('POST users aceita aliases displayname e subadmin do OpenAPI legado', function () {
     $cluster = makeLifecycleCluster();
     $customer = makeLifecycleCustomer($cluster);
     $operator = makeLifecycleOperator();
+    seedLifecycleTenantGroups($customer, ['staff']);
     $jobId = Str::uuid()->toString();
 
     $ssh = Mockery::mock(SshClientInterface::class);

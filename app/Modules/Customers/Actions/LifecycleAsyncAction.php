@@ -295,17 +295,22 @@ final class LifecycleAsyncAction
     ): array {
         $payload = ['cmd' => $cmd, 'args' => $args];
 
-        if ($cmd !== 'users:create' || $stdinPayload === null) {
-            return $payload;
+        if (in_array($cmd, ['groups:create', 'groups:delete'], true) && isset($args[0])) {
+            $payload['name'] = $args[0];
         }
 
-        foreach (['email', 'groups', 'quota', 'user_template_slug'] as $field) {
-            if (array_key_exists($field, $stdinPayload)) {
-                $payload[$field] = $stdinPayload[$field];
+        if ($cmd === 'users:create' && $stdinPayload !== null) {
+            foreach (['email', 'groups', 'quota', 'user_template_slug'] as $field) {
+                if (array_key_exists($field, $stdinPayload)) {
+                    $payload[$field] = $stdinPayload[$field];
+                }
             }
         }
 
-        if (in_array($projectionOrigin, ['api', 'panel'], true)) {
+        $originable = in_array($cmd, ['groups:create', 'groups:delete'], true)
+            || ($cmd === 'users:create' && $stdinPayload !== null);
+
+        if ($originable && in_array($projectionOrigin, ['api', 'panel'], true)) {
             $payload['origin'] = $projectionOrigin;
         }
 

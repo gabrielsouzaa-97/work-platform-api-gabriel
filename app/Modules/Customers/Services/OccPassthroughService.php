@@ -93,7 +93,7 @@ final class OccPassthroughService
         int $timeoutSec,
     ): OccPassthroughCommand {
         $operation = match ($subcmd) {
-            'user:list' => OccPassthroughOperation::UserList,
+            'user:list', 'group:list' => OccPassthroughOperation::UserList,
             'theming:config' => OccPassthroughOperation::SetBranding,
             'maintenance:mode' => OccPassthroughOperation::ToggleMaintenance,
             'files:scan' => OccPassthroughOperation::FilesRescan,
