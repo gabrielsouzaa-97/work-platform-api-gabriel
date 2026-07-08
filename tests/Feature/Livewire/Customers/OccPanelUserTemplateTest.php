@@ -83,6 +83,31 @@ function bindOccTemplateSsh(string $jobId, ?callable $assertStdin = null): void
     app()->instance(SshClientInterface::class, $ssh);
 }
 
+it('createUser with template and empty userGroupSelection clears template groups in stdin (CQ-F17-002)', function (): void {
+    $cluster = occTemplateCluster();
+    $customer = occTemplateCustomer($cluster);
+    $operator = occTemplateOperator();
+    seedOccUserTemplate('supervisor');
+    $jobId = Str::uuid()->toString();
+
+    bindOccTemplateSsh($jobId, function (?string $stdin): bool {
+        $decoded = json_decode($stdin ?? '', true);
+
+        return is_array($decoded)
+            && array_key_exists('groups', $decoded)
+            && $decoded['groups'] === [];
+    });
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'cleared')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->set('userTemplateSlug', 'supervisor')
+        ->set('userGroupSelection', [])
+        ->call('createUser')
+        ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
+});
+
 it('OccPanel users tab lists active user templates for selection', function (): void {
     $cluster = occTemplateCluster();
     $customer = occTemplateCustomer($cluster);

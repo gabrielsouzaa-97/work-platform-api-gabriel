@@ -5,7 +5,7 @@ open_high: 9
 open_medium: 52
 open_low: 48
 sprints_with_open_blockers: []
-notes: Sprint F23 APROVADA — CQ-N46-001..008 validados (PR #159 merge 32bd75a). 3 non-blocking CQ-F23 em backlog.
+notes: Sprint F23 APROVADA — CQ-N46-001..008 validados (PR #159 merge 32bd75a). F24 planejada — 9 findings non-blocking (CQ-F23, F17, N40).
 FINDINGS-INDEX -->
 
 
@@ -54,6 +54,7 @@ FINDINGS-INDEX -->
 | N45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | N46 | 0 | 0 | 0 | 0 | 0 | 8 | 8 |
 | F23 | 0 | 0 | 1 | 2 | 3 | 0 | 0 |
+| F24 | 0 | 0 | 3 | 6 | 9 | 0 | 0 |
 
 > **Validação F23 R1** (2026-07-08, `/qa validar F23`): scope = PR #159 merge `32bd75a` (branch `campanha/fix-n46-projector`). **Preflight**: PROC-025/027 PASS. **Testes**: Pest Docker **103 passed** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle); CI PR #159 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review; `assign` fail non-blocking). **auditor-senior** ([`10b26616`](10b26616-078c-4d39-b048-5067297b839d)) → 0 CRITICAL, 0 HIGH, 1 MEDIUM, 2 LOW. **Findings-alvo validados**: CQ-N46-001..008 (8/8). **Resultado: APROVADA** — 0 CRITICAL/HIGH; 3 novos non-blocking em backlog (`CQ-F23-001`..`003`).
 
@@ -65,7 +66,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:673-686` + `app/Http/Requests/Lifecycle/CreateGroupRequest.php:19-29`
 - **Sprint origem**: F23 (post-fix review)
-- **Status**: pendente_revisao_medium
+- **Status**: corrigido (F24)
 - **Esforço**: P
 **Descrição**: `groupNameRules()` duplica regex, max length e closure de nome reservado `admin` já presentes em `CreateGroupRequest`. Comportamento correto, mas duas fontes podem divergir.
 **Correção sugerida**: Extrair regras compartilhadas (ex. `TenantGroupNameRules::forAttribute('name'|'groupName')`) e reutilizar em API + Livewire.
@@ -76,7 +77,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Modules/Customers/Services/TenantGroupSyncService.php:77-79`
 - **Sprint origem**: F23 (post-fix review)
-- **Status**: pendente
+- **Status**: corrigido (F24)
 - **Esforço**: P
 **Descrição**: `updated` só incrementa quando `inserted === 0`. Sync com inserts e backfill de `synced_at` simultâneos subreporta refreshes.
 **Correção sugerida**: Sempre `$report->updated += $refreshedExisting` ou incrementar por row no loop.
@@ -87,10 +88,56 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:566-589`, `688-718`
 - **Sprint origem**: F23 (post-fix review)
-- **Status**: pendente
+- **Status**: corrigido (F24)
 - **Esforço**: P
 **Descrição**: `pollPendingGroupJob()` executa create e delete em sequência; cada `pollSingleGroupJob()` chama `clearMessages()` no terminal. Se ambos jobs terminam no mesmo tick de 3s, a segunda mensagem apaga a primeira.
 **Correção sugerida**: Acumular mensagens, poll de um job por tick, ou handlers `wire:poll` separados por tipo.
+
+#### [INT-F24-001] — Poll de usuário pode apagar mensagem de grupo no mesmo tick
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Integrator
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php` (pollPendingUserJob)
+- **Sprint origem**: F24 (integration check)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `pollPendingUserJob` chama poll de grupo e depois handlers de usuário que fazem `clearMessages()` incondicionalmente — mensagem de grupo pode sumir se job de usuário termina no mesmo tick.
+**Correção sugerida**: Estender `preserveMessages` aos handlers de usuário ou não limpar quando outro job do tick ainda não finalizou.
+
+#### [CQ-F24-001] — handleUserDeleteJobTerminal reutiliza projector de create
+- **Severidade**: LOW
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `handleUserDeleteJobTerminal` chama `projectUserCreateIntoReadModel()` (nome enganoso); projector roteia delete corretamente.
+**Correção sugerida**: Renomear para `projectUserJobIntoReadModel`.
+
+#### [CQ-F24-002] — TenantGroupNameRules::forAttribute ignora parâmetro
+- **Severidade**: LOW
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Support/TenantGroupNameRules.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `$attribute` não é usado; API e painel compartilham o mesmo array.
+**Correção sugerida**: Remover parâmetro ou documentar reserva futura.
+
+#### [CQ-F24-003] — Poll grupo dual-success ainda sobrescreve mensagem
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: Com `preserveMessages`, dual success no mesmo tick ainda sobrescreve `successMessage` (teste cobre success+error).
+**Correção sugerida**: Acumular/concatenar mensagens quando preserveMessages.
+
+
 
 > **Validação N45+N46 R1** (2026-07-08, `/qa validar`): scope = PR #158 merge `f465768` (delta `8262408..f465768`, ISSUE-056). **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **118 passed, 366 assertions** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle + CreateUserPolicy + UserCreateTemplateResolver); CI PR #158 verde (Pest/Lint/Security/OpenAPI). **auditor-senior** ([`9a3dbedd`](9a3dbedd-f056-4565-952f-759ca30652d8)) → 0 CRITICAL, **1 HIGH**, 5 MEDIUM, 2 LOW. **Resultado: REPROVADA** — `CQ-N46-001` HIGH: projector só aceita `groups:create`/`groups:delete` mas jobs persistem `group_create`/`group_delete` via `JobTypeTranslator` (padrão correto já existe em `TenantUserProjector`).
 
@@ -210,10 +257,10 @@ FINDINGS-INDEX -->
 ### Findings — Sprint F17 (validação R1)
 
 - **[OPS-F16-001] MEDIUM — validado (F17.1)**: `app-catalog:sync` quebrava no container quando `platform.suite_catalog.path` apontava para sibling `work-platform-scripts` inexistente na imagem. Fix: `SuiteCatalogPathResolver` com fallback `storage/app/suite_catalog.json` + env `NC_SUITE_CATALOG_JSON`; `AppCatalogSyncService` e `SuiteCatalogValidator` adotam o resolver. Validado no deploy LAB `661033e` (sync 11 apps sem `docker compose cp`).
-- **[CQ-F17-001] MEDIUM — pendente**: emissão de `groups: []` depende de override pós-`build()` nos call sites, não de `UserCreateStdinPayload::build()` (que ainda omite `groups` vazio via `if ($groups !== [])`). Novo entry point que use `UserCreateTemplateResolver` sem o override regride silenciosamente. **Correção sugerida**: mover a emissão de groups vazio para `UserCreateStdinPayload` (flag tri-state `?array $groups` + `bool $emitEmptyGroups` ou helper `withGroups`), removendo os overrides duplicados de controller+Livewire. `app/Modules/Customers/Support/UserCreateStdinPayload.php:46-48`.
-- **[CQ-F17-002] MEDIUM — pendente**: OccPanel sem teste para override explícito de groups vazio (API tem cobertura; Livewire só cobre merge + override não-vazio). **Correção sugerida**: teste Pest em `OccPanelUserTemplateTest` com template com groups + `userGroups` que parseia para `[]` (ex.: `','`) asserindo stdin `"groups": []`. `app/Http/Livewire/Customers/OccPanel.php:356-368`.
-- **[CQ-F17-003] LOW — pendente**: `groups: null` no JSON é tratado como `[]` explícito (via `$request->has` + cast `(array) null`) em vez de herdar template. **Correção sugerida**: `$request->exists('groups') && is_array($request->input('groups')) ? $request->array('groups') : null`. `app/Http/Controllers/Api/CustomerLifecycleController.php:60`.
-- **[CQ-F17-004] LOW — pendente**: `SuiteCatalogPathResolver` sem unit test dedicado (só coberto indiretamente via `AppCatalogSyncCommandTest`). **Correção sugerida**: teste Pest stubando `config()` + temp files em `storage/app/` asserindo first-readable-wins, fallthrough de path inexistente, `RuntimeException` quando todos ilegíveis. `app/Modules/Integration/Support/SuiteCatalogPathResolver.php:11-29`.
+- **[CQ-F17-001] MEDIUM — corrigido (F24)**: emissão de `groups: []` depende de override pós-`build()` nos call sites, não de `UserCreateStdinPayload::build()` (que ainda omite `groups` vazio via `if ($groups !== [])`). Novo entry point que use `UserCreateTemplateResolver` sem o override regride silenciosamente. **Correção sugerida**: mover a emissão de groups vazio para `UserCreateStdinPayload` (flag tri-state `?array $groups` + `bool $emitEmptyGroups` ou helper `withGroups`), removendo os overrides duplicados de controller+Livewire. `app/Modules/Customers/Support/UserCreateStdinPayload.php:46-48`.
+- **[CQ-F17-002] MEDIUM — corrigido (F24)**: OccPanel sem teste para override explícito de groups vazio (API tem cobertura; Livewire só cobre merge + override não-vazio). **Correção sugerida**: teste Pest em `OccPanelUserTemplateTest` com template com groups + `userGroups` que parseia para `[]` (ex.: `','`) asserindo stdin `"groups": []`. `app/Http/Livewire/Customers/OccPanel.php:356-368`.
+- **[CQ-F17-003] LOW — corrigido (F24)**: `groups: null` no JSON é tratado como `[]` explícito (via `$request->has` + cast `(array) null`) em vez de herdar template. **Correção sugerida**: `$request->exists('groups') && is_array($request->input('groups')) ? $request->array('groups') : null`. `app/Http/Controllers/Api/CustomerLifecycleController.php:60`.
+- **[CQ-F17-004] LOW — corrigido (F24)**: `SuiteCatalogPathResolver` sem unit test dedicado (só coberto indiretamente via `AppCatalogSyncCommandTest`). **Correção sugerida**: teste Pest stubando `config()` + temp files em `storage/app/` asserindo first-readable-wins, fallthrough de path inexistente, `RuntimeException` quando todos ilegíveis. `app/Modules/Integration/Support/SuiteCatalogPathResolver.php:11-29`.
 
 > **Validação F16 R1** (2026-07-06, `/qa validar F16` via `/rock`): scope = sprint/F16 pós-merge PR #140. **Testes**: Pest Docker **33 passed** (suite F16) + **135 passed** regressão Product/Livewire/Jobs (402 assertions). **Fixes**: F16.1 sync `plan_apps` via API; F16.2 `is_default` lockForUpdate; F16.3 `max_users` inflight jobs + re-check no persist; F16.4/F16.5 testes legacy+OccPanel. **5 HIGH** N41–N43 → corrigido. **Resultado: APROVADA** — 0 HIGH pendentes da campanha ISSUE-051.
 
@@ -243,9 +290,9 @@ FINDINGS-INDEX -->
 
 ### Backlog LOW N40 (non-blocking)
 
-- **[CQ-N40-003 ≡ QA-N40-005] LOW — pendente**: `OccPanel::deleteUser` não recarrega lista pós-success (create tem poll; delete fica stale até "Atualizar"). `app/Http/Livewire/Customers/OccPanel.php:395-413`.
-- **[QA-N40-003] LOW — pendente**: falta teste cruzando webhook out-of-order (`job.started` após terminal) com projeção `tenant_users` intacta.
-- **[QA-N40-004] LOW — pendente**: teste de poll create success usa seed manual em vez de integração webhook→projector→poll.
+- **[CQ-N40-003 ≡ QA-N40-005] LOW — corrigido (F24)**: `OccPanel::deleteUser` não recarrega lista pós-success (create tem poll; delete fica stale até "Atualizar"). `app/Http/Livewire/Customers/OccPanel.php:395-413`.
+- **[QA-N40-003] LOW — corrigido (F24)**: falta teste cruzando webhook out-of-order (`job.started` após terminal) com projeção `tenant_users` intacta.
+- **[QA-N40-004] LOW — corrigido (F24)**: teste de poll create success usa seed manual em vez de integração webhook→projector→poll.
 
 > **Validação F15 R2** (2026-06-17, `/qa validar F15` via `/rock`): scope = follow-up `ce86325` (campanha `f15-authz-followup`). **Testes**: `ApiKeyAuthorizationTest` 9 passed + `CancelJobTest` 4 passed, 29 assertions (SQLite local). **auditor-senior R2** → **PASS** (0 HIGH). **Findings validados**: `CQ-F15-001`, `CQ-F15-002`, `CQ-F15-003`, `CQ-F15-005`, `SEC-V1-001`. **Backlog non-blocking**: `CQ-F15-007`, `CQ-F15-008` (LOW). **Hard Rule #2**: OK (0 arquivos fora whitelist). **Resultado: APROVADA**.
 

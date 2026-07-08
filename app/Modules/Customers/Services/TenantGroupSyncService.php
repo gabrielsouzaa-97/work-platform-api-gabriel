@@ -74,9 +74,7 @@ class TenantGroupSyncService
             }
         }
 
-        if ($report->inserted === 0) {
-            $report->updated += $refreshedExisting;
-        }
+        $report->updated += $refreshedExisting;
     }
 
     /**

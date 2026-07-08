@@ -58,6 +58,9 @@ pest()->extend(TestCase::class)
     ->in('Unit/Infrastructure');
 
 pest()->extend(TestCase::class)
+    ->in('Unit/Modules/Integration');
+
+pest()->extend(TestCase::class)
     ->in('Unit/Dns');
 
 pest()->extend(TestCase::class)

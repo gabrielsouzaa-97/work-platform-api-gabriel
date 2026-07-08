@@ -92,6 +92,8 @@
 | F20    | F         | CQ-F19-001/002 LOW (asserções empty-plan + migration `down()` guard) | **concluída** | 2 | Product, Database | PR #145; deploy LAB `2313ea1` | — |
 | F21    | F         | `/docs/api/spec` 200 na imagem Docker; sidebar Planos+Fazendas; smoke pós-deploy documentado | **concluída** | 4 | DevOps, Livewire, docs | ISSUE-052 + ISSUE-053; deploy LAB `95d1152` | — |
 | F22-q  | F         | Contraste dark theme em painéis Product + dropdown custom `x-select-menu` (popup nativo OS-rendered ilegível) | **concluída** | 4 | Livewire, CSS | ISSUE-054; PRs #149/#150/#151/#153; deploy LAB `7492358`; validado pelo operador | — |
+| F23    | F         | TenantGroupProjector aceita `group_create`/`group_delete`; validação OccPanel alinhada à API; poll/reload grupos; sync report + exit code | **concluída** | 5 | Customers, Occ, Jobs/Webhook | CQ-N46-001..008 validados; PR #159 merge `32bd75a` | 5950+ |
+| F24    | F         | DRY regras nome grupo; groups vazio/null no stdin; sync `updated` + poll UX; testes N40/F17 backlog | **planejada** | 7 | Customers, Occ, Product, Integration | CQ-F23-001..003 + CQ-F17-001..004 + N40 LOW backlog | 6062+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -107,8 +109,8 @@
 | N42    | N         | Catálogo de apps (`app_catalog_entries` + `app-catalog:sync`); create tenant herda apps do plano; validação apps ⊆ plano ∪ catálogo; picker no painel | **concluída** | 6 | Product, Customers, API v1, Livewire | ISSUE-051 fatia 2; PR #139 | — |
 | N43    | N         | Templates de usuário + PolicyResolver (permissions schema v1, `max_users` → 422 `plan_limit_exceeded`); apps por designação `plan_apps` (F18); `user_template_slug` em API/painel/projeção | **concluída** | 6 | Product, Customers, Occ, API v1 | ISSUE-051 fatia 3; PR #140; validation R1 → F16 | — |
 | N44    | N         | Objectstore S3 no provision via API — bloqueada gate N56 upstream | planejada | 5 | Customers, API v1 | ISSUE-055 | — |
-| N45    | N         | OCC Groups UX Fase 1: UI honesta, confirmações, pickers (ISSUE-056) | **implementada** | 5 | Livewire, Occ | aguarda VERIFY | — |
-| N46    | N         | Read model `tenant_groups` + aba Grupos completa (ISSUE-056) | **implementada** | 6 | Customers, Occ, DB | aguarda VERIFY | — |
+| N45    | N         | OCC Groups UX Fase 1: UI honesta, confirmações, pickers (ISSUE-056) | **concluída** | 5 | Livewire, Occ | UX merged; validada via F23 | — |
+| N46    | N         | Read model `tenant_groups` + aba Grupos completa (ISSUE-056) | **concluída** | 6 | Customers, Occ, DB | CQ-N46 validados F23; PR #159 | — |
 
 ---
 
@@ -5918,7 +5920,7 @@ reuse_targets:
 
 ## Sprint N45 — OCC Groups UX Fase 1 (ISSUE-056)
 
-> **Status**: implementada (2026-07-08) — aguarda VERIFY CI
+> **Status**: **concluída** (2026-07-08) — UX merged; validação funcional via F23
 > Gate: membership 501 oculto; deletes com confirmação; CSV removido; pickers username/grupos; CI verde.
 
 | Status | Tamanho | Tarefa |
@@ -5933,7 +5935,7 @@ reuse_targets:
 
 ## Sprint N46 — Read model `tenant_groups` (ISSUE-056)
 
-> **Status**: implementada (2026-07-08) — aguarda VERIFY CI
+> **Status**: **concluída** (2026-07-08) — CQ-N46-001..008 validados em F23 (PR #159 merge `32bd75a`)
 > Gate: aba Grupos com projeção local; sync `group:list`; validação existência API+UI; CI verde.
 
 | Status | Tamanho | Tarefa |
@@ -6061,8 +6063,127 @@ Test scenarios:
 
 ---
 
+## Sprint F24 — OCC groups polish + F17/N40 backlog
+
+> Categoria: F
+> Status: **implementada** (2026-07-08) — aguarda VERIFY CI
+> Gate executável: `TenantGroupNameRules` única fonte em API+OccPanel; `UserCreateStdinPayload` emite `groups: []` sem override nos call sites; API `groups: null` herda template; `TenantGroupSyncReport.updated` conta todos os refreshes; poll de grupo não sobrescreve mensagem quando create+delete terminam no mesmo tick; `deleteUser` recarrega lista pós-success; Pest dedicado `SuiteCatalogPathResolver` + out-of-order webhook + poll integrado webhook→projector; CI verde.
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-08. Fonte: Escopo A Rock — findings `CQ-F23-001`..`003`, `CQ-F17-001`..`004`, `CQ-N40-003`/`QA-N40-003`/`QA-N40-004` em `docs/FINDINGS.md`.
+> Pré-execução: Quality Brief (`docs/.briefs/F24.brief.md`) + verifier via pipeline `/pmo sprint F24`. Pós-sprint: deploy LAB.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | F24.1 — CQ-F23-001: extrair `TenantGroupNameRules` compartilhado (API + OccPanel) | api-rest-patterns / laravel-livewire | — |
+| [x] | P | F24.2 — CQ-F23-002: sync `updated` sempre conta refreshes (cenário misto insert+backfill) | laravel-testing | — |
+| [x] | P | F24.3 — CQ-F23-003: corrigir clobber de mensagem no poll concorrente create+delete | laravel-livewire | — |
+| [x] | M | F24.4 — CQ-F17-001+002+003: `groups: []` no `UserCreateStdinPayload` + `groups: null` herda template + Pest OccPanel | api-rest-patterns / laravel-livewire | — |
+| [x] | P | F24.5 — CQ-F17-004: unit tests dedicados `SuiteCatalogPathResolver` | laravel-testing | — |
+| [x] | P | F24.6 — CQ-N40-003: `deleteUser` recarrega lista de usuários após success | laravel-livewire | — |
+| [x] | P | F24.7 — QA-N40-003+004: testes webhook out-of-order + poll integrado webhook→projector | laravel-testing | — |
+
+### Quality Brief (Sprint F24)
+
+- **Brief**: `docs/.briefs/F24.brief.md`
+- **Verifier**: `docs/.briefs/F24.verifier.md`
+- **Findings-alvo**: 9 (3 MEDIUM + 6 LOW; `QA-N40-005` dedupe com `CQ-N40-003`)
+- **Tasks**: 7 (2M + 5P)
+
+<details>
+<summary>F24.1 — Shared TenantGroupNameRules (CQ-F23-001)</summary>
+
+**Fonte(s)**: `docs/FINDINGS.md` CQ-F23-001 (MEDIUM); duplicação pós-F23.3.
+
+**Estado atual**: `OccPanel::groupNameRules()` duplica regex `^[a-zA-Z0-9._\- ]+$`, max length e closure de nome reservado `admin` já presentes em `CreateGroupRequest`. Comportamento correto hoje, mas duas fontes podem divergir em mudanças futuras.
+
+**Estado desejado**: classe/trait único `TenantGroupNameRules::forAttribute('name'|'groupName')` consumido por `CreateGroupRequest` e `OccPanel`; zero duplicação de regras.
+
+**Módulo(s) afetado(s)**: novo `app/Modules/Customers/Support/TenantGroupNameRules.php`, `CreateGroupRequest.php`, `OccPanel.php` (+ Pest se regressão)
+
+**Task size**: M (≤5 files)
+
+**executor_prompt**:
+```
+Context: F23 fixed group name validation in API and OccPanel separately; CQ-F23-001 flags DRY violation.
+BEFORE:
+- CreateGroupRequest rules(): regex, max:256, reserved admin closure inline
+- OccPanel::groupNameRules() duplicates same regex, max, admin check
+- Two sources can drift on future rule changes
+
+AFTER:
+1. Create TenantGroupNameRules (Support) with static forAttribute(string $attribute): array
+2. CreateGroupRequest uses TenantGroupNameRules::forAttribute('name')
+3. OccPanel::groupNameRules() delegates to TenantGroupNameRules::forAttribute('groupName')
+4. Preserve case-insensitive admin block and regex exactly as today
+5. Pest: existing CreateGroup/OccPanel group validation tests still pass (add focused test if none)
+
+Acceptance:
+- Single source of truth for group name validation rules
+- API and Livewire reject invalid names and reserved admin identically
+- No behavior change beyond consolidation
+- ≤5 files touched
+
+Test scenarios:
+1. Happy path: valid group name passes API + OccPanel
+2. Edge: reserved admin (case variants) rejected both paths
+3. Edge: invalid chars rejected both paths
+4. Regression: membership/group flows unchanged
+```
+</details>
+
+<details>
+<summary>F24.4 — Empty groups stdin + null inherits template (CQ-F17-001 / CQ-F17-002 / CQ-F17-003)</summary>
+
+**Fonte(s)**: `docs/FINDINGS.md` CQ-F17-001 (MEDIUM), CQ-F17-002 (MEDIUM), CQ-F17-003 (LOW); gaps pós-F17.
+
+**Estado atual**: emissão de `groups: []` depende de override pós-`build()` em controller e OccPanel; `UserCreateStdinPayload::build()` omite groups vazio via `if ($groups !== [])`. API trata `groups: null` como `[]` explícito (`$request->has` + cast). OccPanel sem teste de override vazio.
+
+**Estado desejado**: `UserCreateStdinPayload` emite `groups: []` nativamente (tri-state `?array` + flag ou helper `withGroups`); call sites removem overrides duplicados; API distingue omitido/null (herda template) de `[]` explícito; Pest OccPanel cobre template+groups vazio.
+
+**Módulo(s) afetado(s)**: `UserCreateStdinPayload.php`, `CustomerLifecycleController.php`, `OccPanel.php`, `UserCreateTemplateResolver.php` (se necessário), `OccPanelUserTemplateTest.php`, `LifecycleTest.php` ou equivalente API
+
+**Task size**: M (≤5 files)
+
+**executor_prompt**:
+```
+Context: F17 delivered groups override but left fragile call-site overrides and API null semantics.
+BEFORE:
+- UserCreateStdinPayload::build() skips empty groups array (if $groups !== [])
+- CustomerLifecycleController + OccPanel post-build override to force groups: []
+- CustomerLifecycleController: groups:null coerced to [] via has()+cast
+- API has empty-groups test; OccPanel lacks empty override test
+
+AFTER:
+1. UserCreateStdinPayload: tri-state groups (?array) — null=omit/inherit upstream, []=emit "groups": []
+   Use emitEmptyGroups flag or withGroups() helper; remove post-build overrides at call sites
+2. CustomerLifecycleController resolve groups:
+   $request->exists('groups') && is_array($request->input('groups')) ? $request->array('groups') : null
+3. OccPanel createUser path uses payload builder without manual override hack
+4. Pest OccPanelUserTemplateTest: template with groups + userGroups parsing to [] (e.g. ',')
+   asserts stdin contains "groups": []
+5. API test: groups:null inherits template groups; groups:[] clears template
+
+Acceptance:
+- New entry point using UserCreateTemplateResolver cannot silently skip empty groups emission
+- groups:null ≠ groups:[] in API contract
+- OccPanel parity with API for empty override
+- Existing non-empty override tests still pass
+- ≤5 files (split follow-up if needed)
+
+Test scenarios:
+1. API: template groups ['a'] + body groups:null → upstream gets template groups
+2. API: template groups ['a'] + body groups:[] → upstream gets groups:[]
+3. OccPanel: same empty override via UI fields → stdin groups:[]
+4. Regression: non-empty explicit groups still override template
+5. Regression: omit groups key entirely still inherits template
+```
+</details>
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.58   | Sprint F24 planejada — CQ-F23-001..003 + CQ-F17-001..004 + N40 LOW backlog (Escopo A Rock); N45/N46 índice → concluída | `/pmo plan` |
 | 2026-07-08 | 0.57   | Sprint F23 concluída — CQ-N46-001..008 validados; PR #159 merge `32bd75a`; 3 follow-ups non-blocking CQ-F23 | sprint-finalizer |
 | 2026-07-08 | 0.56   | Sprint F23 planejada — CQ-N46-001..008 pós REPROVADA N45+N46 | `/pmo plan` |
 | 2026-07-08 | 0.55   | Sprints N45+N46 implementadas — ISSUE-056 UX OCC Grupos (DESIGN.md §9); aguarda VERIFY CI. | `/rock` |
