@@ -5947,8 +5947,114 @@ reuse_targets:
 
 ---
 
+## Sprint F23 — Fix CQ-N46 projector job_type + OCC groups validation
+
+> Categoria: F
+> Status: **planejada**
+> Gate executável: `TenantGroupProjector` aceita `group_create`/`group_delete` (e aliases `groups:*`); Pest `WebhookTenantGroupProjectionTest` usa job_types reais e passa; validação OccPanel alinhada à API (case-insensitive + regex + bloqueio `admin`); poll/reload pós create/delete de grupo; sync report `updated` + exit code FAILURE em falha parcial; CI verde.
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-08. Fonte: `/qa validar` N45+N46 R1 **REPROVADA** — findings `CQ-N46-001`..`CQ-N46-008` em `docs/FINDINGS.md`.
+> Pré-execução: Quality Brief (`docs/.briefs/F23.brief.md`) + verifier via pipeline `/pmo sprint F23`.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F23.1 — CQ-N46-001+002: projector aceita `group_create`/`group_delete` + fixtures Pest com job_types reais | api-rest-patterns / laravel-testing | — |
+| [ ] | P | F23.2 — CQ-N46-003: OccPanel membership case-insensitive (paridade `TenantGroupMembership`) | laravel-livewire | — |
+| [ ] | P | F23.3 — CQ-N46-004+005: regex API + bloqueio nome reservado `admin` em CreateGroupRequest e OccPanel | api-rest-patterns / laravel-livewire | — |
+| [ ] | M | F23.4 — CQ-N46-006: poll/reload grupos após create/delete no painel | laravel-livewire | F23.1 |
+| [ ] | P | F23.5 — CQ-N46-007+008: `TenantGroupSyncReport.updated` + exit FAILURE em falhas parciais | laravel-testing | — |
+
+<details>
+<summary>F23.1 — Projector job_type + Pest fixtures (CQ-N46-001 / CQ-N46-002)</summary>
+
+**Fonte(s)**: `docs/FINDINGS.md` CQ-N46-001 (HIGH), CQ-N46-002 (MEDIUM); padrão `TenantUserProjector`.
+
+**Estado atual**: `TenantGroupProjector` só trata `groups:create`/`groups:delete`, mas `LifecycleAsyncAction` persiste `group_create`/`group_delete` via `JobTypeTranslator::cmdToJobType()`. Webhook terminal não projeta `tenant_groups`. Fixtures Pest injetam `groups:*` → falso verde.
+
+**Estado desejado**: projector espelha `TenantUserProjector` com listas dual (`group_create`+`groups:create`, `group_delete`+`groups:delete`); testes usam job_types persistidos reais e cobrem o caminho Lifecycle → webhook → row.
+
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Services/TenantGroupProjector.php`, `tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php`
+
+**Task size**: M (≤5 files)
+
+**executor_prompt**:
+```
+Context: N46 TenantGroupProjector never projects after real webhooks because job_type mismatch.
+BEFORE:
+- GROUP_CREATE_TYPES = ['groups:create']; GROUP_DELETE_TYPES = ['groups:delete']
+- WebhookTenantGroupProjectionTest fixtures set job_type to groups:create / groups:delete
+- Real jobs persist group_create / group_delete (JobTypeTranslator)
+
+AFTER:
+1. TenantGroupProjector: GROUP_CREATE_TYPES = ['group_create', 'groups:create'];
+   GROUP_DELETE_TYPES = ['group_delete', 'groups:delete'] — mirror TenantUserProjector
+2. Update WebhookTenantGroupProjectionTest fixtures to use group_create / group_delete
+3. Keep alias coverage optional (one test may still assert groups:create still works)
+4. Prefer an integrated path: LifecycleAsyncAction (or equivalent) → terminal webhook → assert tenant_groups row
+5. Pest green for WebhookTenantGroupProjectionTest; no production behavior change beyond matching
+
+Acceptance:
+- Terminal success webhook with job_type=group_create upserts tenant_groups
+- Terminal success webhook with job_type=group_delete removes tenant_groups row
+- Fixtures no longer use only groups:* as the primary path
+- CI Pest filter for this suite passes
+
+Test scenarios:
+1. Happy path create: job group_create + success → row exists
+2. Happy path delete: job group_delete + success → row gone
+3. Edge: groups:create alias still projects (compat)
+4. Edge: non-success canonical state → no projection
+5. Regression: unrelated job_type → no tenant_groups mutation
+```
+</details>
+
+<details>
+<summary>F23.4 — Poll/reload groups after create/delete (CQ-N46-006)</summary>
+
+**Fonte(s)**: `docs/FINDINGS.md` CQ-N46-006 (MEDIUM); assimetria com fluxo users (`pollPendingUserJob` / `loadUsers`).
+
+**Estado atual**: `createGroup`/`deleteGroup` enfileiram job e mostram mensagem, mas não fazem poll terminal nem `loadGroups()` — lista fica stale até sync/manual refresh. Depende do projector (F23.1) para o poll refletir projeção.
+
+**Estado desejado**: após create/delete de grupo, painel faz poll do job até estado terminal (ou timeout) e chama `loadGroups()` no success — paridade com users.
+
+**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php` (+ Pest OccPanel se existir cobertura)
+
+**Task size**: M (≤5 files)
+
+**executor_prompt**:
+```
+Context: After F23.1, group create/delete still leave OccPanel groups list stale.
+BEFORE:
+- createGroup/deleteGroup set successMessage and clear input; no pending job poll; no loadGroups()
+- Users flow already has pollPendingUserJob + reload on terminal success
+
+AFTER:
+1. Track pending group job id (create and/or delete) similar to pendingUserCreateJobId
+2. Add pollPendingGroupJob (or reuse shared poll helper) watching JOB_TERMINAL_STATES
+3. On terminal success: loadGroups(); clear pending id; keep success/error messaging consistent with users
+4. Wire wire:poll (or existing Alpine/Livewire poll) in occ-panel.blade.php for groups tab
+5. Pest: assert reload/poll path after mocked terminal job if suite supports Livewire testing
+
+Acceptance:
+- After successful group_create projection, groups list shows new group without manual sync
+- After successful group_delete projection, group disappears from list
+- Timeout path does not leave UI stuck polling forever
+- Depends on F23.1 — do not ship without projector fix
+
+Test scenarios:
+1. Happy path create → poll success → loadGroups includes name
+2. Happy path delete → poll success → loadGroups excludes name
+3. Edge: job still pending → poll no-op, list unchanged
+4. Edge: poll timeout → clear pending + user-visible message
+5. Regression: users poll path unchanged
+```
+</details>
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.56   | Sprint F23 planejada — CQ-N46-001..008 pós REPROVADA N45+N46 | `/pmo plan` |
 | 2026-07-08 | 0.55   | Sprints N45+N46 implementadas — ISSUE-056 UX OCC Grupos (DESIGN.md §9); aguarda VERIFY CI. | `/rock` |
 | 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |
 | 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |
