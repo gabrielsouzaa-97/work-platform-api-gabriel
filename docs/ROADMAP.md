@@ -5863,8 +5863,57 @@ Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 
 ---
 
+## Sprint N44 — Objectstore S3 no provision via API (ISSUE-055 / ENH-014 Fase B)
+
+> Categoria: N
+> Status: planejada — **BLOQUEADA** pelo gate da Sprint **N56** do `work-platform-scripts` (Fase A: imagem com autoconfig S3 + `manage.sh --objectstore` deployados no `.120`)
+> Gate: `POST /api/v1/tenants` com `objectstore: { enabled: true }` + `image_mode: true` → argv do dispatch contém `--objectstore` (+ `--objectstore-bucket=` quando informado); `enabled` sem `image_mode` → **422** `validation_error`; **zero** credencial S3 em payload/argv/`jobs.summary`/AuditLog (grep negativo nos testes); OpenAPI `openapi-external.yaml` atualizado + Scalar renderiza; Pest verde no CI; deploy LAB e canário `s3pilot2` criado **exclusivamente via API** com WebDAV 201/200 + `urn:oid:*` no bucket dedicado
+> Gerado via `/pmo plan` (2026-07-08). Fonte: **ISSUE-055**; plano cross-repo `work-platform-scripts/docs/planning/PLAN-OBJECTSTORE-S3-PROVISION.md` (D1–D9).
+> review: senior+qa — superfície de contrato externo (`/api/v1`) + fluxo de provisionamento; secrets nunca na API (D8) é o invariante central.
+> **Execução (operador, 2026-07-08)**: tasks executadas pelo operador com **Composer 2.5** — este planejamento entrega apenas blueprints/`executor_prompt`.
+> Pré-execução: Quality Brief + verifier (`docs/.briefs/N44.brief.md`) antes da primeira task.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | P | N44.1 — Migration `customers.objectstore_enabled` (bool default false) + `objectstore_bucket` (string nullable, metadado não-secreto) + cast no model | laravel-migration | — |
+| [ ] | M | N44.2 — `ProvisionPayload.objectstore` + FormRequest (`enabled` bool, `bucket` regex slug-safe; 422 se `enabled` sem `image_mode`) + `ProvisionCustomerAction`/translator argv `--objectstore[/-bucket=]` + Pest | api-rest-patterns | N44.1 |
+| [ ] | P | N44.3 — OpenAPI `CreateTenantRequest.objectstore` (`enabled`, `bucket` opcional; descrição: credenciais resolvem no cluster) + exemplo + Scalar smoke | docs | N44.2 |
+| [ ] | P | N44.4 — Livewire `Customers\Create`: toggle "Armazenamento S3 (MeStorage)" visível só com image-mode + persistência + badge no show | laravel-livewire | N44.2 |
+| [ ] | P, gated | N44.5 — Deploy LAB + canário `s3pilot2` via API only: job success + gates WebDAV/bucket (subconjunto G1–G6); evidência em OPERATIONS; ISSUE-055 → fixed | cloud-ops (manual) | N44.2, N44.3, N44.4, Sprint N56 (upstream) |
+
+<details>
+<summary>N44.2 — Payload objectstore + translator argv (núcleo do contrato)</summary>
+
+**Fonte(s)**: ISSUE-055; PLAN-OBJECTSTORE-S3-PROVISION §6 (contrato v1 simplificado — D8).
+
+**Estado atual**: `ProvisionPayload` (app/Modules/Customers/Dto/ProvisionPayload.php) não tem campo objectstore; translator cmd→argv (padrão F5/N36 com `--image-mode`/`--suite-catalog`) não emite `--objectstore`; criação sem objectstore = storage local.
+**Estado desejado**: request com `objectstore.enabled=true` + `image_mode=true` produz dispatch upstream com `--objectstore` (e `--objectstore-bucket=<b>` quando `bucket` presente); flags **posicionadas com as demais flags de image-mode** (regressão ISSUE-045: flags devem sobreviver ao `args_json` Redis). Nunca aceitar/propagar key/secret/hostname — se o cliente enviar chaves desconhecidas dentro de `objectstore`, rejeitar com 422 (`prohibited`).
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Dto/ProvisionPayload.php`, FormRequest de create, `ProvisionCustomerAction`/translator argv, Pest (`ProvisionTest` + novo).
+**Risco**: MEDIUM — toca translator usado por todo provision; mitigado por Pest de regressão argv sem objectstore (byte-idêntico ao atual).
+**Task size**: M (4-5 files)
+
+**executor_prompt**:
+### Quality Brief (Sprint N44)
+Melhoria: contrato `objectstore` no provision API v1.
+Contexto: Fase A (work-platform-scripts N56) entrega `manage.sh create --image-mode --objectstore [--objectstore-bucket=]` com credenciais resolvidas no host (`secrets/objectstore.env`, D8). A API só liga a feature.
+Objetivo: (1) `ProvisionPayload::objectstore` (`?array{enabled: bool, bucket: ?string}`); (2) validação FormRequest: `objectstore.enabled` boolean, `objectstore.bucket` opcional `regex:/^[a-z0-9][a-z0-9-]{2,62}$/`, chaves extras em `objectstore.*` proibidas, regra condicional `objectstore.enabled=true` requer `image_mode=true` senão 422; (3) translator argv acrescenta `--objectstore` (+ bucket) junto das flags image-mode; (4) persistir `objectstore_enabled`/`objectstore_bucket` no customer.
+Arquivos: DTO, FormRequest, Action/translator, model/migration (N44.1), tests Pest.
+Critério de pronto: Pest — argv com flag; argv com bucket override; argv sem objectstore inalterado (regressão); 422 enabled sem image_mode; 422 chave desconhecida em objectstore (ex.: `key`); grep negativo `OBJECTSTORE_S3_KEY|SECRET` em app/ (invariante D8). CI verde.
+Cenários de teste: 1. normal enabled+image_mode; 2. bucket override; 3. edge enabled sem image_mode → 422; 4. edge `objectstore.key` enviado → 422 prohibited; 5. regressão payload sem objectstore → argv atual intacto; 6. sanitização: `jobs.summary`/AuditLog do dispatch sem termo `objectstore` além do bool/bucket.
+guardrail_contract:
+  - class: secrets
+    convergence_check: "! rg -i 'OBJECTSTORE_S3_(KEY|SECRET)' app/"
+reuse_targets:
+  - component: translator argv `--image-mode`/`--suite-catalog` (padrão N36, regressão ISSUE-045)
+    reuse_as: extend
+    convergence_check: rg -- "--objectstore" app/Modules/Customers/
+</details>
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |
 | 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |
 | 2026-07-08 | 0.52   | Sprint F22-q concluída — ISSUE-054 contraste dark theme Planos; deploy LAB `308fec4`. Sprint F21 marcada concluída (`95d1152`). | `/rock` |
 | 2026-07-07 | 0.51   | Sprint F21 planejada — ISSUE-052 (`/docs/api/spec` 404: `.dockerignore` exclui docs do build) + ISSUE-053 (sidebar sem Planos/Fazendas); 4 tasks (1M+3P); gate spec 200 no container + sidebar + smoke RUNBOOK. | `/pmo plan` |

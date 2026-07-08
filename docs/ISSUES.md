@@ -60,6 +60,20 @@
 | ISSUE-052 | bug | `/docs/api/spec` retorna 404 na imagem Docker de produção/LAB — `openapi-external.yaml` ausente após `rm -rf docs` no Dockerfile | DevOps, Livewire, docs | HIGH | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
 | ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
 | ISSUE-054 | bug | Painéis Product admin (Planos etc.) com texto ilegível no dark theme — inputs/selects sem `text-on-surface`; popup nativo do `<select>` renderizado pelo OS (GTK dark) ignora CSS | Livewire, Product, CSS | MEDIUM | **fixed (2026-07-08)** — Sprint F22-q (+q.2/q.3/q.4); deploy LAB `7492358`; merge `c50c9ea` (PRs #149/#150/#151/#153); validado pelo operador |
+| ISSUE-055 | change_request | `POST /api/v1/tenants` com `objectstore: { enabled, bucket? }` — S3 primary storage MeStorage no provision image-mode (ENH-014 Fase B; credenciais resolvem no host, D8) | Customers, API v1, Livewire, Cross-repo (work-platform-scripts ENH-014) | HIGH | **planned — Sprint N44** (2026-07-08); bloqueada pelo gate da Sprint N56 upstream (Fase A) |
+
+---
+
+## ISSUE-055 — Objectstore S3 no `POST /api/v1/tenants` (ENH-014 Fase B)
+
+- **Tipo**: change_request
+- **Prioridade**: HIGH
+- **Status**: **planned — Sprint N44** (2026-07-08); **bloqueada** pelo gate da Sprint **N56** do `work-platform-scripts` (Fase A: entrypoint + `manage.sh --objectstore`)
+- **Origem**: piloto `s3pilot` 2026-07-08 — tenant criado via API (job `f1bee7f1` success) mas objectstore pós-install quebrou leitura; plano completo em `work-platform-scripts/docs/planning/PLAN-OBJECTSTORE-S3-PROVISION.md` (decisões D1–D9)
+- **Descrição**: `POST /api/v1/tenants` (e Livewire `Customers\Create`) aceita `objectstore: { enabled: bool, bucket?: string }`; quando `enabled` + `image_mode` → argv inclui `--objectstore` (+ `--objectstore-bucket=` se informado). Credenciais/endpoint **não transitam** pela API — resolvem no host via `secrets/objectstore.env` (decisão D8). `objectstore.enabled` sem `image_mode` → 422.
+- **Contrato**: OpenAPI `CreateTenantRequest.objectstore` (`enabled`, `bucket` opcional); persistência `customers.objectstore_enabled` (bool) + bucket em metadado não-secreto
+- **Critério de aceite**: testes Pest argv (com/sem flag, bucket override, 422 sem image_mode); sanitização (`jobs.summary` sem credencial — padrão SEC-N30); OpenAPI atualizado; deploy LAB; canário `s3pilot2` **via API only** com gates G1–G6 do plano
+- **Reportado em**: 2026-07-08 (`/pmo plan` cross-repo)
 
 ---
 
