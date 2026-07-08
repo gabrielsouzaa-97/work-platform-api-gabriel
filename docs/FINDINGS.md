@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
 synced_at: 2026-07-08
 open_critical: 0
-open_high: 10
-open_medium: 56
+open_high: 9
+open_medium: 52
 open_low: 48
-sprints_with_open_blockers: [N46]
-notes: N45+N46 R1 REPROVADA — CQ-N46-001 HIGH (TenantGroupProjector job_type mismatch group_create vs groups:create). PR #158 merge f465768; CI verde mas projeção webhook quebrada em produção. F20 concluída.
+sprints_with_open_blockers: []
+notes: Sprint F23 APROVADA — CQ-N46-001..008 validados (PR #159 merge 32bd75a). 3 non-blocking CQ-F23 em backlog.
 FINDINGS-INDEX -->
 
 
@@ -52,7 +52,45 @@ FINDINGS-INDEX -->
 | F19 | 0 | 0 | 0 | 2 | 0 | 0 | 2 |
 | F20 | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
 | N45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| N46 | 0 | 1 | 5 | 2 | 8 | 0 | 0 |
+| N46 | 0 | 0 | 0 | 0 | 0 | 8 | 8 |
+| F23 | 0 | 0 | 1 | 2 | 3 | 0 | 0 |
+
+> **Validação F23 R1** (2026-07-08, `/qa validar F23`): scope = PR #159 merge `32bd75a` (branch `campanha/fix-n46-projector`). **Preflight**: PROC-025/027 PASS. **Testes**: Pest Docker **103 passed** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle); CI PR #159 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review; `assign` fail non-blocking). **auditor-senior** ([`10b26616`](10b26616-078c-4d39-b048-5067297b839d)) → 0 CRITICAL, 0 HIGH, 1 MEDIUM, 2 LOW. **Findings-alvo validados**: CQ-N46-001..008 (8/8). **Resultado: APROVADA** — 0 CRITICAL/HIGH; 3 novos non-blocking em backlog (`CQ-F23-001`..`003`).
+
+### Findings — Sprint F23 (validação R1)
+
+#### [CQ-F23-001] — Regras de nome de grupo duplicadas (DRY)
+- **Severidade**: MEDIUM
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:673-686` + `app/Http/Requests/Lifecycle/CreateGroupRequest.php:19-29`
+- **Sprint origem**: F23 (post-fix review)
+- **Status**: pendente_revisao_medium
+- **Esforço**: P
+**Descrição**: `groupNameRules()` duplica regex, max length e closure de nome reservado `admin` já presentes em `CreateGroupRequest`. Comportamento correto, mas duas fontes podem divergir.
+**Correção sugerida**: Extrair regras compartilhadas (ex. `TenantGroupNameRules::forAttribute('name'|'groupName')`) e reutilizar em API + Livewire.
+
+#### [CQ-F23-002] — Métrica `updated` do sync subreporta em cenário misto
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Services/TenantGroupSyncService.php:77-79`
+- **Sprint origem**: F23 (post-fix review)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `updated` só incrementa quando `inserted === 0`. Sync com inserts e backfill de `synced_at` simultâneos subreporta refreshes.
+**Correção sugerida**: Sempre `$report->updated += $refreshedExisting` ou incrementar por row no loop.
+
+#### [CQ-F23-003] — Poll concorrente de grupo pode sobrescrever feedback
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:566-589`, `688-718`
+- **Sprint origem**: F23 (post-fix review)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `pollPendingGroupJob()` executa create e delete em sequência; cada `pollSingleGroupJob()` chama `clearMessages()` no terminal. Se ambos jobs terminam no mesmo tick de 3s, a segunda mensagem apaga a primeira.
+**Correção sugerida**: Acumular mensagens, poll de um job por tick, ou handlers `wire:poll` separados por tipo.
 
 > **Validação N45+N46 R1** (2026-07-08, `/qa validar`): scope = PR #158 merge `f465768` (delta `8262408..f465768`, ISSUE-056). **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **118 passed, 366 assertions** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle + CreateUserPolicy + UserCreateTemplateResolver); CI PR #158 verde (Pest/Lint/Security/OpenAPI). **auditor-senior** ([`9a3dbedd`](9a3dbedd-f056-4565-952f-759ca30652d8)) → 0 CRITICAL, **1 HIGH**, 5 MEDIUM, 2 LOW. **Resultado: REPROVADA** — `CQ-N46-001` HIGH: projector só aceita `groups:create`/`groups:delete` mas jobs persistem `group_create`/`group_delete` via `JobTypeTranslator` (padrão correto já existe em `TenantUserProjector`).
 
@@ -64,7 +102,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Modules/Customers/Services/TenantGroupProjector.php:13-31`
 - **Sprint origem**: N46 (task N46.2 — TenantGroupProjector + webhook hooks)
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: P
 **Descrição**: `LifecycleAsyncAction` persiste `job_type` via `JobTypeTranslator::cmdToJobType()` como `group_create`/`group_delete`, mas o projector só trata `groups:create`/`groups:delete`. Webhook terminal não projeta `tenant_groups` até sync manual.
 **Correção sugerida**: Alinhar ao `TenantUserProjector`: `GROUP_CREATE_TYPES = ['group_create', 'groups:create']` e `GROUP_DELETE_TYPES = ['group_delete', 'groups:delete']`.
@@ -75,7 +113,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php`
 - **Sprint origem**: N46 (task N46.2)
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: P
 **Descrição**: Fixtures injetam `job_type => 'groups:create'|'groups:delete'`, mas jobs reais usam `group_create`/`group_delete`. Suite passa com CQ-N46-001 ativo.
 **Correção sugerida**: Fixtures com `group_create`/`group_delete` + teste integrado LifecycleAsyncAction → webhook → assert row.
@@ -86,7 +124,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:404-405`
 - **Sprint origem**: N46 (task N46.5)
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: P
 **Descrição**: Painel usa `in_array(..., true)` case-sensitive; API `TenantGroupMembership` compara `LOWER(name)`.
 **Correção sugerida**: Reutilizar `TenantGroupMembership` ou lookup case-insensitive idêntico.
@@ -97,7 +135,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:521-543`
 - **Sprint origem**: N45 (task N45.2/N45.5)
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: P
 **Descrição**: Painel aceita `required|string|max:256` sem `regex:/^[a-zA-Z0-9._\- ]+$/` da API.
 **Correção sugerida**: Extrair regras compartilhadas e aplicar no OccPanel.
@@ -108,7 +146,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Requests/Lifecycle/CreateGroupRequest.php` + `OccPanel::createGroup`
 - **Sprint origem**: N46
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: P
 **Descrição**: Membership bloqueia atribuir `admin`, mas create group não rejeita nome `admin`.
 **Correção sugerida**: Rule case-insensitive `strtolower($name) === 'admin'` em CreateGroupRequest e OccPanel.
@@ -119,7 +157,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:519-536`
 - **Sprint origem**: N45/N46
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: M
 **Descrição**: Após createGroup sucesso não há poll do job nem `loadGroups()` (assimetria com users).
 **Correção sugerida**: Após fix CQ-N46-001, poll terminal group_create/delete ou reload no success.
@@ -130,7 +168,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Modules/Customers/Services/TenantGroupSyncService.php:52-72`
 - **Sprint origem**: N46 (task N46.3)
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: P
 **Motivo LOW**: métrica operacional enganosa; sync funcional.
 **Correção sugerida**: Incrementar `$report->updated++` em row existente ou remover campo.
@@ -141,7 +179,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Console/Commands/TenantGroupsSyncCommand.php:35-44`
 - **Sprint origem**: N46 (task N46.3)
-- **Status**: corrigido
+- **Status**: validado (F23)
 - **Esforço**: P
 **Motivo LOW**: cron não alerta; drift detectável via logs.
 **Correção sugerida**: Retornar FAILURE se qualquer customer falhar.

@@ -11,6 +11,7 @@
 | N36 | Customers, ClusterServers, Integration, DevOps | image_mode, readiness image-mode, cluster image-pilot, ISSUE-045 | 248+ |
 | N37 | Core, Auth, Livewire, docs | Scalar /docs/api, api-key scopes, sidebar link, ISSUE-047 | 294+ |
 | N39 | Livewire, Customers, Occ, Jobs, ClusterServers | FQDN normalize, OCC users, async feedback, readiness card, ISSUE-049 | 330+ |
+| F23 | Customers, Livewire, Jobs | TenantGroupProjector job_type, OCC groups validation, poll, sync | 349+ |
 <!-- /DIARY-INDEX -->
 
 ---
@@ -345,4 +346,31 @@ Canário `canario-n36e`: job `9904497b-ad3c-4390-ba61-c5f433cd00c1` success ~5m4
 - [x] Progresso e readiness visíveis em `customers/show`
 - [x] OccPanel operacional (lista + erro inline)
 - [x] CI verde (PR #135); deploy LAB `8e58fed`; `/up` 200
+
+---
+
+## Sprint F23 — Fix CQ-N46 projector job_type + OCC groups validation
+
+**Data**: 2026-07-08
+**Status**: CONCLUÍDA (5/5)
+**Tasks**: F23.1–F23.5
+**PR**: [#159](https://github.com/SoftwareBeesy/work-platform-api/pull/159) merge `32bd75a`
+
+### Entregas
+
+- **F23.1**: `TenantGroupProjector` aceita `group_create`/`group_delete` (+ aliases `groups:*`); fixtures Pest com job_types reais; teste integrado Lifecycle → webhook.
+- **F23.2–F23.3**: OccPanel membership case-insensitive via `TenantGroupMembership`; regex + bloqueio `admin` alinhados à API.
+- **F23.4**: Poll/reload pós create/delete de grupo (`wire:poll` 3s, timeout 120s, `loadGroups()` no terminal).
+- **F23.5**: `TenantGroupSyncReport.updated` incrementado; `tenant-groups:sync` retorna FAILURE em falha parcial.
+
+### Decisões / Aprendizados
+
+1. **job_type parity**: projector de grupos deve espelhar `TenantUserProjector` — `JobTypeTranslator` persiste `group_create`, não `groups:create`.
+2. **DRY pendente**: regras de nome de grupo ainda duplicadas entre `CreateGroupRequest` e `OccPanel::groupNameRules()` — backlog `CQ-F23-001`.
+
+### Gate da Sprint
+
+- [x] CQ-N46-001..008 validados (8/8)
+- [x] Pest F23 suites **103 passed**; CI required checks verde
+- [x] Senior review **PASS_WITH_NOTES** (0 HIGH; 3 non-blocking em backlog)
 

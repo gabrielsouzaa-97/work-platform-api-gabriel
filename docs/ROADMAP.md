@@ -5950,7 +5950,7 @@ reuse_targets:
 ## Sprint F23 — Fix CQ-N46 projector job_type + OCC groups validation
 
 > Categoria: F
-> Status: **planejada**
+> Status: **concluída** (2026-07-08) — PR #159 merge `32bd75a`
 > Gate executável: `TenantGroupProjector` aceita `group_create`/`group_delete` (e aliases `groups:*`); Pest `WebhookTenantGroupProjectionTest` usa job_types reais e passa; validação OccPanel alinhada à API (case-insensitive + regex + bloqueio `admin`); poll/reload pós create/delete de grupo; sync report `updated` + exit code FAILURE em falha parcial; CI verde.
 > review: senior+qa
 > Gerado via `/pmo plan` em 2026-07-08. Fonte: `/qa validar` N45+N46 R1 **REPROVADA** — findings `CQ-N46-001`..`CQ-N46-008` em `docs/FINDINGS.md`.
@@ -5958,11 +5958,20 @@ reuse_targets:
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | F23.1 — CQ-N46-001+002: projector aceita `group_create`/`group_delete` + fixtures Pest com job_types reais | api-rest-patterns / laravel-testing | — |
-| [ ] | P | F23.2 — CQ-N46-003: OccPanel membership case-insensitive (paridade `TenantGroupMembership`) | laravel-livewire | — |
-| [ ] | P | F23.3 — CQ-N46-004+005: regex API + bloqueio nome reservado `admin` em CreateGroupRequest e OccPanel | api-rest-patterns / laravel-livewire | — |
-| [ ] | M | F23.4 — CQ-N46-006: poll/reload grupos após create/delete no painel | laravel-livewire | F23.1 |
-| [ ] | P | F23.5 — CQ-N46-007+008: `TenantGroupSyncReport.updated` + exit FAILURE em falhas parciais | laravel-testing | — |
+| [x] | M | F23.1 — CQ-N46-001+002: projector aceita `group_create`/`group_delete` + fixtures Pest com job_types reais | api-rest-patterns / laravel-testing | — |
+| [x] | P | F23.2 — CQ-N46-003: OccPanel membership case-insensitive (paridade `TenantGroupMembership`) | laravel-livewire | — |
+| [x] | P | F23.3 — CQ-N46-004+005: regex API + bloqueio nome reservado `admin` em CreateGroupRequest e OccPanel | api-rest-patterns / laravel-livewire | — |
+| [x] | M | F23.4 — CQ-N46-006: poll/reload grupos após create/delete no painel | laravel-livewire | F23.1 |
+| [x] | P | F23.5 — CQ-N46-007+008: `TenantGroupSyncReport.updated` + exit FAILURE em falhas parciais | laravel-testing | — |
+
+### Quality Brief (Sprint F23)
+
+- **Resultado**: APROVADA (`PASS_WITH_NOTES`) — validation R1 pós-fix
+- **PR**: [#159](https://github.com/SoftwareBeesy/work-platform-api/pull/159) merge `32bd75a` em `main`
+- **Findings-alvo**: `CQ-N46-001`..`CQ-N46-008` — **8/8 validados**
+- **Novos non-blocking**: `CQ-F23-001` MEDIUM (DRY regras nome grupo), `CQ-F23-002`/`CQ-F23-003` LOW (métrica sync mista; clobber mensagem poll concorrente)
+- **Testes**: Pest F23 suites **103 passed**; CI required checks verde (Pest, Lint, Security, OpenAPI, Docker, coverage, security-review); job `assign` falhou (non-blocking, padrão pré-existente)
+- **Brief**: `docs/.briefs/F23.brief.md`
 
 <details>
 <summary>F23.1 — Projector job_type + Pest fixtures (CQ-N46-001 / CQ-N46-002)</summary>
@@ -6054,6 +6063,7 @@ Test scenarios:
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.57   | Sprint F23 concluída — CQ-N46-001..008 validados; PR #159 merge `32bd75a`; 3 follow-ups non-blocking CQ-F23 | sprint-finalizer |
 | 2026-07-08 | 0.56   | Sprint F23 planejada — CQ-N46-001..008 pós REPROVADA N45+N46 | `/pmo plan` |
 | 2026-07-08 | 0.55   | Sprints N45+N46 implementadas — ISSUE-056 UX OCC Grupos (DESIGN.md §9); aguarda VERIFY CI. | `/rock` |
 | 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |
