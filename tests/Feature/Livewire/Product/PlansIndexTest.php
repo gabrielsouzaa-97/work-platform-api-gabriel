@@ -95,7 +95,7 @@ it('styles native select dropdown for readable options', function (): void {
     expect($css)->not->toMatch('/select\s*\{[^}]*color-scheme:\s*dark/s');
 });
 
-it('plans create modal form controls expose dark-theme text classes', function (): void {
+it('plans create modal uses custom select menu with readable dropdown', function (): void {
     $admin = Operator::factory()->admin()->create();
 
     Livewire::actingAs($admin)
@@ -104,7 +104,9 @@ it('plans create modal form controls expose dark-theme text classes', function (
         ->assertSeeHtml('max-w-[32rem]')
         ->assertDontSeeHtml('max-w-lg')
         ->assertSeeHtml('text-on-surface')
-        ->assertSeeHtml('placeholder:text-on-surface-variant');
+        ->assertSeeHtml('placeholder:text-on-surface-variant')
+        ->assertSeeHtml('aria-haspopup="listbox"')
+        ->assertSeeHtml('role="listbox"');
 });
 
 it('plans index lists existing plans', function (): void {

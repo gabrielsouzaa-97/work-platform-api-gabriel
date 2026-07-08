@@ -67,10 +67,11 @@
                     <input wire:model="createSlug" type="text" placeholder="slug" class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary">
                     <input wire:model="createName" type="text" placeholder="Nome" class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary">
                     <input wire:model="createDefaultQuota" type="text" placeholder="Quota padrão" class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary">
-                    <select wire:model="createStatus" class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary cursor-pointer">
-                        <option value="active">active</option>
-                        <option value="inactive">inactive</option>
-                    </select>
+                    <x-select-menu
+                        model="createStatus"
+                        :selected="$createStatus"
+                        :options="['active' => 'active', 'inactive' => 'inactive']"
+                    />
                     <label class="flex items-center gap-sm text-[13px] text-on-surface">
                         <input type="checkbox" wire:model="createIsDefault">
                         Plano padrão da plataforma
@@ -92,10 +93,11 @@
                 <div class="space-y-sm">
                     <input wire:model="editName" type="text" placeholder="Nome" class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary">
                     <input wire:model="editDefaultQuota" type="text" placeholder="Quota padrão" class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary">
-                    <select wire:model="editStatus" class="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-[13px] text-on-surface outline-none focus:border-primary cursor-pointer">
-                        <option value="active">active</option>
-                        <option value="inactive">inactive</option>
-                    </select>
+                    <x-select-menu
+                        model="editStatus"
+                        :selected="$editStatus"
+                        :options="['active' => 'active', 'inactive' => 'inactive']"
+                    />
                     <label class="flex items-center gap-sm text-[13px] text-on-surface">
                         <input type="checkbox" wire:model="editIsDefault">
                         Plano padrão da plataforma
