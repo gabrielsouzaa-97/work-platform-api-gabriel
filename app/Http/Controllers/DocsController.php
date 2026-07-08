@@ -21,9 +21,21 @@ class DocsController extends Controller
         ]);
     }
 
+    private function resolveSpecPath(): string
+    {
+        $configuredPath = config('platform.openapi.external_spec_path');
+        $devPath = base_path('docs/openapi-external.yaml');
+
+        if (is_string($configuredPath) && is_readable($configuredPath)) {
+            return $configuredPath;
+        }
+
+        return $devPath;
+    }
+
     private function resolveSpecVersion(): string
     {
-        $path = base_path('docs/openapi-external.yaml');
+        $path = $this->resolveSpecPath();
 
         if (! is_readable($path)) {
             return 'unknown';
@@ -46,7 +58,7 @@ class DocsController extends Controller
     {
         Gate::authorize('manage-operators');
 
-        $path = base_path('docs/openapi-external.yaml');
+        $path = $this->resolveSpecPath();
 
         if (! is_readable($path)) {
             abort(404, 'OpenAPI specification not found.');

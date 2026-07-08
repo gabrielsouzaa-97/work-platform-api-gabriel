@@ -26,6 +26,25 @@ function seedFarmCapacityPanelRow(
     ]);
 }
 
+use function Pest\Laravel\actingAs;
+use function Pest\Laravel\get;
+
+it('shows farms sidebar link only for manage-operators', function (): void {
+    $admin = Operator::factory()->admin()->create();
+    $operador = Operator::factory()->create(['role' => 'operador']);
+
+    actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Fazendas', false)
+        ->assertSee(route('farms.index'), false);
+
+    actingAs($operador)
+        ->get(route('customers.index'))
+        ->assertOk()
+        ->assertDontSee('Fazendas', false);
+});
+
 it('admin sees farms with capacity metrics on inventory panel', function (): void {
     $admin = Operator::factory()->admin()->create();
     seedFarmCapacityPanelRow('farm-saas-prod-01', active: 20, max: 100);

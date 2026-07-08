@@ -69,6 +69,26 @@ it('api spec does not expose internal occ paths from openapi.yaml', function () 
         ->assertDontSee('/occ/', false);
 });
 
+it('api spec is served from configured production path when docs tree is absent', function () {
+    $admin = Operator::factory()->admin()->create();
+    $devPath = base_path('docs/openapi-external.yaml');
+    $productionPath = storage_path('app/testing-openapi-external.yaml');
+
+    $this->assertFileIsReadable($devPath);
+
+    copy($devPath, $productionPath);
+
+    config()->set('platform.openapi.external_spec_path', $productionPath);
+
+    actingAs($admin)
+        ->get(route('docs.api.spec'))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/yaml; charset=UTF-8')
+        ->assertSee('openapi: 3.0.3', false);
+
+    @unlink($productionPath);
+});
+
 it('existing panel routes remain accessible after api docs routes are registered', function () {
     $admin = Operator::factory()->admin()->create();
 

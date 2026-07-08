@@ -85,10 +85,22 @@ docker compose logs --tail=50 app
 
 ```bash
 # Health check da aplicação
-curl https://painel-staging.mework360.com/up
+curl -fsS https://api.lab.mework360.com.br/up
 
-# Login no painel via browser
-# → https://painel-staging.mework360.com
+# Login no painel via browser (admin com manage-operators)
+# → https://api.lab.mework360.com.br/login
+
+# Feature gates (autenticado — sessão/cookie de admin)
+curl -fsS -b cookies.txt -c cookies.txt https://api.lab.mework360.com.br/docs/api/spec | head -5
+# Esperado: openapi: 3.0.3 (não 404)
+
+curl -fsS -o /dev/null -w "%{http_code}\n" -b cookies.txt https://api.lab.mework360.com.br/plans
+# Esperado: 200
+
+curl -fsS -o /dev/null -w "%{http_code}\n" -b cookies.txt https://api.lab.mework360.com.br/farms
+# Esperado: 200
+
+# Sidebar: admin deve ver Planos, Fazendas e Documentação API no menu lateral
 
 # Teste de conectividade SSH com upstream (via painel admin)
 # Painel → Cluster Servers → [cluster] → Testar Conexão
