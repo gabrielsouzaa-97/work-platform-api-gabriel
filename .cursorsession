@@ -32,11 +32,11 @@
       "descricao": "Design System consolidado. Tema High-Tech Professional, Dark mode default (Light opcional), status hibridos. Livewire + Tailwind puro."
     }
   ],
-  "fase_atual": "13",
-  "fase_nome": "Sprint F23 concluída — CQ-N46 validados",
-  "sprint_atual": null,
+  "fase_atual": "10",
+  "fase_nome": "Sprint F24 — implementação",
+  "sprint_atual": "F24",
   "previous_sprint": "F23",
-  "sprint_branch": null,
+  "sprint_branch": "campanha/fix-f24-occ-polish",
   "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-08T23:15:00Z",
+  "ultimo_update": "2026-07-08T23:34:26Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -79,8 +79,10 @@
     "Customers"
   ],
   "proximos_passos": [
-    "deploy LAB pós-F23 (migrate tenant_groups se pendente)",
-    "/pmo plan para próxima sprint F ou N"
+    "AgentCoder F24.1–F24.7",
+    "/qa validar F24",
+    "PR + CI + merge",
+    "deploy LAB"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -226,191 +228,12 @@
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "done",
-    "sprint": "F23",
-    "current_task": null,
-    "last_completed_task": "F23.5",
-    "pr_number": 159,
-    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/159",
-    "verify_status": "green",
-    "verify_evidence": "gh pr checks 137 (2026-07-05T22:56Z): Lint, Test Pest, OpenAPI Redocly, Security, coverage-check, security-review — all pass",
-    "validation_gate_qa": {
-      "sprint": "F23",
-      "produced_by": "/rock pmo plan+execute (auditor-senior 10b26616)",
-      "result": "APROVADA",
-      "validation_round": 1,
-      "validation_mode": "revalidation",
-      "senior_review_status": "PASS_WITH_NOTES",
-      "scope": "campanha/fix-n46-projector PR #159",
-      "findings_found": 3,
-      "findings_registered": [
-        "CQ-F23-001",
-        "CQ-F23-002",
-        "CQ-F23-003"
-      ],
-      "findings_high_pending": [],
-      "findings_validated": [
-        "CQ-N46-001",
-        "CQ-N46-002",
-        "CQ-N46-003",
-        "CQ-N46-004",
-        "CQ-N46-005",
-        "CQ-N46-006",
-        "CQ-N46-007",
-        "CQ-N46-008"
-      ],
-      "files_modified_outside_findings": 0,
-      "askquestion_shown": false,
-      "contract_source": "roadmap",
-      "tests_evidence": "Pest Docker F23 suites 103 passed; CI PR #159 Pest/Lint/Security green",
-      "ci_verify": "PR #159 CI required checks green (assign fail non-blocking)",
-      "notes": "PASS_WITH_NOTES: CQ-F23-001 MEDIUM DRY group rules; CQ-F23-002/003 LOW non-blocking",
-      "stamped_at": "2026-07-08T23:09:19Z"
-    },
-    "validation_gate_qa_campaign_archived": {
-      "sprint": "N41+N42+N43",
-      "result": "COM_RESSALVAS",
-      "next_sprint_planned": "F16",
-      "note": "Campanha ISSUE-051 — 5 HIGH → F16 (APROVADA); MEDIUM/LOW → F17 (CQ-N41-003, CQ-N43-003 validados; CQ-N43-002 deferido)",
-      "stamped_at": "2026-07-06T14:00:00Z"
-    },
-    "validation_gate": {
-      "sprint": "F23",
-      "produced_by": "/rock pmo plan+execute (auditor-senior 10b26616)",
-      "result": "APROVADA",
-      "validation_round": 1,
-      "validation_mode": "revalidation",
-      "senior_review_status": "PASS_WITH_NOTES",
-      "scope": "campanha/fix-n46-projector PR #159",
-      "findings_found": 3,
-      "findings_registered": [
-        "CQ-F23-001",
-        "CQ-F23-002",
-        "CQ-F23-003"
-      ],
-      "findings_high_pending": [],
-      "findings_validated": [
-        "CQ-N46-001",
-        "CQ-N46-002",
-        "CQ-N46-003",
-        "CQ-N46-004",
-        "CQ-N46-005",
-        "CQ-N46-006",
-        "CQ-N46-007",
-        "CQ-N46-008"
-      ],
-      "files_modified_outside_findings": 0,
-      "askquestion_shown": false,
-      "contract_source": "roadmap",
-      "tests_evidence": "Pest Docker F23 suites 103 passed; CI PR #159 Pest/Lint/Security green",
-      "ci_verify": "PR #159 CI required checks green (assign fail non-blocking)",
-      "notes": "PASS_WITH_NOTES: CQ-F23-001 MEDIUM DRY group rules; CQ-F23-002/003 LOW non-blocking",
-      "stamped_at": "2026-07-08T23:09:19Z"
-    },
-    "guardrail_contract": [
-      {
-        "class": "deploy-wiring",
-        "guardrails": []
-      },
-      {
-        "class": "doctor",
-        "guardrails": []
-      },
-      {
-        "class": "secrets",
-        "guardrails": []
-      },
-      {
-        "class": "subagent-safety",
-        "guardrails": []
-      }
-    ],
-    "guardrail_contract_source": "bootstrap",
-    "guardrail_contract_bootstrapped": true,
-    "validation_gate_qa_prev_f19": {
-      "sprint": "F19",
-      "produced_by": "/qa validar F19 (auditor-senior d14c0e14)",
-      "result": "APROVADA",
-      "validation_round": 1,
-      "validation_mode": "revalidation",
-      "senior_review_status": "PASS",
-      "scope": "a623f8e...887b53f (PR #144)",
-      "findings_found": 2,
-      "findings_registered": [
-        "CQ-F19-001",
-        "CQ-F19-002"
-      ],
-      "findings_validated": [
-        "CQ-F18-001",
-        "QA-F18-002",
-        "CQ-F18-002",
-        "CQ-F18-003",
-        "QA-F18-003",
-        "QA-F18-004",
-        "QA-F18-005"
-      ],
-      "findings_high_pending": [],
-      "files_modified_outside_findings": 0,
-      "askquestion_shown": true,
-      "contract_source": "bootstrap",
-      "in_contract": [],
-      "tests_evidence": "Pest Docker Product+Api/V1+Database+Customers: 259 passed, 1075 assertions (2026-07-06)",
-      "ci_verify": "PR #144 merged; CI green (Lint, Pest, OpenAPI, Security, coverage)",
-      "stamped_at": "2026-07-06T20:45:00Z"
-    },
-    "last_validated_sprint": "F23",
-    "sprint_tasks": [
-      {
-        "id": "F23.1",
-        "status": "completed",
-        "file": "app/Modules/Customers/Services/TenantGroupProjector.php"
-      },
-      {
-        "id": "F23.1",
-        "status": "completed",
-        "file": "tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php"
-      },
-      {
-        "id": "F23.2",
-        "status": "completed",
-        "file": "app/Http/Livewire/Customers/OccPanel.php"
-      },
-      {
-        "id": "F23.3",
-        "status": "completed",
-        "file": "app/Http/Requests/Lifecycle/CreateGroupRequest.php"
-      },
-      {
-        "id": "F23.3",
-        "status": "completed",
-        "file": "app/Http/Livewire/Customers/OccPanel.php"
-      },
-      {
-        "id": "F23.4",
-        "status": "completed",
-        "file": "app/Http/Livewire/Customers/OccPanel.php"
-      },
-      {
-        "id": "F23.4",
-        "status": "completed",
-        "file": "resources/views/livewire/customers/occ-panel.blade.php"
-      },
-      {
-        "id": "F23.5",
-        "status": "completed",
-        "file": "app/Modules/Customers/Services/TenantGroupSyncService.php"
-      },
-      {
-        "id": "F23.5",
-        "status": "completed",
-        "file": "app/Console/Commands/TenantGroupsSyncCommand.php"
-      },
-      {
-        "id": "F23.5",
-        "status": "completed",
-        "file": "tests/Feature/Customers/TenantGroupSyncTest.php"
-      }
-    ]
+    "phase": "implementation",
+    "sprint": "F24",
+    "current_task": "F24.1",
+    "last_completed_task": null,
+    "branch": "campanha/fix-f24-occ-polish",
+    "started_at": "2026-07-08T23:34:26Z"
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -479,18 +302,53 @@
   },
   "sprint_tasks": [
     {
-      "id": "F20.1",
-      "status": "completed",
-      "size": "P",
-      "title": "CQ-F19-001: espelhar asserções QA-F18-005 (assertJsonMissingPath('error') + AuditLog policy_denied false) nos testes empty-plan v1+legado",
-      "file": "tests/Feature/Product/PolicyResolverTest.php"
+      "id": "F24.1",
+      "status": "in_progress",
+      "size": "M",
+      "title": "CQ-F23-001 TenantGroupNameRules DRY",
+      "file": "app/Modules/Customers/Support/TenantGroupNameRules.php"
     },
     {
-      "id": "F20.2",
-      "status": "completed",
+      "id": "F24.2",
+      "status": "pending",
       "size": "P",
-      "title": "CQ-F19-002: guardar down() de drop_max_apps com if (! Schema::hasColumn) — rollback idempotente em fresh install",
-      "file": "database/migrations/2026_07_06_000002_drop_max_apps_from_plans_table.php"
+      "title": "CQ-F23-002 sync updated mixed",
+      "file": "app/Modules/Customers/Services/TenantGroupSyncService.php"
+    },
+    {
+      "id": "F24.3",
+      "status": "pending",
+      "size": "P",
+      "title": "CQ-F23-003 poll message clobber",
+      "file": "app/Http/Livewire/Customers/OccPanel.php"
+    },
+    {
+      "id": "F24.4",
+      "status": "pending",
+      "size": "M",
+      "title": "CQ-F17-001+002+003 empty groups + null",
+      "file": "app/Modules/Customers/Support/UserCreateStdinPayload.php"
+    },
+    {
+      "id": "F24.5",
+      "status": "pending",
+      "size": "P",
+      "title": "CQ-F17-004 SuiteCatalogPathResolver tests",
+      "file": "tests/Unit/Integration/SuiteCatalogPathResolverTest.php"
+    },
+    {
+      "id": "F24.6",
+      "status": "pending",
+      "size": "P",
+      "title": "CQ-N40-003 deleteUser reload",
+      "file": "app/Http/Livewire/Customers/OccPanel.php"
+    },
+    {
+      "id": "F24.7",
+      "status": "pending",
+      "size": "P",
+      "title": "QA-N40-003+004 webhook/poll integration",
+      "file": "tests/Feature/Jobs/WebhookTenantUserProjectionTest.php"
     }
   ],
   "sprint_tasks_n36_archived": [
@@ -606,6 +464,37 @@
     "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-07-08T23:30:00Z",
+      "action": "/pmo plan — Escopo A Rock: CQ-F23 + F17 + N40 LOW backlog",
+      "sprints_generated": [
+        "F24"
+      ],
+      "issues_in_scope": [],
+      "findings_in_scope": [
+        "CQ-F23-001",
+        "CQ-F23-002",
+        "CQ-F23-003",
+        "CQ-F17-001",
+        "CQ-F17-002",
+        "CQ-F17-003",
+        "CQ-F17-004",
+        "CQ-N40-003",
+        "QA-N40-003",
+        "QA-N40-004"
+      ],
+      "split_strategy": "F24.1 DRY group rules (M) ∥ F24.2-3 F23 LOW (P) ∥ F24.4 groups stdin/null (M) ∥ F24.5-7 test polish (P); pós-sprint deploy LAB",
+      "tasks_count": {
+        "P": 5,
+        "M": 2,
+        "total": 7
+      },
+      "review_level": "senior+qa",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/F24.brief.md",
+      "brief_status": "READY_FOR_PUSH (verifier PASS — docs/.briefs/F24.verifier.md)",
+      "gate": "TenantGroupNameRules DRY; groups []/null semantics; sync updated; poll UX; deleteUser reload; SuiteCatalog + N40 integration tests; CI verde"
+    },
     {
       "timestamp": "2026-07-07T20:25:00Z",
       "action": "/pmo plan — ISSUE-052/053 LAB visibility (OpenAPI Docker + sidebar)",

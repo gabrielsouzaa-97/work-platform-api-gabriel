@@ -5,7 +5,7 @@ open_high: 9
 open_medium: 52
 open_low: 48
 sprints_with_open_blockers: []
-notes: Sprint F23 APROVADA — CQ-N46-001..008 validados (PR #159 merge 32bd75a). 3 non-blocking CQ-F23 em backlog.
+notes: Sprint F23 APROVADA — CQ-N46-001..008 validados (PR #159 merge 32bd75a). F24 planejada — 9 findings non-blocking (CQ-F23, F17, N40).
 FINDINGS-INDEX -->
 
 
@@ -54,6 +54,7 @@ FINDINGS-INDEX -->
 | N45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | N46 | 0 | 0 | 0 | 0 | 0 | 8 | 8 |
 | F23 | 0 | 0 | 1 | 2 | 3 | 0 | 0 |
+| F24 | 0 | 0 | 3 | 6 | 9 | 0 | 0 |
 
 > **Validação F23 R1** (2026-07-08, `/qa validar F23`): scope = PR #159 merge `32bd75a` (branch `campanha/fix-n46-projector`). **Preflight**: PROC-025/027 PASS. **Testes**: Pest Docker **103 passed** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle); CI PR #159 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review; `assign` fail non-blocking). **auditor-senior** ([`10b26616`](10b26616-078c-4d39-b048-5067297b839d)) → 0 CRITICAL, 0 HIGH, 1 MEDIUM, 2 LOW. **Findings-alvo validados**: CQ-N46-001..008 (8/8). **Resultado: APROVADA** — 0 CRITICAL/HIGH; 3 novos non-blocking em backlog (`CQ-F23-001`..`003`).
 
