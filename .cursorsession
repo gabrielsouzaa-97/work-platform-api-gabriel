@@ -240,6 +240,21 @@
       "validation_mode": "full",
       "gates": [
         {
+          "cmd": "docker compose exec -T app php artisan test --filter=TenantGroupNameRules",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "2c3ab9512430986c7a2d013ed84fd99f9eaf54d2",
+      "stamped_at": "2026-07-08T23:54:30Z"
+    },
+    "validation_gate_qa": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
           "cmd": "docker compose exec -T app php artisan test --filter=TenantGroupNameRules\\|CQ-F23-002\\|CQ-F23-003\\|CQ-F17-001\\|CQ-F17-002\\|CQ-F17-003\\|CQ-F17-004\\|CQ-N40-003\\|QA-N40-003\\|QA-N40-004",
           "exit_code": 0
         }
@@ -251,38 +266,6 @@
       "sprint": "F24",
       "validation_round": 1,
       "notes": "auditor-senior APROVADA; 9/9 findings-alvo; 3 LOW new CQ-F24-001..003 + INT-F24-001 non-blocking"
-    },
-    "validation_gate_qa": {
-      "sprint": "F24",
-      "produced_by": "/rock pmo plan+execute (auditor-senior 7fc794b8)",
-      "result": "APROVADA",
-      "validation_round": 1,
-      "validation_mode": "revalidation",
-      "senior_review_status": "PASS_WITH_NOTES",
-      "scope": "campanha/fix-f24-occ-polish",
-      "findings_found": 4,
-      "findings_registered": [
-        "INT-F24-001",
-        "CQ-F24-001",
-        "CQ-F24-002",
-        "CQ-F24-003"
-      ],
-      "findings_high_pending": [],
-      "findings_validated": [
-        "CQ-F23-001",
-        "CQ-F23-002",
-        "CQ-F23-003",
-        "CQ-F17-001",
-        "CQ-F17-002",
-        "CQ-F17-003",
-        "CQ-F17-004",
-        "CQ-N40-003",
-        "QA-N40-003",
-        "QA-N40-004"
-      ],
-      "tests_evidence": "Pest Docker F24 filter 21 passed; broader suites 84 passed; validation-stamp APROVADA",
-      "notes": "PASS_WITH_NOTES: INT-F24-001 + CQ-F24-001..003 LOW non-blocking",
-      "stamped_at": "2026-07-08T23:54:29Z"
     }
   },
   "checkpoint_n36_archived": {
