@@ -58,6 +58,19 @@ function bindCustomerReadinessProbeSsh(SshClientInterface $ssh): void
     app()->instance(SshClientInterface::class, $ssh);
 }
 
+function makeCustomerReadinessProbeWithSsh(SshClientInterface $ssh): CustomerReadinessProbe
+{
+    $observability = new TransportObservability;
+    $sshAdapter = new SshPlatformAdapter($ssh, $observability);
+    $resolver = new AgentTransportResolver;
+    $agentGateway = Mockery::mock(AgentUpstreamGateway::class);
+    $agentGateway->shouldIgnoreMissing();
+    $agentAdapter = new AgentPlatformAdapter($agentGateway, $resolver, $sshAdapter, $observability);
+    $factory = new PlatformPortFactory($resolver, $sshAdapter, $agentAdapter);
+
+    return new CustomerReadinessProbe($factory);
+}
+
 function characterizationProbeCustomer(string $slug = 'char-probe-acme'): Customer
 {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
@@ -116,21 +129,19 @@ function characterizationReadinessGateMock(): SshClientInterface
 it('characterizes readiness gates include app:list, user:list, and memail config', function (): void {
     $customer = characterizationProbeCustomer();
 
-    bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
     Http::swap(new Factory);
     fakeReadinessGateR6Http($customer->domain);
 
-    expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
+    expect(makeCustomerReadinessProbeWithSsh(characterizationReadinessGateMock())->isReady($customer))->toBeTrue();
 });
 
 it('characterizes all gates passing returns true', function (): void {
     $customer = characterizationProbeCustomer('char-probe-ok');
 
-    bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
     Http::swap(new Factory);
     fakeReadinessGateR6Http($customer->domain);
 
-    expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
+    expect(makeCustomerReadinessProbeWithSsh(characterizationReadinessGateMock())->isReady($customer))->toBeTrue();
 });
 
 it('characterizes non-zero exit returns false without throwing', function (): void {
@@ -143,9 +154,7 @@ it('characterizes non-zero exit returns false without throwing', function (): vo
         exitCode: 1,
         parsedJson: null,
     ));
-    bindCustomerReadinessProbeSsh($ssh);
-
-    expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
+    expect(makeCustomerReadinessProbeWithSsh($ssh)->isReady($customer))->toBeFalse();
 });
 
 it('characterizes SshConnectionException returns false without rethrow', function (): void {
@@ -153,9 +162,7 @@ it('characterizes SshConnectionException returns false without rethrow', functio
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->once()->andThrow(new SshConnectionException('down'));
-    bindCustomerReadinessProbeSsh($ssh);
-
-    expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
+    expect(makeCustomerReadinessProbeWithSsh($ssh)->isReady($customer))->toBeFalse();
 });
 
 it('characterizes SshTimeoutException returns false without rethrow', function (): void {
@@ -163,9 +170,7 @@ it('characterizes SshTimeoutException returns false without rethrow', function (
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('timed out'));
-    bindCustomerReadinessProbeSsh($ssh);
-
-    expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
+    expect(makeCustomerReadinessProbeWithSsh($ssh)->isReady($customer))->toBeFalse();
 });
 
 it('characterizes inactive cluster returns false without SSH call', function (): void {
@@ -179,7 +184,6 @@ it('characterizes inactive cluster returns false without SSH call', function ():
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('run');
-    bindCustomerReadinessProbeSsh($ssh);
 
-    expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeFalse();
+    expect(makeCustomerReadinessProbeWithSsh($ssh)->isReady($customer))->toBeFalse();
 });
