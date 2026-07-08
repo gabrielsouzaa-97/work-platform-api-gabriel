@@ -174,30 +174,19 @@ function characterizationReadinessGateMock(): SshClientInterface
 it('characterizes non-zero exit returns false without throwing', function (): void {
     $customer = characterizationProbeCustomerInMemory('char-probe-nz');
 
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')->once()->andReturn(new SshResponse(
-        stdout: '',
-        stderr: 'not ready',
-        exitCode: 1,
-        parsedJson: null,
-    ));
-    expect(evaluateReadinessGatesWithSsh($customer, $ssh))->toBeFalse();
+    expect(evaluateReadinessGatesWithSsh($customer, new NonZeroExitSshStub))->toBeFalse();
 });
 
 it('characterizes SshConnectionException returns false without rethrow', function (): void {
     $customer = characterizationProbeCustomerInMemory('char-probe-conn');
 
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')->once()->andThrow(new SshConnectionException('down'));
-    expect(evaluateReadinessGatesWithSsh($customer, $ssh))->toBeFalse();
+    expect(evaluateReadinessGatesWithSsh($customer, new ConnectionFailSshStub))->toBeFalse();
 });
 
 it('characterizes SshTimeoutException returns false without rethrow', function (): void {
     $customer = characterizationProbeCustomerInMemory('char-probe-timeout');
 
-    $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('timed out'));
-    expect(evaluateReadinessGatesWithSsh($customer, $ssh))->toBeFalse();
+    expect(evaluateReadinessGatesWithSsh($customer, new TimeoutFailSshStub))->toBeFalse();
 });
 
 it('characterizes inactive cluster returns false without SSH call', function (): void {
@@ -226,3 +215,74 @@ it('characterizes all gates passing returns true', function (): void {
 
     expect(makeCustomerReadinessProbeWithSsh(characterizationReadinessGateMock())->isReady($customer))->toBeTrue();
 });
+
+abstract class CharacterizationSshStubBase implements SshClientInterface
+{
+    public function runAsync(
+        ClusterServer $cluster,
+        string $cmd,
+        array $args = [],
+        ?string $payloadStdin = null,
+    ): SshResponse {
+        throw new LogicException('not used');
+    }
+
+    public function inboxInit(ClusterServer $cluster, string $stagingId): void
+    {
+        throw new LogicException('not used');
+    }
+
+    public function sftpUpload(ClusterServer $cluster, string $localPath, string $stagingId, string $filename): void
+    {
+        throw new LogicException('not used');
+    }
+
+    public function scpUpload(ClusterServer $cluster, string $localPath, string $remotePath): void
+    {
+        throw new LogicException('not used');
+    }
+
+    public function ping(ClusterServer $cluster, int $timeoutSec = 10): SshResponse
+    {
+        throw new LogicException('not used');
+    }
+}
+
+final class NonZeroExitSshStub extends CharacterizationSshStubBase
+{
+    public function run(
+        ClusterServer $cluster,
+        string $cmd,
+        array $args = [],
+        ?string $payloadStdin = null,
+        int $timeoutSec = 60,
+    ): SshResponse {
+        return new SshResponse(stdout: '', stderr: 'not ready', exitCode: 1, parsedJson: null);
+    }
+}
+
+final class ConnectionFailSshStub extends CharacterizationSshStubBase
+{
+    public function run(
+        ClusterServer $cluster,
+        string $cmd,
+        array $args = [],
+        ?string $payloadStdin = null,
+        int $timeoutSec = 60,
+    ): SshResponse {
+        throw new SshConnectionException('down');
+    }
+}
+
+final class TimeoutFailSshStub extends CharacterizationSshStubBase
+{
+    public function run(
+        ClusterServer $cluster,
+        string $cmd,
+        array $args = [],
+        ?string $payloadStdin = null,
+        int $timeoutSec = 60,
+    ): SshResponse {
+        throw new SshTimeoutException('timed out');
+    }
+}
