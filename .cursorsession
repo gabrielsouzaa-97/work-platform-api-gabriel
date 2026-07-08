@@ -34,9 +34,9 @@
   ],
   "fase_atual": "13",
   "fase_nome": "N40 validada — PR #137 CI verde, aguardando merge",
-  "sprint_atual": null,
+  "sprint_atual": "F23",
   "previous_sprint": "N39",
-  "sprint_branch": "sprint/N40",
+  "sprint_branch": "campanha/fix-n46-projector",
   "sprint_pending_merge": "sprint/N40 (PR #137)",
   "campaign": {
     "slug": "v2-platform",
@@ -69,7 +69,7 @@
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
   "ultimo_update": "2026-07-08T22:50:00Z",
-  "next_sprint_planned": "F23",
+  "next_sprint_planned": null,
   "modulos": [
     "Core",
     "ClusterServers",
@@ -79,9 +79,9 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/pmo sprint F23 — Fix CQ-N46 projector job_type + OCC groups validation (CQ-N46-001..008)",
-    "Pré-execução: Quality Brief docs/.briefs/F23.brief.md + verifier",
-    "/qa validar F23 após implementação (gate: projector group_create/delete + Pest + OccPanel parity)"
+    "/pmo sprint F23 em execução",
+    "AgentCoder F23.1-F23.5",
+    "/qa validar F23"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -227,9 +227,9 @@
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "validation_failed",
-    "sprint": "N40",
-    "current_task": null,
+    "phase": "implementation",
+    "sprint": "F23",
+    "current_task": "F23.1",
     "last_completed_task": "N40.6",
     "pr_number": 137,
     "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/137",
@@ -451,7 +451,59 @@
       "ci_verify": "PR #144 merged; CI green (Lint, Pest, OpenAPI, Security, coverage)",
       "stamped_at": "2026-07-06T20:45:00Z"
     },
-    "last_validated_sprint": "N45+N46"
+    "last_validated_sprint": "N45+N46",
+    "sprint_tasks": [
+      {
+        "id": "F23.1",
+        "status": "pending",
+        "file": "app/Modules/Customers/Services/TenantGroupProjector.php"
+      },
+      {
+        "id": "F23.1",
+        "status": "pending",
+        "file": "tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php"
+      },
+      {
+        "id": "F23.2",
+        "status": "pending",
+        "file": "app/Http/Livewire/Customers/OccPanel.php"
+      },
+      {
+        "id": "F23.3",
+        "status": "pending",
+        "file": "app/Http/Requests/Lifecycle/CreateGroupRequest.php"
+      },
+      {
+        "id": "F23.3",
+        "status": "pending",
+        "file": "app/Http/Livewire/Customers/OccPanel.php"
+      },
+      {
+        "id": "F23.4",
+        "status": "pending",
+        "file": "app/Http/Livewire/Customers/OccPanel.php"
+      },
+      {
+        "id": "F23.4",
+        "status": "pending",
+        "file": "resources/views/livewire/customers/occ-panel.blade.php"
+      },
+      {
+        "id": "F23.5",
+        "status": "pending",
+        "file": "app/Modules/Customers/Services/TenantGroupSyncService.php"
+      },
+      {
+        "id": "F23.5",
+        "status": "pending",
+        "file": "app/Console/Commands/TenantGroupsSyncCommand.php"
+      },
+      {
+        "id": "F23.5",
+        "status": "pending",
+        "file": "tests/Feature/Customers/TenantGroupSyncTest.php"
+      }
+    ]
   },
   "checkpoint_n36_archived": {
     "phase": "done",
