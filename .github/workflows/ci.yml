@@ -133,6 +133,16 @@ jobs:
           PLATFORM_IMAGE_MODE_DEFAULT: 'false'
         run: php -d memory_limit=512M artisan test tests/Characterization/Integration/
 
+      - name: Readiness probe tests (isolated — GHA suite pollution guard)
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          AGENT_TRANSPORT_ENABLED: 'false'
+          PLATFORM_IMAGE_MODE_DEFAULT: 'false'
+        run: php -d memory_limit=512M artisan test --group readiness-isolated
+
       - name: Run tests
         env:
           DB_CONNECTION: sqlite
@@ -141,7 +151,7 @@ jobs:
           SESSION_DRIVER: array
           AGENT_TRANSPORT_ENABLED: 'false'
           PLATFORM_IMAGE_MODE_DEFAULT: 'false'
-        run: php -d memory_limit=512M artisan test
+        run: php -d memory_limit=512M artisan test --exclude-group readiness-isolated
 
   security:
     name: Security (composer audit)

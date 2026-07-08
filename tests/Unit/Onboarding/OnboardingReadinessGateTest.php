@@ -22,6 +22,8 @@ use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
+uses()->group('readiness-isolated');
+
 beforeEach(function (): void {
     if (config('app.key') === '' || config('app.key') === null) {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);

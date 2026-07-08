@@ -26,6 +26,8 @@ use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
 
+uses()->group('readiness-isolated');
+
 beforeEach(function (): void {
     app()->forgetInstance(CustomerReadinessProbe::class);
     app()->forgetInstance(PlatformPortFactory::class);
