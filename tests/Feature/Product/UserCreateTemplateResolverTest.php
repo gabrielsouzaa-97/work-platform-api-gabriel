@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
 use App\Models\Plan;
+use App\Models\TenantGroup;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,21 @@ function resolverCustomer(string $slug, string $clusterId): Customer
         'status' => 'active',
         'plan_slug' => 'default',
     ]);
+}
+
+/**
+ * @param  list<string>  $names
+ */
+function seedResolverTenantGroups(string $customerSlug, array $names): void
+{
+    foreach ($names as $name) {
+        TenantGroup::create([
+            'id' => Str::uuid()->toString(),
+            'customer_slug' => $customerSlug,
+            'name' => $name,
+            'origin' => 'api',
+        ]);
+    }
 }
 
 function resolverV1ApiKey(string $tenantSlug): string
@@ -177,6 +193,7 @@ it('POST /api/v1/tenants/{slug}/users explicit groups override template groups',
     $slug = 'tpl-override-g-'.substr(uniqid(), -6);
     resolverCustomer($slug, $cluster->id);
     seedResolverTemplate('supervisor');
+    seedResolverTenantGroups($slug, ['financeiro']);
     $jobId = Str::uuid()->toString();
     $rawToken = resolverV1ApiKey($slug);
 
