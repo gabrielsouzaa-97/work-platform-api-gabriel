@@ -80,15 +80,20 @@ body {
 
 /* Form controls on dark surfaces — browser defaults use dark text on dark bg */
 input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']),
-select,
 textarea {
     color: var(--color-on-surface);
-    color-scheme: dark;
+}
+
+select {
+    color: var(--color-on-surface);
+    background-color: var(--color-surface-container-lowest);
+    /* Native dropdown popup: light scheme so options stay readable (Chrome/Linux) */
+    color-scheme: light;
 }
 
 select option {
-    background-color: var(--color-surface-container);
-    color: var(--color-on-surface);
+    background-color: #ffffff;
+    color: #1e293b;
 }
 
 input:not([type='checkbox']):not([type='radio']):not([type='file'])::placeholder,

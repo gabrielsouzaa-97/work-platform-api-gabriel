@@ -89,6 +89,12 @@ it('admin can edit plan via Livewire', function (): void {
     ]);
 });
 
+it('styles native select dropdown for readable options', function (): void {
+    $css = file_get_contents(base_path('resources/css/app.css'));
+    expect($css)->toContain('color-scheme: light');
+    expect($css)->not->toMatch('/select\s*\{[^}]*color-scheme:\s*dark/s');
+});
+
 it('plans create modal form controls expose dark-theme text classes', function (): void {
     $admin = Operator::factory()->admin()->create();
 
