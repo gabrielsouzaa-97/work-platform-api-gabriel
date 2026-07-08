@@ -9,6 +9,22 @@ use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
 
+it('shows plans sidebar link only for manage-operators', function (): void {
+    $admin = Operator::factory()->admin()->create();
+    $operador = Operator::factory()->create(['role' => 'operador']);
+
+    actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Planos', false)
+        ->assertSee(route('plans.index'), false);
+
+    actingAs($operador)
+        ->get(route('customers.index'))
+        ->assertOk()
+        ->assertDontSee('Planos', false);
+});
+
 it('admin can access plans index page', function (): void {
     $admin = Operator::factory()->admin()->create();
 
@@ -71,6 +87,26 @@ it('admin can edit plan via Livewire', function (): void {
         'name' => 'After',
         'default_quota' => '12 GB',
     ]);
+});
+
+it('styles native select dropdown for readable options', function (): void {
+    $css = file_get_contents(base_path('resources/css/app.css'));
+    expect($css)->toContain('color-scheme: light');
+    expect($css)->not->toMatch('/select\s*\{[^}]*color-scheme:\s*dark/s');
+});
+
+it('plans create modal uses custom select menu with readable dropdown', function (): void {
+    $admin = Operator::factory()->admin()->create();
+
+    Livewire::actingAs($admin)
+        ->test(Index::class)
+        ->call('openCreate')
+        ->assertSeeHtml('max-w-[32rem]')
+        ->assertDontSeeHtml('max-w-lg')
+        ->assertSeeHtml('text-on-surface')
+        ->assertSeeHtml('placeholder:text-on-surface-variant')
+        ->assertSeeHtml('aria-haspopup="listbox"')
+        ->assertSeeHtml('role="listbox"');
 });
 
 it('plans index lists existing plans', function (): void {

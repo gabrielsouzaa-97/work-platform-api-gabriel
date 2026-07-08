@@ -24,4 +24,11 @@ return [
         ),
     ],
 
+    'openapi' => [
+        'external_spec_path' => env(
+            'OPENAPI_EXTERNAL_SPEC_PATH',
+            storage_path('app/openapi-external.yaml'),
+        ),
+    ],
+
 ];

@@ -8,6 +8,8 @@ use App\Models\FarmInventory;
 use App\Models\Operator;
 use Livewire\Livewire;
 
+use function Pest\Laravel\actingAs;
+
 function seedFarmCapacityPanelRow(
     string $farmId,
     int $active,
@@ -25,6 +27,22 @@ function seedFarmCapacityPanelRow(
         'reported_at' => now(),
     ]);
 }
+
+it('shows farms sidebar link only for manage-operators', function (): void {
+    $admin = Operator::factory()->admin()->create();
+    $operador = Operator::factory()->create(['role' => 'operador']);
+
+    actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Fazendas', false)
+        ->assertSee(route('farms.index'), false);
+
+    actingAs($operador)
+        ->get(route('customers.index'))
+        ->assertOk()
+        ->assertDontSee('Fazendas', false);
+});
 
 it('admin sees farms with capacity metrics on inventory panel', function (): void {
     $admin = Operator::factory()->admin()->create();

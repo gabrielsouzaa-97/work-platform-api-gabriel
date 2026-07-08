@@ -147,7 +147,7 @@
     @if ($showRemoveModal && $removeClusterName !== '')
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-md"
              x-data="{ confirmInput: $wire.entangle('confirmInput') }">
-            <div class="bg-surface-container border border-error/40 rounded-xl p-lg max-w-md w-full shadow-xl">
+            <div class="bg-surface-container border border-error/40 rounded-xl p-lg max-w-[28rem] w-full shadow-xl">
                 <h3 class="font-semibold text-[16px] text-error flex items-center gap-sm mb-md">
                     <span class="material-symbols-outlined" style="font-size:20px">warning</span>
                     Remover cluster

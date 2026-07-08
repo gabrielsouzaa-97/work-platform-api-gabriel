@@ -4,7 +4,10 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
-- **docs(sprint-F20)**: ROADMAP/ISSUES/FINDINGS sincronizados pós-F18–F20; N41–N43 marcadas concluídas; ISSUE-051 fase 1 entregue; deploy LAB `2313ea1` em OPERATIONS.
+- **fix(sprint-F22-q.4)**: ISSUE-054 definitivo — componente `x-select-menu` (Blade + Alpine listbox) substitui `<select>` nativo em `/plans` e `/customers/create`; popup nativo OS-rendered ignora CSS da página (PR #153, merge `c50c9ea`); validado pelo operador no LAB.
+- **fix(sprint-F22-q.2/q.3)**: modais `max-w-lg`→`max-w-[32rem]` (Tailwind v4 `--spacing-lg` sobrescrevia utilitário para 24px); `select option` + `color-scheme: light`; apps picker com container (PRs #150/#151).
+- **fix(sprint-F22-q)**: ISSUE-054 — contraste dark theme em painéis Product (`/plans`): CSS global para `input`/`select`/`textarea` + classes M3 nos modais; deploy LAB `308fec4`.
+- **docs(sprint-F22-q)**: Sprint F22-q concluída; F21 marcada concluída (ISSUE-052/053); ROADMAP 0.52–0.53.
 - **test(sprint-F20)**: CQ-F19-001/002 corrigidos — testes `empty-plan` (v1+legado) em `PolicyResolverTest` espelham asserções QA-F18-005 (`assertJsonMissingPath('error')` + `AuditLog policy_denied` false); `down()` de `drop_max_apps_from_plans_table` guardado por `Schema::hasColumn` (rollback idempotente em fresh install). 14 testes verdes (PolicyResolver + DropMaxAppsMigration).
 - **fix(sprint-F19)**: 7 findings F18 corrigidos — happy path enable v1+legado; `empty-plan`; migration hygiene; `PlanApiTest` sem `max_apps`; `loadMissing('plan')` removido (PR #144).
 - **fix(sprint-F18)**: remove `max_apps`; enforcement enable apps via `plan_apps` + ARCH-7; deploy LAB `e8b1ad6` (PR #143).
@@ -455,3 +458,22 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-06 17:43** `887b53f` — fix(sprint-F19): close F18 QA findings (enable tests, migration hygiene) (#144)
 - **2026-07-06 17:50** `53951a1` — docs(sprint-F19): record QA validation APROVADA
 - **2026-07-06 18:25** `2313ea1` — test(sprint-F20): fix CQ-F19-001/002 test + migration hygiene (#145)
+- **2026-07-06 19:37** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-06 19:40** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-06 23:17** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:10** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:15** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:16** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:18** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:20** `0fdd9fd` — Merge pull request #146 from SoftwareBeesy/crb/docs/sync-f18-f20-pmo
+- **2026-07-07 17:24** `578f1e8` — docs(sprint-F21): plan LAB visibility fixes for OpenAPI spec and sidebar
+- **2026-07-07 17:28** `dea0e2b` — docs(sprint-F21): correct root cause to .dockerignore excluding docs from build context
+- **2026-07-07 21:24** `f4866f7` — fix(sprint-F21): preserve OpenAPI spec in Docker image and expose admin nav links
+- **2026-07-07 21:34** `fb8b039` — Merge pull request #147 from SoftwareBeesy/sprint/F21
+- **2026-07-07 21:57** `95d1152` — Merge pull request #148 from SoftwareBeesy/sprint/F21-q
+- **2026-07-07 22:06** `95d1152` — Merge pull request #148 from SoftwareBeesy/sprint/F21-q
+- **2026-07-07 22:10** `95d1152` — Merge pull request #148 from SoftwareBeesy/sprint/F21-q
+- **2026-07-07 22:19** `1b6a216` — docs(sprint-F22-q): close ISSUE-054 and mark F21/F22-q complete
+- **2026-07-07 22:24** `1b6a216` — docs(sprint-F22-q): close ISSUE-054 and mark F21/F22-q complete
+- **2026-07-07 22:36** `28f39e2` — fix(sprint-F22-q.3): use light color-scheme on native select dropdowns
+- **2026-07-07 23:14** `071096b` — fix(sprint-F22-q.3): replace native selects with custom Alpine dropdown

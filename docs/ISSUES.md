@@ -57,6 +57,89 @@
 | ISSUE-049 | change_request | UX operador: provisionamento + OCC — normalizar FQDN, feedback async, lista usuários, readiness visível, retrofit visual `customers/*` | Livewire, Customers, Occ, ClusterServers | HIGH | **fixed (2026-07-05)** — Sprint N39; PR #135; deploy LAB `8e58fed` |
 | ISSUE-050 | change_request | Read model local de usuários de tenant (`tenant_users`) + política "nenhum cliente tem admin NC" — API como única escritora; elimina SSH síncrono da aba Usuários (lenta) | Customers, Occ, Livewire, DB, Cross-repo (provision policy) | HIGH | **planned — Sprint N40** (2026-07-05; brief PASS_WITH_NOTES) |
 | ISSUE-051 | change_request | Control plane de produto: planos (quotas), tenant com seleção de apps, templates de usuário (papéis/permissões) — API-first, sem apps NC nesta fase | Product, Customers, Livewire, API v1, DB | HIGH | **concluída (fase 1)** — N41–N43 + F16–F20 (2026-07-06); backlog F17 MEDIUM/LOW em FINDINGS |
+| ISSUE-052 | bug | `/docs/api/spec` retorna 404 na imagem Docker de produção/LAB — `openapi-external.yaml` ausente após `rm -rf docs` no Dockerfile | DevOps, Livewire, docs | HIGH | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
+| ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
+| ISSUE-054 | bug | Painéis Product admin (Planos etc.) com texto ilegível no dark theme — inputs/selects sem `text-on-surface`; popup nativo do `<select>` renderizado pelo OS (GTK dark) ignora CSS | Livewire, Product, CSS | MEDIUM | **fixed (2026-07-08)** — Sprint F22-q (+q.2/q.3/q.4); deploy LAB `7492358`; merge `c50c9ea` (PRs #149/#150/#151/#153); validado pelo operador |
+
+---
+
+## ISSUE-054 — Contraste ilegível em painéis Product (dark theme)
+
+- **Tipo**: bug (UX)
+- **Prioridade**: MEDIUM
+- **Status**: **fixed** (2026-07-08) — Sprint F22-q + follow-ups q.2/q.3/q.4; deploy LAB `7492358`; merge `c50c9ea`; **validado pelo operador**
+- **Registrado em**: 2026-07-08 (operador LAB — `/plans` com inputs e tabela quase invisíveis; dropdowns com opções invisíveis)
+- **Módulos afetados**: `resources/css/app.css`, `resources/views/components/select-menu.blade.php` (novo), `resources/views/livewire/product/plans/index.blade.php`, `resources/views/livewire/customers/create.blade.php`, `resources/views/livewire/cluster-servers/index.blade.php`, `tests/Feature/Livewire/Product/PlansIndexTest.php`
+
+### Descrição
+
+Formulários em `/plans` usavam `bg-surface-container-lowest` sem `text-on-surface` (texto escuro sobre `#060e20`). Além disso, o **popup nativo do `<select>`** é renderizado pelo sistema operacional (GTK dark no Linux) e **ignora o CSS da página** — mesmo com `select option { background:#fff; color:#1e293b }` servido corretamente (verificado via curl no asset do LAB), as opções permaneciam ilegíveis.
+
+### Correção (F22-q → q.4, PRs #149/#150/#151/#153)
+
+1. **q** (`308fec4`): regra global `input`/`select`/`textarea` + classes M3 nos modais + `tbody text-on-surface`
+2. **q.2** (`244740b`): `max-w-lg`→`max-w-[32rem]` (Tailwind v4 `--spacing-lg` sobrescrevia `max-w-lg` para 24px, colapsando o modal); `select option` explícito; container no apps picker
+3. **q.3** (`e5b158b`): `color-scheme: light` no select (tentativa CSS para o popup)
+4. **q.4** (`c50c9ea`, definitivo): componente **`x-select-menu`** (Blade + Alpine listbox, 100% controlado pelo tema; `$set` preserva hooks `.live`) substituindo selects nativos em `/plans` e `/customers/create`
+
+### Lição aprendida
+
+Popup de `<select>` nativo é OS-rendered — CSS da página não alcança. Em dark theme, usar dropdown customizado (`x-select-menu`). Selects nativos restantes (filtros Customers/Operators, OccPanel, Audit) têm o mesmo risco — migração em sprint futura.
+
+---
+
+## ISSUE-052 — `/docs/api/spec` 404 na imagem Docker (Scalar não carrega contrato)
+
+- **Tipo**: bug (regressão de empacotamento pós-N37)
+- **Prioridade**: HIGH
+- **Status**: **fixed** (2026-07-08) — Sprint F21; deploy LAB `95d1152`
+- **Registrado em**: 2026-07-07 (diagnóstico operador LAB — `/docs/api` renderiza Scalar mas spec falha; badge `Spec vunknown`)
+- **Módulos afetados**: `Dockerfile`, `.dockerignore`, `app/Http/Controllers/DocsController.php`, `tests/Feature/Docs/ApiDocsTest.php`
+
+### Descrição
+
+Sprint N37 (ISSUE-047) entregou viewer Scalar em `/docs/api` lendo `base_path('docs/openapi-external.yaml')` via `GET /docs/api/spec`. Localmente e no CI (Pest) passa; na imagem Docker de produção/LAB o spec retorna **404**. **Causa primária**: `.dockerignore` exclui `docs` do contexto de build — o `COPY . .` do stage `build` nunca leva o spec para a imagem. O `rm -rf tests docs layout .cursor .github` (`Dockerfile:112`) é secundário/redundante para `docs/`. LAB usa `target: production` sem volume de código (`docker-compose.lab.yml`), então só o conteúdo da imagem conta.
+
+Validação pós-deploy N37 (`8e58fed`) checou página `/docs/api` + manifest `docs-api.js` + `/up` 200, mas **não** validou `/docs/api/spec` dentro do container.
+
+### Evidência
+
+- LAB: `GET /docs/api/spec` → 404 (autenticado como admin)
+- Scalar: `Document 'api-1' could not be loaded`
+- `DocsController::resolveSpecVersion()` → `unknown` (arquivo ilegível no runtime)
+
+### Correção proposta (F21.1)
+
+1. `.dockerignore`: exceção `!docs/openapi-external.yaml` após a linha `docs`
+2. `Dockerfile` (stage build): copiar o spec para `storage/app/openapi-external.yaml` antes do `rm -rf docs`
+3. `DocsController` ler path via config com fallback dev (`docs/openapi-external.yaml`)
+4. Teste Pest cobrindo path de produção + smoke pós-deploy documentado
+
+---
+
+## ISSUE-053 — Sidebar sem links para Planos e Fazendas
+
+- **Tipo**: bug (gap de UX pós-N41/N18)
+- **Prioridade**: MEDIUM
+- **Status**: **fixed** (2026-07-08) — Sprint F21; deploy LAB `95d1152`
+- **Registrado em**: 2026-07-07 (operador LAB não encontrou CRUD de planos no menu; URL `/plans` funciona)
+- **Módulos afetados**: `resources/views/layouts/app.blade.php`, `tests/Feature/Livewire/Product/PlansIndexTest.php`, `tests/Feature/Livewire/Farms/FarmCapacityPanelTest.php`
+
+### Descrição
+
+N41.4 entregou Livewire `GET /plans` (gate `manage-operators`) e N18 entregou `GET /farms`, mas `layouts/app.blade.php` não inclui entradas no `$navItems`. N37.4 adicionou padrão de link na sidebar para Documentação API; o mesmo padrão não foi replicado para Product/Farms.
+
+Operador precisa conhecer URL direta — sensação de que “nada foi deployado” apesar do LAB estar em `2313ea1` com N41–N43.
+
+### Correção proposta (F21.2 + F21.3)
+
+1. Adicionar **Planos** (`route: plans.index`, gate `manage-operators`, highlight `plans.*`)
+2. Adicionar **Fazendas** (`route: farms.index`, gate `manage-operators`, highlight `farms.*`)
+3. Testes Pest espelhando `ApiDocsTest` (admin vê / operador não vê)
+
+### Fora de escopo (Sprint N futura)
+
+Painéis admin de **Catálogo** e **Templates** (ISSUE-051 item 7) — hoje só API v1 + pickers em create customer/OCC.
 
 ---
 

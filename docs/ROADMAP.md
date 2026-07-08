@@ -90,6 +90,8 @@
 | F18    | F         | Remover `max_apps`; apps do plano = designação `plan_apps`; enable valida ⊆ plano | **concluída** | 4 | Product, Customers, API v1 | ARCH-7; PR #143; validation R1 APROVADA; deploy LAB `e8b1ad6` | 5724+ |
 | F19    | F         | Correção 7 findings F18 (enable happy path, migration hygiene, plan_apps vazio) | **concluída** | 6 | Product, Database, API v1 | PR #144; validation R1 APROVADA | — |
 | F20    | F         | CQ-F19-001/002 LOW (asserções empty-plan + migration `down()` guard) | **concluída** | 2 | Product, Database | PR #145; deploy LAB `2313ea1` | — |
+| F21    | F         | `/docs/api/spec` 200 na imagem Docker; sidebar Planos+Fazendas; smoke pós-deploy documentado | **concluída** | 4 | DevOps, Livewire, docs | ISSUE-052 + ISSUE-053; deploy LAB `95d1152` | — |
+| F22-q  | F         | Contraste dark theme em painéis Product + dropdown custom `x-select-menu` (popup nativo OS-rendered ilegível) | **concluída** | 4 | Livewire, CSS | ISSUE-054; PRs #149/#150/#151/#153; deploy LAB `7492358`; validado pelo operador | — |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -5778,8 +5780,94 @@ Critério de pronto: teste de concorrência ou sequência rápida no boundary; A
 
 ---
 
+## Sprint F21 — LAB visibility: OpenAPI spec no Docker + sidebar Product/Farms (ISSUE-052 / ISSUE-053)
+
+> Categoria: F
+> Status: **concluída** (2026-07-08) — deploy LAB `95d1152`; PR #147/#148
+> Gate: imagem Docker de produção serve `GET /docs/api/spec` → 200 com `openapi: 3.0.3` (admin autenticado); badge do viewer mostra versão do spec (não `unknown`); sidebar exibe **Planos** e **Fazendas** só para `manage-operators`; smoke pós-deploy em `RUNBOOK.md` inclui `/docs/api/spec` + `/plans`; CI verde (Pest + Redocly).
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-07. Fonte: diagnóstico operador LAB (Scalar 404 + planos invisíveis no menu).
+> Pré-execução: Quality Brief (`docs/.briefs/F21.brief.md`) + verifier via pipeline `/pmo sprint F21`.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | F21.1 — Preservar `openapi-external.yaml` no build Docker + `DocsController` path configurável + teste spec em contexto produção | laravel-docker / api-rest-patterns | — |
+| [x] | P | F21.2 — Link **Planos** na sidebar (`plans.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
+| [x] | P | F21.3 — Link **Fazendas** na sidebar (`farms.index`, gate `manage-operators`) + teste Pest | laravel-livewire | — |
+| [x] | P | F21.4 — Atualizar smoke pós-deploy (`RUNBOOK.md` + template `OPERATIONS.md`): `/docs/api/spec`, `/plans`, `/farms` | me360-deployer | F21.1 |
+
+### Task F21.1 — OpenAPI spec disponível na imagem Docker
+
+**Estado atual**: **causa primária** — `.dockerignore` exclui `docs` do contexto de build, então `COPY . .` nunca leva o spec para a imagem (o `rm -rf tests docs …` do stage `build` é redundante para `docs/`). `DocsController::spec()` lê `base_path('docs/openapi-external.yaml')` → 404 no LAB/prod (target `production`, sem volume de código). Scalar exibe `Document 'api-1' could not be loaded`; badge `Spec vunknown`.
+
+**Estado desejado**: arquivo preservado no artefato final (ex. `storage/app/openapi-external.yaml`); controller resolve via `config('platform.openapi.external_spec_path')` com fallback dev em `docs/`; Pest valida leitura do path de produção.
+
+**Módulo(s) afetado(s)**: `.dockerignore`, `Dockerfile`, `config/platform.php`, `app/Http/Controllers/DocsController.php`, `tests/Feature/Docs/ApiDocsTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: N37 entregou Scalar em /docs/api mas o spec 404 na imagem Docker. Causa primária:
+.dockerignore exclui `docs` do contexto de build (COPY . . não inclui o spec); o rm -rf docs
+do Dockerfile é secundário/redundante para docs/.
+
+ANTES: DocsController lê base_path('docs/openapi-external.yaml'); .dockerignore tem `docs`
+sem exceção; imagem production não contém o arquivo.
+
+DEPOIS:
+1. .dockerignore: adicionar exceção `!docs/openapi-external.yaml` logo após a linha `docs`
+2. Dockerfile stage build, ANTES de rm -rf docs: cp docs/openapi-external.yaml storage/app/openapi-external.yaml
+3. config/platform.php: openapi.external_spec_path default storage_path('app/openapi-external.yaml')
+4. DocsController (spec + resolveSpecVersion) usa config com fallback base_path('docs/openapi-external.yaml') para dev local
+5. Teste: admin GET /docs/api/spec → 200 + openapi: 3.0.3 (com arquivo no path de produção)
+6. Validar build: docker build --target production e conferir /var/www/html/storage/app/openapi-external.yaml na imagem
+
+Atenção: entrypoint.sh/production faz mkdir de storage/framework — garantir que o cp não seja
+sobrescrito por volume de storage no compose (LAB não monta storage; conferir docker-compose.lab.yml).
+Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
+```
+
+### Task F21.2 — Sidebar Planos
+
+**Estado atual**: rota `GET /plans` existe (N41.4) mas `$navItems` em `layouts/app.blade.php` não inclui entrada.
+
+**Estado desejado**: item **Planos** visível para admin (`manage-operators`); highlight em `plans.*`; teste Pest admin vê / operador não vê.
+
+### Task F21.3 — Sidebar Fazendas
+
+**Estado atual**: rota `GET /farms` existe (N18) sem entrada no menu.
+
+**Estado desejado**: item **Fazendas** visível para admin; highlight em `farms.*`; teste Pest.
+
+### Task F21.4 — Smoke pós-deploy
+
+**Estado atual**: `RUNBOOK.md` valida só `/up` + login manual; N37/N41 deploys não checaram endpoints de feature no container.
+
+**Estado desejado**: checklist documentado com curl/browser para `/docs/api/spec`, `/plans`, `/farms` (autenticado admin).
+
+---
+
+## Sprint F22-q — Dark theme contrast em painéis Product (ISSUE-054)
+
+> Categoria: F (sprint rápida)
+> Status: **concluída** (2026-07-08) — deploy LAB `308fec4`
+> Gate: inputs/selects legíveis em `/plans` no dark theme; CSS global para form controls; Pest `PlansIndexTest` verde.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | F22-q.1 — CSS global `input`/`select`/`textarea` + classes nos modais Planos (PR #149) | laravel-livewire | — |
+| [x] | P | F22-q.2 — `max-w-lg`→`max-w-[32rem]` (Tailwind v4 spacing override colapsava modal) + `select option` + apps picker container (PR #150) | laravel-livewire | F22-q.1 |
+| [x] | P | F22-q.3 — `color-scheme: light` no select (tentativa CSS popup nativo) (PR #151) | laravel-livewire | F22-q.2 |
+| [x] | M | F22-q.4 — Componente `x-select-menu` (Alpine listbox) substitui selects nativos em `/plans` + `/customers/create` — popup OS-rendered ignora CSS (PR #153) | laravel-livewire | F22-q.3 |
+
+> **Backlog (sprint futura)**: migrar selects nativos restantes para `x-select-menu` — filtros `/customers` e `/operators`, OccPanel (quota/template), Audit.
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |
+| 2026-07-08 | 0.52   | Sprint F22-q concluída — ISSUE-054 contraste dark theme Planos; deploy LAB `308fec4`. Sprint F21 marcada concluída (`95d1152`). | `/rock` |
+| 2026-07-07 | 0.51   | Sprint F21 planejada — ISSUE-052 (`/docs/api/spec` 404: `.dockerignore` exclui docs do build) + ISSUE-053 (sidebar sem Planos/Fazendas); 4 tasks (1M+3P); gate spec 200 no container + sidebar + smoke RUNBOOK. | `/pmo plan` |
 | 2026-07-06 | 0.50   | Sprints F18–F20 concluídas; N41–N43 marcadas concluídas (ISSUE-051); deploy LAB `2313ea1`. | docs sync pós-F20 |
 | 2026-07-06 | 0.47   | Sprint F18 planejada — remover max_apps; enforcement por plan_apps (decisão produto). | `/pmo plan` via `/rock` |
 | 2026-07-06 | 0.45   | Sprint F16 concluída — ISSUE-051 campanha; PR #141; deploy LAB. | sprint-finalizer |

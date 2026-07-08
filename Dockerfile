@@ -108,7 +108,8 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-pr
 COPY . .
 COPY --from=frontend /app/public/build ./public/build
 
-RUN composer dump-autoload --optimize --classmap-authoritative \
+RUN cp docs/openapi-external.yaml storage/app/openapi-external.yaml \
+    && composer dump-autoload --optimize --classmap-authoritative \
     && rm -rf tests docs layout .cursor .github
 
 # ============================================================================
