@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\ClusterServer;
 use App\Models\Customer;
+use App\Modules\Agents\Services\AgentTransportResolver;
 use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
@@ -13,7 +14,9 @@ use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
     if (config('app.key') === '' || config('app.key') === null) {
@@ -25,6 +28,9 @@ beforeEach(function (): void {
         'cache.default' => 'array',
         'services.customer_readiness.probe_timeout_seconds' => 25,
     ]);
+
+    Http::swap(new \Illuminate\Http\Client\Factory);
+    Http::fake(['*' => Http::response('probe-not-ready', 503)]);
 
     resetCustomerReadinessProbeContainer();
 
@@ -41,6 +47,8 @@ function resetCustomerReadinessProbeContainer(): void
     app()->forgetInstance(SshPlatformAdapter::class);
     app()->forgetInstance(AgentPlatformAdapter::class);
     app()->forgetInstance(SshClientInterface::class);
+    app()->forgetInstance(AgentTransportResolver::class);
+    app()->forgetInstance(TransportObservability::class);
 }
 
 function bindCustomerReadinessProbeSsh(SshClientInterface $ssh): void
@@ -58,6 +66,7 @@ function characterizationProbeCustomer(string $slug = 'char-probe-acme'): Custom
         'cluster_server_id' => $cluster->id,
         'domain' => "{$slug}.example.com",
         'status' => 'provisioning_finishing',
+        'image_mode' => false,
     ]);
 }
 
@@ -107,6 +116,7 @@ it('characterizes readiness gates include app:list, user:list, and memail config
     $customer = characterizationProbeCustomer();
 
     bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
+    Http::swap(new \Illuminate\Http\Client\Factory);
     fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
@@ -116,6 +126,7 @@ it('characterizes all gates passing returns true', function (): void {
     $customer = characterizationProbeCustomer('char-probe-ok');
 
     bindCustomerReadinessProbeSsh(characterizationReadinessGateMock());
+    Http::swap(new \Illuminate\Http\Client\Factory);
     fakeReadinessGateR6Http($customer->domain);
 
     expect(app(CustomerReadinessProbe::class)->isReady($customer))->toBeTrue();
