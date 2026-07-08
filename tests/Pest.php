@@ -169,9 +169,15 @@ function makeCustomerReadinessProbeWithSsh(SshClientInterface $ssh): CustomerRea
 function fakeReadinessHttp(string $domain, string $path, int $status = 200): void
 {
     Http::swap(new Factory);
-    Http::fake([
-        "https://{$domain}{$path}*" => Http::response($status === 200 ? 'OK' : 'Error', $status),
-    ]);
+    $needle = rtrim($path, '/');
+    Http::fake(function (\Illuminate\Http\Client\Request $request) use ($domain, $needle, $status) {
+        $url = $request->url();
+        if (! str_contains($url, $domain) || ! str_contains($url, $needle)) {
+            return Http::response('unexpected', 599);
+        }
+
+        return Http::response($status === 200 ? 'OK' : 'Error', $status);
+    });
 }
 
 function readinessGateSshMockWithGatesR1ToR5(): MockInterface

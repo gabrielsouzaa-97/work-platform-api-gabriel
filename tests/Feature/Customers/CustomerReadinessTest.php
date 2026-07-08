@@ -45,6 +45,7 @@ it('POST users on provisioning_finishing returns 503 tenant_not_ready', function
         'cluster_server_id' => $cluster->id,
         'domain' => 'ready-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -71,6 +72,7 @@ it('DELETE users on provisioning_finishing returns 503 tenant_not_ready', functi
         'cluster_server_id' => $cluster->id,
         'domain' => 'del-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -93,6 +95,7 @@ it('POST users on provisioning returns 503 tenant_not_ready', function () {
         'cluster_server_id' => $cluster->id,
         'domain' => 'prov-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -113,6 +116,7 @@ it('POST groups:create on provisioning_finishing still returns 202', function ()
         'cluster_server_id' => $cluster->id,
         'domain' => 'grp-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
     $jobId = Str::uuid()->toString();
@@ -138,6 +142,7 @@ it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', fu
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-ok.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
@@ -197,6 +202,7 @@ it('ProbeCustomerReadinessJob keeps finishing when R6 meMail HTTP gate fails', f
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-r6.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 503);
@@ -224,6 +230,7 @@ it('ProbeCustomerReadinessJob promotes to active when R6 meMail HTTP returns 200
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-r6-ok.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
@@ -243,6 +250,7 @@ it('ProbeCustomerReadinessJob keeps finishing when memail externalLocation gate 
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-r4.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -290,6 +298,7 @@ it('ProbeCustomerReadinessJob keeps finishing when probe returns non-zero exit',
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-nz.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -313,6 +322,7 @@ it('ProbeCustomerReadinessJob marks failed when deadline exceeded', function () 
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-dead.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -343,6 +353,7 @@ it('CustomerSyncService does not overwrite provisioning_finishing with active fr
         'cluster_server_id' => $cluster->id,
         'domain' => 'finishing.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $payload = [
@@ -377,6 +388,7 @@ it('CustomerSyncService does not overwrite provisioning with active from upstrea
         'cluster_server_id' => $cluster->id,
         'domain' => 'still.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING,
+        'image_mode' => false,
     ]);
 
     $payload = [
@@ -459,6 +471,7 @@ it('ProbeCustomerReadinessJob grava dois audits com attempt incremental em falha
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-inc.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 503);
@@ -494,6 +507,7 @@ it('customers show exibe card readiness com ultimo erro em provisioning_finishin
         'cluster_server_id' => $cluster->id,
         'domain' => 'show-ready.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -527,6 +541,7 @@ it('customers show nao exibe card readiness fora de provisioning_finishing', fun
         'cluster_server_id' => $cluster->id,
         'domain' => 'show-no-ready.example.com',
         'status' => CustomerLifecycleStatus::ACTIVE,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -619,6 +634,7 @@ it('ProbeCustomerReadinessJob promotes tenant when occ-exec shim returns envelop
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-shim.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);

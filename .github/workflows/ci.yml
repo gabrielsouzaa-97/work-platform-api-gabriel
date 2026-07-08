@@ -129,7 +129,9 @@ jobs:
           DB_DATABASE: ':memory:'
           CACHE_STORE: array
           SESSION_DRIVER: array
-        run: php artisan test tests/Characterization/Integration/
+          AGENT_TRANSPORT_ENABLED: 'false'
+          PLATFORM_IMAGE_MODE_DEFAULT: 'false'
+        run: php -d memory_limit=512M artisan test tests/Characterization/Integration/
 
       - name: Run tests
         env:
@@ -137,7 +139,9 @@ jobs:
           DB_DATABASE: ':memory:'
           CACHE_STORE: array
           SESSION_DRIVER: array
-        run: php artisan test
+          AGENT_TRANSPORT_ENABLED: 'false'
+          PLATFORM_IMAGE_MODE_DEFAULT: 'false'
+        run: php -d memory_limit=512M artisan test
 
   security:
     name: Security (composer audit)

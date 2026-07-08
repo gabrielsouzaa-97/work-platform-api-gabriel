@@ -72,6 +72,7 @@ function readinessGateCustomer(string $slug, string $status = 'provisioning_fini
         'cluster_server_id' => $cluster->id,
         'domain' => "{$slug}.example.com",
         'status' => $status,
+        'image_mode' => false,
     ]);
 }
 
