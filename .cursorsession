@@ -33,7 +33,7 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "Sprint F24 — desenvolvimento concluído",
+  "fase_nome": "Sprint F24 — validação APROVADA (aguarda CI)",
   "sprint_atual": "F24",
   "previous_sprint": "F23",
   "sprint_branch": "campanha/fix-f24-occ-polish",
@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-08T23:51:42Z",
+  "ultimo_update": "2026-07-08T23:54:29Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -79,8 +79,9 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/qa validar F24",
-    "PR + CI",
+    "push PR",
+    "CI verde",
+    "merge",
     "deploy LAB"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
@@ -227,12 +228,62 @@
   "sprint_pr": 135,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "testing",
+    "phase": "auditing",
     "sprint": "F24",
     "current_task": null,
     "last_completed_task": "F24.7",
     "branch": "campanha/fix-f24-occ-polish",
-    "started_at": "2026-07-08T23:34:26Z"
+    "started_at": "2026-07-08T23:34:26Z",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose exec -T app php artisan test --filter=TenantGroupNameRules\\|CQ-F23-002\\|CQ-F23-003\\|CQ-F17-001\\|CQ-F17-002\\|CQ-F17-003\\|CQ-F17-004\\|CQ-N40-003\\|QA-N40-003\\|QA-N40-004",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "4c8cf0aae9e87c6c6c28a4366e27f7874ba35f90",
+      "stamped_at": "2026-07-08T23:54:09Z",
+      "sprint": "F24",
+      "validation_round": 1,
+      "notes": "auditor-senior APROVADA; 9/9 findings-alvo; 3 LOW new CQ-F24-001..003 + INT-F24-001 non-blocking"
+    },
+    "validation_gate_qa": {
+      "sprint": "F24",
+      "produced_by": "/rock pmo plan+execute (auditor-senior 7fc794b8)",
+      "result": "APROVADA",
+      "validation_round": 1,
+      "validation_mode": "revalidation",
+      "senior_review_status": "PASS_WITH_NOTES",
+      "scope": "campanha/fix-f24-occ-polish",
+      "findings_found": 4,
+      "findings_registered": [
+        "INT-F24-001",
+        "CQ-F24-001",
+        "CQ-F24-002",
+        "CQ-F24-003"
+      ],
+      "findings_high_pending": [],
+      "findings_validated": [
+        "CQ-F23-001",
+        "CQ-F23-002",
+        "CQ-F23-003",
+        "CQ-F17-001",
+        "CQ-F17-002",
+        "CQ-F17-003",
+        "CQ-F17-004",
+        "CQ-N40-003",
+        "QA-N40-003",
+        "QA-N40-004"
+      ],
+      "tests_evidence": "Pest Docker F24 filter 21 passed; broader suites 84 passed; validation-stamp APROVADA",
+      "notes": "PASS_WITH_NOTES: INT-F24-001 + CQ-F24-001..003 LOW non-blocking",
+      "stamped_at": "2026-07-08T23:54:29Z"
+    }
   },
   "checkpoint_n36_archived": {
     "phase": "done",

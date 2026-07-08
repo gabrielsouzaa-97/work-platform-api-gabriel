@@ -104,6 +104,40 @@ FINDINGS-INDEX -->
 **Descrição**: `pollPendingUserJob` chama poll de grupo e depois handlers de usuário que fazem `clearMessages()` incondicionalmente — mensagem de grupo pode sumir se job de usuário termina no mesmo tick.
 **Correção sugerida**: Estender `preserveMessages` aos handlers de usuário ou não limpar quando outro job do tick ainda não finalizou.
 
+#### [CQ-F24-001] — handleUserDeleteJobTerminal reutiliza projector de create
+- **Severidade**: LOW
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `handleUserDeleteJobTerminal` chama `projectUserCreateIntoReadModel()` (nome enganoso); projector roteia delete corretamente.
+**Correção sugerida**: Renomear para `projectUserJobIntoReadModel`.
+
+#### [CQ-F24-002] — TenantGroupNameRules::forAttribute ignora parâmetro
+- **Severidade**: LOW
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Support/TenantGroupNameRules.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `$attribute` não é usado; API e painel compartilham o mesmo array.
+**Correção sugerida**: Remover parâmetro ou documentar reserva futura.
+
+#### [CQ-F24-003] — Poll grupo dual-success ainda sobrescreve mensagem
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: Com `preserveMessages`, dual success no mesmo tick ainda sobrescreve `successMessage` (teste cobre success+error).
+**Correção sugerida**: Acumular/concatenar mensagens quando preserveMessages.
+
+
 
 > **Validação N45+N46 R1** (2026-07-08, `/qa validar`): scope = PR #158 merge `f465768` (delta `8262408..f465768`, ISSUE-056). **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **118 passed, 366 assertions** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle + CreateUserPolicy + UserCreateTemplateResolver); CI PR #158 verde (Pest/Lint/Security/OpenAPI). **auditor-senior** ([`9a3dbedd`](9a3dbedd-f056-4565-952f-759ca30652d8)) → 0 CRITICAL, **1 HIGH**, 5 MEDIUM, 2 LOW. **Resultado: REPROVADA** — `CQ-N46-001` HIGH: projector só aceita `groups:create`/`groups:delete` mas jobs persistem `group_create`/`group_delete` via `JobTypeTranslator` (padrão correto já existe em `TenantUserProjector`).
 
