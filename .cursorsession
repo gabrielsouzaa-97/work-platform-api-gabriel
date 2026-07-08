@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-08T23:54:29Z",
+  "ultimo_update": "2026-07-08T23:54:45Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -225,7 +225,7 @@
     "messages_lost": 307
   },
   "compact_count": 10,
-  "sprint_pr": 135,
+  "sprint_pr": 160,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
     "phase": "auditing",
@@ -266,7 +266,9 @@
       "sprint": "F24",
       "validation_round": 1,
       "notes": "auditor-senior APROVADA; 9/9 findings-alvo; 3 LOW new CQ-F24-001..003 + INT-F24-001 non-blocking"
-    }
+    },
+    "pr_number": 160,
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/160"
   },
   "checkpoint_n36_archived": {
     "phase": "done",
