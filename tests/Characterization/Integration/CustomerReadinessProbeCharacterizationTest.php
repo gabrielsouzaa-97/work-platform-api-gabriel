@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
+    Mockery::close();
+
     if (config('app.key') === '' || config('app.key') === null) {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
     }
@@ -30,15 +32,12 @@ beforeEach(function (): void {
     ]);
 
     resetCustomerReadinessProbeContainer();
-
-    $gateway = Mockery::mock(AgentUpstreamGateway::class);
-    $gateway->shouldNotReceive('run');
-    $gateway->shouldNotReceive('runAsync');
-    app()->instance(AgentUpstreamGateway::class, $gateway);
 });
 
 afterEach(function (): void {
     Http::swap(new Factory);
+    resetCustomerReadinessProbeContainer();
+    Mockery::close();
 });
 
 function resetCustomerReadinessProbeContainer(): void
@@ -50,6 +49,7 @@ function resetCustomerReadinessProbeContainer(): void
     app()->forgetInstance(SshClientInterface::class);
     app()->forgetInstance(AgentTransportResolver::class);
     app()->forgetInstance(TransportObservability::class);
+    app()->forgetInstance(AgentUpstreamGateway::class);
 }
 
 function bindCustomerReadinessProbeSsh(SshClientInterface $ssh): void
