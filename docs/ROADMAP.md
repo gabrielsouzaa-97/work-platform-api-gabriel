@@ -6066,7 +6066,7 @@ Test scenarios:
 ## Sprint F24 — OCC groups polish + F17/N40 backlog
 
 > Categoria: F
-> Status: **planejada** (2026-07-08)
+> Status: **implementada** (2026-07-08) — aguarda VERIFY CI
 > Gate executável: `TenantGroupNameRules` única fonte em API+OccPanel; `UserCreateStdinPayload` emite `groups: []` sem override nos call sites; API `groups: null` herda template; `TenantGroupSyncReport.updated` conta todos os refreshes; poll de grupo não sobrescreve mensagem quando create+delete terminam no mesmo tick; `deleteUser` recarrega lista pós-success; Pest dedicado `SuiteCatalogPathResolver` + out-of-order webhook + poll integrado webhook→projector; CI verde.
 > review: senior+qa
 > Gerado via `/pmo plan` em 2026-07-08. Fonte: Escopo A Rock — findings `CQ-F23-001`..`003`, `CQ-F17-001`..`004`, `CQ-N40-003`/`QA-N40-003`/`QA-N40-004` em `docs/FINDINGS.md`.
@@ -6074,13 +6074,13 @@ Test scenarios:
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | M | F24.1 — CQ-F23-001: extrair `TenantGroupNameRules` compartilhado (API + OccPanel) | api-rest-patterns / laravel-livewire | — |
-| [ ] | P | F24.2 — CQ-F23-002: sync `updated` sempre conta refreshes (cenário misto insert+backfill) | laravel-testing | — |
-| [ ] | P | F24.3 — CQ-F23-003: corrigir clobber de mensagem no poll concorrente create+delete | laravel-livewire | — |
-| [ ] | M | F24.4 — CQ-F17-001+002+003: `groups: []` no `UserCreateStdinPayload` + `groups: null` herda template + Pest OccPanel | api-rest-patterns / laravel-livewire | — |
-| [ ] | P | F24.5 — CQ-F17-004: unit tests dedicados `SuiteCatalogPathResolver` | laravel-testing | — |
-| [ ] | P | F24.6 — CQ-N40-003: `deleteUser` recarrega lista de usuários após success | laravel-livewire | — |
-| [ ] | P | F24.7 — QA-N40-003+004: testes webhook out-of-order + poll integrado webhook→projector | laravel-testing | — |
+| [x] | M | F24.1 — CQ-F23-001: extrair `TenantGroupNameRules` compartilhado (API + OccPanel) | api-rest-patterns / laravel-livewire | — |
+| [x] | P | F24.2 — CQ-F23-002: sync `updated` sempre conta refreshes (cenário misto insert+backfill) | laravel-testing | — |
+| [x] | P | F24.3 — CQ-F23-003: corrigir clobber de mensagem no poll concorrente create+delete | laravel-livewire | — |
+| [x] | M | F24.4 — CQ-F17-001+002+003: `groups: []` no `UserCreateStdinPayload` + `groups: null` herda template + Pest OccPanel | api-rest-patterns / laravel-livewire | — |
+| [x] | P | F24.5 — CQ-F17-004: unit tests dedicados `SuiteCatalogPathResolver` | laravel-testing | — |
+| [x] | P | F24.6 — CQ-N40-003: `deleteUser` recarrega lista de usuários após success | laravel-livewire | — |
+| [x] | P | F24.7 — QA-N40-003+004: testes webhook out-of-order + poll integrado webhook→projector | laravel-testing | — |
 
 ### Quality Brief (Sprint F24)
 
