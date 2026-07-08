@@ -95,6 +95,8 @@ it('plans create modal form controls expose dark-theme text classes', function (
     Livewire::actingAs($admin)
         ->test(Index::class)
         ->call('openCreate')
+        ->assertSeeHtml('max-w-[32rem]')
+        ->assertDontSeeHtml('max-w-lg')
         ->assertSeeHtml('text-on-surface')
         ->assertSeeHtml('placeholder:text-on-surface-variant');
 });

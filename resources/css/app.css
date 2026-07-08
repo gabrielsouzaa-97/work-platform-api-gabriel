@@ -86,6 +86,11 @@ textarea {
     color-scheme: dark;
 }
 
+select option {
+    background-color: var(--color-surface-container);
+    color: var(--color-on-surface);
+}
+
 input:not([type='checkbox']):not([type='radio']):not([type='file'])::placeholder,
 textarea::placeholder {
     color: var(--color-on-surface-variant);
