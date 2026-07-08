@@ -68,6 +68,12 @@ class ProvisionCustomerRequest extends FormRequest
             'shell' => ['sometimes', 'boolean'],
             'suite_catalog' => ['sometimes', 'boolean'],
             'image_mode' => ['sometimes', 'boolean'],
+            'objectstore' => ['sometimes', 'array'],
+            'objectstore.enabled' => ['sometimes', 'boolean'],
+            'objectstore.bucket' => ['sometimes', 'nullable', 'string', 'regex:/^[a-z0-9][a-z0-9-]{2,62}$/'],
+            'objectstore.key' => ['prohibited'],
+            'objectstore.secret' => ['prohibited'],
+            'objectstore.hostname' => ['prohibited'],
             'legacy_vendor' => ['sometimes', 'boolean'],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],
             'background' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:5120'],
@@ -108,6 +114,13 @@ class ProvisionCustomerRequest extends FormRequest
                 return;
             }
 
+            if ($this->objectstoreEnabled() && ! $this->resolvesImageMode()) {
+                $v->errors()->add(
+                    'objectstore.enabled',
+                    'Objectstore requires image_mode to be enabled.',
+                );
+            }
+
             if (! $this->usesSuiteCatalogMode()) {
                 return;
             }
@@ -129,6 +142,22 @@ class ProvisionCustomerRequest extends FormRequest
                 }
             }
         });
+    }
+
+    public function objectstoreEnabled(): bool
+    {
+        $objectstore = $this->input('objectstore');
+
+        return is_array($objectstore) && filter_var($objectstore['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    public function resolvesImageMode(): bool
+    {
+        if ($this->has('image_mode')) {
+            return $this->boolean('image_mode');
+        }
+
+        return (bool) config('platform.image_mode.default_mode', false);
     }
 
     public function usesSuiteCatalogMode(): bool
