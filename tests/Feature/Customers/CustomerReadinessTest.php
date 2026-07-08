@@ -21,6 +21,7 @@ use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Queue\Jobs\FakeJob;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -29,12 +30,13 @@ use Mockery\MockInterface;
 uses()->group('readiness-isolated');
 
 beforeEach(function (): void {
-    app()->forgetInstance(CustomerReadinessProbe::class);
-    app()->forgetInstance(PlatformPortFactory::class);
-    app()->forgetInstance(SshPlatformAdapter::class);
-    app()->forgetInstance(AgentPlatformAdapter::class);
-    app()->forgetInstance(SshClientInterface::class);
-    app()->forgetInstance(AgentTransportResolver::class);
+    Config::set('services.agent.transport_enabled', false);
+    config([
+        'cache.default' => 'array',
+        'platform.image_mode.default_mode' => false,
+        'services.customer_readiness.probe_timeout_seconds' => 25,
+    ]);
+    resetCustomerReadinessProbeContainer();
     Http::swap(new Factory);
 });
 

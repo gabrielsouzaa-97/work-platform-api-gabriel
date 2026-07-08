@@ -19,6 +19,7 @@ use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -29,17 +30,14 @@ beforeEach(function (): void {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
     }
 
+    Config::set('services.agent.transport_enabled', false);
     config([
+        'cache.default' => 'array',
+        'platform.image_mode.default_mode' => false,
         'services.customer_readiness.retry_after_seconds' => 60,
         'services.customer_readiness.probe_timeout_seconds' => 25,
     ]);
-
-    app()->forgetInstance(CustomerReadinessProbe::class);
-    app()->forgetInstance(PlatformPortFactory::class);
-    app()->forgetInstance(SshPlatformAdapter::class);
-    app()->forgetInstance(AgentPlatformAdapter::class);
-    app()->forgetInstance(SshClientInterface::class);
-    app()->forgetInstance(AgentTransportResolver::class);
+    resetCustomerReadinessProbeContainer();
     Http::swap(new Factory);
 });
 
