@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-07-06
+synced_at: 2026-07-08
 open_critical: 0
-open_high: 9
-open_medium: 51
-open_low: 46
-sprints_with_open_blockers:
-notes: F20 concluída — CQ-F19-001/002 corrigidos; deploy LAB 2313ea1. F19 R1 APROVADA — 7 findings F18 validados; 259 testes. F18 R1 APROVADA — max_apps removido (ARCH-7); deploy LAB e8b1ad6. ISSUE-051 fase 1 entregue (N41–N43 + F16–F20).
+open_high: 10
+open_medium: 56
+open_low: 48
+sprints_with_open_blockers: [N46]
+notes: N45+N46 R1 REPROVADA — CQ-N46-001 HIGH (TenantGroupProjector job_type mismatch group_create vs groups:create). PR #158 merge f465768; CI verde mas projeção webhook quebrada em produção. F20 concluída.
 FINDINGS-INDEX -->
 
 
@@ -51,6 +51,100 @@ FINDINGS-INDEX -->
 | F18 | 0 | 0 | 2 | 5 | 0 | 0 | 7 |
 | F19 | 0 | 0 | 0 | 2 | 0 | 0 | 2 |
 | F20 | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
+| N45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| N46 | 0 | 1 | 5 | 2 | 8 | 0 | 0 |
+
+> **Validação N45+N46 R1** (2026-07-08, `/qa validar`): scope = PR #158 merge `f465768` (delta `8262408..f465768`, ISSUE-056). **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **118 passed, 366 assertions** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle + CreateUserPolicy + UserCreateTemplateResolver); CI PR #158 verde (Pest/Lint/Security/OpenAPI). **auditor-senior** ([`9a3dbedd`](9a3dbedd-f056-4565-952f-759ca30652d8)) → 0 CRITICAL, **1 HIGH**, 5 MEDIUM, 2 LOW. **Resultado: REPROVADA** — `CQ-N46-001` HIGH: projector só aceita `groups:create`/`groups:delete` mas jobs persistem `group_create`/`group_delete` via `JobTypeTranslator` (padrão correto já existe em `TenantUserProjector`).
+
+### Findings — Sprint N46 (validação R1)
+
+#### [CQ-N46-001] — TenantGroupProjector ignora job_type persistido
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Services/TenantGroupProjector.php:13-31`
+- **Sprint origem**: N46 (task N46.2 — TenantGroupProjector + webhook hooks)
+- **Status**: corrigido
+- **Esforço**: P
+**Descrição**: `LifecycleAsyncAction` persiste `job_type` via `JobTypeTranslator::cmdToJobType()` como `group_create`/`group_delete`, mas o projector só trata `groups:create`/`groups:delete`. Webhook terminal não projeta `tenant_groups` até sync manual.
+**Correção sugerida**: Alinhar ao `TenantUserProjector`: `GROUP_CREATE_TYPES = ['group_create', 'groups:create']` e `GROUP_DELETE_TYPES = ['group_delete', 'groups:delete']`.
+
+#### [CQ-N46-002] — Testes de projeção usam job_type incorreto (falso verde)
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: Senior
+- **Arquivo**: `tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php`
+- **Sprint origem**: N46 (task N46.2)
+- **Status**: corrigido
+- **Esforço**: P
+**Descrição**: Fixtures injetam `job_type => 'groups:create'|'groups:delete'`, mas jobs reais usam `group_create`/`group_delete`. Suite passa com CQ-N46-001 ativo.
+**Correção sugerida**: Fixtures com `group_create`/`group_delete` + teste integrado LifecycleAsyncAction → webhook → assert row.
+
+#### [CQ-N46-003] — Validação membership painel case-sensitive vs API
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:404-405`
+- **Sprint origem**: N46 (task N46.5)
+- **Status**: corrigido
+- **Esforço**: P
+**Descrição**: Painel usa `in_array(..., true)` case-sensitive; API `TenantGroupMembership` compara `LOWER(name)`.
+**Correção sugerida**: Reutilizar `TenantGroupMembership` ou lookup case-insensitive idêntico.
+
+#### [CQ-N46-004] — createGroup/deleteGroup painel sem regex da API
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:521-543`
+- **Sprint origem**: N45 (task N45.2/N45.5)
+- **Status**: corrigido
+- **Esforço**: P
+**Descrição**: Painel aceita `required|string|max:256` sem `regex:/^[a-zA-Z0-9._\- ]+$/` da API.
+**Correção sugerida**: Extrair regras compartilhadas e aplicar no OccPanel.
+
+#### [CQ-N46-005] — Criação de grupo não bloqueia nome reservado admin
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Requests/Lifecycle/CreateGroupRequest.php` + `OccPanel::createGroup`
+- **Sprint origem**: N46
+- **Status**: corrigido
+- **Esforço**: P
+**Descrição**: Membership bloqueia atribuir `admin`, mas create group não rejeita nome `admin`.
+**Correção sugerida**: Rule case-insensitive `strtolower($name) === 'admin'` em CreateGroupRequest e OccPanel.
+
+#### [CQ-N46-006] — Sem poll/refresh pós-create de grupo no painel
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:519-536`
+- **Sprint origem**: N45/N46
+- **Status**: corrigido
+- **Esforço**: M
+**Descrição**: Após createGroup sucesso não há poll do job nem `loadGroups()` (assimetria com users).
+**Correção sugerida**: Após fix CQ-N46-001, poll terminal group_create/delete ou reload no success.
+
+#### [CQ-N46-007] — TenantGroupSyncReport.updated nunca incrementado
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Services/TenantGroupSyncService.php:52-72`
+- **Sprint origem**: N46 (task N46.3)
+- **Status**: corrigido
+- **Esforço**: P
+**Motivo LOW**: métrica operacional enganosa; sync funcional.
+**Correção sugerida**: Incrementar `$report->updated++` em row existente ou remover campo.
+
+#### [CQ-N46-008] — tenant-groups:sync exit 0 com falhas parciais
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Console/Commands/TenantGroupsSyncCommand.php:35-44`
+- **Sprint origem**: N46 (task N46.3)
+- **Status**: corrigido
+- **Esforço**: P
+**Motivo LOW**: cron não alerta; drift detectável via logs.
+**Correção sugerida**: Retornar FAILURE se qualquer customer falhar.
 
 > **Validação F19 R1** (2026-07-06, `/qa validar F19`): scope = delta `a623f8e...887b53f` (PR #144 — correção dos 7 findings F18). **Review**: senior+qa. **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **259 passed, 1075 assertions** (`Product/`, `Api/V1/`, `Database/`, `Customers/`). **auditor-senior** ([`d14c0e14`](d14c0e14-31da-447b-b86b-4bc58d4df922)) → 0 CRITICAL, 0 HIGH, 0 MEDIUM, 2 LOW. **Findings F18 validados**: CQ-F18-001, QA-F18-002, CQ-F18-002, CQ-F18-003, QA-F18-003, QA-F18-004, QA-F18-005 (7/7). **Resultado: APROVADA** — 0 CRITICAL/HIGH/MEDIUM; 2 LOW novos non-blocking.
 

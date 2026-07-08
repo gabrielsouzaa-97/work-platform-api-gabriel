@@ -563,6 +563,93 @@ it('createGroup com SshRemoteException exit 4 → "Recurso já existe"', functio
         ->assertSet('errorMessage', 'Recurso já existe.');
 });
 
+// ── F23.2–F23.4 — CQ-N46-003..006 groups validation + poll ───────────────────
+
+it('createUser com grupo diferente só por case da projeção → sucesso case-insensitive (CQ-N46-003)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+
+    seedOccPanelTenantGroup($customer, 'editors');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->once()
+        ->withArgs(function ($clusterArg, $cmd, $args, $stdin) {
+            $decoded = json_decode($stdin ?? '', true);
+
+            return is_array($decoded)
+                && ($decoded['groups'] ?? null) === ['editors'];
+        })
+        ->andReturn(new SshResponse(
+            stdout: json_encode(['job_id' => $jobId]),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: ['job_id' => $jobId],
+        ));
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'johndoe')
+        ->set('userGroupSelection', ['Editors'])
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.")
+        ->assertHasNoErrors();
+});
+
+it('createGroup com caracteres inválidos → validação rejeita antes de SSH (CQ-N46-004)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('groupName', 'bad@name')
+        ->call('createGroup')
+        ->assertHasErrors(['groupName']);
+});
+
+it('createGroup com nome reservado admin (case-insensitive) → validação rejeita antes de SSH (CQ-N46-005)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('groupName', 'ADMIN')
+        ->call('createGroup')
+        ->assertHasErrors(['groupName']);
+});
+
+it('createGroup sucesso seta pendingGroupCreateJobId para poll terminal (CQ-N46-006)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+    bindSshAsyncSuccess($jobId);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'groups')
+        ->set('groupName', 'financeiro')
+        ->call('createGroup')
+        ->assertSet('pendingGroupCreateJobId', $jobId)
+        ->assertSet('groupName', '');
+});
+
 // ── Add user to group → blocked-on-upstream (CQ-F5-007 closure) ─────────────
 
 it('addUserToGroup → mensagem upstream pendente sem SSH (CQ-F5-007)', function () {

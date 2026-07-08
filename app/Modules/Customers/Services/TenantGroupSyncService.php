@@ -55,6 +55,8 @@ class TenantGroupSyncService
         Collection $localByName,
         TenantGroupSyncReport $report,
     ): void {
+        $refreshedExisting = 0;
+
         foreach ($upstreamNames as $name) {
             $local = $localByName->get($name);
 
@@ -68,7 +70,12 @@ class TenantGroupSyncService
 
             if ($local->synced_at === null) {
                 $local->update(['synced_at' => Carbon::now()]);
+                $refreshedExisting++;
             }
+        }
+
+        if ($report->inserted === 0) {
+            $report->updated += $refreshedExisting;
         }
     }
 

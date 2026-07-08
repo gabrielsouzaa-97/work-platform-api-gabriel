@@ -10,10 +10,10 @@ use App\Models\TenantGroup;
 class TenantGroupProjector
 {
     /** @var list<string> */
-    private const GROUP_CREATE_TYPES = ['groups:create'];
+    private const GROUP_CREATE_TYPES = ['group_create', 'groups:create'];
 
     /** @var list<string> */
-    private const GROUP_DELETE_TYPES = ['groups:delete'];
+    private const GROUP_DELETE_TYPES = ['group_delete', 'groups:delete'];
 
     public function handleTerminalJob(Job $job, string $canonicalState): void
     {

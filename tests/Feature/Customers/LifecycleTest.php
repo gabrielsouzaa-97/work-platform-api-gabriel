@@ -361,6 +361,51 @@ it('POST groups → 202 + job_id + argv ["group","create"]', function () {
     $response->assertJsonPath('job_id', $jobId);
 });
 
+it('POST groups com nome reservado admin → 422 sem SSH (CQ-N46-005)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/groups", ['name' => 'admin'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['name']);
+});
+
+it('POST groups com nome ADMIN (case-insensitive) → 422 sem SSH (CQ-N46-005)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/groups", ['name' => 'ADMIN'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['name']);
+});
+
+it('POST groups com caracteres inválidos → 422 sem SSH (CQ-N46-004)', function () {
+    $cluster = makeLifecycleCluster();
+    $customer = makeLifecycleCustomer($cluster);
+    $operator = makeLifecycleOperator();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    $this->app->instance(SshClientInterface::class, $ssh);
+
+    $this->actingAs($operator)
+        ->postJson("/api/customers/{$customer->slug}/groups", ['name' => 'bad@name'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['name']);
+});
+
 // ── 7.3 Delete User ────────────────────────────────────────────────────────────
 
 it('DELETE users/{username} → 202 + job_id + argv ["user","remove"]', function () {
