@@ -185,5 +185,5 @@ jobs:
 
       - name: Verify OpenAPI spec bundled in image
         run: |
-          docker run --rm mework360-deployer:ci test -f /var/www/html/storage/app/openapi-external.yaml
-          docker run --rm mework360-deployer:ci grep -q 'openapi: 3.0.3' /var/www/html/storage/app/openapi-external.yaml
+          docker run --rm --entrypoint "" mework360-deployer:ci test -f /var/www/html/storage/app/openapi-external.yaml
+          docker run --rm --entrypoint "" mework360-deployer:ci grep -q 'openapi: 3.0.3' /var/www/html/storage/app/openapi-external.yaml
