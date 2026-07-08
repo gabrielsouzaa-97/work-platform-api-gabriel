@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Lifecycle;
 
+use App\Modules\Customers\Support\TenantGroupNameRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateGroupRequest extends FormRequest
@@ -16,17 +17,7 @@ class CreateGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => [
-                'required',
-                'string',
-                'max:256',
-                'regex:/^[a-zA-Z0-9._\- ]+$/',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (strtolower((string) $value) === 'admin') {
-                        $fail('Nome de grupo reservado (admin).');
-                    }
-                },
-            ],
+            'name' => TenantGroupNameRules::forAttribute('name'),
         ];
     }
 

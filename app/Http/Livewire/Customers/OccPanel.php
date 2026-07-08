@@ -25,6 +25,7 @@ use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Services\TenantUserSyncService;
 use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\TenantGroupListParser;
+use App\Modules\Customers\Support\TenantGroupNameRules;
 use App\Modules\Customers\Support\TenantKnownGroups;
 use App\Modules\Customers\Support\TenantUserListParser;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
@@ -107,6 +108,8 @@ class OccPanel extends Component
     /** @var list<string> */
     public array $userGroupSelection = [];
 
+    public bool $userGroupSelectionTouched = false;
+
     public string $userTemplateSlug = '';
 
     public string $deleteUsername = '';
@@ -121,6 +124,10 @@ class OccPanel extends Component
     public string $pendingUserCreateJobId = '';
 
     public ?int $pendingUserCreateJobStartedAt = null;
+
+    public string $pendingUserDeleteJobId = '';
+
+    public ?int $pendingUserDeleteJobStartedAt = null;
 
     public string $pendingGroupCreateJobId = '';
 
@@ -179,6 +186,16 @@ class OccPanel extends Component
         if ($this->tab === 'groups') {
             $this->loadGroups();
         }
+    }
+
+    public function updatedUserTemplateSlug(?string $value): void
+    {
+        $this->userGroupSelectionTouched = false;
+    }
+
+    public function updatedUserGroupSelection(): void
+    {
+        $this->userGroupSelectionTouched = true;
     }
 
     // ── Quota ────────────────────────────────────────────────────────────────
@@ -425,21 +442,21 @@ class OccPanel extends Component
             $actor = auth()->user();
             $policyResolver->assertCanCreateUser($this->customer, $actor);
 
+            $templateSlug = $this->userTemplateSlug !== '' ? $this->userTemplateSlug : null;
             $explicitGroups = $this->userGroupSelection !== []
                 ? $this->resolveCanonicalGroupNames($this->userGroupSelection)
-                : null;
-            $templateSlug = $this->userTemplateSlug !== '' ? $this->userTemplateSlug : null;
+                : ($templateSlug !== null && $this->userGroupSelectionTouched ? [] : null);
             $resolved = $templateResolver->resolve($templateSlug, $explicitGroups, null);
+
+            $groupsForPayload = $explicitGroups !== null
+                ? $explicitGroups
+                : ($resolved->groups !== [] ? $resolved->groups : null);
 
             $stdinPayload = UserCreateStdinPayload::build(
                 password: $this->userPasswordPlain,
                 email: $this->userEmail !== '' ? $this->userEmail : null,
-                groups: $resolved->groups,
+                groups: $groupsForPayload,
             );
-
-            if ($explicitGroups !== null) {
-                $stdinPayload['groups'] = $explicitGroups;
-            }
 
             if ($resolved->quota !== null && $resolved->quota !== '') {
                 $stdinPayload['quota'] = $resolved->quota;
@@ -462,6 +479,7 @@ class OccPanel extends Component
             $this->successMessage = "Usuário enfileirado — job {$job->job_id}.";
             $this->userUsername = $this->userEmail = $this->userTemplateSlug = '';
             $this->userGroupSelection = [];
+            $this->userGroupSelectionTouched = false;
         } catch (ValidationException $e) {
             throw $e;
         } catch (PlanLimitExceededException) {
@@ -476,7 +494,12 @@ class OccPanel extends Component
     public function pollPendingUserJob(): void
     {
         $this->pollPendingGroupJob();
+        $this->pollPendingUserCreateJob();
+        $this->pollPendingUserDeleteJob();
+    }
 
+    private function pollPendingUserCreateJob(): void
+    {
         if ($this->pendingUserCreateJobId === '') {
             return;
         }
@@ -497,6 +520,28 @@ class OccPanel extends Component
         $this->handleUserCreateJobTerminal($job);
     }
 
+    private function pollPendingUserDeleteJob(): void
+    {
+        if ($this->pendingUserDeleteJobId === '') {
+            return;
+        }
+
+        $jobId = $this->pendingUserDeleteJobId;
+
+        if ($this->isUserDeletePollTimedOut()) {
+            $this->finalizeUserDeletePollTimeout($jobId);
+
+            return;
+        }
+
+        $job = Job::query()->where('job_id', $jobId)->first();
+        if ($job === null || ! in_array($job->state, self::JOB_TERMINAL_STATES, true)) {
+            return;
+        }
+
+        $this->handleUserDeleteJobTerminal($job);
+    }
+
     public function deleteUser(LifecycleAsyncAction $action): void
     {
         $this->validate([
@@ -510,6 +555,8 @@ class OccPanel extends Component
 
         try {
             $job = $action->execute($this->customer, 'users:delete', [$this->deleteUsername], null, $actor);
+            $this->pendingUserDeleteJobId = $job->job_id;
+            $this->pendingUserDeleteJobStartedAt = now()->timestamp;
             $this->successMessage = "Deleção enfileirada — job {$job->job_id}.";
             $this->deleteUsername = '';
         } catch (\Throwable $e) {
@@ -565,6 +612,9 @@ class OccPanel extends Component
 
     public function pollPendingGroupJob(): void
     {
+        $preserveMessages = $this->pendingGroupCreateJobId !== ''
+            && $this->pendingGroupDeleteJobId !== '';
+
         if ($this->pendingGroupCreateJobId !== '') {
             $this->pollSingleGroupJob(
                 $this->pendingGroupCreateJobId,
@@ -573,6 +623,7 @@ class OccPanel extends Component
                     $this->clearPendingGroupCreateJob();
                 },
                 'Grupo criado com sucesso.',
+                $preserveMessages,
             );
         }
 
@@ -584,6 +635,7 @@ class OccPanel extends Component
                     $this->clearPendingGroupDeleteJob();
                 },
                 'Grupo removido com sucesso.',
+                $preserveMessages,
             );
         }
     }
@@ -655,6 +707,12 @@ class OccPanel extends Component
         $this->pendingUserCreateJobStartedAt = null;
     }
 
+    private function clearPendingUserDeleteJob(): void
+    {
+        $this->pendingUserDeleteJobId = '';
+        $this->pendingUserDeleteJobStartedAt = null;
+    }
+
     private function clearPendingGroupCreateJob(): void
     {
         $this->pendingGroupCreateJobId = '';
@@ -672,17 +730,7 @@ class OccPanel extends Component
      */
     private function groupNameRules(): array
     {
-        return [
-            'required',
-            'string',
-            'max:256',
-            'regex:/^[a-zA-Z0-9._\- ]+$/',
-            function (string $attribute, mixed $value, \Closure $fail): void {
-                if (strtolower((string) $value) === 'admin') {
-                    $fail('Nome de grupo reservado (admin).');
-                }
-            },
-        ];
+        return TenantGroupNameRules::forAttribute('groupName');
     }
 
     private function pollSingleGroupJob(
@@ -690,10 +738,13 @@ class OccPanel extends Component
         ?int $startedAt,
         \Closure $clearPending,
         string $successText,
+        bool $preserveMessages = false,
     ): void {
         if ($this->isGroupJobPollTimedOut($startedAt)) {
             $clearPending();
-            $this->clearMessages();
+            if (! $preserveMessages) {
+                $this->clearMessages();
+            }
             $this->errorMessage = "Tempo esgotado — verifique /queue/{$jobId}";
 
             return;
@@ -705,7 +756,9 @@ class OccPanel extends Component
         }
 
         $clearPending();
-        $this->clearMessages();
+        if (! $preserveMessages) {
+            $this->clearMessages();
+        }
 
         if ($job->state === 'success') {
             $this->projectGroupJobIntoReadModel($job);
@@ -761,6 +814,36 @@ class OccPanel extends Component
         if ($job->state === 'success') {
             $this->projectUserCreateIntoReadModel($job);
             $this->successMessage = 'Usuário criado com sucesso.';
+            $this->loadUsers();
+
+            return;
+        }
+
+        $this->errorMessage = JobSummaryParser::failureMessage($job);
+    }
+
+    private function isUserDeletePollTimedOut(): bool
+    {
+        $startedAt = $this->pendingUserDeleteJobStartedAt ?? now()->timestamp;
+
+        return now()->timestamp - $startedAt >= self::USER_CREATE_POLL_TIMEOUT_SECONDS;
+    }
+
+    private function finalizeUserDeletePollTimeout(string $jobId): void
+    {
+        $this->clearPendingUserDeleteJob();
+        $this->clearMessages();
+        $this->errorMessage = "Tempo esgotado — verifique /queue/{$jobId}";
+    }
+
+    private function handleUserDeleteJobTerminal(Job $job): void
+    {
+        $this->clearPendingUserDeleteJob();
+        $this->clearMessages();
+
+        if ($job->state === 'success') {
+            $this->projectUserCreateIntoReadModel($job);
+            $this->successMessage = 'Usuário removido com sucesso.';
             $this->loadUsers();
 
             return;

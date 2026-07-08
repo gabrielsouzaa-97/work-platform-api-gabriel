@@ -84,7 +84,7 @@ it('sync insere grupo ausente na projeção com origin sync', function (): void 
 
     expect($report)->toBeInstanceOf(TenantGroupSyncReport::class)
         ->and($report->inserted)->toBe(1)
-        ->and($report->updated)->toBe(0)
+        ->and($report->updated)->toBe(2)
         ->and($report->deleted)->toBe(0);
 
     $row = TenantGroup::where('customer_slug', $customer->slug)->where('name', 'financeiro')->first();

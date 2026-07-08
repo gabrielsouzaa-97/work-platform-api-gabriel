@@ -59,24 +59,26 @@ final class CustomerLifecycleController extends Controller
         $templateSlug = $request->filled('user_template_slug')
             ? $request->string('user_template_slug')->toString()
             : null;
-        $explicitGroups = $request->has('groups') ? $request->array('groups') : null;
+        $explicitGroups = $request->exists('groups') && is_array($request->input('groups'))
+            ? $request->array('groups')
+            : null;
         $resolved = $this->userCreateTemplateResolver->resolve(
             $templateSlug,
             $explicitGroups,
             $explicitQuota,
         );
 
+        $groupsForPayload = $explicitGroups !== null
+            ? $explicitGroups
+            : ($resolved->groups !== [] ? $resolved->groups : null);
+
         $stdinPayload = UserCreateStdinPayload::build(
             password: $request->string('password')->toString(),
             displayName: $request->string('display_name', '')->toString() ?: null,
             email: $request->string('email', '')->toString() ?: null,
-            groups: $resolved->groups,
+            groups: $groupsForPayload,
             subadminGroups: $request->array('subadmin_groups', []),
         );
-
-        if ($explicitGroups !== null) {
-            $stdinPayload['groups'] = $explicitGroups;
-        }
 
         $this->applyResolvedQuotaToStdin(
             $stdinPayload,
