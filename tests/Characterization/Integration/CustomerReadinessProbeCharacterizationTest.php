@@ -15,12 +15,15 @@ use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Dto\ProbeReadinessCommand;
 use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Integration\Support\TenantReadinessGateChecker;
 use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
+    Mockery::close();
+
     if (config('app.key') === '' || config('app.key') === null) {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
     }
@@ -108,6 +111,24 @@ function probeReadinessWithSsh(Customer $customer, SshClientInterface $ssh): boo
     return $adapter->probeReadiness(new ProbeReadinessCommand($customer))->ready;
 }
 
+function evaluateReadinessGatesWithSsh(Customer $customer, SshClientInterface $ssh): bool
+{
+    $cluster = $customer->clusterServer;
+    if ($cluster === null) {
+        throw new RuntimeException('cluster relation required');
+    }
+
+    try {
+        return (new TenantReadinessGateChecker($ssh))->evaluate(
+            $customer,
+            $cluster,
+            (int) config('services.customer_readiness.probe_timeout_seconds', 25),
+        )->ready;
+    } catch (SshConnectionException|SshTimeoutException) {
+        return false;
+    }
+}
+
 function characterizationReadinessGateMock(): SshClientInterface
 {
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -178,7 +199,7 @@ it('characterizes non-zero exit returns false without throwing', function (): vo
         exitCode: 1,
         parsedJson: null,
     ));
-    expect(probeReadinessWithSsh($customer, $ssh))->toBeFalse();
+    expect(evaluateReadinessGatesWithSsh($customer, $ssh))->toBeFalse();
 });
 
 it('characterizes SshConnectionException returns false without rethrow', function (): void {
@@ -186,7 +207,7 @@ it('characterizes SshConnectionException returns false without rethrow', functio
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->once()->andThrow(new SshConnectionException('down'));
-    expect(probeReadinessWithSsh($customer, $ssh))->toBeFalse();
+    expect(evaluateReadinessGatesWithSsh($customer, $ssh))->toBeFalse();
 });
 
 it('characterizes SshTimeoutException returns false without rethrow', function (): void {
@@ -194,7 +215,7 @@ it('characterizes SshTimeoutException returns false without rethrow', function (
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->once()->andThrow(new SshTimeoutException('timed out'));
-    expect(probeReadinessWithSsh($customer, $ssh))->toBeFalse();
+    expect(evaluateReadinessGatesWithSsh($customer, $ssh))->toBeFalse();
 });
 
 it('characterizes inactive cluster returns false without SSH call', function (): void {
