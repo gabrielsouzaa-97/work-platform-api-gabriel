@@ -6,6 +6,7 @@
 /public/storage
 /storage/framework/views/*.php
 /storage/*.key
+/storage/app/dev-cluster-ssh/
 /storage/pail
 /vendor
 /bootstrap/cache/*.php
