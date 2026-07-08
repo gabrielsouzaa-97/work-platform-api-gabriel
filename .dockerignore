@@ -14,7 +14,7 @@
 *.swo
 
 # Project-only docs and design references
-docs
+docs/*
 !docs/openapi-external.yaml
 layout
 

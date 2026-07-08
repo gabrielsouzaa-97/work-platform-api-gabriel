@@ -69,7 +69,7 @@ it('api spec does not expose internal occ paths from openapi.yaml', function () 
         ->assertDontSee('/occ/', false);
 });
 
-it('api spec is served from configured production path when docs tree is absent', function () {
+it('api spec is served from configured production storage path', function () {
     $admin = Operator::factory()->admin()->create();
     $devPath = base_path('docs/openapi-external.yaml');
     $productionPath = storage_path('app/testing-openapi-external.yaml');
