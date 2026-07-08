@@ -293,6 +293,50 @@ paths:
   /tenants/{slug}/users:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
+    get:
+      tags: [Users]
+      summary: Listar usuários do tenant
+      description: |
+        Projeção local de `tenant_users` (read model N40). Não consulta OCC em tempo real.
+
+        **Scope:** `users:read`.
+      operationId: listTenantUsers
+      x-required-scope: users:read
+      responses:
+        "200":
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            username:
+                              type: string
+                            email:
+                              type: string
+                            quota:
+                              type: string
+                              nullable: true
+                            groups:
+                              type: array
+                              items:
+                                type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     post:
       tags: [Users]
       summary: Criar usuário
@@ -433,6 +477,54 @@ paths:
       responses:
         "200":
           description: Quota aplicada (resposta sync do upstream)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          description: Tenant não encontrado ou capability indisponível
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainError"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/UpstreamUnavailable"
+        "503":
+          $ref: "#/components/responses/ClusterUnreachable"
+
+  /tenants/{slug}/maintenance:
+    parameters:
+      - $ref: "#/components/parameters/TenantSlug"
+    post:
+      tags: [Tenants]
+      summary: Alternar modo de manutenção
+      description: |
+        Executa `maintenance:mode --on|--off` no cluster do tenant.
+
+        **Scope:** `maintenance:write`.
+      operationId: toggleMaintenance
+      x-required-scope: maintenance:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [on]
+              properties:
+                on:
+                  type: boolean
+      responses:
+        "200":
+          description: Manutenção alterada (resposta sync do upstream)
           content:
             application/json:
               schema:

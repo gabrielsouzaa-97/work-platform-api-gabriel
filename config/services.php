@@ -41,6 +41,11 @@ return [
         'max_pool_size' => 5,
         'connect_timeout_seconds' => 30,
         'log_fetch_timeout_seconds' => env('SSH_LOG_FETCH_TIMEOUT', 15),
+        'fake' => [
+            'auto_complete_jobs' => env('SSH_FAKE_AUTO_COMPLETE_JOBS', true),
+            'job_delay_seconds' => env('SSH_FAKE_JOB_DELAY_SECONDS', 2),
+            'fake_readiness_http' => env('SSH_FAKE_READINESS_HTTP', true),
+        ],
     ],
 
     'webhook' => [
