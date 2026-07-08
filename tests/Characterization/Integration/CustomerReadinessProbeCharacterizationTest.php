@@ -171,24 +171,6 @@ function characterizationReadinessGateMock(): SshClientInterface
     return $ssh;
 }
 
-it('characterizes readiness gates include app:list, user:list, and memail config', function (): void {
-    $customer = characterizationProbeCustomer();
-
-    Http::swap(new Factory);
-    fakeReadinessGateR6Http($customer->domain);
-
-    expect(makeCustomerReadinessProbeWithSsh(characterizationReadinessGateMock())->isReady($customer))->toBeTrue();
-});
-
-it('characterizes all gates passing returns true', function (): void {
-    $customer = characterizationProbeCustomer('char-probe-ok');
-
-    Http::swap(new Factory);
-    fakeReadinessGateR6Http($customer->domain);
-
-    expect(makeCustomerReadinessProbeWithSsh(characterizationReadinessGateMock())->isReady($customer))->toBeTrue();
-});
-
 it('characterizes non-zero exit returns false without throwing', function (): void {
     $customer = characterizationProbeCustomerInMemory('char-probe-nz');
 
@@ -225,4 +207,22 @@ it('characterizes inactive cluster returns false without SSH call', function ():
     $ssh->shouldNotReceive('run');
 
     expect(probeReadinessWithSsh($customer, $ssh))->toBeFalse();
+});
+
+it('characterizes readiness gates include app:list, user:list, and memail config', function (): void {
+    $customer = characterizationProbeCustomer();
+
+    Http::swap(new Factory);
+    fakeReadinessGateR6Http($customer->domain);
+
+    expect(makeCustomerReadinessProbeWithSsh(characterizationReadinessGateMock())->isReady($customer))->toBeTrue();
+});
+
+it('characterizes all gates passing returns true', function (): void {
+    $customer = characterizationProbeCustomer('char-probe-ok');
+
+    Http::swap(new Factory);
+    fakeReadinessGateR6Http($customer->domain);
+
+    expect(makeCustomerReadinessProbeWithSsh(characterizationReadinessGateMock())->isReady($customer))->toBeTrue();
 });
