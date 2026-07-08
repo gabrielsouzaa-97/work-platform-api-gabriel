@@ -170,3 +170,20 @@ jobs:
 
       - name: External spec occ gate
         run: bash scripts/openapi-external-occ-gate.sh
+
+  docker-production:
+    name: Docker production (OpenAPI spec in image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        run: docker build --target production -t mework360-deployer:ci .
+
+      - name: Verify OpenAPI spec bundled in image
+        run: |
+          docker run --rm --entrypoint "" mework360-deployer:ci test -f /var/www/html/storage/app/openapi-external.yaml
+          docker run --rm --entrypoint "" mework360-deployer:ci grep -q 'openapi: 3.0.3' /var/www/html/storage/app/openapi-external.yaml
