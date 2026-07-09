@@ -5,7 +5,7 @@ open_high: 9
 open_medium: 52
 open_low: 48
 sprints_with_open_blockers: []
-notes: Sprint F24 APROVADA — CQ-F23-001..003 + CQ-F17-001..004 + CQ-N40-003 + QA-N40-003/004 validados (PR #160 merge 5addd2f). 4 novos non-blocking CQ-F24-001..003 + INT-F24-001.
+notes: Sprint F24 APROVADA — CQ-F23-001..003 + CQ-F17-001..004 + CQ-N40-003 + QA-N40-003/004 validados (PR #160 merge 5addd2f). 4 LOW non-blocking (CQ-F24-001..003 + INT-F24-001) → Sprint F25 planejada.
 FINDINGS-INDEX -->
 
 
@@ -55,6 +55,9 @@ FINDINGS-INDEX -->
 | N46 | 0 | 0 | 0 | 0 | 0 | 8 | 8 |
 | F23 | 0 | 0 | 0 | 0 | 0 | 0 | 3 |
 | F24 | 0 | 0 | 0 | 4 | 4 | 0 | 9 |
+| F25 | 0 | 0 | 0 | 4 | 4 | 0 | 0 |
+
+> **Sprint F25 planejada** (2026-07-09, `/pmo plan`): alvo `INT-F24-001` + `CQ-F24-001`..`003` — OccPanel poll messaging + naming polish. Brief `docs/.briefs/F25.brief.md`; verifier PASS.
 
 > **Validação F24 R1** (2026-07-08, `/qa validar F24`): scope = PR #160 merge `5addd2f` (branch `campanha/fix-f24-occ-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #160 verde (Pest/Lint/Security/OpenAPI/Docker production/coverage/security-review). **auditor-senior** → APROVADA (9/9 findings-alvo). **Findings-alvo validados**: CQ-F23-001..003, CQ-F17-001..004, CQ-N40-003, QA-N40-003/004 (9/9). **Deploy LAB**: SHA `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br`; migration `tenant_groups` Ran [7]; smoke `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 4 novos non-blocking (`CQ-F24-001`..`003` + `INT-F24-001`).
 

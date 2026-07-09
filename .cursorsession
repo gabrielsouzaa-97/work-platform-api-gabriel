@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "F24 validada",
-  "sprint_atual": null,
+  "fase_nome": "Sprint F25 — implementação",
+  "sprint_atual": "F25",
   "previous_sprint": "F24",
-  "sprint_branch": null,
+  "sprint_branch": "campanha/fix-f25-poll-polish",
   "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-08T23:54:45Z",
+  "ultimo_update": "2026-07-09T00:09:49Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -79,10 +79,10 @@
     "Customers"
   ],
   "proximos_passos": [
-    "push PR",
-    "CI verde",
-    "merge",
-    "deploy LAB"
+    "AgentCoder F25",
+    "/qa validar",
+    "PR+CI",
+    "merge"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -228,9 +228,12 @@
   "sprint_pr": 160,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "validated",
-    "current_task": null,
-    "last_completed_task": "F24.7"
+    "phase": "implementation",
+    "sprint": "F25",
+    "current_task": "F25.1",
+    "last_completed_task": null,
+    "branch": "campanha/fix-f25-poll-polish",
+    "started_at": "2026-07-09T00:09:49Z"
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -297,7 +300,29 @@
       "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
-  "sprint_tasks": [],
+  "sprint_tasks": [
+    {
+      "id": "F25.1",
+      "status": "in_progress",
+      "size": "P",
+      "title": "CQ-F24-001 rename projector helper",
+      "file": "app/Http/Livewire/Customers/OccPanel.php"
+    },
+    {
+      "id": "F25.2",
+      "status": "pending",
+      "size": "P",
+      "title": "CQ-F24-002 TenantGroupNameRules attribute",
+      "file": "app/Modules/Customers/Support/TenantGroupNameRules.php"
+    },
+    {
+      "id": "F25.3",
+      "status": "pending",
+      "size": "M",
+      "title": "INT-F24-001+CQ-F24-003 poll message accumulate",
+      "file": "app/Http/Livewire/Customers/OccPanel.php"
+    }
+  ],
   "sprint_tasks_n36_archived": [
     {
       "id": "N36.3",
@@ -411,6 +436,31 @@
     "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-07-09T00:10:00Z",
+      "action": "/pmo plan — /rock resolve: INT-F24-001 + CQ-F24-001..003 (OccPanel poll + naming)",
+      "sprints_generated": [
+        "F25"
+      ],
+      "issues_in_scope": [],
+      "findings_in_scope": [
+        "INT-F24-001",
+        "CQ-F24-001",
+        "CQ-F24-002",
+        "CQ-F24-003"
+      ],
+      "split_strategy": "F25.1 rename projector (P) ∥ F25.2 forAttribute meaningful (P) ∥ F25.3 poll message accumulation group+user (M); pós-sprint deploy LAB",
+      "tasks_count": {
+        "P": 2,
+        "M": 1,
+        "total": 3
+      },
+      "review_level": "senior+qa",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/F25.brief.md",
+      "brief_status": "READY_FOR_PUSH (verifier PASS — docs/.briefs/F25.verifier.md)",
+      "gate": "projectUserJobIntoReadModel; TenantGroupNameRules uses $attribute; poll preserves cross-job + dual-success messages; CI verde"
+    },
     {
       "timestamp": "2026-07-08T23:30:00Z",
       "action": "/pmo plan — Escopo A Rock: CQ-F23 + F17 + N40 LOW backlog",
