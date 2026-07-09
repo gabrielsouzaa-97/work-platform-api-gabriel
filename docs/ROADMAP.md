@@ -5914,7 +5914,7 @@ reuse_targets:
 ## Sprint F26 — Recovery do `failed` + poll terminal
 
 > Categoria: F
-> Status: planejada
+> Status: concluída
 > Gate: customer `failed` por readiness timeout pode ser removido no painel; após deprovision `success` o slug fica livre para re-provision (soft-delete); `jobs:poll-stuck` em job terminal dispara a mesma pipeline do `WebhookHandler` (status + probe + projectors); saga de onboarding correlacionada termina `Failed` com motivo; `customers:promote` (artisan) com audit; Pest + CI verdes.
 > Fonte: **ISSUE-059** + **ISSUE-060** · findings **ARQ-C1**, **ARQ-C2**, **ARQ-C3**, **ARQ-C4**, **ARQ-C5**
 > review: **comprehensive** (senior+qa — lifecycle customer + webhook/poll parity + onboarding saga)
@@ -6013,13 +6013,107 @@ Critério de pronto: characterization JobsPollStuckTest + novo teste efeitos cus
 
 ---
 
+## Sprint F27 — Sucesso silencioso (parser JSON embutido + validação grupos)
+
+> Categoria: F
+> Status: planejada
+> Gate: summary com `occ_command_failed` detectado; webhook `success` com erro embutido não projeta grupos falsos; saga não avança step em falha parcial; OccPanel avisa em vez de sucesso cego; `user_template_slug` com grupo inexistente → 422 pré-dispatch; Pest + CI verdes.
+> Fonte: **ISSUE-058** · findings **ARQ-B1**, **ARQ-B2**, **ARQ-B3**, **ARQ-A5**
+> review: **comprehensive** (senior+qa — webhook projection + OCC UX + validação API/painel)
+> Gerado via `/rock f27` (2026-07-09). Pós-merge F26 PR #162. Parser único DRY; **fora de escopo**: F28 readiness contract, N47 matriz estados.
+> Pré-execução: Quality Brief (`docs/.briefs/F27.brief.md`) + verifier (`docs/.briefs/F27.verifier.md`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F27.1 — `JobSummaryParser`: envelopes JSON `occ_command_failed` + `effectiveTerminalState` | api-rest-patterns | — |
+| [ ] | M | F27.2 — `WebhookHandler` + `TenantUserProjector`: estado efetivo; não projetar grupos falsos | api-rest-patterns | F27.1 |
+| [ ] | P | F27.3 — `OnboardingSaga`: falha parcial embutida em `success` → step failed | laravel-api | F27.1 |
+| [ ] | P | F27.4 — `OccPanel`: aviso em `success` com erro embutido | laravel-livewire | F27.1 |
+| [ ] | P | F27.5 — Validar grupos resolvidos (template+explícitos) contra `tenant_groups` pré-dispatch | api-rest-patterns | — |
+
+### Evidência ISSUE-058
+
+| Campo | Valor |
+|-------|-------|
+| job_type | `users:create` |
+| state upstream | `success` (exit_code 0) |
+| summary | `{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}` |
+| efeito atual | `tenant_users` com grupos inexistentes; UI “criado com sucesso” |
+
+### Task F27.1 — Parser único de falha embutida
+
+**Estado atual**: `JobSummaryParser` só detecta prefixo `[ERROR]` em linhas de texto.
+**Estado desejado**: detectar JSON `occ_command_failed` em qualquer linha do summary; expor `hasEmbeddedFailure`, `embeddedFailure`, `effectiveTerminalState`.
+**Findings**: ARQ-B1, ARQ-B2, ARQ-B3
+**Arquivos**: `app/Modules/Jobs/Support/JobSummaryParser.php`, `tests/Unit/Jobs/JobSummaryParserTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ISSUE-058 — upstream envia state=success com erro JSON embutido no summary
+(occ_command_failed em subcomandos OCC). Fonte única para WebhookHandler, OnboardingSaga, OccPanel.
+
+ANTES: JobSummaryParser::failureMessage só procura [ERROR]; JSON ignorado.
+DEPOIS:
+1. embeddedFailure(summary): ?array{error, subcommand?, stdout?} quando linha JSON válida com error=occ_command_failed.
+2. hasEmbeddedFailure(summary): bool.
+3. effectiveTerminalState(canonical, summary): canonical exceto success+embedded → 'partial' (interno; não alterar StateTranslator MAP).
+4. failureMessage também retorna mensagem legível para embedded failure (subcomando + stdout).
+5. Pest unitário: JSON puro, JSON em array de linhas, [ERROR] legado regressão, success limpo.
+
+Critério de pronto: testes unitários verdes; zero duplicação de parse nos consumidores.
+```
+
+### Task F27.2 — WebhookHandler estado efetivo honesto
+
+**Estado atual**: projectors chamados com `canonical === 'success'` sem inspecionar summary.
+**Estado desejado**: `effectiveState` antes de projectors; `users:create` partial projeta user sem grupos do payload.
+**Findings**: ARQ-B1
+**Arquivos**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Customers/Services/TenantUserProjector.php`, `tests/Feature/Jobs/WebhookHandlerTest.php`, `tests/Feature/Jobs/WebhookTenantUserProjectionTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-B1 — WebhookHandler projeta tenant_users em success cego.
+
+Objetivo:
+1. Após job->update, calcular effectiveState = JobSummaryParser::effectiveTerminalState(canonical, summary final).
+2. Passar effectiveState aos projectors e onboarding saga (não canonical cego).
+3. TenantUserProjector: em users:create + partial → upsert user mas groups=null (não grupos do payload).
+4. Log/audit job.partial_success quando effective partial.
+5. Regressão: success limpo continua projetando grupos; failed/cancelled inalterados.
+
+Critério de pronto: Pest com summary occ_command_failed → tenant_users sem grupos falsos; CI verde.
+```
+
+### Task F27.3 — OnboardingSaga falha parcial
+
+**Estado atual**: `handleTerminalJob` avança CreateAdmin/EnableApps em `success` exclusivo.
+**Estado desejado**: `success` + embedded failure → markStepFailed com reason do parser.
+**Findings**: ARQ-B2
+**Arquivos**: `app/Modules/Onboarding/Saga/OnboardingSaga.php`, `tests/Unit/Onboarding/OnboardingSagaTest.php`
+
+### Task F27.4 — OccPanel aviso em success parcial
+
+**Estado atual**: `handleUserCreateJobTerminal` mostra "Usuário criado com sucesso" em qualquer success.
+**Estado desejado**: success + embedded failure → mensagem de aviso (subcomando falhou); não sucesso pleno.
+**Findings**: ARQ-B3
+**Arquivos**: `app/Http/Livewire/Customers/OccPanel.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`
+
+### Task F27.5 — Validar grupos resolvidos (template)
+
+**Estado atual**: `TenantGroupMembership` só valida `groups.*` do request; template groups bypass.
+**Estado desejado**: após `UserCreateTemplateResolver::resolve`, validar grupos finais + subadmin contra `tenant_groups`; 422 antes dispatch.
+**Findings**: ARQ-A5
+**Arquivos**: `app/Modules/Customers/Validation/ResolvedTenantGroupsValidator.php` (novo), `app/Http/Controllers/Api/CustomerLifecycleController.php`, `app/Http/Livewire/Customers/OccPanel.php`, `tests/Feature/Product/UserCreateTemplateResolverTest.php`
+
+---
+
 ## Roadmap auditoria provisioning — sprints posteriores (stubs)
 
 > Fonte: auditoria arquitetural 2026-07-09 + `/deliberar` Tier 2 (ISSUE-057 → **ADOPT_A_WITH_B**). Ordem: **F26 → F27 → F28 → N47**; **N48** quando upstream pronto.
 
 | Sprint | Escopo | Findings / Issues | Status |
 |--------|--------|-------------------|--------|
-| **F27** | Sucesso silencioso (parser JSON embutido + aviso OCC) | ISSUE-058 · ARQ-B1..B3, A5 | stub |
+| **F27** | Sucesso silencioso (parser JSON embutido + aviso OCC) | ISSUE-058 · ARQ-B1..B3, A5 | planejada |
 | **F28** | **Opção A** — `ProvisioningReadinessContract` + 422 + OpenAPI | ISSUE-057 A · ARQ-A1..A3, A6..A8 | stub |
 | **N47** | Matriz status × ações + `failure_reason` exposto | ISSUE-061 · ARQ-D1..D3, A4 | stub |
 | **N48** | **Opção B** — suíte me360 no suite-catalog (cross-repo `work-platform-scripts`) | ISSUE-057 B | stub — bloqueada até upstream |
@@ -6028,6 +6122,7 @@ Critério de pronto: characterization JobsPollStuckTest + novo teste efeitos cus
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-09 | 0.56   | Sprint F27 planejada — sucesso silencioso (ISSUE-058, ARQ-B1..B3, ARQ-A5): 5 tasks (3P+2M); F26 concluída pós-merge PR #162; brief+verifier PASS. | `/rock f27` |
 | 2026-07-09 | 0.55   | Sprint F26 planejada — recovery `failed` + poll terminal (ISSUE-059/060, ARQ-C1..C5): 5 tasks (3P+2M); stubs F27/F28/N47/N48; decisão ARQ-C1 timeout sem soft-delete. | `/rock f26 + stubs` |
 | 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |
 | 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |

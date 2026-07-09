@@ -33,9 +33,9 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "F26 planejada",
-  "sprint_atual": "F26",
-  "previous_sprint": "F25",
+  "fase_nome": "Sprint F27 planejada",
+  "sprint_atual": "F27",
+  "previous_sprint": "F26",
   "sprint_branch": null,
   "sprint_pending_merge": null,
   "campaign": {
@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T02:48:29Z",
-  "next_sprint_planned": "F26",
+  "ultimo_update": "2026-07-09T03:50:00Z",
+  "next_sprint_planned": "F27",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -225,22 +225,28 @@
     "messages_lost": 298
   },
   "compact_count": 11,
-  "sprint_pr": 162,
+  "sprint_pr": null,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "auditing",
+    "phase": "planning",
     "current_task": null,
-    "last_completed_task": "F26.5",
+    "last_completed_task": null,
+    "sprint": "F27",
+    "branch": "campanha/fix-f27-silent-success",
+    "started_at": "2026-07-09T03:50:00Z"
+  },
+  "checkpoint_f26_archived": {
+    "phase": "done",
     "sprint": "F26",
     "branch": "campanha/fix-f26-failed-recovery",
-    "started_at": "2026-07-09T02:20:00Z",
+    "merged_at": "2026-07-09T03:00:00Z",
+    "merge_commit": "1af6e577480d0219dba20aacac5e95fa8a6e4152",
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/162",
+    "note": "ARQ-C1..C5; CI verde",
     "validation_gate": {
       "produced_by": "validation-stamp.py",
       "result": "APROVADA",
       "validation_mode": "full",
-      "gates": [],
-      "dirty_production_paths": [],
-      "missing_backends": [],
       "last_validated_sha": "8c6a07fc874ad844d98a292d5a19265d8dadea5c",
       "stamped_at": "2026-07-09T02:42:33Z"
     }
@@ -311,6 +317,46 @@
     }
   },
   "sprint_tasks": [
+    {
+      "id": "F27.1",
+      "status": "pending",
+      "size": "M",
+      "title": "JobSummaryParser: envelopes JSON occ_command_failed + effectiveTerminalState",
+      "file": "app/Modules/Jobs/Support/JobSummaryParser.php"
+    },
+    {
+      "id": "F27.2",
+      "status": "pending",
+      "size": "M",
+      "title": "WebhookHandler + TenantUserProjector: estado efetivo; não projetar grupos falsos",
+      "file": "app/Modules/Jobs/Services/WebhookHandler.php",
+      "depends": ["F27.1"]
+    },
+    {
+      "id": "F27.3",
+      "status": "pending",
+      "size": "P",
+      "title": "OnboardingSaga: falha parcial embutida em success → step failed",
+      "file": "app/Modules/Onboarding/Saga/OnboardingSaga.php",
+      "depends": ["F27.1"]
+    },
+    {
+      "id": "F27.4",
+      "status": "pending",
+      "size": "P",
+      "title": "OccPanel: aviso em success com erro embutido",
+      "file": "app/Http/Livewire/Customers/OccPanel.php",
+      "depends": ["F27.1"]
+    },
+    {
+      "id": "F27.5",
+      "status": "pending",
+      "size": "P",
+      "title": "Validar grupos resolvidos (template+explícitos) contra tenant_groups pré-dispatch",
+      "file": "app/Modules/Customers/Validation/ResolvedTenantGroupsValidator.php"
+    }
+  ],
+  "sprint_tasks_f26_archived": [
     {
       "id": "F26.1",
       "status": "completed",
@@ -464,7 +510,20 @@
   },
   "planning_history": [
     {
-      "timestamp": "2026-07-09T02:15:00Z",
+      "timestamp": "2026-07-09T03:50:00Z",
+      "action": "/rock f27 — sucesso silencioso (ISSUE-058)",
+      "sprints_generated": ["F27"],
+      "sprint_stubs": ["F28", "N47", "N48"],
+      "issues_in_scope": ["ISSUE-058"],
+      "findings_in_scope": ["ARQ-B1", "ARQ-B2", "ARQ-B3", "ARQ-A5"],
+      "split_strategy": "F27.1 parser DRY (M) → F27.2 webhook projection (M) ∥ F27.3 saga (P) ∥ F27.4 OccPanel (P) ∥ F27.5 template groups validation (P)",
+      "tasks_count": {"P": 3, "M": 2, "total": 5},
+      "review_level": "comprehensive",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/F27.brief.md",
+      "brief_status": "READY_FOR_PUSH (verifier PASS — docs/.briefs/F27.verifier.md)",
+      "gate": "occ_command_failed detectado; sem projeção falsa; saga honesta; OccPanel aviso; 422 grupos template; CI green"
+    },
       "action": "/rock f26 + stubs — recovery failed + poll terminal (ISSUE-059/060)",
       "sprints_generated": [
         "F26"
