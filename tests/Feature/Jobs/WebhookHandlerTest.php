@@ -297,7 +297,7 @@ it('job.finished provision cancelled → customer soft-deletado', function (): v
         ->and(Customer::withTrashed()->where('slug', 'acme-handler')->whereNotNull('deleted_at')->exists())->toBeTrue();
 });
 
-it('job.finished deprovision success → customer NÃO é soft-deletado por esta branch', function (): void {
+it('job.finished deprovision success → customer soft-deletado (slug liberado)', function (): void {
     $cluster = handlerCluster();
     $job = handlerJob($cluster->id, state: 'running', jobType: 'deprovision');
     Customer::where('slug', 'acme-handler')->update(['status' => 'active']);
@@ -310,7 +310,35 @@ it('job.finished deprovision success → customer NÃO é soft-deletado por esta
         'exit_code' => 0,
     ]);
 
-    // deprovision success sets status=removed but should not soft-delete (no ghost scenario)
-    expect(Customer::where('slug', 'acme-handler')->value('status'))->toBe('removed')
-        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->whereNull('deleted_at')->exists())->toBeTrue();
+    expect(Customer::where('slug', 'acme-handler')->exists())->toBeFalse()
+        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->whereNotNull('deleted_at')->exists())->toBeTrue()
+        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->value('status'))->toBe('removed');
+});
+
+it('job.finished deprovision success em customer failed → soft-deletado e slug reutilizável', function (): void {
+    $cluster = handlerCluster();
+    $job = handlerJob($cluster->id, state: 'running', jobType: 'deprovision');
+    Customer::where('slug', 'acme-handler')->update(['status' => 'failed']);
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $job->job_id,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ]);
+
+    expect(Customer::where('slug', 'acme-handler')->exists())->toBeFalse()
+        ->and(Customer::withTrashed()->where('slug', 'acme-handler')->whereNotNull('deleted_at')->exists())->toBeTrue();
+
+    $ghost = Customer::withTrashed()->where('slug', 'acme-handler')->firstOrFail();
+    $ghost->restore();
+    $ghost->update([
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'acme-handler.example.com',
+        'status' => 'provisioning',
+    ]);
+
+    expect($ghost->fresh()->exists)->toBeTrue()
+        ->and($ghost->fresh()->deleted_at)->toBeNull();
 });

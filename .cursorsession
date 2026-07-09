@@ -33,8 +33,8 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "F25 validada",
-  "sprint_atual": null,
+  "fase_nome": "F26 planejada",
+  "sprint_atual": "F26",
   "previous_sprint": "F25",
   "sprint_branch": null,
   "sprint_pending_merge": null,
@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T00:13:23Z",
-  "next_sprint_planned": null,
+  "ultimo_update": "2026-07-09T02:48:29Z",
+  "next_sprint_planned": "F26",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -220,17 +220,30 @@
   },
   "active_automation": null,
   "compact_marker": {
-    "compacted_at": "2026-07-06T21:16:11Z",
-    "usage_percent": 92.297,
-    "messages_lost": 307
+    "compacted_at": "2026-07-09T01:30:57Z",
+    "usage_percent": 108.13666666666666,
+    "messages_lost": 298
   },
-  "compact_count": 10,
-  "sprint_pr": 161,
+  "compact_count": 11,
+  "sprint_pr": 162,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "validated",
+    "phase": "auditing",
     "current_task": null,
-    "last_completed_task": "F25.3"
+    "last_completed_task": "F26.5",
+    "sprint": "F26",
+    "branch": "campanha/fix-f26-failed-recovery",
+    "started_at": "2026-07-09T02:20:00Z",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "8c6a07fc874ad844d98a292d5a19265d8dadea5c",
+      "stamped_at": "2026-07-09T02:42:33Z"
+    }
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -297,7 +310,46 @@
       "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
-  "sprint_tasks": [],
+  "sprint_tasks": [
+    {
+      "id": "F26.1",
+      "status": "completed",
+      "size": "P",
+      "title": "Painel: botão Remover para failed (+ provisioning_finishing)",
+      "file": "resources/views/livewire/customers/show.blade.php"
+    },
+    {
+      "id": "F26.2",
+      "status": "completed",
+      "size": "M",
+      "title": "Soft-delete no deprovision success → libera slug; testes retry pós-cleanup",
+      "file": "app/Modules/Jobs/Services/WebhookHandler.php",
+      "depends": [
+        "F26.1"
+      ]
+    },
+    {
+      "id": "F26.3",
+      "status": "completed",
+      "size": "P",
+      "title": "Timeout readiness terminaliza onboarding correlacionado (Failed + motivo)",
+      "file": "app/Jobs/ProbeCustomerReadinessJob.php"
+    },
+    {
+      "id": "F26.4",
+      "status": "completed",
+      "size": "M",
+      "title": "jobs:poll-stuck roteia resultado terminal pela pipeline do WebhookHandler",
+      "file": "app/Console/Commands/JobsPollStuckCommand.php"
+    },
+    {
+      "id": "F26.5",
+      "status": "completed",
+      "size": "P",
+      "title": "Artisan customers:promote {slug} (provisioning_finishing→active) + AuditLog",
+      "file": "app/Console/Commands/CustomersPromoteCommand.php"
+    }
+  ],
   "sprint_tasks_n36_archived": [
     {
       "id": "N36.3",
@@ -411,6 +463,41 @@
     "stamped_at": "2026-06-20T08:00:00Z"
   },
   "planning_history": [
+    {
+      "timestamp": "2026-07-09T02:15:00Z",
+      "action": "/rock f26 + stubs — recovery failed + poll terminal (ISSUE-059/060)",
+      "sprints_generated": [
+        "F26"
+      ],
+      "sprint_stubs": [
+        "F27",
+        "F28",
+        "N47",
+        "N48"
+      ],
+      "issues_in_scope": [
+        "ISSUE-059",
+        "ISSUE-060"
+      ],
+      "findings_in_scope": [
+        "ARQ-C1",
+        "ARQ-C2",
+        "ARQ-C3",
+        "ARQ-C4",
+        "ARQ-C5"
+      ],
+      "split_strategy": "F26.1 UI Remover (P) → F26.2 deprovision soft-delete (M) ∥ F26.3 onboarding fail (P) ∥ F26.4 poll→webhook (M) ∥ F26.5 customers:promote (P); ARQ-C1: no soft-delete on timeout",
+      "tasks_count": {
+        "P": 3,
+        "M": 2,
+        "total": 5
+      },
+      "review_level": "comprehensive",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/F26.brief.md",
+      "brief_status": "READY_FOR_PUSH (verifier PASS — docs/.briefs/F26.verifier.md)",
+      "gate": "failed removable in UI; deprovision soft-delete frees slug; poll terminal = webhook effects; onboarding Failed on timeout; customers:promote with audit; CI green"
+    },
     {
       "timestamp": "2026-07-09T00:10:00Z",
       "action": "/pmo plan — /rock resolve: INT-F24-001 + CQ-F24-001..003 (OccPanel poll + naming)",

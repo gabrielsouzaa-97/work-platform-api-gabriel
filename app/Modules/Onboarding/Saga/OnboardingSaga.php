@@ -75,17 +75,24 @@ final class OnboardingSaga
 
     public function advanceAfterProvisionForSlug(string $tenantSlug): void
     {
-        $onboarding = Onboarding::query()
-            ->where('tenant_slug', $tenantSlug)
-            ->where('current_step', OnboardingStep::WaitReadiness)
-            ->whereIn('state', [OnboardingState::Running, OnboardingState::Pending])
-            ->first();
+        $onboarding = $this->findWaitReadinessOnboarding($tenantSlug);
 
         if ($onboarding === null) {
             return;
         }
 
         $this->advanceAfterProvision($onboarding);
+    }
+
+    public function failWaitReadinessForSlug(string $tenantSlug, string $reason): void
+    {
+        $onboarding = $this->findWaitReadinessOnboarding($tenantSlug);
+
+        if ($onboarding === null) {
+            return;
+        }
+
+        $this->markStepFailed($onboarding, OnboardingStep::WaitReadiness, $reason);
     }
 
     public function handleTerminalJob(Job $job, string $canonicalState): void
@@ -421,6 +428,15 @@ final class OnboardingSaga
             'current_step' => OnboardingStep::WaitReadiness,
             'steps' => $steps,
         ]);
+    }
+
+    private function findWaitReadinessOnboarding(string $tenantSlug): ?Onboarding
+    {
+        return Onboarding::query()
+            ->where('tenant_slug', $tenantSlug)
+            ->where('current_step', OnboardingStep::WaitReadiness)
+            ->whereIn('state', [OnboardingState::Running, OnboardingState::Pending])
+            ->first();
     }
 
     private function resolveCustomer(Onboarding $onboarding): ?Customer
