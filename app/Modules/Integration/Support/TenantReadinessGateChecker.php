@@ -8,6 +8,7 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Contracts\ProvisioningReadinessContract;
 use App\Modules\Integration\Dto\ReadinessReport;
 use Illuminate\Support\Facades\Http;
 
@@ -15,6 +16,7 @@ final class TenantReadinessGateChecker
 {
     public function __construct(
         private readonly SshClientInterface $ssh,
+        private readonly ProvisioningReadinessContract $readinessContract,
     ) {}
 
     public function passesAll(Customer $customer, ClusterServer $cluster, int $timeoutSec): bool
@@ -80,9 +82,10 @@ final class TenantReadinessGateChecker
             return new ReadinessReport(false, 'app:list returned invalid JSON', $probe);
         }
 
-        if (! OccExecEnvelopeParser::isAppEnabled($payload, 'mework360_memail')
-            || ! OccExecEnvelopeParser::isAppEnabled($payload, 'me360_theme')) {
-            return new ReadinessReport(false, 'required apps not enabled', $probe);
+        foreach ($this->readinessContract->legacyRequiredAppIds() as $appId) {
+            if (! OccExecEnvelopeParser::isAppEnabled($payload, $appId)) {
+                return new ReadinessReport(false, 'required apps not enabled', $probe);
+            }
         }
 
         return new ReadinessReport(true);

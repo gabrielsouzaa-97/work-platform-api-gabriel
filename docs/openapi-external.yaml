@@ -39,7 +39,7 @@ info:
     name: meWork360 Platform
 
 servers:
-  - url: https://deployer.mework360.com.br/api/v1
+  - url: https://deployer.mework360.com.br
     description: Control plane — namespace externo versionado
 
 security:
@@ -62,7 +62,7 @@ tags:
     description: Planos, catálogo de apps e templates de usuário (ISSUE-051)
 
 paths:
-  /tenants:
+  /api/v1/tenants:
     post:
       tags: [Tenants]
       summary: Criar tenant
@@ -82,12 +82,13 @@ paths:
               $ref: "#/components/schemas/CreateTenantRequest"
             examples:
               minimal:
-                summary: Tenant mínimo
+                summary: Tenant mínimo (image-mode)
                 value:
                   slug: acme-corp
                   domain: acme.mework360.com.br
                   cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                  apps: [files, calendar]
+                  image_mode: true
+                  apps: [mail, dashboard]
               suite_catalog:
                 summary: Suite catalog create (shell + apps)
                 value:
@@ -158,7 +159,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}:
+  /api/v1/tenants/{slug}:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     get:
@@ -247,7 +248,7 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamUnavailable"
 
-  /tenants/{slug}/apps:
+  /api/v1/tenants/{slug}/apps:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     post:
@@ -303,7 +304,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}/users:
+  /api/v1/tenants/{slug}/users:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     get:
@@ -410,7 +411,7 @@ paths:
         "503":
           $ref: "#/components/responses/TenantNotReady"
 
-  /tenants/{slug}/users/{username}:
+  /api/v1/tenants/{slug}/users/{username}:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
       - $ref: "#/components/parameters/Username"
@@ -456,7 +457,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}/users/{username}/quota:
+  /api/v1/tenants/{slug}/users/{username}/quota:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
       - name: username
@@ -513,7 +514,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}/maintenance:
+  /api/v1/tenants/{slug}/maintenance:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     post:
@@ -561,7 +562,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /jobs/{id}:
+  /api/v1/jobs/{id}:
     parameters:
       - $ref: "#/components/parameters/JobId"
     get:
@@ -608,7 +609,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /tenants/{slug}/branding:
+  /api/v1/tenants/{slug}/branding:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     put:
@@ -687,7 +688,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /onboarding:
+  /api/v1/onboarding:
     post:
       tags: [Onboarding]
       summary: Iniciar saga de onboarding
@@ -755,7 +756,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /onboarding/{id}:
+  /api/v1/onboarding/{id}:
     get:
       tags: [Onboarding]
       summary: Status da saga de onboarding
@@ -808,7 +809,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /plans:
+  /api/v1/plans:
     get:
       tags: [Product]
       summary: Listar planos
@@ -861,7 +862,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
-  /plans/{slug}:
+  /api/v1/plans/{slug}:
     get:
       tags: [Product]
       summary: Obter plano
@@ -911,7 +912,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
-  /app-catalog:
+  /api/v1/app-catalog:
     get:
       tags: [Product]
       summary: Listar catálogo de apps
@@ -960,7 +961,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/AppCatalogEntryResource"
 
-  /app-catalog/{app_id}:
+  /api/v1/app-catalog/{app_id}:
     get:
       tags: [Product]
       summary: Obter entrada do catálogo
@@ -1006,7 +1007,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/AppCatalogEntryResource"
 
-  /user-templates:
+  /api/v1/user-templates:
     get:
       tags: [Product]
       summary: Listar templates de usuário
@@ -1048,7 +1049,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/UserTemplateResource"
 
-  /user-templates/{slug}:
+  /api/v1/user-templates/{slug}:
     get:
       tags: [Product]
       summary: Obter template de usuário

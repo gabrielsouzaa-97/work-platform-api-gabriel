@@ -89,9 +89,11 @@ it('customer create persists selected plan_slug on save', function (): void {
         ->set('slug', $slug)
         ->set('clusterServerId', $cluster->id)
         ->set('domain', "{$slug}.example.com")
-        ->set('planSlug', 'pro');
+        ->set('planSlug', 'pro')
+        ->set('imageMode', true);
 
-    $component->instance()->save(
+    $component->call(
+        'save',
         app(WebhookSecretGenerator::class),
         app(SyncWebhookSecretAction::class),
     );

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Modules\Customers\Dto\ResolvedProvisionContext;
+use App\Modules\Customers\Validation\ProvisioningReadinessValidator;
 use App\Modules\Integration\Services\SuiteCatalogValidator;
 use App\Modules\Product\Services\PlanAppResolver;
 use App\Rules\Fqdn;
@@ -121,6 +123,8 @@ class ProvisionCustomerRequest extends FormRequest
                 );
             }
 
+            $this->assertProvisioningReadiness($v);
+
             if (! $this->usesSuiteCatalogMode()) {
                 return;
             }
@@ -142,6 +146,25 @@ class ProvisionCustomerRequest extends FormRequest
                 }
             }
         });
+    }
+
+    private function assertProvisioningReadiness(Validator $validator): void
+    {
+        if ($validator->errors()->isNotEmpty()) {
+            return;
+        }
+
+        $context = ResolvedProvisionContext::fromProvisionCustomerRequest($this);
+
+        try {
+            app(ProvisioningReadinessValidator::class)->assertValid($context);
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $field => $messages) {
+                foreach ($messages as $message) {
+                    $validator->errors()->add($field, $message);
+                }
+            }
+        }
     }
 
     public function objectstoreEnabled(): bool

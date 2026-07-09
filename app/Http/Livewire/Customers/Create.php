@@ -12,11 +12,15 @@ use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Dto\ProvisionPayload;
+use App\Modules\Customers\Dto\ResolvedProvisionContext;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Customers\Validation\ProvisioningReadinessValidator;
+use App\Modules\Product\Services\PlanAppResolver;
 use App\Support\DomainNormalizer;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -177,7 +181,18 @@ class Create extends Component
             $action = app(ProvisionCustomerAction::class);
         }
 
+        $resolvedApps = [];
+
+        $this->withValidator(function ($validator): void {
+            $validator->after(function ($v): void {
+                $this->appendProvisioningReadinessErrors($v);
+            });
+        });
+
         $this->validate();
+
+        $planSlug = $this->planSlug !== null && $this->planSlug !== '' ? $this->planSlug : null;
+        $resolvedApps = app(PlanAppResolver::class)->resolve($planSlug, $this->selectedAppIds);
 
         $this->submitting = true;
         $this->errorMessage = '';
@@ -189,7 +204,7 @@ class Create extends Component
             slug: $this->slug,
             domain: DomainNormalizer::normalize($this->domain),
             clusterServerId: $this->clusterServerId,
-            apps: $this->selectedAppIds,
+            apps: $resolvedApps,
             fullApps: $this->fullApps,
             logoPath: $this->logo?->getRealPath(),
             backgroundPath: $this->background?->getRealPath(),
@@ -219,6 +234,35 @@ class Create extends Component
 
         $this->submitting = false;
         $this->redirect(route('customers.show', ['slug' => $result['customer']->slug]));
+    }
+
+    private function appendProvisioningReadinessErrors($validator): void
+    {
+        if ($validator->errors()->isNotEmpty()) {
+            return;
+        }
+
+        $planSlug = $this->planSlug !== null && $this->planSlug !== '' ? $this->planSlug : null;
+
+        try {
+            $resolvedApps = app(PlanAppResolver::class)->resolve($planSlug, $this->selectedAppIds);
+            $context = new ResolvedProvisionContext(
+                imageMode: $this->imageMode,
+                suiteCatalog: $this->suiteCatalog && ! $this->fullApps,
+                fullApps: $this->fullApps,
+                legacyVendor: false,
+                resolvedApps: $resolvedApps,
+                planSlug: $planSlug,
+                clusterServerId: $this->clusterServerId,
+            );
+            app(ProvisioningReadinessValidator::class)->assertValid($context);
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $field => $messages) {
+                foreach ($messages as $message) {
+                    $validator->errors()->add($field, $message);
+                }
+            }
+        }
     }
 
     public function render(): View

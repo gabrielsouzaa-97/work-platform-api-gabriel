@@ -130,6 +130,8 @@ it('POST /api/v1/tenants without image_mode and config default false omits --ima
             'slug' => $slug,
             'domain' => 'noimg.example.com',
             'cluster_server_id' => $cluster->id,
+            'suite_catalog' => false,
+            'apps' => ['files'],
         ],
         imageModeV1Bearer($rawToken),
     );

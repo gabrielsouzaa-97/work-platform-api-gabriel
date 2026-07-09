@@ -12,6 +12,7 @@ use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\Exceptions\SshTimeoutException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Contracts\ProvisioningReadinessContract;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Integration\Adapters\Concerns\MapsTransportExceptions;
 use App\Modules\Integration\Contracts\PlatformPort;
@@ -117,7 +118,10 @@ final class SshPlatformAdapter implements PlatformPort
         }
 
         $timeoutSec = (int) config('services.customer_readiness.probe_timeout_seconds', 30);
-        $checker = new TenantReadinessGateChecker($this->ssh);
+        $checker = new TenantReadinessGateChecker(
+            $this->ssh,
+            app(ProvisioningReadinessContract::class),
+        );
 
         try {
             return $checker->evaluate($customer, $cluster, $timeoutSec);

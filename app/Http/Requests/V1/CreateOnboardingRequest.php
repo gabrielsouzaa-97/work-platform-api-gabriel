@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\V1;
 
+use App\Modules\Customers\Dto\ResolvedProvisionContext;
+use App\Modules\Customers\Validation\ProvisioningReadinessValidator;
+use App\Modules\Integration\Services\SuiteCatalogValidator;
 use App\Modules\Onboarding\Support\OnboardingIdempotencyKey;
+use App\Modules\Product\Services\PlanAppResolver;
 use App\Rules\Slug;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 
 final class CreateOnboardingRequest extends FormRequest
 {
@@ -30,6 +36,11 @@ final class CreateOnboardingRequest extends FormRequest
             'tenant.slug' => $slugRules,
             'tenant.domain' => ['required', 'string', 'max:253'],
             'tenant.cluster_server_id' => ['required', 'uuid', 'exists:cluster_servers,id'],
+            'tenant.image_mode' => ['sometimes', 'boolean'],
+            'tenant.suite_catalog' => ['sometimes', 'boolean'],
+            'tenant.plan_slug' => ['nullable', 'string', Rule::exists('plans', 'slug')->where('status', 'active')],
+            'tenant.full_apps' => ['sometimes', 'boolean'],
+            'tenant.legacy_vendor' => ['sometimes', 'boolean'],
             'admin' => ['required', 'array'],
             'admin.username' => ['required', 'string', 'regex:/^[a-zA-Z0-9._-]+$/', 'max:64'],
             'admin.password' => ['required', 'string', Password::min(8)->letters()->numbers()],
@@ -41,6 +52,83 @@ final class CreateOnboardingRequest extends FormRequest
             'branding.color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'branding.url' => ['nullable', 'url', 'max:2048'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v): void {
+            $planSlug = $this->filled('tenant.plan_slug')
+                ? $this->string('tenant.plan_slug')->toString()
+                : null;
+            $apps = $this->input('apps_enabled', []);
+            $apps = is_array($apps) ? $apps : [];
+
+            try {
+                $resolvedApps = app(PlanAppResolver::class)->resolve($planSlug, $apps);
+            } catch (ValidationException $e) {
+                foreach ($e->errors() as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $v->errors()->add($field, $message);
+                    }
+                }
+
+                return;
+            }
+
+            if ($this->usesTenantSuiteCatalogMode() && $resolvedApps !== []) {
+                try {
+                    app(SuiteCatalogValidator::class)->validateAppIds($resolvedApps);
+                } catch (ValidationException $e) {
+                    foreach ($e->errors() as $field => $messages) {
+                        $targetField = str_starts_with($field, 'apps.') ? 'apps_enabled' : $field;
+
+                        foreach ($messages as $message) {
+                            $v->errors()->add($targetField, $message);
+                        }
+                    }
+
+                    return;
+                }
+            }
+
+            if ($v->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $context = ResolvedProvisionContext::fromOnboardingRequest($this, $resolvedApps);
+
+            try {
+                app(ProvisioningReadinessValidator::class)->assertValid($context);
+            } catch (ValidationException $e) {
+                foreach ($e->errors() as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $v->errors()->add($field, $message);
+                    }
+                }
+            }
+        });
+    }
+
+    public function resolvesTenantImageMode(): bool
+    {
+        if ($this->has('tenant.image_mode')) {
+            return $this->boolean('tenant.image_mode');
+        }
+
+        return (bool) config('platform.image_mode.default_mode', false);
+    }
+
+    public function usesTenantSuiteCatalogMode(): bool
+    {
+        if ($this->boolean('tenant.legacy_vendor', false) || $this->boolean('tenant.full_apps', false)) {
+            return false;
+        }
+
+        if ($this->has('tenant.suite_catalog')) {
+            return $this->boolean('tenant.suite_catalog');
+        }
+
+        return (bool) config('platform.suite_catalog.default_mode', true);
     }
 
     public function messages(): array
