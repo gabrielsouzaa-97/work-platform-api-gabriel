@@ -1,5 +1,26 @@
 # Operations log
 
+## Cluster admin — `legacy_me360_capable`
+
+Flag booleana em `cluster_servers.legacy_me360_capable` (default `false`, Sprint N48 / ISSUE-057 B).
+
+| Valor | Efeito |
+|-------|--------|
+| `false` | Comportamento F28: provision legado `suite_catalog` sem `image_mode` exige apps resolvidos compatíveis com o readiness gate; payload default `{}` → `422 LEGACY_READINESS_UNSATISFIABLE`. |
+| `true` | Permite provision legado `suite_catalog` quando o catálogo local (`SuiteCatalogPathResolver`) contém `mework360_memail` e `me360_theme` com `status: active`. **Não** substitui upstream: o host ainda precisa instalar a suíte (ver `docs/runbooks/me360-suite-catalog-b.md`). |
+
+**Quando habilitar:** somente após `work-platform-scripts` entregar `suite_catalog.json` com me360 no bundle do cluster e canário LAB com readiness PASS.
+
+**Como definir (exemplo SQL):**
+
+```sql
+UPDATE cluster_servers
+SET legacy_me360_capable = 1
+WHERE id = '<cluster-uuid>';
+```
+
+Reverta para `0` se o catálogo do host for rolled back ou o canário falhar no gate legado.
+
 ## 2026-07-09T00:35:00Z — Deploy LAB F25 (main @ e313f32 — poll messaging polish)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `e313f329e3f0656b182d2fecf4b223d25091db4b` (closeout F25 após merge PR #161 `8021124`; inclui `projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute`, acumulação de mensagens poll grupo+usuário).

@@ -36,7 +36,13 @@ class ClusterServerFactory extends Factory
             'webhook_secret_version' => 1,
             'schema_version' => 1,
             'status' => 'active',
+            'legacy_me360_capable' => false,
         ];
+    }
+
+    public function legacyMe360Capable(): static
+    {
+        return $this->state(['legacy_me360_capable' => true]);
     }
 
     public function configure(): static

@@ -23,6 +23,19 @@ info:
     `provisioning_finishing`. Enquanto nessa janela, `POST /v1/tenants/{slug}/users`
     retorna **503** `tenant_not_ready` com header `Retry-After` (segundos).
 
+    ## Contrato de readiness legado (ISSUE-057)
+    Com `image_mode=false` e `suite_catalog=true` (padrão), o gate legado exige
+    `mework360_memail` e `me360_theme` no tenant. Payloads cujo conjunto resolvido
+    de apps não satisfaz o gate retornam **422** com código
+    `LEGACY_READINESS_UNSATISFIABLE`, `missing_preconditions[]` e hint
+    `image_mode=true` (ponte operacional image-mode).
+
+    Clusters com flag admin `legacy_me360_capable=true` podem aceitar provision
+    legado `suite_catalog` quando o catálogo local inclui `mework360_memail` e
+    `me360_theme` com `status: active` — ver `docs/OPERATIONS.md` e runbook
+    `docs/runbooks/me360-suite-catalog-b.md`. A instalação real no host depende do
+    upstream `work-platform-scripts` (`ISSUE-057-B-upstream`).
+
     ## Autorização (ISSUE-037 — pré-requisito)
     Todas as rotas exigem Bearer token (`Authorization: Bearer <api_key>`).
     Cada operação declara o **scope** mínimo via extensão `x-required-scope`.
@@ -1664,6 +1677,11 @@ components:
         Criação de tenant. Campos `client` e `fqdn` são aliases opcionais de `slug` e `domain`.
         Com `suite_catalog` ativo (padrão), cada item de `apps` deve existir em
         `releases/suite_catalog.json` com `status: active`.
+
+        Readiness legado: sem `image_mode`, o provision `suite_catalog` pode retornar
+        `422 LEGACY_READINESS_UNSATISFIABLE` quando apps resolvidos não cobrem
+        `mework360_memail` + `me360_theme`. Exceção: cluster com
+        `legacy_me360_capable=true` e catálogo local me360 ativo (N48).
       properties:
         slug:
           type: string
