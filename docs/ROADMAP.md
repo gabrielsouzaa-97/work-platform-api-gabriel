@@ -6186,8 +6186,78 @@ Test scenarios:
 
 ---
 
+## Sprint F25 — OccPanel poll messaging + naming polish
+
+> Categoria: F
+> Status: **implementada** — aguarda VERIFY CI (2026-07-09)
+> Gate executável: `projectUserJobIntoReadModel` nome neutro (create+delete); `TenantGroupNameRules::forAttribute` usa `$attribute` em regras/mensagens; poll OccPanel preserva mensagens entre jobs de grupo (dual-success) e entre grupo+usuário no mesmo tick; Pest cobre INT-F24-001 e CQ-F24-003; CI verde.
+> review: senior+qa
+> Gerado via `/pmo plan` em 2026-07-09. Fonte: `/rock resolve` — 4 findings LOW pós-F24 (`INT-F24-001`, `CQ-F24-001`..`003`) em `docs/FINDINGS.md`.
+> Pré-execução: Quality Brief (`docs/.briefs/F25.brief.md`) + verifier via pipeline `/pmo sprint F25`. Pós-sprint: deploy LAB.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | P | F25.1 — CQ-F24-001: renomear `projectUserCreateIntoReadModel` → `projectUserJobIntoReadModel` | laravel-livewire | — |
+| [x] | P | F25.2 — CQ-F24-002: usar `$attribute` em `TenantGroupNameRules::forAttribute` (regras/mensagens) | api-rest-patterns | — |
+| [x] | M | F25.3 — INT-F24-001 + CQ-F24-003: acumular/preservar mensagens poll grupo+usuário e dual-success grupo | laravel-livewire | — |
+
+### Quality Brief (Sprint F25)
+
+- **Brief**: `docs/.briefs/F25.brief.md`
+- **Verifier**: `docs/.briefs/F25.verifier.md` (PASS)
+- **Findings-alvo**: `INT-F24-001`, `CQ-F24-001`..`003` — **4 LOW**
+- **Tasks**: 3 (1M + 2P)
+
+<details>
+<summary>F25.3 — Cross-job poll messaging (INT-F24-001 / CQ-F24-003)</summary>
+
+**Fonte(s)**: `docs/FINDINGS.md` INT-F24-001 (LOW), CQ-F24-003 (LOW); gaps pós-F24.3 `preserveMessages`.
+
+**Estado atual**: `pollPendingUserJob()` chama `pollPendingGroupJob()` e depois handlers de usuário que fazem `clearMessages()` incondicionalmente — mensagem de grupo pode sumir no mesmo tick. Com `preserveMessages`, dual success create+delete de grupo no mesmo tick ainda sobrescreve `successMessage` (teste existente cobre success+error, não dual-success).
+
+**Estado desejado**: mensagens de feedback acumuladas ou preservadas quando múltiplos jobs terminam no mesmo tick (grupo+grupo, grupo+usuário); sem regressão no cenário success+error já coberto por CQ-F23-003.
+
+**Módulo(s) afetado(s)**: `OccPanel.php`, `OccPanelTest.php` (+ `occ-panel.blade.php` somente se necessário)
+
+**Task size**: M (≤5 files)
+
+**executor_prompt**:
+```
+Context: F24 added preserveMessages for group create+delete but left cross-job clobber (user poll wipes group) and dual-success overwrite (CQ-F24-003).
+BEFORE:
+- pollPendingUserJob() → pollPendingGroupJob() then user handlers
+- handleUserCreateJobTerminal / handleUserDeleteJobTerminal call clearMessages() unconditionally
+- pollSingleGroupJob with preserveMessages skips clear but assigns successMessage = $successText (overwrites prior success)
+- OccPanelTest CQ-F23-003 asserts success+error preserved; no dual-success or cross-job test
+
+AFTER:
+1. Introduce message accumulation helper (e.g. appendSuccess/appendError or merge terminal messages) used by pollSingleGroupJob and user terminal handlers
+2. pollPendingUserJob: when group poll produced messages this tick, user handlers must not clear them — extend preserveMessages pattern or pass tick-scoped flag
+3. Dual group success same tick: both success texts visible (concat with separator or stacked messages property — keep UX simple, pt-BR strings)
+4. Do NOT regress CQ-F23-003 success+error same tick
+5. Pest: test pollPendingUserJob preserves group message when user job terminals same tick (INT-F24-001)
+6. Pest: test pollPendingGroupJob dual-success same tick shows both messages (CQ-F24-003)
+
+Acceptance:
+- Group terminal message survives when user job terminals in same pollPendingUserJob tick
+- Dual group success in same tick shows both success messages (not last-wins)
+- Existing CQ-F23-003 test still passes
+- ≤5 files touched
+
+Test scenarios:
+1. Group create success + user create success same tick → both messages visible
+2. Group create success + group delete success same tick → both success texts visible
+3. Regression: group create success + group delete failed same tick → success + error preserved
+4. Regression: single job terminal still clears appropriately when alone
+5. Timeout paths unchanged
+```
+</details>
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-09 | 0.60   | Sprint F25 planejada — INT-F24-001 + CQ-F24-001..003 (OccPanel poll messaging + naming polish) pós `/rock resolve` | `/pmo plan` |
 | 2026-07-08 | 0.59   | Sprint F24 concluída — CQ-F23/F17/N40 validados; PR #160 merge `5addd2f`; deploy LAB `5addd2f` | sprint-finalizer |
 | 2026-07-08 | 0.58   | Sprint F24 planejada — CQ-F23-001..003 + CQ-F17-001..004 + N40 LOW backlog (Escopo A Rock); N45/N46 índice → concluída | `/pmo plan` |
 | 2026-07-08 | 0.57   | Sprint F23 concluída — CQ-N46-001..008 validados; PR #159 merge `32bd75a`; 3 follow-ups non-blocking CQ-F23 | sprint-finalizer |

@@ -493,12 +493,17 @@ class OccPanel extends Component
 
     public function pollPendingUserJob(): void
     {
+        $successBefore = $this->successMessage;
+        $errorBefore = $this->errorMessage;
         $this->pollPendingGroupJob();
-        $this->pollPendingUserCreateJob();
-        $this->pollPendingUserDeleteJob();
+        $preserveMessages = $this->successMessage !== $successBefore
+            || $this->errorMessage !== $errorBefore;
+
+        $this->pollPendingUserCreateJob($preserveMessages);
+        $this->pollPendingUserDeleteJob($preserveMessages);
     }
 
-    private function pollPendingUserCreateJob(): void
+    private function pollPendingUserCreateJob(bool $preserveMessages = false): void
     {
         if ($this->pendingUserCreateJobId === '') {
             return;
@@ -517,10 +522,10 @@ class OccPanel extends Component
             return;
         }
 
-        $this->handleUserCreateJobTerminal($job);
+        $this->handleUserCreateJobTerminal($job, $preserveMessages);
     }
 
-    private function pollPendingUserDeleteJob(): void
+    private function pollPendingUserDeleteJob(bool $preserveMessages = false): void
     {
         if ($this->pendingUserDeleteJobId === '') {
             return;
@@ -539,7 +544,7 @@ class OccPanel extends Component
             return;
         }
 
-        $this->handleUserDeleteJobTerminal($job);
+        $this->handleUserDeleteJobTerminal($job, $preserveMessages);
     }
 
     public function deleteUser(LifecycleAsyncAction $action): void
@@ -701,6 +706,32 @@ class OccPanel extends Component
         $this->errorMessage = '';
     }
 
+    private function appendSuccess(string $text): void
+    {
+        if ($this->successMessage === '') {
+            $this->successMessage = $text;
+
+            return;
+        }
+
+        if (! str_contains($this->successMessage, $text)) {
+            $this->successMessage .= ' '.$text;
+        }
+    }
+
+    private function appendError(string $text): void
+    {
+        if ($this->errorMessage === '') {
+            $this->errorMessage = $text;
+
+            return;
+        }
+
+        if (! str_contains($this->errorMessage, $text)) {
+            $this->errorMessage .= ' '.$text;
+        }
+    }
+
     private function clearPendingUserCreateJob(): void
     {
         $this->pendingUserCreateJobId = '';
@@ -762,13 +793,21 @@ class OccPanel extends Component
 
         if ($job->state === 'success') {
             $this->projectGroupJobIntoReadModel($job);
-            $this->successMessage = $successText;
+            if ($preserveMessages) {
+                $this->appendSuccess($successText);
+            } else {
+                $this->successMessage = $successText;
+            }
             $this->loadGroups();
 
             return;
         }
 
-        $this->errorMessage = JobSummaryParser::failureMessage($job);
+        if ($preserveMessages) {
+            $this->appendError(JobSummaryParser::failureMessage($job));
+        } else {
+            $this->errorMessage = JobSummaryParser::failureMessage($job);
+        }
     }
 
     private function isGroupJobPollTimedOut(?int $startedAt): bool
@@ -806,20 +845,30 @@ class OccPanel extends Component
         $this->errorMessage = "Tempo esgotado — verifique /queue/{$jobId}";
     }
 
-    private function handleUserCreateJobTerminal(Job $job): void
+    private function handleUserCreateJobTerminal(Job $job, bool $preserveMessages = false): void
     {
         $this->clearPendingUserCreateJob();
-        $this->clearMessages();
+        if (! $preserveMessages) {
+            $this->clearMessages();
+        }
 
         if ($job->state === 'success') {
-            $this->projectUserCreateIntoReadModel($job);
-            $this->successMessage = 'Usuário criado com sucesso.';
+            $this->projectUserJobIntoReadModel($job);
+            if ($preserveMessages) {
+                $this->appendSuccess('Usuário criado com sucesso.');
+            } else {
+                $this->successMessage = 'Usuário criado com sucesso.';
+            }
             $this->loadUsers();
 
             return;
         }
 
-        $this->errorMessage = JobSummaryParser::failureMessage($job);
+        if ($preserveMessages) {
+            $this->appendError(JobSummaryParser::failureMessage($job));
+        } else {
+            $this->errorMessage = JobSummaryParser::failureMessage($job);
+        }
     }
 
     private function isUserDeletePollTimedOut(): bool
@@ -836,23 +885,33 @@ class OccPanel extends Component
         $this->errorMessage = "Tempo esgotado — verifique /queue/{$jobId}";
     }
 
-    private function handleUserDeleteJobTerminal(Job $job): void
+    private function handleUserDeleteJobTerminal(Job $job, bool $preserveMessages = false): void
     {
         $this->clearPendingUserDeleteJob();
-        $this->clearMessages();
+        if (! $preserveMessages) {
+            $this->clearMessages();
+        }
 
         if ($job->state === 'success') {
-            $this->projectUserCreateIntoReadModel($job);
-            $this->successMessage = 'Usuário removido com sucesso.';
+            $this->projectUserJobIntoReadModel($job);
+            if ($preserveMessages) {
+                $this->appendSuccess('Usuário removido com sucesso.');
+            } else {
+                $this->successMessage = 'Usuário removido com sucesso.';
+            }
             $this->loadUsers();
 
             return;
         }
 
-        $this->errorMessage = JobSummaryParser::failureMessage($job);
+        if ($preserveMessages) {
+            $this->appendError(JobSummaryParser::failureMessage($job));
+        } else {
+            $this->errorMessage = JobSummaryParser::failureMessage($job);
+        }
     }
 
-    private function projectUserCreateIntoReadModel(Job $job): void
+    private function projectUserJobIntoReadModel(Job $job): void
     {
         try {
             app(TenantUserProjector::class)->handleTerminalJob($job, 'success');

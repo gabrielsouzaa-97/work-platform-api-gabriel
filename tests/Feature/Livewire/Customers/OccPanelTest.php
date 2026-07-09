@@ -742,6 +742,131 @@ it('pollPendingGroupJob preserva mensagens create e delete no mesmo tick (CQ-F23
         ->and($component->get('errorMessage'))->not->toBe('');
 });
 
+it('pollPendingGroupJob dual-success same tick shows both group success texts (CQ-F24-003)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $createJobId = Str::uuid()->toString();
+    $deleteJobId = Str::uuid()->toString();
+
+    seedOccPanelTenantGroup($customer, 'stale');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->twice()
+        ->andReturn(
+            new SshResponse(
+                stdout: json_encode(['job_id' => $createJobId]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['job_id' => $createJobId],
+            ),
+            new SshResponse(
+                stdout: json_encode(['job_id' => $deleteJobId]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['job_id' => $deleteJobId],
+            ),
+        );
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'groups')
+        ->set('groupName', 'financeiro')
+        ->call('createGroup')
+        ->assertSet('pendingGroupCreateJobId', $createJobId)
+        ->set('deleteGroupName', 'stale')
+        ->call('deleteGroup')
+        ->assertSet('pendingGroupDeleteJobId', $deleteJobId);
+
+    Job::query()->where('job_id', $createJobId)->update([
+        'state' => 'success',
+        'summary' => ['[INFO] Group financeiro created'],
+        'finished_at' => now(),
+    ]);
+    Job::query()->where('job_id', $deleteJobId)->update([
+        'state' => 'success',
+        'summary' => ['[INFO] Group stale deleted'],
+        'finished_at' => now(),
+    ]);
+
+    $component->call('pollPendingGroupJob')
+        ->assertSet('pendingGroupCreateJobId', '')
+        ->assertSet('pendingGroupDeleteJobId', '');
+
+    $success = $component->get('successMessage');
+
+    expect($success)->toContain('Grupo criado com sucesso.')
+        ->and($success)->toContain('Grupo removido com sucesso.');
+});
+
+it('pollPendingUserJob preserves group success when user job terminals same tick (INT-F24-001)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $groupJobId = Str::uuid()->toString();
+    $userJobId = Str::uuid()->toString();
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldReceive('runAsync')
+        ->twice()
+        ->andReturn(
+            new SshResponse(
+                stdout: json_encode(['job_id' => $groupJobId]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['job_id' => $groupJobId],
+            ),
+            new SshResponse(
+                stdout: json_encode(['job_id' => $userJobId]),
+                stderr: '',
+                exitCode: 0,
+                parsedJson: ['job_id' => $userJobId],
+            ),
+        );
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->call('setTab', 'groups')
+        ->set('groupName', 'financeiro')
+        ->call('createGroup')
+        ->assertSet('pendingGroupCreateJobId', $groupJobId)
+        ->set('userUsername', 'newuser')
+        ->set('userEmail', 'new@example.com')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('pendingUserCreateJobId', $userJobId);
+
+    Job::query()->where('job_id', $groupJobId)->update([
+        'state' => 'success',
+        'summary' => ['[INFO] Group financeiro created'],
+        'finished_at' => now(),
+    ]);
+    Job::query()->where('job_id', $userJobId)->update([
+        'state' => 'success',
+        'summary' => ['[INFO] User newuser created'],
+        'finished_at' => now(),
+    ]);
+
+    $component->call('pollPendingUserJob')
+        ->assertSet('pendingGroupCreateJobId', '')
+        ->assertSet('pendingUserCreateJobId', '');
+
+    $success = $component->get('successMessage');
+
+    expect($success)->toContain('Grupo criado com sucesso.')
+        ->and($success)->toContain('Usuário criado com sucesso.');
+});
+
+it('OccPanel exposes projectUserJobIntoReadModel not legacy create-only name (CQ-F24-001)', function (): void {
+    $reflection = new ReflectionClass(OccPanel::class);
+
+    expect($reflection->hasMethod('projectUserJobIntoReadModel'))->toBeTrue()
+        ->and($reflection->hasMethod('projectUserCreateIntoReadModel'))->toBeFalse();
+});
+
 // ── Add user to group → blocked-on-upstream (CQ-F5-007 closure) ─────────────
 
 it('addUserToGroup → mensagem upstream pendente sem SSH (CQ-F5-007)', function () {
