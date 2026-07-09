@@ -6,6 +6,8 @@ namespace App\Console\Commands;
 
 use App\Models\AuditLog;
 use App\Models\Customer;
+use App\Modules\Customers\Support\CustomerLifecycleAction;
+use App\Modules\Customers\Support\CustomerLifecycleMatrix;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -27,13 +29,16 @@ class CustomersPromoteCommand extends Command
             return self::FAILURE;
         }
 
-        if ($customer->status !== CustomerLifecycleStatus::PROVISIONING_FINISHING) {
-            $this->error("Customer {$slug} is not in provisioning_finishing (current: {$customer->status})");
+        if (! CustomerLifecycleMatrix::allows($customer->status, CustomerLifecycleAction::PromoteManual)) {
+            $this->error("Customer {$slug} cannot be promoted manually (current: {$customer->status})");
 
             return self::FAILURE;
         }
 
-        $customer->update(['status' => CustomerLifecycleStatus::ACTIVE]);
+        $customer->update([
+            'status' => CustomerLifecycleStatus::ACTIVE,
+            'failure_reason' => null,
+        ]);
 
         AuditLog::create([
             'id' => Str::uuid()->toString(),

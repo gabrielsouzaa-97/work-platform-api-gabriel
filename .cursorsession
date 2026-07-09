@@ -33,11 +33,11 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "F28 merged — next N47",
-  "sprint_atual": null,
+  "fase_nome": "N47 PR pending — next N48",
+  "sprint_atual": "N47",
   "previous_sprint": "F28",
-  "sprint_branch": null,
-  "sprint_pending_merge": null,
+  "sprint_branch": "sprint/N47",
+  "sprint_pending_merge": "N47",
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T05:56:39Z",
-  "next_sprint_planned": "N47",
+  "ultimo_update": "2026-07-09T06:45:00Z",
+  "next_sprint_planned": "N48",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -79,8 +79,8 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/rock n47",
     "/rock n48",
+    "VERIFY + merge PR N47",
     "deploy LAB"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
@@ -229,7 +229,26 @@
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "F28"
+    "last_completed_task": "N47",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose exec -T app ./vendor/bin/pint --test",
+          "exit_code": 0
+        },
+        {
+          "cmd": "docker compose exec -T app php -d memory_limit=512M vendor/bin/pest --exclude-group=readiness-isolated",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "201d7c3fa53762565c20d31c0603672612cc10a8",
+      "stamped_at": "2026-07-09T06:53:29Z"
+    }
   },
   "checkpoint_f26_archived": {
     "phase": "done",
@@ -312,14 +331,54 @@
       "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
-  "sprint_tasks": [
+  "sprint_tasks": [],
+  "sprint_tasks_n47_archived": [
     {
-      "id": "F27.1",
-      "status": "pending",
+      "id": "N47.1",
+      "status": "completed",
       "size": "M",
-      "title": "JobSummaryParser: envelopes JSON occ_command_failed + effectiveTerminalState",
-      "file": "app/Modules/Jobs/Support/JobSummaryParser.php"
+      "title": "CustomerLifecycleAction + CustomerLifecycleMatrix (fonte única)",
+      "file": "app/Modules/Customers/Support/CustomerLifecycleMatrix.php"
     },
+    {
+      "id": "N47.2",
+      "status": "completed",
+      "size": "M",
+      "title": "Migration failure_reason + persistência WebhookHandler/Probe",
+      "file": "database/migrations/2026_07_09_000001_add_failure_reason_to_customers_table.php"
+    },
+    {
+      "id": "N47.3",
+      "status": "completed",
+      "size": "P",
+      "title": "LifecycleAsyncAction + Show blade via matriz",
+      "file": "app/Modules/Customers/Actions/LifecycleAsyncAction.php",
+      "depends": [
+        "N47.1"
+      ]
+    },
+    {
+      "id": "N47.4",
+      "status": "completed",
+      "size": "P",
+      "title": "CustomerResource + OpenAPI + painel failure_reason",
+      "file": "app/Http/Resources/CustomerResource.php",
+      "depends": [
+        "N47.2"
+      ]
+    },
+    {
+      "id": "N47.5",
+      "status": "completed",
+      "size": "P",
+      "title": "OccPanel mount gate via matriz",
+      "file": "app/Http/Livewire/Customers/OccPanel.php",
+      "depends": [
+        "N47.1"
+      ]
+    }
+  ],
+  "sprint_tasks_f27_archived": [
     {
       "id": "F27.2",
       "status": "pending",

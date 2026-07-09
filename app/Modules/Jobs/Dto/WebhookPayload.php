@@ -56,6 +56,9 @@ final readonly class WebhookPayload
         if (isset($data['log_tail']) && is_array($data['log_tail'])) {
             $logTail = array_values(array_filter($data['log_tail'], 'is_string'));
         }
+        if ($logTail === null && isset($data['summary']) && is_array($data['summary'])) {
+            $logTail = array_values(array_filter($data['summary'], 'is_string'));
+        }
 
         return new self(
             jobId: $data['job_id'],

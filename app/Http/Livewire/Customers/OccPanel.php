@@ -23,6 +23,8 @@ use App\Modules\Customers\Services\TenantGroupProjector;
 use App\Modules\Customers\Services\TenantGroupSyncService;
 use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Services\TenantUserSyncService;
+use App\Modules\Customers\Support\CustomerLifecycleAction;
+use App\Modules\Customers\Support\CustomerLifecycleMatrix;
 use App\Modules\Customers\Support\OccQuotaValue;
 use App\Modules\Customers\Support\TenantGroupListParser;
 use App\Modules\Customers\Support\TenantGroupNameRules;
@@ -162,6 +164,10 @@ class OccPanel extends Component
     {
         Gate::authorize('provision-customers');
         $this->customer = Customer::with('clusterServer')->findOrFail($slug);
+
+        if (! CustomerLifecycleMatrix::allows($this->customer->status, CustomerLifecycleAction::OccPanel)) {
+            abort(403);
+        }
     }
 
     public function setTab(string $tab): void

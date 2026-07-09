@@ -1305,6 +1305,12 @@ components:
             - failed
             - removing
             - removed
+            - error
+        failure_reason:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Motivo sanitizado da falha; presente apenas quando status=failed.
         last_sync_at:
           type: string
           format: date-time

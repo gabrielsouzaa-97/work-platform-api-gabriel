@@ -66,7 +66,7 @@
 | ISSUE-058 | bug | Sucesso silencioso: webhook `state=success` com `occ_command_failed` embutido no summary projeta read-model falso (users/groups/saga); grupos de template não validados | Jobs, Webhook, Customers, Onboarding, Occ | HIGH | **fixed (F27)** — PR #163; parser JSON + effectiveState + ResolvedTenantGroupsValidator |
 | ISSUE-059 | bug | `failed` por readiness timeout é beco sem saída: slug bloqueado p/ retry (gap do ISSUE-018/F11), sem cleanup na UI, sem override manual, saga onboarding presa em `Running` | Customers, Jobs, Livewire, Onboarding | CRITICAL | **fixed (F26)** — PR #162; Remover UI + soft-delete deprovision + promote + onboarding Failed |
 | ISSUE-060 | bug | `jobs:poll-stuck` atualiza job mas não replica efeitos do `WebhookHandler` (transição de customer, probe, projectors) — webhook perdido deixa customer em `provisioning` eterno | Jobs, Customers, Webhook | HIGH | **fixed (F26)** — PR #162; poll terminal → WebhookHandler pipeline |
-| ISSUE-061 | change_request | Matriz canônica de estados do customer (status × ações permitidas) + `failure_reason` exposto em API/UI + gate de status no OCC mount e lifecycle async | Customers, Livewire, Occ, API | MEDIUM | open — findings ARQ-D1..D3, ARQ-A4 |
+| ISSUE-061 | change_request | Matriz canônica de estados do customer (status × ações permitidas) + `failure_reason` exposto em API/UI + gate de status no OCC mount e lifecycle async | Customers, Livewire, Occ, API | MEDIUM | **fixed — Sprint N47** (PR pending) |
 
 ---
 
@@ -137,6 +137,7 @@
 
 - **Tipo**: change_request
 - **Prioridade**: MEDIUM
+- **Status**: **fixed — Sprint N47** (2026-07-09); aguarda merge PR
 - **Módulos**: Customers, Livewire, Occ, API
 - **Origem**: Auditoria arquitetural 2026-07-09
 - **Findings**: ARQ-D1, ARQ-D2, ARQ-D3, ARQ-A4 (docs/FINDINGS.md)

@@ -144,6 +144,36 @@ it('mount nega acesso a suporte → 403', function () {
         ->assertStatus(403);
 });
 
+it('mount nega acesso quando customer está failed → 403 (N47.5 occ_panel gate)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = Customer::create([
+        'slug' => 'occ-failed-'.substr(uniqid(), -8),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'occ-failed.example.com',
+        'status' => CustomerLifecycleStatus::FAILED,
+    ]);
+    $operator = makeOccPanelOperator();
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->assertStatus(403);
+});
+
+it('mount nega acesso quando customer está provisioning_finishing → 403 (N47.5 occ_panel gate)', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = Customer::create([
+        'slug' => 'occ-fin-gate-'.substr(uniqid(), -8),
+        'cluster_server_id' => $cluster->id,
+        'domain' => 'occ-fin-gate.example.com',
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+    ]);
+    $operator = makeOccPanelOperator();
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->assertStatus(403);
+});
+
 it('setTab limpa successMessage e errorMessage', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);
@@ -414,7 +444,7 @@ it('createUser com IdempotencyConflictException → mensagem amigável', functio
         ->assertSet('userPasswordPlain', '');
 });
 
-it('deleteUser em tenant provisioning_finishing → mensagem tenant not ready sem SSH', function () {
+it('deleteUser em tenant provisioning_finishing → OccPanel mount bloqueado 403 (N47.5)', function () {
     $cluster = makeOccPanelCluster();
     $customer = Customer::create([
         'slug' => 'occ-fin-'.substr(uniqid(), -8),
@@ -425,13 +455,12 @@ it('deleteUser em tenant provisioning_finishing → mensagem tenant not ready se
     $operator = makeOccPanelOperator();
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
     app()->instance(SshClientInterface::class, $ssh);
 
     Livewire::actingAs($operator)
         ->test(OccPanel::class, ['slug' => $customer->slug])
-        ->set('deleteUsername', 'alice')
-        ->call('deleteUser')
-        ->assertSet('errorMessage', 'Tenant ainda finalizando provisionamento — tente novamente em cerca de 60 segundos.');
+        ->assertStatus(403);
 });
 
 it('createUser com SshTimeoutException → mensagem amigável', function () {
