@@ -403,3 +403,29 @@ Canário `canario-n36e`: job `9904497b-ad3c-4390-ba61-c5f433cd00c1` success ~5m4
 - [x] CI PR #160 verde; validation-stamp + auditor-senior APROVADA
 - [x] Deploy LAB `5addd2f`; migration `tenant_groups` Ran [7]; smoke `/up`+`/login` 200
 
+---
+
+## Sprint F25 — OccPanel poll messaging + naming polish
+
+**Data**: 2026-07-09
+**Status**: CONCLUÍDA (3/3)
+**Tasks**: F25.1–F25.3
+**PR**: [#161](https://github.com/SoftwareBeesy/work-platform-api/pull/161) merge `8021124`
+**Deploy LAB**: não requerido (polish sprint; opcional)
+
+### Entregas
+
+- **F25.1**: `projectUserCreateIntoReadModel` renomeado para `projectUserJobIntoReadModel` (create+delete).
+- **F25.2**: `TenantGroupNameRules::forAttribute` usa `$attribute` em regras e mensagens.
+- **F25.3**: acumulação de mensagens no poll — dual-success grupo e grupo+usuário no mesmo tick.
+
+### Decisões / Aprendizados
+
+1. **Message accumulation**: helper compartilhado evita clobber entre handlers de poll no mesmo tick.
+2. **Polish sem deploy**: sprint LOW-only não exige LAB quando CI + Pest local cobrem regressão.
+
+### Gate da Sprint
+
+- [x] INT-F24-001 + CQ-F24-001..003 validados (4/4)
+- [x] CI PR #161 verde; validation-stamp APROVADA
+- [x] Local: 14 filter + 50 OccPanelTest passed

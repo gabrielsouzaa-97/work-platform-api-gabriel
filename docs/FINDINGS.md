@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-07-08
+synced_at: 2026-07-09
 open_critical: 0
 open_high: 9
 open_medium: 52
-open_low: 48
+open_low: 44
 sprints_with_open_blockers: []
-notes: Sprint F24 APROVADA — CQ-F23-001..003 + CQ-F17-001..004 + CQ-N40-003 + QA-N40-003/004 validados (PR #160 merge 5addd2f). 4 LOW non-blocking (CQ-F24-001..003 + INT-F24-001) → Sprint F25 planejada.
+notes: Sprint F25 APROVADA — INT-F24-001 + CQ-F24-001..003 validados (PR #161 merge 8021124). Sem deploy LAB (polish sprint).
 FINDINGS-INDEX -->
 
 
@@ -54,10 +54,10 @@ FINDINGS-INDEX -->
 | N45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | N46 | 0 | 0 | 0 | 0 | 0 | 8 | 8 |
 | F23 | 0 | 0 | 0 | 0 | 0 | 0 | 3 |
-| F24 | 0 | 0 | 0 | 4 | 4 | 0 | 9 |
-| F25 | 0 | 0 | 0 | 4 | 4 | 0 | 0 |
+| F24 | 0 | 0 | 0 | 4 | 0 | 0 | 9 |
+| F25 | 0 | 0 | 0 | 4 | 0 | 0 | 4 |
 
-> **Sprint F25 planejada** (2026-07-09, `/pmo plan`): alvo `INT-F24-001` + `CQ-F24-001`..`003` — OccPanel poll messaging + naming polish. Brief `docs/.briefs/F25.brief.md`; verifier PASS.
+> **Validação F25 R1** (2026-07-09, `/qa validar F25`): scope = PR #161 merge `8021124` (branch `campanha/fix-f25-poll-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #161 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review); local 14 filter + 50 OccPanelTest passed. **Findings-alvo validados**: INT-F24-001, CQ-F24-001..003 (4/4). **Deploy LAB**: não requerido (polish sprint). **Resultado: APROVADA** — 0 CRITICAL/HIGH; 0 novos non-blocking.
 
 > **Validação F24 R1** (2026-07-08, `/qa validar F24`): scope = PR #160 merge `5addd2f` (branch `campanha/fix-f24-occ-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #160 verde (Pest/Lint/Security/OpenAPI/Docker production/coverage/security-review). **auditor-senior** → APROVADA (9/9 findings-alvo). **Findings-alvo validados**: CQ-F23-001..003, CQ-F17-001..004, CQ-N40-003, QA-N40-003/004 (9/9). **Deploy LAB**: SHA `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br`; migration `tenant_groups` Ran [7]; smoke `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 4 novos non-blocking (`CQ-F24-001`..`003` + `INT-F24-001`).
 
@@ -102,7 +102,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Integrator
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php` (pollPendingUserJob)
 - **Sprint origem**: F24 (integration check)
-- **Status**: corrigido (F25)
+- **Status**: validado (F25)
 - **Esforço**: P
 **Descrição**: `pollPendingUserJob` chama poll de grupo e depois handlers de usuário que fazem `clearMessages()` incondicionalmente — mensagem de grupo pode sumir se job de usuário termina no mesmo tick.
 **Correção sugerida**: Estender `preserveMessages` aos handlers de usuário ou não limpar quando outro job do tick ainda não finalizou.
@@ -113,7 +113,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
 - **Sprint origem**: F24 (validação R1)
-- **Status**: corrigido (F25)
+- **Status**: validado (F25)
 - **Esforço**: P
 **Descrição**: `handleUserDeleteJobTerminal` chama `projectUserCreateIntoReadModel()` (nome enganoso); projector roteia delete corretamente.
 **Correção sugerida**: Renomear para `projectUserJobIntoReadModel`.
@@ -124,7 +124,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Modules/Customers/Support/TenantGroupNameRules.php`
 - **Sprint origem**: F24 (validação R1)
-- **Status**: corrigido (F25)
+- **Status**: validado (F25)
 - **Esforço**: P
 **Descrição**: `$attribute` não é usado; API e painel compartilham o mesmo array.
 **Correção sugerida**: Remover parâmetro ou documentar reserva futura.
@@ -135,7 +135,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
 - **Sprint origem**: F24 (validação R1)
-- **Status**: corrigido (F25)
+- **Status**: validado (F25)
 - **Esforço**: P
 **Descrição**: Com `preserveMessages`, dual success no mesmo tick ainda sobrescreve `successMessage` (teste cobre success+error).
 **Correção sugerida**: Acumular/concatenar mensagens quando preserveMessages.

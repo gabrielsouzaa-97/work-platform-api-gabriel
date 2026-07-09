@@ -1,5 +1,11 @@
 # Operations log
 
+## 2026-07-09T21:30:00Z — Sprint F25 merged (PR #161 — poll messaging polish; no LAB deploy)
+
+- **Merge**: PR #161 `campanha/fix-f25-poll-polish` → `main` SHA `8021124` (`projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute`, cross-job poll message accumulation).
+- **CI:** PR #161 checks green (Pest, Lint, Security, OpenAPI, Docker production, coverage, security-review).
+- **Deploy LAB:** não executado nesta rodada (polish sprint LOW-only; LAB permanece em `5addd2f` pós-F24).
+
 ## 2026-07-09T00:10:00Z — Deploy LAB F24 (PR #160 merged — OCC groups polish + F17/N40 backlog)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `5addd2f99794732d4f89e774deb04366882e7490` (merge PR #160 `campanha/fix-f24-occ-polish` → `main`; `TenantGroupNameRules` DRY, groups `[]`/`null` stdin, sync `updated`, poll UX, `deleteUser` reload, SuiteCatalog + N40 integration tests).

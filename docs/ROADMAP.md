@@ -94,6 +94,7 @@
 | F22-q  | F         | Contraste dark theme em painéis Product + dropdown custom `x-select-menu` (popup nativo OS-rendered ilegível) | **concluída** | 4 | Livewire, CSS | ISSUE-054; PRs #149/#150/#151/#153; deploy LAB `7492358`; validado pelo operador | — |
 | F23    | F         | TenantGroupProjector aceita `group_create`/`group_delete`; validação OccPanel alinhada à API; poll/reload grupos; sync report + exit code | **concluída** | 5 | Customers, Occ, Jobs/Webhook | CQ-N46-001..008 validados; PR #159 merge `32bd75a` | 5950+ |
 | F24    | F         | DRY regras nome grupo; groups vazio/null no stdin; sync `updated` + poll UX; testes N40/F17 backlog | **concluída** | 7 | Customers, Occ, Product, Integration | CQ-F23/F17/N40 validados; PR #160 merge `5addd2f`; LAB `5addd2f` | 6062+ |
+| F25    | F         | OccPanel poll messaging cross-job + naming polish (`projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute`) | **concluída** | 3 | Customers, Occ, Livewire | INT-F24-001 + CQ-F24-001..003 validados; PR #161 merge `8021124` | 6189+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -6189,11 +6190,11 @@ Test scenarios:
 ## Sprint F25 — OccPanel poll messaging + naming polish
 
 > Categoria: F
-> Status: **implementada** — aguarda VERIFY CI (2026-07-09)
+> Status: **concluída** (2026-07-09) — PR [#161](https://github.com/SoftwareBeesy/work-platform-api/pull/161) merge `8021124`; sem deploy LAB (polish sprint)
 > Gate executável: `projectUserJobIntoReadModel` nome neutro (create+delete); `TenantGroupNameRules::forAttribute` usa `$attribute` em regras/mensagens; poll OccPanel preserva mensagens entre jobs de grupo (dual-success) e entre grupo+usuário no mesmo tick; Pest cobre INT-F24-001 e CQ-F24-003; CI verde.
 > review: senior+qa
 > Gerado via `/pmo plan` em 2026-07-09. Fonte: `/rock resolve` — 4 findings LOW pós-F24 (`INT-F24-001`, `CQ-F24-001`..`003`) em `docs/FINDINGS.md`.
-> Pré-execução: Quality Brief (`docs/.briefs/F25.brief.md`) + verifier via pipeline `/pmo sprint F25`. Pós-sprint: deploy LAB.
+> Pré-execução: Quality Brief (`docs/.briefs/F25.brief.md`) + verifier via pipeline `/pmo sprint F25`. Pós-sprint: closeout docs-only (deploy LAB opcional).
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
@@ -6203,9 +6204,13 @@ Test scenarios:
 
 ### Quality Brief (Sprint F25)
 
+- **Resultado**: APROVADA — validation R1 pós-merge
+- **PR**: [#161](https://github.com/SoftwareBeesy/work-platform-api/pull/161) merge `8021124` em `main`
+- **Deploy LAB**: não requerido (polish sprint; opcional para smoke manual)
 - **Brief**: `docs/.briefs/F25.brief.md`
 - **Verifier**: `docs/.briefs/F25.verifier.md` (PASS)
-- **Findings-alvo**: `INT-F24-001`, `CQ-F24-001`..`003` — **4 LOW**
+- **Findings-alvo validados**: `INT-F24-001`, `CQ-F24-001`..`003` — **4/4 LOW**
+- **Testes**: CI PR #161 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review); local 14 filter + 50 OccPanelTest passed
 - **Tasks**: 3 (1M + 2P)
 
 <details>
@@ -6257,6 +6262,7 @@ Test scenarios:
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-09 | 0.61   | Sprint F25 concluída — INT-F24-001 + CQ-F24-001..003 validados; PR #161 merge `8021124`; sem deploy LAB | sprint-finalizer |
 | 2026-07-09 | 0.60   | Sprint F25 planejada — INT-F24-001 + CQ-F24-001..003 (OccPanel poll messaging + naming polish) pós `/rock resolve` | `/pmo plan` |
 | 2026-07-08 | 0.59   | Sprint F24 concluída — CQ-F23/F17/N40 validados; PR #160 merge `5addd2f`; deploy LAB `5addd2f` | sprint-finalizer |
 | 2026-07-08 | 0.58   | Sprint F24 planejada — CQ-F23-001..003 + CQ-F17-001..004 + N40 LOW backlog (Escopo A Rock); N45/N46 índice → concluída | `/pmo plan` |
