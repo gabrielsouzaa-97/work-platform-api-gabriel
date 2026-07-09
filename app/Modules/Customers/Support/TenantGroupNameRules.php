@@ -25,11 +25,9 @@ final class TenantGroupNameRules
     }
 }
 
-final class ReservedAdminGroupNameRule implements ValidationRule, JsonSerializable
+final class ReservedAdminGroupNameRule implements JsonSerializable, ValidationRule
 {
-    public function __construct(private readonly string $fieldAttribute)
-    {
-    }
+    public function __construct(private readonly string $fieldAttribute) {}
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
