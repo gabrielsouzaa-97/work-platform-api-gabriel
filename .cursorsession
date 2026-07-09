@@ -225,7 +225,7 @@
     "messages_lost": 298
   },
   "compact_count": 11,
-  "sprint_pr": 161,
+  "sprint_pr": 162,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
     "phase": "auditing",
@@ -233,7 +233,17 @@
     "last_completed_task": "F26.5",
     "sprint": "F26",
     "branch": "campanha/fix-f26-failed-recovery",
-    "started_at": "2026-07-09T02:20:00Z"
+    "started_at": "2026-07-09T02:20:00Z",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "796b56e4e1c445abf7f5ef941c7f685ce4922d67",
+      "stamped_at": "2026-07-09T02:42:21Z"
+    }
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -314,7 +324,9 @@
       "size": "M",
       "title": "Soft-delete no deprovision success → libera slug; testes retry pós-cleanup",
       "file": "app/Modules/Jobs/Services/WebhookHandler.php",
-      "depends": ["F26.1"]
+      "depends": [
+        "F26.1"
+      ]
     },
     {
       "id": "F26.3",
@@ -454,12 +466,32 @@
     {
       "timestamp": "2026-07-09T02:15:00Z",
       "action": "/rock f26 + stubs — recovery failed + poll terminal (ISSUE-059/060)",
-      "sprints_generated": ["F26"],
-      "sprint_stubs": ["F27", "F28", "N47", "N48"],
-      "issues_in_scope": ["ISSUE-059", "ISSUE-060"],
-      "findings_in_scope": ["ARQ-C1", "ARQ-C2", "ARQ-C3", "ARQ-C4", "ARQ-C5"],
+      "sprints_generated": [
+        "F26"
+      ],
+      "sprint_stubs": [
+        "F27",
+        "F28",
+        "N47",
+        "N48"
+      ],
+      "issues_in_scope": [
+        "ISSUE-059",
+        "ISSUE-060"
+      ],
+      "findings_in_scope": [
+        "ARQ-C1",
+        "ARQ-C2",
+        "ARQ-C3",
+        "ARQ-C4",
+        "ARQ-C5"
+      ],
       "split_strategy": "F26.1 UI Remover (P) → F26.2 deprovision soft-delete (M) ∥ F26.3 onboarding fail (P) ∥ F26.4 poll→webhook (M) ∥ F26.5 customers:promote (P); ARQ-C1: no soft-delete on timeout",
-      "tasks_count": { "P": 3, "M": 2, "total": 5 },
+      "tasks_count": {
+        "P": 3,
+        "M": 2,
+        "total": 5
+      },
       "review_level": "comprehensive",
       "exec_mode": "pipeline",
       "brief_path": "docs/.briefs/F26.brief.md",
