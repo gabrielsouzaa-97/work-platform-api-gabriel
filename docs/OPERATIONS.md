@@ -1,10 +1,13 @@
 # Operations log
 
-## 2026-07-09T21:30:00Z — Sprint F25 merged (PR #161 — poll messaging polish; no LAB deploy)
+## 2026-07-09T00:35:00Z — Deploy LAB F25 (main @ e313f32 — poll messaging polish)
 
-- **Merge**: PR #161 `campanha/fix-f25-poll-polish` → `main` SHA `8021124` (`projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute`, cross-job poll message accumulation).
-- **CI:** PR #161 checks green (Pest, Lint, Security, OpenAPI, Docker production, coverage, security-review).
-- **Deploy LAB:** não executado nesta rodada (polish sprint LOW-only; LAB permanece em `5addd2f` pós-F24).
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `e313f329e3f0656b182d2fecf4b223d25091db4b` (closeout F25 após merge PR #161 `8021124`; inclui `projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute`, acumulação de mensagens poll grupo+usuário).
+- **Deploy:** SSH `mecloud360@128.201.61.110`; sync `git archive` tar (`.env` preservado; host sem `.git`); `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker && up -d`.
+- **Migration:** Nothing to migrate (`tenant_groups` já Ran).
+- **Containers:** app/worker/nginx/db/redis healthy pós-deploy.
+- **Smoke:** `GET https://api.lab.mework360.com.br/up` → **200**; `/login` → **200**.
+- **Credenciais/secrets:** [REDACTED]
 
 ## 2026-07-09T00:10:00Z — Deploy LAB F24 (PR #160 merged — OCC groups polish + F17/N40 backlog)
 
