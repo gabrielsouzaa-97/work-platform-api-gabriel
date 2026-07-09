@@ -113,7 +113,7 @@ it('POST users on provisioning returns 503 tenant_not_ready', function () {
         ]);
 });
 
-it('POST groups:create on provisioning_finishing still returns 202', function () {
+it('POST groups:create on provisioning_finishing returns 503 tenant_not_ready per N47 matrix', function () {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
     $customer = Customer::create([
         'slug' => 'grp-gate-'.substr(uniqid(), -6),
@@ -123,20 +123,23 @@ it('POST groups:create on provisioning_finishing still returns 202', function ()
         'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
-    $jobId = Str::uuid()->toString();
 
     $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('runAsync')->once()->andReturn(new SshResponse(
-        stdout: json_encode(['job_id' => $jobId]),
-        stderr: '',
-        exitCode: 0,
-        parsedJson: ['job_id' => $jobId],
-    ));
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
     app()->instance(SshClientInterface::class, $ssh);
 
     $this->actingAs($operator)->postJson("/api/customers/{$customer->slug}/groups", [
         'name' => 'marketing',
-    ])->assertStatus(202)->assertJson(['job_id' => $jobId]);
+    ])->assertStatus(503)
+        ->assertHeader('Retry-After', '60')
+        ->assertJson([
+            'error' => 'tenant_not_ready',
+            'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        ]);
+
+    expect(Job::count())->toBe(0)
+        ->and(IdempotencyKey::count())->toBe(0);
 });
 
 it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', function () {

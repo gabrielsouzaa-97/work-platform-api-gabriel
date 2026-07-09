@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **feat(sprint-N47)**: Matriz canônica `CustomerLifecycleMatrix` (status × ações) + `failure_reason` persistido/exposto em API/UI; gate `LifecycleAsyncAction` pré-active (ARQ-A4); `OccPanel` mount 403 fora de `active` (ISSUE-061, ARQ-D1..D3).
 - **feat(sprint-F28)**: ProvisioningReadinessContract fail-fast 422 — contrato único consumido pelo gate checker e validador HTTP; `LEGACY_READINESS_UNSATISFIABLE` nos 5 entry points (API, Livewire, WHMCS, onboarding); `image_mode=true` como ponte operacional; OpenAPI minimal corrigido (ISSUE-057 A, ARQ-A1..A3,A6..A8).
 - **docs(sprint-F25)**: Sprint F25 concluída — poll messaging cross-job (`appendTerminalMessage`), `projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute` com `$attribute`; INT-F24-001 + CQ-F24-001..003 validados; PR #161 merge `8021124`; sem deploy LAB (polish sprint).
 - **docs(sprint-F24)**: Sprint F24 concluída — `TenantGroupNameRules` DRY, groups `[]`/`null` stdin, sync `updated`, poll UX, `deleteUser` reload, SuiteCatalog + N40 integration tests; PR #160 merge `5addd2f`; deploy LAB `5addd2f99794732d4f89e774deb04366882e7490`.

@@ -15,7 +15,8 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
-use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Customers\Support\CustomerLifecycleAction;
+use App\Modules\Customers\Support\CustomerLifecycleMatrix;
 use App\Modules\Integration\Dto\AsyncJobRef;
 use App\Modules\Integration\Dto\ManageAsyncCommand;
 use App\Modules\Integration\Exceptions\PortIdempotencyConflictException;
@@ -30,7 +31,16 @@ use Illuminate\Support\Str;
 final class LifecycleAsyncAction
 {
     /** @var list<string> */
-    private const USER_READINESS_GATED_CMDS = ['users:create', 'users:delete'];
+    private const LIFECYCLE_ASYNC_CMDS = [
+        'users:create',
+        'users:delete',
+        'groups:create',
+        'groups:delete',
+        'groups:add',
+        'groups:remove',
+        'apps:enable',
+        'apps:disable',
+    ];
 
     public function __construct(
         private readonly PlatformPortFactory $platformPortFactory,
@@ -63,7 +73,7 @@ final class LifecycleAsyncAction
     ): Job {
         $upstreamVerbTokens = $this->translator->cmdToCliArgv($cmd);
         $cluster = $this->resolveActiveCluster($customer);
-        $this->assertTenantReadyForUserOps($customer, $cmd);
+        $this->assertLifecycleAsyncAllowed($customer, $cmd);
 
         $argsHash = $this->buildArgsHash($customer, $cmd, $args);
         $this->assertNoIdempotencyConflict($argsHash);
@@ -112,11 +122,11 @@ final class LifecycleAsyncAction
         return $cluster;
     }
 
-    private function assertTenantReadyForUserOps(Customer $customer, string $cmd): void
+    private function assertLifecycleAsyncAllowed(Customer $customer, string $cmd): void
     {
         if (
-            in_array($cmd, self::USER_READINESS_GATED_CMDS, true)
-            && in_array($customer->status, CustomerLifecycleStatus::USER_OPS_BLOCKED, true)
+            in_array($cmd, self::LIFECYCLE_ASYNC_CMDS, true)
+            && ! CustomerLifecycleMatrix::allows($customer->status, CustomerLifecycleAction::LifecycleAsync)
         ) {
             throw new TenantNotReadyException($customer->status);
         }

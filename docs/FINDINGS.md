@@ -5,7 +5,7 @@ open_high: 11
 open_medium: 58
 open_low: 45
 sprints_with_open_blockers: []
-notes: F28 PR pending — ARQ-A1..A3,A6..A8 corrigidos (ISSUE-057 A partial). Restantes: D*+A4 (ISSUE-061→N47); ISSUE-057 B→N48.
+notes: N47 PR pending — ARQ-D1..D3+A4 corrigidos (ISSUE-061). Restantes: ISSUE-057 B→N48.
 FINDINGS-INDEX -->
 
 
@@ -105,10 +105,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php:115-123`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
-- **Status**: pendente
+- **Status**: corrigido (N47)
 - **Esforço**: P
 **Descrição**: Só `users:create`/`users:delete` são bloqueados em `provisioning`/`provisioning_finishing`; `groups:create`, `apps:enable` etc. passam e rodam em tenant que pode nunca chegar a `active`, divergindo read-model do estado real.
-**Correção sugerida**: Matriz central de operações permitidas por status (ver ARQ-D2) aplicada no `LifecycleAsyncAction`.
+**Correção (N47)**: `CustomerLifecycleMatrix` aplicada no `LifecycleAsyncAction` para todos os cmds lifecycle async.
 
 #### [ARQ-A5] — Grupos herdados de template não são validados contra o tenant
 - **Severidade**: HIGH
@@ -248,10 +248,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Http/Livewire/Customers/Show.php:132-143`, `app/Http/Resources/CustomerResource.php:14-21`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
-- **Status**: pendente
+- **Status**: corrigido (N47)
 - **Esforço**: P
 **Descrição**: Card de readiness/último erro só aparece em `provisioning_finishing`; após `failed`, resta o badge — o motivo (`customer_readiness_timeout`) fica só no audit trail e a API não expõe `failure_reason`.
-**Correção sugerida**: Persistir/expor `failure_reason` no resource e no painel.
+**Correção (N47)**: Coluna `failure_reason` persistida; exposta em `CustomerResource`/`TenantResource` e card no painel quando `status=failed`.
 
 #### [ARQ-D2] — Sem matriz canônica status × ações permitidas
 - **Severidade**: MEDIUM
@@ -259,10 +259,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Modules/Customers/Support/CustomerLifecycleStatus.php:7-20`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
-- **Status**: pendente
+- **Status**: corrigido (N47)
 - **Esforço**: M
 **Descrição**: `CustomerLifecycleStatus` documenta 3 constantes; estados reais (`failed`, `removing`, `removed`, `error`) têm regras ad hoc espalhadas em UI/actions. Nenhuma fonte única define o que cada estado permite.
-**Correção sugerida**: Enum/matriz central consumida por UI, controllers e `LifecycleAsyncAction` (resolve também ARQ-A4/D3).
+**Correção (N47)**: `CustomerLifecycleAction` + `CustomerLifecycleMatrix::allows()` consumidos por UI, `LifecycleAsyncAction`, `RemoveCustomerAction` e `customers:promote`.
 
 #### [ARQ-D3] — Painel OCC acessível por URL direta em tenant não-active
 - **Severidade**: LOW
@@ -270,10 +270,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:160-164`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
-- **Status**: pendente
+- **Status**: corrigido (N47)
 - **Esforço**: P
 **Descrição**: `mount()` só faz `Gate::authorize`; o link some da UI para não-`active`, mas a URL direta abre o painel OCC em tenant `failed`/`provisioning_finishing`.
-**Correção sugerida**: Checar status no mount usando a matriz do ARQ-D2.
+**Correção (N47)**: `OccPanel::mount` aborta 403 quando `CustomerLifecycleMatrix` não permite `occ_panel`.
 
 > **Validação F24 R1** (2026-07-08, `/qa validar F24`): scope = PR #160 merge `5addd2f` (branch `campanha/fix-f24-occ-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #160 verde (Pest/Lint/Security/OpenAPI/Docker production/coverage/security-review). **auditor-senior** → APROVADA (9/9 findings-alvo). **Findings-alvo validados**: CQ-F23-001..003, CQ-F17-001..004, CQ-N40-003, QA-N40-003/004 (9/9). **Deploy LAB**: SHA `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br`; migration `tenant_groups` Ran [7]; smoke `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 4 novos non-blocking (`CQ-F24-001`..`003` + `INT-F24-001`).
 

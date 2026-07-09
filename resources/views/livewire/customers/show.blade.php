@@ -1,4 +1,7 @@
 @php
+    use App\Modules\Customers\Support\CustomerLifecycleAction;
+    use App\Modules\Customers\Support\CustomerLifecycleMatrix;
+
     $customerStatusColors = [
         'active' => 'text-[#6ad191] bg-[#6ad191]/10 border border-[#6ad191]/20',
         'provisioning' => 'text-primary bg-primary/10 border border-primary/20',
@@ -34,7 +37,7 @@
             <div class="text-[13px] text-on-surface-variant mt-xs">{{ $customer->domain }}</div>
         </div>
         <div class="flex items-center gap-sm">
-            @if ($customer->status === 'active')
+            @if (CustomerLifecycleMatrix::allows($customer->status, CustomerLifecycleAction::OccPanel))
                 <a
                     href="{{ route('customers.occ', $customer->slug) }}"
                     class="inline-flex items-center rounded-md border border-outline-variant bg-surface-container-high px-md py-2 text-[13px] text-primary hover:border-primary no-underline"
@@ -43,7 +46,7 @@
                 </a>
             @endif
             @can('provision-customers')
-                @if (in_array($customer->status, ['active', 'provisioning', 'failed', 'provisioning_finishing']))
+                @if (CustomerLifecycleMatrix::allows($customer->status, CustomerLifecycleAction::Remove))
                     <button
                         type="button"
                         class="rounded-md border border-error/50 bg-error-container px-md py-2 text-[13px] text-error hover:opacity-90"
@@ -86,6 +89,13 @@
             @else
                 <div class="text-[13px] text-on-surface-variant">Aguardando primeira verificação…</div>
             @endif
+        </div>
+    @endif
+
+    @if ($customer->status === 'failed' && filled($customer->failure_reason))
+        <div class="bg-surface-container border border-error/30 rounded-xl p-lg mb-lg">
+            <div class="text-[14px] font-semibold text-error mb-md">Falha no provisionamento</div>
+            <div class="text-[13px] text-on-surface">{{ $customer->failure_reason }}</div>
         </div>
     @endif
 

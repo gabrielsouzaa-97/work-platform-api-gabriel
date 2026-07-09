@@ -26,6 +26,7 @@ class Customer extends Model
         'cluster_server_id',
         'domain',
         'status',
+        'failure_reason',
         'tier',
         'plan_slug',
         'image_mode',

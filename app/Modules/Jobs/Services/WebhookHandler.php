@@ -14,6 +14,7 @@ use App\Modules\Core\Translators\StateTranslator;
 use App\Modules\Customers\Services\TenantGroupProjector;
 use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Customers\Support\FailureReasonSanitizer;
 use App\Modules\Jobs\Dto\WebhookPayload;
 use App\Modules\Jobs\Support\JobSummaryParser;
 use App\Modules\Onboarding\Enums\OnboardingStep;
@@ -184,20 +185,23 @@ final class WebhookHandler
             if (! $isSummaryRecoveryRetry && $job->customer_slug && in_array($canonical, self::TERMINAL_STATES, true)) {
                 $customerStatus = match (true) {
                     $job->job_type === 'provision' && $canonical === 'success' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
-                    $job->job_type === 'provision' && in_array($canonical, ['failed', 'cancelled'], true) => 'failed',
-                    $job->job_type === 'deprovision' && $canonical === 'success' => 'removed',
+                    $job->job_type === 'provision' && in_array($canonical, ['failed', 'cancelled'], true) => CustomerLifecycleStatus::FAILED,
+                    $job->job_type === 'deprovision' && $canonical === 'success' => CustomerLifecycleStatus::REMOVED,
                     default => null,
                 };
 
                 if ($customerStatus !== null) {
-                    Customer::where('slug', $job->customer_slug)
-                        ->update(['status' => $customerStatus]);
+                    $customerUpdates = ['status' => $customerStatus];
 
-                    // Provisioning failure means the instance was never created upstream.
-                    // Soft-delete the ghost so the same slug can be re-provisioned transparently.
-                    if (in_array($canonical, ['failed', 'cancelled'], true) && $job->job_type === 'provision') {
-                        Customer::where('slug', $job->customer_slug)->delete();
+                    if (
+                        $job->job_type === 'provision'
+                        && in_array($canonical, ['failed', 'cancelled'], true)
+                    ) {
+                        $summary = $updates['summary'] ?? $job->summary;
+                        $customerUpdates['failure_reason'] = FailureReasonSanitizer::fromJobSummary($summary);
                     }
+
+                    Customer::where('slug', $job->customer_slug)->update($customerUpdates);
 
                     if ($job->job_type === 'deprovision' && $canonical === 'success') {
                         Customer::where('slug', $job->customer_slug)->delete();
