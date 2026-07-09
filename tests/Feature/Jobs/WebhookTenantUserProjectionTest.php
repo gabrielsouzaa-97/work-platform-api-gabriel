@@ -306,6 +306,32 @@ it('payload_sanitized de users:create não contém password após enqueue', func
         ->and($job->payload_sanitized['quota'] ?? null)->toBe('10 GB');
 });
 
+it('webhook users:create success with occ_command_failed in summary projeta user sem grupos do payload', function (): void {
+    $cluster = projectionCluster();
+    $customer = projectionCustomer($cluster->id, 'acme-partial-grp');
+    $job = projectionJob($cluster->id, $customer->slug, 'users:create', payloadSanitized: [
+        'args' => ['johndoe'],
+        'email' => 'john@acme.com',
+        'groups' => ['editors'],
+        'quota' => '5 GB',
+    ]);
+
+    $job->update([
+        'summary' => ['{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}'],
+    ]);
+
+    app(WebhookHandler::class)->handle($cluster, projectionFinishedPayload($job));
+
+    $row = TenantUser::where('customer_slug', $customer->slug)
+        ->where('username', 'johndoe')
+        ->first();
+
+    expect($row)->not->toBeNull()
+        ->and($row->email)->toBe('john@acme.com')
+        ->and($row->groups)->toBeNull()
+        ->and($row->quota)->toBe('5 GB');
+});
+
 it('webhook job.started após terminal success não altera projeção tenant_users (QA-N40-003)', function (): void {
     $cluster = projectionCluster();
     $customer = projectionCustomer($cluster->id, 'acme-ooo-proj');

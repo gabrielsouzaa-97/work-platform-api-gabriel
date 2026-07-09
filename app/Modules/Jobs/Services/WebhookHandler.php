@@ -15,6 +15,7 @@ use App\Modules\Customers\Services\TenantGroupProjector;
 use App\Modules\Customers\Services\TenantUserProjector;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Jobs\Dto\WebhookPayload;
+use App\Modules\Jobs\Support\JobSummaryParser;
 use App\Modules\Onboarding\Enums\OnboardingStep;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Carbon\Carbon;
@@ -237,8 +238,15 @@ final class WebhookHandler
         }
 
         if (! $isSummaryRecoveryRetry && in_array($canonical, self::TERMINAL_STATES, true)) {
+            $freshJob = $job->fresh();
+            $effectiveState = JobSummaryParser::effectiveTerminalStateFor($canonical, $freshJob->summary);
+
+            if ($effectiveState === 'partial') {
+                $this->logPartialSuccess($freshJob, $cluster, $canonical, $payload);
+            }
+
             try {
-                $this->tenantUserProjector->handleTerminalJob($job->fresh(), $canonical);
+                $this->tenantUserProjector->handleTerminalJob($freshJob, $effectiveState);
             } catch (\Throwable $e) {
                 Log::warning('tenant_users.projection.failed', [
                     'job_id' => $job->job_id,
@@ -249,7 +257,7 @@ final class WebhookHandler
             }
 
             try {
-                $this->tenantGroupProjector->handleTerminalJob($job->fresh(), $canonical);
+                $this->tenantGroupProjector->handleTerminalJob($freshJob, $effectiveState);
             } catch (\Throwable $e) {
                 Log::warning('tenant_groups.projection.failed', [
                     'job_id' => $job->job_id,
@@ -258,14 +266,37 @@ final class WebhookHandler
                     'error' => $e->getMessage(),
                 ]);
             }
-        }
 
-        if (! $isSummaryRecoveryRetry) {
-            $this->handleOnboardingTerminalJob($job->fresh(), $canonical);
+            $this->handleOnboardingTerminalJob($freshJob, $effectiveState);
         }
     }
 
-    private function handleOnboardingTerminalJob(Job $job, string $canonical): void
+    private function logPartialSuccess(
+        Job $job,
+        ClusterServer $cluster,
+        string $canonical,
+        WebhookPayload $payload,
+    ): void {
+        AuditLog::create([
+            'id' => Str::uuid()->toString(),
+            'actor_id' => null,
+            'action' => 'job.partial_success',
+            'resource_type' => 'job',
+            'resource_id' => $job->job_id,
+            'payload' => [
+                'canonical_state' => $canonical,
+                'effective_state' => 'partial',
+                'job_type' => $job->job_type,
+                'correlation_id' => $job->correlation_id,
+                'exit_code' => $payload->exitCode,
+            ],
+            'cluster_server_id' => $cluster->id,
+            'job_id' => $job->job_id,
+            'ip' => null,
+        ]);
+    }
+
+    private function handleOnboardingTerminalJob(Job $job, string $effectiveState): void
     {
         if ($job->correlation_id === null) {
             return;
@@ -278,23 +309,23 @@ final class WebhookHandler
         }
 
         if ($job->job_type === 'provision') {
-            if (in_array($canonical, ['failed', 'cancelled'], true)) {
+            if (in_array($effectiveState, ['failed', 'cancelled'], true)) {
                 $this->onboardingSaga->markStepFailed(
                     $onboarding,
                     OnboardingStep::ProvisionTenant,
-                    $canonical,
+                    $effectiveState,
                 );
 
                 return;
             }
 
-            if ($canonical === 'success') {
+            if ($effectiveState === 'success') {
                 $this->onboardingSaga->advanceAfterProvision($onboarding);
             }
 
             return;
         }
 
-        $this->onboardingSaga->handleTerminalJob($job, $canonical);
+        $this->onboardingSaga->handleTerminalJob($job, $effectiveState);
     }
 }

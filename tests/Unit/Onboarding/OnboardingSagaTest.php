@@ -17,6 +17,7 @@ use App\Modules\Integration\Services\PlatformPortFactory;
 use App\Modules\Onboarding\Dto\OnboardingSpec;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
+use App\Modules\Jobs\Services\WebhookHandler;
 use App\Modules\Onboarding\Saga\OnboardingSaga;
 use Illuminate\Support\Str;
 
@@ -193,4 +194,68 @@ it('dispatches users:create after readiness gate passes', function (): void {
         ->and($onboarding->steps['create_admin']['job_id'] ?? null)->toBe($adminJobId)
         ->and($onboarding->steps['create_admin']['status'] ?? null)->toBe('running')
         ->and(Job::find($adminJobId)?->correlation_id)->toBe($onboarding->correlation_id);
+});
+
+it('apps:enable job success with embedded failure marks step failed and onboarding failed', function (): void {
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $slug = 'saga-embed-fail-'.substr(uniqid(), -6);
+    $onboardingId = Str::uuid()->toString();
+    $enableAppsJobId = Str::uuid()->toString();
+
+    Customer::create([
+        'slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'domain' => "{$slug}.example.com",
+        'status' => 'active',
+    ]);
+
+    Onboarding::factory()->create([
+        'id' => $onboardingId,
+        'tenant_slug' => $slug,
+        'correlation_id' => $onboardingId,
+        'state' => OnboardingState::Running,
+        'current_step' => OnboardingStep::EnableApps,
+        'steps' => [
+            'provision_tenant' => ['status' => 'completed'],
+            'wait_readiness' => ['status' => 'completed'],
+            'create_admin' => ['status' => 'completed'],
+            'enable_apps' => ['status' => 'running', 'job_id' => $enableAppsJobId],
+        ],
+        'apps_enabled' => ['calendar'],
+    ]);
+
+    Job::create([
+        'job_id' => $enableAppsJobId,
+        'customer_slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'cmd_canonical' => "nextcloud-manage {$slug} _ apps:enable",
+        'job_type' => 'apps:enable',
+        'state' => 'running',
+        'correlation_id' => $onboardingId,
+        'idempotency_key' => Str::uuid()->toString(),
+        'queued_at' => now()->subMinute(),
+        'summary' => ['{"error":"occ_command_failed","subcommand":"app:enable","stdout":"calendar app not found"}'],
+    ]);
+
+    $noop = Mockery::mock(SshClientInterface::class);
+    $noop->shouldReceive('run')->andReturn(new SshResponse(
+        stdout: '[]',
+        stderr: '',
+        exitCode: 0,
+        parsedJson: [],
+    ));
+    app()->instance(SshClientInterface::class, $noop);
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $enableAppsJobId,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ]);
+
+    $onboarding = Onboarding::query()->findOrFail($onboardingId);
+
+    expect($onboarding->steps['enable_apps']['status'])->toBe('failed')
+        ->and($onboarding->state)->toBe(OnboardingState::Failed);
 });

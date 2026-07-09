@@ -15,14 +15,14 @@ class TenantUserProjector
     /** @var list<string> */
     private const USER_DELETE_TYPES = ['user_delete', 'users:delete'];
 
-    public function handleTerminalJob(Job $job, string $canonicalState): void
+    public function handleTerminalJob(Job $job, string $effectiveState): void
     {
-        if ($canonicalState !== 'success' || $job->customer_slug === null) {
+        if (! in_array($effectiveState, ['success', 'partial'], true) || $job->customer_slug === null) {
             return;
         }
 
         if (in_array($job->job_type, self::USER_CREATE_TYPES, true)) {
-            $this->upsertUserCreate($job);
+            $this->upsertUserCreate($job, $effectiveState === 'partial');
 
             return;
         }
@@ -44,7 +44,7 @@ class TenantUserProjector
         }
     }
 
-    private function upsertUserCreate(Job $job): void
+    private function upsertUserCreate(Job $job, bool $omitGroups = false): void
     {
         $username = $this->usernameFromPayload($job);
         if ($username === null) {
@@ -61,7 +61,7 @@ class TenantUserProjector
             [
                 'email' => $payload['email'] ?? null,
                 'quota' => $payload['quota'] ?? null,
-                'groups' => $payload['groups'] ?? null,
+                'groups' => $omitGroups ? null : ($payload['groups'] ?? null),
                 'origin' => $this->resolveCreateOrigin($payload),
                 'user_template_slug' => $payload['user_template_slug'] ?? null,
             ],

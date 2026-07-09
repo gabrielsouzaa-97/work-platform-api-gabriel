@@ -21,6 +21,7 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\TenantNotReadyException;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
+use App\Modules\Customers\Validation\ResolvedTenantGroupsValidator;
 use App\Modules\Product\Exceptions\PlanLimitExceededException;
 use App\Modules\Product\Services\PlanAppResolver;
 use App\Modules\Product\Services\PolicyResolver;
@@ -71,6 +72,12 @@ final class CustomerLifecycleController extends Controller
         $groupsForPayload = $explicitGroups !== null
             ? $explicitGroups
             : ($resolved->groups !== [] ? $resolved->groups : null);
+
+        ResolvedTenantGroupsValidator::validate(
+            $customer->slug,
+            $groupsForPayload,
+            $request->array('subadmin_groups', []),
+        );
 
         $stdinPayload = UserCreateStdinPayload::build(
             password: $request->string('password')->toString(),

@@ -137,6 +137,7 @@ it('POST /api/v1/tenants/{slug}/users merges template groups into upstream stdin
     $slug = 'tpl-groups-'.substr(uniqid(), -6);
     resolverCustomer($slug, $cluster->id);
     seedResolverTemplate('supervisor');
+    seedResolverTenantGroups($slug, ['supervisors', 'staff']);
     $jobId = Str::uuid()->toString();
     $rawToken = resolverV1ApiKey($slug);
 
@@ -166,7 +167,7 @@ it('POST /api/v1/tenants/{slug}/users merges template default_quota into upstrea
     $cluster = resolverCluster();
     $slug = 'tpl-quota-'.substr(uniqid(), -6);
     resolverCustomer($slug, $cluster->id);
-    seedResolverTemplate('collaborator', ['default_quota' => '15 GB']);
+    seedResolverTemplate('collaborator', ['default_quota' => '15 GB', 'groups' => []]);
     $jobId = Str::uuid()->toString();
     $rawToken = resolverV1ApiKey($slug);
 
@@ -249,6 +250,7 @@ it('POST /api/v1/tenants/{slug}/users explicit quota overrides template default_
     $slug = 'tpl-override-q-'.substr(uniqid(), -6);
     resolverCustomer($slug, $cluster->id);
     seedResolverTemplate('supervisor', ['default_quota' => '15 GB']);
+    seedResolverTenantGroups($slug, ['supervisors', 'staff']);
     $jobId = Str::uuid()->toString();
     $rawToken = resolverV1ApiKey($slug);
 
@@ -276,6 +278,7 @@ it('POST /api/v1/tenants/{slug}/users stores user_template_slug in payload_sanit
     $slug = 'tpl-payload-'.substr(uniqid(), -6);
     resolverCustomer($slug, $cluster->id);
     seedResolverTemplate('supervisor');
+    seedResolverTenantGroups($slug, ['supervisors', 'staff']);
     $jobId = Str::uuid()->toString();
     $rawToken = resolverV1ApiKey($slug);
 
@@ -350,6 +353,7 @@ it('POST /api/customers/{slug}/users merges template via UserCreateTemplateResol
     $slug = 'tpl-legacy-'.substr(uniqid(), -6);
     $customer = resolverCustomer($slug, $cluster->id);
     seedResolverTemplate('supervisor');
+    seedResolverTenantGroups($slug, ['supervisors', 'staff']);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
     $jobId = Str::uuid()->toString();
 
@@ -375,6 +379,7 @@ it('POST /api/customers/{slug}/users groups null inherits template groups (CQ-F1
     $slug = 'tpl-null-g-'.substr(uniqid(), -6);
     $customer = resolverCustomer($slug, $cluster->id);
     seedResolverTemplate('supervisor');
+    seedResolverTenantGroups($slug, ['supervisors', 'staff']);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
     $jobId = Str::uuid()->toString();
 
@@ -394,6 +399,32 @@ it('POST /api/customers/{slug}/users groups null inherits template groups (CQ-F1
         ])
         ->assertStatus(202)
         ->assertJsonPath('job_id', $jobId);
+});
+
+it('POST /api/v1/tenants/{slug}/users rejects template groups missing from tenant_groups with 422', function (): void {
+    $cluster = resolverCluster();
+    $slug = 'tpl-missing-grp-'.substr(uniqid(), -6);
+    resolverCustomer($slug, $cluster->id);
+    seedResolverTemplate('supervisor');
+    $rawToken = resolverV1ApiKey($slug);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    $response = $this->postJson(
+        "/api/v1/tenants/{$slug}/users",
+        [
+            'username' => 'partial-tpl',
+            'password' => 'Secret123!',
+            'email' => 'partial@example.com',
+            'user_template_slug' => 'supervisor',
+        ],
+        ['Authorization' => "Bearer {$rawToken}"],
+    );
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['groups.0', 'groups.1']);
 });
 
 it('POST /api/customers/{slug}/users groups empty array clears template groups (CQ-F17-003)', function (): void {

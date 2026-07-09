@@ -16,6 +16,7 @@ use App\Modules\Customers\Support\UserCreateStdinPayload;
 use App\Modules\Integration\Dto\SetBrandingCommand;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Jobs\Support\JobSummaryParser;
 use App\Modules\Onboarding\Dto\OnboardingSpec;
 use App\Modules\Onboarding\Enums\OnboardingState;
 use App\Modules\Onboarding\Enums\OnboardingStep;
@@ -95,7 +96,7 @@ final class OnboardingSaga
         $this->markStepFailed($onboarding, OnboardingStep::WaitReadiness, $reason);
     }
 
-    public function handleTerminalJob(Job $job, string $canonicalState): void
+    public function handleTerminalJob(Job $job, string $effectiveState): void
     {
         if ($job->correlation_id === null) {
             return;
@@ -113,13 +114,25 @@ final class OnboardingSaga
             return;
         }
 
-        if (in_array($canonicalState, ['failed', 'cancelled'], true)) {
-            $this->markStepFailed($onboarding, $step, $canonicalState);
+        if (in_array($effectiveState, ['failed', 'cancelled'], true)) {
+            $this->markStepFailed($onboarding, $step, $effectiveState);
 
             return;
         }
 
-        if ($canonicalState !== 'success') {
+        if ($effectiveState === 'partial') {
+            $this->markStepFailed($onboarding, $step, JobSummaryParser::failureMessage($job));
+
+            return;
+        }
+
+        if ($effectiveState !== 'success') {
+            return;
+        }
+
+        if (JobSummaryParser::hasEmbeddedFailureIn($job->summary)) {
+            $this->markStepFailed($onboarding, $step, JobSummaryParser::failureMessage($job));
+
             return;
         }
 
@@ -459,8 +472,8 @@ final class OnboardingSaga
     {
         return match ($job->job_type) {
             'provision' => OnboardingStep::ProvisionTenant,
-            'user_create' => OnboardingStep::CreateAdmin,
-            'apps_enable' => OnboardingStep::EnableApps,
+            'user_create', 'users:create' => OnboardingStep::CreateAdmin,
+            'apps_enable', 'apps:enable' => OnboardingStep::EnableApps,
             default => null,
         };
     }
