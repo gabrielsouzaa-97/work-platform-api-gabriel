@@ -119,6 +119,11 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
     {
         $customer->update(['status' => 'failed']);
 
+        app(OnboardingSaga::class)->failWaitReadinessForSlug(
+            $customer->slug,
+            'customer_readiness_timeout',
+        );
+
         AuditLog::create([
             'id' => Str::uuid()->toString(),
             'actor_id' => null,

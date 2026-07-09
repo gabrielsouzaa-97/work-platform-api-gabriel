@@ -9,11 +9,14 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
+use App\Models\Onboarding;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Onboarding\Enums\OnboardingState;
+use App\Modules\Onboarding\Enums\OnboardingStep;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Support\Facades\Config;
@@ -332,7 +335,40 @@ it('ProbeCustomerReadinessJob marks failed when deadline exceeded', function () 
     (new ProbeCustomerReadinessJob($customer->slug, now()->subSecond()->timestamp))->handle($probe);
 
     expect($customer->fresh()->status)->toBe('failed')
+        ->and($customer->fresh()->deleted_at)->toBeNull()
         ->and(AuditLog::where('action', 'customer_readiness_timeout')->where('resource_id', $customer->slug)->exists())->toBeTrue();
+});
+
+it('ProbeCustomerReadinessJob timeout fails correlated onboarding at wait_readiness', function () {
+    $slug = 'probe-timeout-onboard-'.substr(uniqid(), -6);
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'domain' => "{$slug}.example.com",
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
+    ]);
+
+    Onboarding::factory()->create([
+        'tenant_slug' => $slug,
+        'state' => OnboardingState::Running,
+        'current_step' => OnboardingStep::WaitReadiness,
+        'steps' => [
+            'provision_tenant' => ['status' => 'completed', 'job_id' => 'job-provision-1'],
+            'wait_readiness' => ['status' => 'running'],
+        ],
+    ]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('run');
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
+    (new ProbeCustomerReadinessJob($customer->slug, now()->subSecond()->timestamp))->handle($probe);
+
+    $onboarding = Onboarding::query()->where('tenant_slug', $slug)->firstOrFail();
+    expect($onboarding->state)->toBe(OnboardingState::Failed)
+        ->and($onboarding->steps['wait_readiness']['status'])->toBe('failed')
+        ->and($onboarding->steps['wait_readiness']['reason'])->toBe('customer_readiness_timeout');
 });
 
 it('ProbeCustomerReadinessJob deadline defaults to max_wait_seconds from config', function () {

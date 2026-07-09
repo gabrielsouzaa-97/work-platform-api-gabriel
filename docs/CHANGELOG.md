@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **fix(sprint-F26)**: Recovery do `failed` + poll terminal — Remover no painel para `failed`/`provisioning_finishing`; soft-delete em deprovision success libera slug; timeout readiness falha onboarding correlacionado; `jobs:poll-stuck` roteia terminal via `WebhookHandler`; artisan `customers:promote {slug}` com audit (ARQ-C1..C5, ISSUE-059/060).
 - **docs(sprint-F25)**: Sprint F25 concluída — poll messaging cross-job (`appendTerminalMessage`), `projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute` com `$attribute`; INT-F24-001 + CQ-F24-001..003 validados; PR #161 merge `8021124`; sem deploy LAB (polish sprint).
 - **docs(sprint-F24)**: Sprint F24 concluída — `TenantGroupNameRules` DRY, groups `[]`/`null` stdin, sync `updated`, poll UX, `deleteUser` reload, SuiteCatalog + N40 integration tests; PR #160 merge `5addd2f`; deploy LAB `5addd2f99794732d4f89e774deb04366882e7490`.
 - **feat(sprint-N45-N46)**: ISSUE-056 — OCC groups UX governance (multi-select, pickers, wire:confirm, membership 501 hidden) + read model `tenant_groups` (webhook projection, sync command, API validation via `TenantGroupMembership`).
@@ -484,3 +485,12 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-08 18:10** `8862258` — style(sprint-N44): remove unused imports in readiness tests
 - **2026-07-08 18:41** `8862258` — style(sprint-N44): remove unused imports in readiness tests
 - **2026-07-08 18:44** `c908216` — chore: register CI failure on main
+- **2026-07-08 21:27** `e313f32` — docs(sprint-F25): closeout after PR #161 merge
+- **2026-07-08 21:30** `e313f32` — docs(sprint-F25): closeout after PR #161 merge
+- **2026-07-08 21:33** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 21:54** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:11** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:15** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:18** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:55** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 23:02** `056a3d9` — docs(ops): LAB deploy F25 main e313f32

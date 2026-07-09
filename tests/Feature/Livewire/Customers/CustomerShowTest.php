@@ -169,6 +169,32 @@ it('modal de remocao permanece disponivel para customer active', function (): vo
         ->assertSee($customer->slug);
 });
 
+it('modal de remocao permanece disponivel para customer failed', function (): void {
+    $cluster = makeShowCluster();
+    $customer = makeShowCustomer($cluster, 'failed');
+    $operator = makeShowOperator();
+
+    Livewire::actingAs($operator)
+        ->test(Show::class, ['slug' => $customer->slug])
+        ->assertSee('Remover')
+        ->call('$set', 'showRemoveModal', true)
+        ->assertSee('Remover customer')
+        ->assertSee($customer->slug);
+});
+
+it('modal de remocao permanece disponivel para customer provisioning_finishing', function (): void {
+    $cluster = makeShowCluster();
+    $customer = makeShowCustomer($cluster, 'provisioning_finishing');
+    $operator = makeShowOperator();
+
+    Livewire::actingAs($operator)
+        ->test(Show::class, ['slug' => $customer->slug])
+        ->assertSee('Remover')
+        ->call('$set', 'showRemoveModal', true)
+        ->assertSee('Remover customer')
+        ->assertSee($customer->slug);
+});
+
 it('shouldPoll retorna true para provisioning_finishing e removing', function (string $status): void {
     $cluster = makeShowCluster();
     $customer = makeShowCustomer($cluster, $status);

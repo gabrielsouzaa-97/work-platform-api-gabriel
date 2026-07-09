@@ -198,6 +198,10 @@ final class WebhookHandler
                         Customer::where('slug', $job->customer_slug)->delete();
                     }
 
+                    if ($job->job_type === 'deprovision' && $canonical === 'success') {
+                        Customer::where('slug', $job->customer_slug)->delete();
+                    }
+
                     if ($customerStatus === CustomerLifecycleStatus::PROVISIONING_FINISHING) {
                         $probeCustomerSlug = $job->customer_slug;
                     }

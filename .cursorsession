@@ -34,7 +34,7 @@
   ],
   "fase_atual": "10",
   "fase_nome": "F26 planejada",
-  "sprint_atual": null,
+  "sprint_atual": "F26",
   "previous_sprint": "F25",
   "sprint_branch": null,
   "sprint_pending_merge": null,
@@ -228,9 +228,12 @@
   "sprint_pr": 161,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "validated",
+    "phase": "auditing",
     "current_task": null,
-    "last_completed_task": "F25.3"
+    "last_completed_task": "F26.5",
+    "sprint": "F26",
+    "branch": "campanha/fix-f26-failed-recovery",
+    "started_at": "2026-07-09T02:20:00Z"
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -300,14 +303,14 @@
   "sprint_tasks": [
     {
       "id": "F26.1",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
       "title": "Painel: botão Remover para failed (+ provisioning_finishing)",
       "file": "resources/views/livewire/customers/show.blade.php"
     },
     {
       "id": "F26.2",
-      "status": "pending",
+      "status": "completed",
       "size": "M",
       "title": "Soft-delete no deprovision success → libera slug; testes retry pós-cleanup",
       "file": "app/Modules/Jobs/Services/WebhookHandler.php",
@@ -315,21 +318,21 @@
     },
     {
       "id": "F26.3",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
       "title": "Timeout readiness terminaliza onboarding correlacionado (Failed + motivo)",
       "file": "app/Jobs/ProbeCustomerReadinessJob.php"
     },
     {
       "id": "F26.4",
-      "status": "pending",
+      "status": "completed",
       "size": "M",
       "title": "jobs:poll-stuck roteia resultado terminal pela pipeline do WebhookHandler",
       "file": "app/Console/Commands/JobsPollStuckCommand.php"
     },
     {
       "id": "F26.5",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
       "title": "Artisan customers:promote {slug} (provisioning_finishing→active) + AuditLog",
       "file": "app/Console/Commands/CustomersPromoteCommand.php"

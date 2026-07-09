@@ -43,7 +43,7 @@
                 </a>
             @endif
             @can('provision-customers')
-                @if (in_array($customer->status, ['active', 'provisioning']))
+                @if (in_array($customer->status, ['active', 'provisioning', 'failed', 'provisioning_finishing']))
                     <button
                         type="button"
                         class="rounded-md border border-error/50 bg-error-container px-md py-2 text-[13px] text-error hover:opacity-90"

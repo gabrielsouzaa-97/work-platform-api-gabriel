@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Jobs\ProbeCustomerReadinessJob;
 use App\Models\AuditLog;
 use App\Models\ClusterServer;
 use App\Models\Customer;
@@ -9,6 +10,7 @@ use App\Models\Job;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\Exceptions\SshConnectionException;
 use App\Modules\Core\Ssh\SshClientInterface;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 function makePollCluster(): ClusterServer
@@ -37,6 +39,8 @@ function makeStuckJob(ClusterServer $cluster): Job
 }
 
 it('job running há 90s sem callback → polling chama SSH e atualiza para success', function () {
+    Queue::fake();
+
     $cluster = makePollCluster();
     $job = makeStuckJob($cluster);
 
@@ -100,4 +104,70 @@ it('SSH falha no polling → log warning + continua sem exception', function () 
 
     $job->refresh();
     expect($job->state)->toBe('running');
+});
+
+it('poll terminal success em provision stuck → customer provisioning_finishing e probe enfileirado', function () {
+    Queue::fake();
+
+    $cluster = makePollCluster();
+    $job = makeStuckJob($cluster);
+    Customer::where('slug', 'poll-co')->update(['status' => 'provisioning']);
+
+    $pollPayload = [
+        'state' => 'done',
+        'exit_code' => 0,
+        'finished_at' => now()->toIso8601String(),
+    ];
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: json_encode($pollPayload),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $pollPayload,
+        ));
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $this->artisan('jobs:poll-stuck')->assertSuccessful();
+
+    $job->refresh();
+    expect($job->state)->toBe('success')
+        ->and(Customer::where('slug', 'poll-co')->value('status'))->toBe('provisioning_finishing');
+
+    Queue::assertPushed(
+        ProbeCustomerReadinessJob::class,
+        fn (ProbeCustomerReadinessJob $probeJob) => $probeJob->customerSlug === 'poll-co',
+    );
+});
+
+it('segundo poll em job já terminal não re-dispatcha ProbeCustomerReadinessJob', function () {
+    Queue::fake();
+
+    $cluster = makePollCluster();
+    $job = makeStuckJob($cluster);
+    Customer::where('slug', 'poll-co')->update(['status' => 'provisioning']);
+
+    $pollPayload = [
+        'state' => 'done',
+        'exit_code' => 0,
+        'finished_at' => now()->toIso8601String(),
+    ];
+
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('run')
+        ->once()
+        ->andReturn(new SshResponse(
+            stdout: json_encode($pollPayload),
+            stderr: '',
+            exitCode: 0,
+            parsedJson: $pollPayload,
+        ));
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $this->artisan('jobs:poll-stuck')->assertSuccessful();
+    $this->artisan('jobs:poll-stuck')->assertSuccessful();
+
+    Queue::assertPushed(ProbeCustomerReadinessJob::class, 1);
 });
