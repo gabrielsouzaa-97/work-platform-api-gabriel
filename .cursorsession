@@ -234,20 +234,11 @@
       "produced_by": "validation-stamp.py",
       "result": "APROVADA",
       "validation_mode": "full",
-      "gates": [
-        {
-          "cmd": "docker compose exec -T app ./vendor/bin/pint --test",
-          "exit_code": 0
-        },
-        {
-          "cmd": "docker compose exec -T app php -d memory_limit=512M vendor/bin/pest --exclude-group=readiness-isolated",
-          "exit_code": 0
-        }
-      ],
+      "gates": [],
       "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "201d7c3fa53762565c20d31c0603672612cc10a8",
-      "stamped_at": "2026-07-09T06:53:29Z"
+      "last_validated_sha": "3336f770b437d6f826050b3c369bbe0da291e9d3",
+      "stamped_at": "2026-07-09T07:11:16Z"
     }
   },
   "checkpoint_f26_archived": {

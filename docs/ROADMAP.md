@@ -6313,7 +6313,22 @@ Proibido: expor stack traces ou secrets no failure_reason.
 | **F27** | Sucesso silencioso (parser JSON embutido + aviso OCC) | ISSUE-058 · ARQ-B1..B3, A5 | **concluída** (PR #163) |
 | **F28** | **Opção A** — `ProvisioningReadinessContract` + 422 + OpenAPI | ISSUE-057 A · ARQ-A1..A3, A6..A8 | **concluída** (PR #164) |
 | **N47** | Matriz status × ações + `failure_reason` exposto | ISSUE-061 · ARQ-D1..D3, A4 | **concluída** (PR pending) |
-| **N48** | **Opção B** — suíte me360 no suite-catalog (cross-repo `work-platform-scripts`) | ISSUE-057 B | stub — bloqueada até upstream |
+| **N48** | **Opção B** — suíte me360 no suite-catalog (cross-repo `work-platform-scripts`) | ISSUE-057 B | **parcial (fatia API)** — upstream `ISSUE-057-B-upstream` pendente |
+
+---
+
+## Sprint N48 — ISSUE-057 opção B (fatia API)
+
+> Categoria: N · Status: **parcial (fatia API entregue)** · Gate: `legacy_me360_capable` por cluster; validator permite legado quando catalog contém me360; runbook cross-repo; CI verde. **Parcial** até upstream `work-platform-scripts` entregar install real.
+
+| Status | Tamanho | Tarefa | Depende de |
+|--------|---------|--------|------------|
+| [x] | M | N48.1 — Migration `legacy_me360_capable` em `cluster_servers` + factory | — |
+| [x] | M | N48.2 — `SuiteCatalogAppLister` + validator: cluster capaz + catalog com me360 → allow | N48.1 |
+| [x] | P | N48.3 — Fixture `suite_catalog_me360.json` + testes contrato readiness | N48.2 |
+| [x] | P | N48.4 — Runbook `docs/runbooks/me360-suite-catalog-b.md` + ISSUE upstream | — |
+| [x] | P | N48.5 — OpenAPI notas readiness + `legacy_me360_capable` | N48.1 |
+
 
 ---
 

@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Modules\Customers\Validation;
 
+use App\Models\ClusterServer;
 use App\Modules\Customers\Contracts\ProvisioningReadinessContract;
 use App\Modules\Customers\Dto\ResolvedProvisionContext;
+use App\Modules\Integration\Services\SuiteCatalogAppLister;
 use Illuminate\Validation\ValidationException;
 
 final class ProvisioningReadinessValidator
 {
     public function __construct(
         private readonly ProvisioningReadinessContract $contract,
+        private readonly SuiteCatalogAppLister $catalogAppLister,
     ) {}
 
     /**
@@ -33,6 +36,10 @@ final class ProvisioningReadinessValidator
         }
 
         if ($context->resolvedApps === []) {
+            if ($this->isLegacySuiteCatalogSatisfiedByClusterCatalog($context)) {
+                return null;
+            }
+
             return $this->unsatisfiableViolation($this->contract->legacyRequiredAppIds());
         }
 
@@ -42,7 +49,7 @@ final class ProvisioningReadinessValidator
 
         $missing = $this->missingLegacyApps($context);
 
-        if ($missing === []) {
+        if ($missing === [] || $this->isLegacySuiteCatalogSatisfiedByClusterCatalog($context)) {
             return null;
         }
 
@@ -56,6 +63,38 @@ final class ProvisioningReadinessValidator
         }
 
         return $context->suiteCatalog;
+    }
+
+    private function isLegacySuiteCatalogSatisfiedByClusterCatalog(
+        ResolvedProvisionContext $context,
+    ): bool {
+        if (! $this->requiresLegacySuiteCheck($context)) {
+            return false;
+        }
+
+        if ($context->clusterServerId === null) {
+            return false;
+        }
+
+        $cluster = ClusterServer::find($context->clusterServerId);
+        if ($cluster === null || ! $cluster->legacy_me360_capable) {
+            return false;
+        }
+
+        return $this->catalogContainsLegacyRequiredApps();
+    }
+
+    private function catalogContainsLegacyRequiredApps(): bool
+    {
+        $activeApps = array_flip($this->catalogAppLister->activeAppIds());
+
+        foreach ($this->contract->legacyRequiredAppIds() as $appId) {
+            if (! isset($activeApps[$appId])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

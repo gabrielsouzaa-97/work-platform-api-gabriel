@@ -18,6 +18,7 @@ use App\Modules\Customers\Validation\ProvisioningReadinessValidator;
 use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Integration\Services\SuiteCatalogAppLister;
 use App\Observers\ClusterServerObserver;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProvisionsCustomer::class, ProvisionCustomerAction::class);
 
         $this->app->singleton(ProvisioningReadinessContract::class);
+        $this->app->singleton(SuiteCatalogAppLister::class);
         $this->app->singleton(ProvisioningReadinessValidator::class);
 
         $this->app->bind(SshClientInterface::class, function ($app): SshClientInterface {
