@@ -16,8 +16,20 @@ it('forAttribute returns non-empty rules for api name and panel groupName attrib
     $panelRules = TenantGroupNameRules::forAttribute('groupName');
 
     expect($apiRules)->toBeArray()->not->toBeEmpty()
-        ->and($panelRules)->toBeArray()->not->toBeEmpty()
-        ->and($apiRules)->toBe($panelRules);
+        ->and($panelRules)->toBeArray()->not->toBeEmpty();
+});
+
+it('forAttribute produces attribute-specific rule keys or messages for name vs groupName (CQ-F24-002)', function (): void {
+    $nameRules = TenantGroupNameRules::forAttribute('name');
+    $groupNameRules = TenantGroupNameRules::forAttribute('groupName');
+
+    expect($nameRules)->not->toBe($groupNameRules);
+
+    $namePayload = json_encode($nameRules, JSON_THROW_ON_ERROR);
+    $groupNamePayload = json_encode($groupNameRules, JSON_THROW_ON_ERROR);
+
+    expect($namePayload)->toContain('name')
+        ->and($groupNamePayload)->toContain('groupName');
 });
 
 it('forAttribute rules reject reserved admin case-insensitively', function (string $candidate): void {
