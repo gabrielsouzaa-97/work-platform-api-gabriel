@@ -12,7 +12,9 @@ use App\Modules\Core\Ssh\SshConnectionPool;
 use App\Modules\Core\Translators\JobTypeTranslator;
 use App\Modules\Core\Translators\StateTranslator;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
+use App\Modules\Customers\Contracts\ProvisioningReadinessContract;
 use App\Modules\Customers\Contracts\ProvisionsCustomer;
+use App\Modules\Customers\Validation\ProvisioningReadinessValidator;
 use App\Modules\Integration\Adapters\AgentPlatformAdapter;
 use App\Modules\Integration\Adapters\SshPlatformAdapter;
 use App\Modules\Integration\Services\PlatformPortFactory;
@@ -42,6 +44,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(ProvisionsCustomer::class, ProvisionCustomerAction::class);
+
+        $this->app->singleton(ProvisioningReadinessContract::class);
+        $this->app->singleton(ProvisioningReadinessValidator::class);
 
         $this->app->bind(SshClientInterface::class, function ($app): SshClientInterface {
             if (config('services.ssh.driver') === 'fake') {

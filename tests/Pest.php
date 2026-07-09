@@ -36,6 +36,11 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+// F28: provision happy-path tests assume image-mode unless a file overrides (readiness rejection suites set false).
+pest()->beforeEach(function (): void {
+    config(['platform.image_mode.default_mode' => true]);
+})->in('Feature');
+
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Characterization');
@@ -141,6 +146,7 @@ function callCreateSaveWithPem(Testable $testable, string $pem): Testable
 function fakeReadinessGateR6Http(string $domain, int $status = 200): void
 {
     Http::fake([
+        "https://{$domain}/login" => Http::response('OK', $status),
         "https://{$domain}/apps/mework360_memail/*" => Http::response('OK', $status),
     ]);
 }

@@ -96,6 +96,11 @@ final class OnboardingV1Controller extends Controller
             adminEmail: $request->string('admin.email')->toString(),
             adminDisplayName: $request->string('admin.username')->toString(),
             brandingFields: $this->brandingFieldsFrom($request),
+            suiteCatalog: $request->usesTenantSuiteCatalogMode(),
+            imageMode: $request->resolvesTenantImageMode(),
+            planSlug: $request->filled('tenant.plan_slug')
+                ? $request->string('tenant.plan_slug')->toString()
+                : null,
         );
     }
 

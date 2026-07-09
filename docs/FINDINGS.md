@@ -5,7 +5,7 @@ open_high: 11
 open_medium: 58
 open_low: 45
 sprints_with_open_blockers: []
-notes: F27 PR #163 CI verde — ARQ-B1..B3 + A5 corrigidos (await merge). Restantes: A* (ISSUE-057→F28), D*+A4 (ISSUE-061→N47), A2/A3/A6..A8.
+notes: F28 PR pending — ARQ-A1..A3,A6..A8 corrigidos (ISSUE-057 A partial). Restantes: D*+A4 (ISSUE-061→N47); ISSUE-057 B→N48.
 FINDINGS-INDEX -->
 
 
@@ -72,7 +72,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior + explore)
 - **Arquivo**: `app/Http/Requests/ProvisionCustomerRequest.php:87-144`, `app/Modules/Integration/Support/TenantReadinessGateChecker.php:83-86`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
-- **Status**: pendente
+- **Status**: corrigido (F28)
 - **Esforço**: M
 **Descrição**: Os 5 entry points de criação (API legacy, API v1, Livewire Create, onboarding, WHMCS) validam formato/plano/catálogo mas nunca cruzam `apps`/`image_mode` com os requisitos do gate legado (`mework360_memail` + `me360_theme` + SSO). O payload default `{}` já é condenado; os apps me360 nem existem no suite catalog (pedir explicitamente dá 422). Incidente real: `apps:["mail"]` → 202 → infra viva → `failed` após ~25min.
 **Correção sugerida**: Validação readiness-aware na borda (rejeitar ou exigir `image_mode`/caminho que garanta a suíte) + decisão de produto sobre instalação da suíte me360 no fluxo suite-catalog.
@@ -83,7 +83,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Modules/Product/Services/PlanAppResolver.php:27-28`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
-- **Status**: pendente
+- **Status**: corrigido (F28)
 - **Esforço**: P
 **Descrição**: Plano sem apps faz o resolver retornar `[]` sem erro; provision aceita e repassa lista vazia — readiness legado nunca passa.
 **Correção sugerida**: Rejeitar (422) provision não-image-mode cujo plano resolve para zero apps, ou alertar na criação do plano.
@@ -94,7 +94,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior + explore)
 - **Arquivo**: `app/Http/Requests/V1/CreateOnboardingRequest.php:37-38`, `app/Http/Controllers/Api/V1/OnboardingV1Controller.php:86-99`, `app/Modules/Onboarding/Saga/OnboardingSaga.php:55-74`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
-- **Status**: pendente
+- **Status**: corrigido (F28)
 - **Esforço**: M
 **Descrição**: `POST /v1/onboarding` não expõe `image_mode`/`suite_catalog`/`plan_slug`; `fullApps` hardcoded `false`; `apps_enabled` não é validado contra catálogo no request. O step `enable_apps` roda **após** `wait_readiness` — tarde demais para apps exigidos pelo gate.
 **Correção sugerida**: Expor flags no contrato, validar `apps_enabled` na borda e reavaliar ordem dos steps ou requisitos do gate para onboarding.
@@ -127,7 +127,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (explore)
 - **Arquivo**: `app/Http/Livewire/Customers/Create.php:38,188-199`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
-- **Status**: pendente
+- **Status**: corrigido (F28)
 - **Esforço**: P
 **Descrição**: O painel constrói `ProvisionPayload` direto: não herda apps do plano quando o picker está vazio, não valida `apps ⊆ plano` no request e aceita `plan_slug` sem filtro `status=active` (API filtra). Divergência painel vs API.
 **Correção sugerida**: Rotear o painel pela mesma validação da API (`PlanAppResolver` + regras do `ProvisionCustomerRequest`).
@@ -138,7 +138,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (explore)
 - **Arquivo**: `app/Modules/Billing/Services/WhmcsProvisionService.php:54-63`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
-- **Status**: pendente
+- **Status**: corrigido (F28)
 - **Esforço**: P
 **Descrição**: O fluxo de billing não passa por FormRequest nem resolver; webhook mínimo produz os mesmos defaults condenados (`suite_catalog=true`, `image_mode=false`, apps parciais).
 **Correção sugerida**: Reusar a validação central de provision no caminho WHMCS.
@@ -149,7 +149,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (explore)
 - **Arquivo**: `docs/openapi-external.yaml:84-90,1692,1696`, `docs/openapi.yaml`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
-- **Status**: pendente
+- **Status**: corrigido (F28)
 - **Esforço**: P
 **Descrição**: Exemplo `minimal` usa `apps: [files, calendar]` (inválido com suite catalog default); mutual exclusivity `apps`×`full_apps` documentada mas não enforced; a doc não avisa que tenant legado exige suíte me360 para sair de `provisioning_finishing`. Um dev externo seguindo a doc reproduz o incidente.
 **Correção sugerida**: Corrigir exemplos, enforcar exclusividade no request e documentar o contrato de readiness por modo.

@@ -6016,7 +6016,7 @@ Critério de pronto: characterization JobsPollStuckTest + novo teste efeitos cus
 ## Sprint F27 — Sucesso silencioso (parser JSON embutido + validação grupos)
 
 > Categoria: F
-> Status: planejada
+> Status: concluída
 > Gate: summary com `occ_command_failed` detectado; webhook `success` com erro embutido não projeta grupos falsos; saga não avança step em falha parcial; OccPanel avisa em vez de sucesso cego; `user_template_slug` com grupo inexistente → 422 pré-dispatch; Pest + CI verdes.
 > Fonte: **ISSUE-058** · findings **ARQ-B1**, **ARQ-B2**, **ARQ-B3**, **ARQ-A5**
 > review: **comprehensive** (senior+qa — webhook projection + OCC UX + validação API/painel)
@@ -6107,14 +6107,125 @@ Critério de pronto: Pest com summary occ_command_failed → tenant_users sem gr
 
 ---
 
+## Sprint F28 — ProvisioningReadinessContract (fail-fast 422 + OpenAPI)
+
+> Categoria: F
+> Status: planejada
+> Gate: contrato único consumido por gate checker e validador HTTP; payload default `{}` e cenários legado impossíveis → 422 `LEGACY_READINESS_UNSATISFIABLE` nos 5 entry points; `image_mode=true` allow; OpenAPI exemplos válidos; Pest + CI verdes.
+> Fonte: **ISSUE-057** opção A (**ADOPT_A_WITH_B**) · findings **ARQ-A1**, **ARQ-A2**, **ARQ-A3**, **ARQ-A6**, **ARQ-A7**, **ARQ-A8**
+> review: **comprehensive** (senior+qa — contrato de produto + 5 entry points)
+> Gerado via `/rock f28` (2026-07-09). Pós-merge F27 PR #163. **Fora de escopo**: N48/B (suite-catalog me360), N47, `legacy_me360_capable` (defer N48).
+> Pré-execução: Quality Brief (`docs/.briefs/F28.brief.md`) + verifier (`docs/.briefs/F28.verifier.md`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F28.1 — `ProvisioningReadinessContract` (fonte única) + refactor `TenantReadinessGateChecker` | api-rest-patterns | — |
+| [ ] | M | F28.2 — `ProvisioningReadinessValidator` + `ResolvedProvisionContext` + API legacy/v1 | api-rest-patterns | F28.1 |
+| [ ] | P | F28.3 — Livewire Create + WHMCS: mesma validação da API | laravel-livewire | F28.2 |
+| [ ] | M | F28.4 — Onboarding: flags no contrato + validação na borda | laravel-api | F28.2 |
+| [ ] | P | F28.5 — OpenAPI: exemplos válidos + contrato readiness documentado | api-rest-patterns | F28.2 |
+
+### Evidência ISSUE-057
+
+| Campo | Valor |
+|-------|-------|
+| payload | `{}` ou `apps: ["mail"]` com `image_mode=false`, `suite_catalog=true` |
+| resposta atual | 202 → provision → `failed` ~25min |
+| gate legado | exige `mework360_memail` + `me360_theme` + SSO — apps fora do suite catalog |
+| decisão | A: fail-fast 422; ponte operacional = `image_mode=true` (N36.5) |
+
+### Task F28.1 — Contrato compartilhado readiness
+
+**Estado atual**: `TenantReadinessGateChecker` hardcoded `mework360_memail`/`me360_theme`; HTTP não valida vs gate.
+**Estado desejado**: `ProvisioningReadinessContract` define apps/política legado; gate checker delega ao contract; HTTP **não** importa checker SSH.
+**Findings**: ARQ-A1 (foundation)
+**Arquivos**: `app/Modules/Customers/Contracts/ProvisioningReadinessContract.php` (novo), `app/Modules/Integration/Support/TenantReadinessGateChecker.php`, `tests/Unit/Customers/ProvisioningReadinessContractTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ISSUE-057 A — uma fonte de verdade para requisitos de readiness legado.
+
+ANTES: TenantReadinessGateChecker hardcoded isAppEnabled('mework360_memail'/'me360_theme'); HTTP sem validação.
+DEPOIS:
+1. ProvisioningReadinessContract: legacyRequiredAppIds(): list<string>; isSatisfiedByImageMode(): true policy.
+2. TenantReadinessGateChecker::evaluateAppList usa contract->legacyRequiredAppIds() — zero duplicação de nomes.
+3. Contract é classe pura (sem SSH, sem HTTP, sem import de TenantReadinessGateChecker).
+4. Pest unitário: contract retorna apps esperados; gate checker mock continua funcionando.
+
+Proibido: importar TenantReadinessGateChecker em Requests/Controllers/Livewire.
+Critério de pronto: CustomerReadinessTest regressão verde; contract testado isoladamente.
+```
+
+### Task F28.2 — Validador + contexto resolvido + API
+
+**Estado atual**: `ProvisionCustomerRequest` resolve apps via PlanAppResolver mas não cruza com gate; plano vazio → apps=[] aceito.
+**Estado desejado**: `ResolvedProvisionContext` + `ProvisioningReadinessValidator` avaliam payload resolvido; 422 estruturado `LEGACY_READINESS_UNSATISFIABLE`.
+**Findings**: ARQ-A1, ARQ-A2
+**Arquivos**: `app/Modules/Customers/Validation/ProvisioningReadinessValidator.php`, `app/Modules/Customers/Dto/ResolvedProvisionContext.php`, `app/Http/Requests/ProvisionCustomerRequest.php`, `tests/Feature/Customers/ProvisioningReadinessValidationTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-A1/A2 — validar payload RESOLVIDO (defaults+plan+catalog), não JSON cru.
+
+Objetivo:
+1. ResolvedProvisionContext DTO: imageMode, suiteCatalog, fullApps, legacyVendor, resolvedApps, planSlug.
+2. Factory from ProvisionCustomerRequest após PlanAppResolver (mesmos defaults que resolvesImageMode/usesSuiteCatalogMode).
+3. ProvisioningReadinessValidator usa ProvisioningReadinessContract:
+   - imageMode=true → pass
+   - legacy + resolvedApps vazio (plano sem apps) → fail ARQ-A2
+   - legacy + suite_catalog + apps sem suíte me360 → fail LEGACY_READINESS_UNSATISFIABLE
+4. ValidationException com errors estruturados: code, missing_preconditions[], hint image_mode=true
+5. ProvisionCustomerRequest::withValidator chama validator após merge apps.
+6. Pest: {} default legado → 422; image_mode=true → 202 path; plano vazio legado → 422; apps mail only → 422.
+
+Critério de pronto: API legacy + v1 cobertos (ProvisionTenantRequest herda); SSH não chamado em 422.
+```
+
+### Task F28.3 — Livewire + WHMCS
+
+**Estado atual**: Create.php bypassa PlanAppResolver; WhmcsProvisionService defaults condenados.
+**Estado desejado**: mesma resolução + validator antes de dispatch.
+**Findings**: ARQ-A6, ARQ-A7
+**Arquivos**: `app/Http/Livewire/Customers/Create.php`, `app/Modules/Billing/Services/WhmcsProvisionService.php`, `tests/Feature/Livewire/Customers/CreateReadinessTest.php`, `tests/Feature/Billing/WhmcsProvisionReadinessTest.php`
+
+### Task F28.4 — Onboarding border validation
+
+**Estado atual**: sem image_mode/suite_catalog/plan_slug; apps_enabled sem readiness check.
+**Estado desejado**: flags no request; validator na borda antes saga.
+**Findings**: ARQ-A3
+**Arquivos**: `app/Http/Requests/V1/CreateOnboardingRequest.php`, `app/Http/Controllers/Api/V1/OnboardingV1Controller.php`, `app/Modules/Onboarding/Dto/OnboardingSpec.php`, `tests/Feature/Api/V1/OnboardingReadinessTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-A3 — onboarding não expõe flags e valida tarde.
+
+Objetivo:
+1. CreateOnboardingRequest: tenant.image_mode, tenant.suite_catalog, tenant.plan_slug (opcionais, defaults config).
+2. Resolver apps_enabled via PlanAppResolver quando plan_slug presente.
+3. ProvisioningReadinessValidator na borda (FormRequest after ou controller).
+4. OnboardingSpec propaga imageMode/suiteCatalog/planSlug para provision step.
+5. Pest: onboarding legado impossível → 422; image_mode=true → 202.
+
+Nota: enable_apps step permanece pós-readiness; contenção é na borda (decisão A).
+```
+
+### Task F28.5 — OpenAPI readiness contract
+
+**Estado atual**: exemplo minimal condenado; sem doc de readiness.
+**Estado desejado**: exemplos válidos; seção readiness; mutual exclusivity apps×full_apps.
+**Findings**: ARQ-A8
+**Arquivos**: `docs/openapi-external.yaml`, `docs/openapi.yaml`, `tests/Feature/Api/V1/OpenApiReadinessExamplesTest.php` (opcional characterization)
+
+---
+
 ## Roadmap auditoria provisioning — sprints posteriores (stubs)
 
 > Fonte: auditoria arquitetural 2026-07-09 + `/deliberar` Tier 2 (ISSUE-057 → **ADOPT_A_WITH_B**). Ordem: **F26 → F27 → F28 → N47**; **N48** quando upstream pronto.
 
 | Sprint | Escopo | Findings / Issues | Status |
 |--------|--------|-------------------|--------|
-| **F27** | Sucesso silencioso (parser JSON embutido + aviso OCC) | ISSUE-058 · ARQ-B1..B3, A5 | planejada |
-| **F28** | **Opção A** — `ProvisioningReadinessContract` + 422 + OpenAPI | ISSUE-057 A · ARQ-A1..A3, A6..A8 | stub |
+| **F27** | Sucesso silencioso (parser JSON embutido + aviso OCC) | ISSUE-058 · ARQ-B1..B3, A5 | **concluída** (PR #163) |
+| **F28** | **Opção A** — `ProvisioningReadinessContract` + 422 + OpenAPI | ISSUE-057 A · ARQ-A1..A3, A6..A8 | planejada |
 | **N47** | Matriz status × ações + `failure_reason` exposto | ISSUE-061 · ARQ-D1..D3, A4 | stub |
 | **N48** | **Opção B** — suíte me360 no suite-catalog (cross-repo `work-platform-scripts`) | ISSUE-057 B | stub — bloqueada até upstream |
 
@@ -6122,6 +6233,7 @@ Critério de pronto: Pest com summary occ_command_failed → tenant_users sem gr
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-09 | 0.57   | Sprint F28 planejada — ProvisioningReadinessContract fail-fast 422 (ISSUE-057 A, ARQ-A1..A3,A6..A8): 5 tasks (2M+3P); F27 concluída pós-merge PR #163; brief+verifier PASS. | `/rock f28` |
 | 2026-07-09 | 0.56   | Sprint F27 planejada — sucesso silencioso (ISSUE-058, ARQ-B1..B3, ARQ-A5): 5 tasks (3P+2M); F26 concluída pós-merge PR #162; brief+verifier PASS. | `/rock f27` |
 | 2026-07-09 | 0.55   | Sprint F26 planejada — recovery `failed` + poll terminal (ISSUE-059/060, ARQ-C1..C5): 5 tasks (3P+2M); stubs F27/F28/N47/N48; decisão ARQ-C1 timeout sem soft-delete. | `/rock f26 + stubs` |
 | 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |

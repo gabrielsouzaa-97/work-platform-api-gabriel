@@ -404,6 +404,9 @@ final class OnboardingSaga
             fullApps: $spec->fullApps,
             logoPath: $spec->logoPath,
             backgroundPath: $spec->backgroundPath,
+            suiteCatalog: $spec->suiteCatalog,
+            imageMode: $spec->imageMode,
+            planSlug: $spec->planSlug,
         );
     }
 
