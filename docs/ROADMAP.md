@@ -92,9 +92,6 @@
 | F20    | F         | CQ-F19-001/002 LOW (asserções empty-plan + migration `down()` guard) | **concluída** | 2 | Product, Database | PR #145; deploy LAB `2313ea1` | — |
 | F21    | F         | `/docs/api/spec` 200 na imagem Docker; sidebar Planos+Fazendas; smoke pós-deploy documentado | **concluída** | 4 | DevOps, Livewire, docs | ISSUE-052 + ISSUE-053; deploy LAB `95d1152` | — |
 | F22-q  | F         | Contraste dark theme em painéis Product + dropdown custom `x-select-menu` (popup nativo OS-rendered ilegível) | **concluída** | 4 | Livewire, CSS | ISSUE-054; PRs #149/#150/#151/#153; deploy LAB `7492358`; validado pelo operador | — |
-| F23    | F         | TenantGroupProjector aceita `group_create`/`group_delete`; validação OccPanel alinhada à API; poll/reload grupos; sync report + exit code | **concluída** | 5 | Customers, Occ, Jobs/Webhook | CQ-N46-001..008 validados; PR #159 merge `32bd75a` | 5950+ |
-| F24    | F         | DRY regras nome grupo; groups vazio/null no stdin; sync `updated` + poll UX; testes N40/F17 backlog | **concluída** | 7 | Customers, Occ, Product, Integration | CQ-F23/F17/N40 validados; PR #160 merge `5addd2f`; LAB `5addd2f` | 6062+ |
-| F25    | F         | OccPanel poll messaging cross-job + naming polish (`projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute`) | **concluída** | 3 | Customers, Occ, Livewire | INT-F24-001 + CQ-F24-001..003 validados; PR #161 merge `8021124` | 6189+ |
 | N30    | N         | ISSUE-038 Sprint 0: `/api/v1` aliases + DomainError + spec externo | **concluída** | 7 | Core, Auth, Customers, Jobs | PR #115 mergeada; validation R1 APROVADA | 4500+ |
 | N31    | N         | ISSUE-038 Fase 1: PlatformPort mínimo + branding via port | **concluída** | 7 | Integration, Customers | PR #116; validation R1 APROVADA | 4626+ |
 | N32    | N         | ISSUE-038 Fase 2: ondas migração + observabilidade transporte | **concluída** | 8 | Integration, Jobs, Customers, Core | PR #117; validation R2 APROVADA; 6/7 HIGH validados; CQ-N32-003 → N33 | 4682+ |
@@ -109,9 +106,6 @@
 | N41    | N         | Módulo Product fatia 1 — CRUD planos (`plans`+`plan_apps`), `customers.plan_slug` FK, quota default do plano em users:create, scopes `product:*`, API `/plans`, painel admin, seed `default`; CI verde | **concluída** | 6 | Product, Customers, DB, API v1, Livewire | ISSUE-051 fatia 1; PR #138 | — |
 | N42    | N         | Catálogo de apps (`app_catalog_entries` + `app-catalog:sync`); create tenant herda apps do plano; validação apps ⊆ plano ∪ catálogo; picker no painel | **concluída** | 6 | Product, Customers, API v1, Livewire | ISSUE-051 fatia 2; PR #139 | — |
 | N43    | N         | Templates de usuário + PolicyResolver (permissions schema v1, `max_users` → 422 `plan_limit_exceeded`); apps por designação `plan_apps` (F18); `user_template_slug` em API/painel/projeção | **concluída** | 6 | Product, Customers, Occ, API v1 | ISSUE-051 fatia 3; PR #140; validation R1 → F16 | — |
-| N44    | N         | Objectstore S3 no provision via API — bloqueada gate N56 upstream | planejada | 5 | Customers, API v1 | ISSUE-055 | — |
-| N45    | N         | OCC Groups UX Fase 1: UI honesta, confirmações, pickers (ISSUE-056) | **concluída** | 5 | Livewire, Occ | UX merged; validada via F23 | — |
-| N46    | N         | Read model `tenant_groups` + aba Grupos completa (ISSUE-056) | **concluída** | 6 | Customers, Occ, DB | CQ-N46 validados F23; PR #159 | — |
 
 ---
 
@@ -5869,8 +5863,6 @@ Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 
 ---
 
----
-
 ## Sprint N44 — Objectstore S3 no provision via API (ISSUE-055 / ENH-014 Fase B)
 
 > Categoria: N
@@ -5919,356 +5911,124 @@ reuse_targets:
 
 ---
 
-## Sprint N45 — OCC Groups UX Fase 1 (ISSUE-056)
-
-> **Status**: **concluída** (2026-07-08) — UX merged; validação funcional via F23
-> Gate: membership 501 oculto; deletes com confirmação; CSV removido; pickers username/grupos; CI verde.
-
-| Status | Tamanho | Tarefa |
-|--------|---------|--------|
-| [x] | P | N45.1 — Ocultar form membership 501 + banner |
-| [x] | P | N45.2 — Confirmação delete user/group |
-| [x] | M | N45.3 — Pickers username (`x-select-menu`) |
-| [x] | M | N45.4 — Multi-select grupos (interim `tenant_users`) |
-| [x] | P | N45.5 — Polish quota/manutenção/template |
-
----
-
-## Sprint N46 — Read model `tenant_groups` (ISSUE-056)
-
-> **Status**: **concluída** (2026-07-08) — CQ-N46-001..008 validados em F23 (PR #159 merge `32bd75a`)
-> Gate: aba Grupos com projeção local; sync `group:list`; validação existência API+UI; CI verde.
-
-| Status | Tamanho | Tarefa |
-|--------|---------|--------|
-| [x] | P | N46.1 — Migration `tenant_groups` + model |
-| [x] | M | N46.2 — `TenantGroupProjector` + webhook hooks |
-| [x] | M | N46.3 — `tenant-groups:sync` command |
-| [x] | M | N46.4 — OccPanel aba Grupos completa |
-| [x] | P | N46.5 — Validação `CreateUserRequest` + OccPanel |
-| [x] | P | N46.6 — Docs DATABASE.md + db-schema.dbml |
-
----
-
-## Sprint F23 — Fix CQ-N46 projector job_type + OCC groups validation
+## Sprint F26 — Recovery do `failed` + poll terminal
 
 > Categoria: F
-> Status: **concluída** (2026-07-08) — PR #159 merge `32bd75a`
-> Gate executável: `TenantGroupProjector` aceita `group_create`/`group_delete` (e aliases `groups:*`); Pest `WebhookTenantGroupProjectionTest` usa job_types reais e passa; validação OccPanel alinhada à API (case-insensitive + regex + bloqueio `admin`); poll/reload pós create/delete de grupo; sync report `updated` + exit code FAILURE em falha parcial; CI verde.
-> review: senior+qa
-> Gerado via `/pmo plan` em 2026-07-08. Fonte: `/qa validar` N45+N46 R1 **REPROVADA** — findings `CQ-N46-001`..`CQ-N46-008` em `docs/FINDINGS.md`.
-> Pré-execução: Quality Brief (`docs/.briefs/F23.brief.md`) + verifier via pipeline `/pmo sprint F23`.
+> Status: planejada
+> Gate: customer `failed` por readiness timeout pode ser removido no painel; após deprovision `success` o slug fica livre para re-provision (soft-delete); `jobs:poll-stuck` em job terminal dispara a mesma pipeline do `WebhookHandler` (status + probe + projectors); saga de onboarding correlacionada termina `Failed` com motivo; `customers:promote` (artisan) com audit; Pest + CI verdes.
+> Fonte: **ISSUE-059** + **ISSUE-060** · findings **ARQ-C1**, **ARQ-C2**, **ARQ-C3**, **ARQ-C4**, **ARQ-C5**
+> review: **comprehensive** (senior+qa — lifecycle customer + webhook/poll parity + onboarding saga)
+> Gerado via `/rock f26 + stubs` (2026-07-09). Decisão produto **ARQ-C1**: **NÃO** soft-delete no timeout (infra órfã sem handle); manter `status=failed` + expor Remover no painel; soft-delete **somente** em `deprovision` success.
+> Pré-execução: Quality Brief (`docs/.briefs/F26.brief.md`) + verifier (`docs/.briefs/F26.verifier.md`).
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [x] | M | F23.1 — CQ-N46-001+002: projector aceita `group_create`/`group_delete` + fixtures Pest com job_types reais | api-rest-patterns / laravel-testing | — |
-| [x] | P | F23.2 — CQ-N46-003: OccPanel membership case-insensitive (paridade `TenantGroupMembership`) | laravel-livewire | — |
-| [x] | P | F23.3 — CQ-N46-004+005: regex API + bloqueio nome reservado `admin` em CreateGroupRequest e OccPanel | api-rest-patterns / laravel-livewire | — |
-| [x] | M | F23.4 — CQ-N46-006: poll/reload grupos após create/delete no painel | laravel-livewire | F23.1 |
-| [x] | P | F23.5 — CQ-N46-007+008: `TenantGroupSyncReport.updated` + exit FAILURE em falhas parciais | laravel-testing | — |
+| [ ] | P | F26.1 — Painel: botão Remover para `failed` (+ `provisioning_finishing`) | laravel-livewire | — |
+| [ ] | M | F26.2 — Soft-delete no `deprovision` success → libera slug; testes retry pós-cleanup | api-rest-patterns | F26.1 |
+| [ ] | P | F26.3 — Timeout readiness terminaliza onboarding correlacionado (`Failed` + motivo) | laravel-api | — |
+| [ ] | M | F26.4 — `jobs:poll-stuck` roteia resultado terminal pela pipeline do WebhookHandler (idempotente) | api-rest-patterns | — |
+| [ ] | P | F26.5 — Artisan `customers:promote {slug}` (`provisioning_finishing`→`active`) + AuditLog | laravel-api | — |
 
-### Quality Brief (Sprint F23)
+### Ajuste produto ARQ-C1 (timeout vs cleanup)
 
-- **Resultado**: APROVADA (`PASS_WITH_NOTES`) — validation R1 pós-fix
-- **PR**: [#159](https://github.com/SoftwareBeesy/work-platform-api/pull/159) merge `32bd75a` em `main`
-- **Findings-alvo**: `CQ-N46-001`..`CQ-N46-008` — **8/8 validados**
-- **Novos non-blocking**: `CQ-F23-001` MEDIUM (DRY regras nome grupo), `CQ-F23-002`/`CQ-F23-003` LOW (métrica sync mista; clobber mensagem poll concorrente)
-- **Testes**: Pest F23 suites **103 passed**; CI required checks verde (Pest, Lint, Security, OpenAPI, Docker, coverage, security-review); job `assign` falhou (non-blocking, padrão pré-existente)
-- **Brief**: `docs/.briefs/F23.brief.md`
+| Caminho | Comportamento |
+|---------|---------------|
+| Readiness timeout | `status=failed` **sem** soft-delete (infra pode existir upstream) |
+| Painel | Botão **Remover** visível para `failed` e `provisioning_finishing` |
+| Deprovision success | `status=removed` + **soft-delete** → slug liberado (`whereNull(deleted_at)` na unique rule) |
+| Retry | Operador remove tenant falho → deprovision → re-provision com mesmo slug |
 
-<details>
-<summary>F23.1 — Projector job_type + Pest fixtures (CQ-N46-001 / CQ-N46-002)</summary>
+### Task F26.1 — Botão Remover para estados terminais/intermediários
 
-**Fonte(s)**: `docs/FINDINGS.md` CQ-N46-001 (HIGH), CQ-N46-002 (MEDIUM); padrão `TenantUserProjector`.
+**Estado atual**: `show.blade.php:46` só exibe Remover para `active|provisioning`; `RemoveCustomerAction` já aceita `failed|provisioning_finishing` via API.
+**Estado desejado**: operador vê Remover para `failed` e `provisioning_finishing`; Pest confirma botão/modal para esses status.
+**Findings**: ARQ-C2
+**Arquivos**: `resources/views/livewire/customers/show.blade.php`, `tests/Feature/Livewire/Customers/CustomerShowTest.php`
 
-**Estado atual**: `TenantGroupProjector` só trata `groups:create`/`groups:delete`, mas `LifecycleAsyncAction` persiste `group_create`/`group_delete` via `JobTypeTranslator::cmdToJobType()`. Webhook terminal não projeta `tenant_groups`. Fixtures Pest injetam `groups:*` → falso verde.
+### Task F26.2 — Soft-delete após deprovision success
 
-**Estado desejado**: projector espelha `TenantUserProjector` com listas dual (`group_create`+`groups:create`, `group_delete`+`groups:delete`); testes usam job_types persistidos reais e cobrem o caminho Lifecycle → webhook → row.
+**Estado atual**: `WebhookHandler.php:187-198` — deprovision success seta `status=removed` mas **não** soft-delete; provision failed/cancelled soft-delete (F11/ISSUE-018). Teste em `WebhookHandlerTest.php:313` documenta que deprovision NÃO soft-delete.
+**Estado desejado**: deprovision success → `status=removed` + `Customer::delete()` (soft-delete); slug reutilizável após cleanup; Pest cobre retry pós-deprovision.
+**Findings**: ARQ-C1 (CRITICAL)
+**Arquivos**: `app/Modules/Jobs/Services/WebhookHandler.php`, `tests/Feature/Jobs/WebhookHandlerTest.php`, `tests/Feature/Customers/ProvisionTest.php` (retry slug)
 
-**Módulo(s) afetado(s)**: `app/Modules/Customers/Services/TenantGroupProjector.php`, `tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php`
-
-**Task size**: M (≤5 files)
-
-**executor_prompt**:
+**executor_prompt (M)**:
 ```
-Context: N46 TenantGroupProjector never projects after real webhooks because job_type mismatch.
-BEFORE:
-- GROUP_CREATE_TYPES = ['groups:create']; GROUP_DELETE_TYPES = ['groups:delete']
-- WebhookTenantGroupProjectionTest fixtures set job_type to groups:create / groups:delete
-- Real jobs persist group_create / group_delete (JobTypeTranslator)
+Contexto: ARQ-C1 — slug bloqueado após readiness timeout porque customer fica `failed` sem soft-delete
+e sem UI de cleanup. Decisão produto: NÃO soft-delete no timeout; liberar slug via deprovision success.
 
-AFTER:
-1. TenantGroupProjector: GROUP_CREATE_TYPES = ['group_create', 'groups:create'];
-   GROUP_DELETE_TYPES = ['group_delete', 'groups:delete'] — mirror TenantUserProjector
-2. Update WebhookTenantGroupProjectionTest fixtures to use group_create / group_delete
-3. Keep alias coverage optional (one test may still assert groups:create still works)
-4. Prefer an integrated path: LifecycleAsyncAction (or equivalent) → terminal webhook → assert tenant_groups row
-5. Pest green for WebhookTenantGroupProjectionTest; no production behavior change beyond matching
+ANTES: deprovision success → status=removed, registro permanece (deleted_at null) → unique slug bloqueia retry.
+DEPOIS: deprovision success → status=removed + soft-delete (mesmo padrão provision failed F11).
 
-Acceptance:
-- Terminal success webhook with job_type=group_create upserts tenant_groups
-- Terminal success webhook with job_type=group_delete removes tenant_groups row
-- Fixtures no longer use only groups:* as the primary path
-- CI Pest filter for this suite passes
+Objetivo:
+1. WebhookHandler branch deprovision+success: após update status=removed, chamar delete() no Customer.
+2. Manter provision failed/cancelled soft-delete intacto (regressão F11).
+3. NÃO alterar ProbeCustomerReadinessJob::markTimedOut — continua só status=failed.
+4. Atualizar WebhookHandlerTest linha ~313: deprovision success DEVE soft-delete.
+5. Novo teste: customer failed → deprovision success → slug disponível para novo provision (422 ausente).
 
-Test scenarios:
-1. Happy path create: job group_create + success → row exists
-2. Happy path delete: job group_delete + success → row gone
-3. Edge: groups:create alias still projects (compat)
-4. Edge: non-success canonical state → no projection
-5. Regression: unrelated job_type → no tenant_groups mutation
+Critério de pronto: Pest verde; provision retry com mesmo slug após deprovision; zero soft-delete em readiness timeout.
 ```
-</details>
 
-<details>
-<summary>F23.4 — Poll/reload groups after create/delete (CQ-N46-006)</summary>
+### Task F26.3 — Saga onboarding em falha de readiness
 
-**Fonte(s)**: `docs/FINDINGS.md` CQ-N46-006 (MEDIUM); assimetria com fluxo users (`pollPendingUserJob` / `loadUsers`).
+**Estado atual**: `ProbeCustomerReadinessJob::markTimedOut` seta customer `failed` + audit `customer_readiness_timeout` mas onboarding em `WaitReadiness` fica `Running`.
+**Estado desejado**: timeout marca onboarding correlacionado `Failed` com step `wait_readiness` reason `customer_readiness_timeout`.
+**Findings**: ARQ-C5
+**Arquivos**: `app/Jobs/ProbeCustomerReadinessJob.php`, `app/Modules/Onboarding/Saga/OnboardingSaga.php`, `tests/Unit/Onboarding/OnboardingReadinessGateTest.php` ou `tests/Feature/Api/V1/OnboardingSagaTest.php`
 
-**Estado atual**: `createGroup`/`deleteGroup` enfileiram job e mostram mensagem, mas não fazem poll terminal nem `loadGroups()` — lista fica stale até sync/manual refresh. Depende do projector (F23.1) para o poll refletir projeção.
+### Task F26.4 — Poll-stuck → pipeline WebhookHandler
 
-**Estado desejado**: após create/delete de grupo, painel faz poll do job até estado terminal (ou timeout) e chama `loadGroups()` no success — paridade com users.
+**Estado atual**: `JobsPollStuckCommand.php:56-61` só atualiza job state/exit_code; sem transição customer, probe, projectors, onboarding.
+**Estado desejado**: quando poll retorna estado terminal, invocar mesma pipeline idempotente do `WebhookHandler` (synthetic `job.finished` ou método extraído).
+**Findings**: ARQ-C3 (HIGH)
+**Arquivos**: `app/Console/Commands/JobsPollStuckCommand.php`, `app/Modules/Jobs/Services/WebhookHandler.php`, `tests/Feature/Console/JobsPollStuckTest.php`
 
-**Módulo(s) afetado(s)**: `app/Http/Livewire/Customers/OccPanel.php`, `resources/views/livewire/customers/occ-panel.blade.php` (+ Pest OccPanel se existir cobertura)
-
-**Task size**: M (≤5 files)
-
-**executor_prompt**:
+**executor_prompt (M)**:
 ```
-Context: After F23.1, group create/delete still leave OccPanel groups list stale.
-BEFORE:
-- createGroup/deleteGroup set successMessage and clear input; no pending job poll; no loadGroups()
-- Users flow already has pollPendingUserJob + reload on terminal success
+Contexto: ARQ-C3 — webhook perdido deixa job terminal via poll mas customer preso em provisioning.
 
-AFTER:
-1. Track pending group job id (create and/or delete) similar to pendingUserCreateJobId
-2. Add pollPendingGroupJob (or reuse shared poll helper) watching JOB_TERMINAL_STATES
-3. On terminal success: loadGroups(); clear pending id; keep success/error messaging consistent with users
-4. Wire wire:poll (or existing Alpine/Livewire poll) in occ-panel.blade.php for groups tab
-5. Pest: assert reload/poll path after mocked terminal job if suite supports Livewire testing
+ANTES: JobsPollStuckCommand atualiza job.state/finished_at/exit_code direto; sem efeitos colaterais.
+DEPOIS: estado terminal do poll roteia pela pipeline do WebhookHandler (customer status, ProbeCustomerReadinessJob,
+tenant projectors, onboarding saga) — idempotente se webhook chegar depois.
 
-Acceptance:
-- After successful group_create projection, groups list shows new group without manual sync
-- After successful group_delete projection, group disappears from list
-- Timeout path does not leave UI stuck polling forever
-- Depends on F23.1 — do not ship without projector fix
+Objetivo:
+1. Após poll retornar canonical ∈ {success, failed, cancelled}, chamar WebhookHandler com payload synthetic
+   job.finished (state upstream → canonical via StateTranslator já usado).
+2. Preservar AuditLog job_polled existente + audit webhook_received (ou flag from_polling no payload).
+3. Idempotência: segundo poll/webhook não duplica transições (WebhookHandler já guarda terminal).
+4. Pest: stuck provision job → poll success → customer provisioning_finishing + probe dispatched;
+   stuck job já terminal → poll no-op.
 
-Test scenarios:
-1. Happy path create → poll success → loadGroups includes name
-2. Happy path delete → poll success → loadGroups excludes name
-3. Edge: job still pending → poll no-op, list unchanged
-4. Edge: poll timeout → clear pending + user-visible message
-5. Regression: users poll path unchanged
+Proibido: duplicar lógica de transição customer fora do WebhookHandler.
+Critério de pronto: characterization JobsPollStuckTest + novo teste efeitos customer/probe; CI verde.
 ```
-</details>
+
+### Task F26.5 — Comando `customers:promote`
+
+**Estado atual**: sem escape manual para tenant em `provisioning_finishing` quando readiness gate desatualizado (ARQ-C4).
+**Estado desejado**: `php artisan customers:promote {slug}` promove `provisioning_finishing`→`active` com AuditLog; rejeita outros status; **não** confundir com `TenantResumeAction` (billing WHMCS suspend/resume).
+**Findings**: ARQ-C4
+**Arquivos**: `app/Console/Commands/CustomersPromoteCommand.php` (novo), `tests/Feature/Console/CustomersPromoteCommandTest.php`
 
 ---
 
-## Sprint F24 — OCC groups polish + F17/N40 backlog
+## Roadmap auditoria provisioning — sprints posteriores (stubs)
 
-> Categoria: F
-> Status: **concluída** (2026-07-08) — PR [#160](https://github.com/SoftwareBeesy/work-platform-api/pull/160) merge `5addd2f`; deploy LAB `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br`
-> Gate executável: `TenantGroupNameRules` única fonte em API+OccPanel; `UserCreateStdinPayload` emite `groups: []` sem override nos call sites; API `groups: null` herda template; `TenantGroupSyncReport.updated` conta todos os refreshes; poll de grupo não sobrescreve mensagem quando create+delete terminam no mesmo tick; `deleteUser` recarrega lista pós-success; Pest dedicado `SuiteCatalogPathResolver` + out-of-order webhook + poll integrado webhook→projector; CI verde.
-> review: senior+qa
-> Gerado via `/pmo plan` em 2026-07-08. Fonte: Escopo A Rock — findings `CQ-F23-001`..`003`, `CQ-F17-001`..`004`, `CQ-N40-003`/`QA-N40-003`/`QA-N40-004` em `docs/FINDINGS.md`.
-> Pré-execução: Quality Brief (`docs/.briefs/F24.brief.md`) + verifier via pipeline `/pmo sprint F24`. Pós-sprint: deploy LAB.
+> Fonte: auditoria arquitetural 2026-07-09 + `/deliberar` Tier 2 (ISSUE-057 → **ADOPT_A_WITH_B**). Ordem: **F26 → F27 → F28 → N47**; **N48** quando upstream pronto.
 
-| Status | Tamanho | Tarefa | Skill/Command | Depende de |
-|--------|---------|--------|---------------|------------|
-| [x] | M | F24.1 — CQ-F23-001: extrair `TenantGroupNameRules` compartilhado (API + OccPanel) | api-rest-patterns / laravel-livewire | — |
-| [x] | P | F24.2 — CQ-F23-002: sync `updated` sempre conta refreshes (cenário misto insert+backfill) | laravel-testing | — |
-| [x] | P | F24.3 — CQ-F23-003: corrigir clobber de mensagem no poll concorrente create+delete | laravel-livewire | — |
-| [x] | M | F24.4 — CQ-F17-001+002+003: `groups: []` no `UserCreateStdinPayload` + `groups: null` herda template + Pest OccPanel | api-rest-patterns / laravel-livewire | — |
-| [x] | P | F24.5 — CQ-F17-004: unit tests dedicados `SuiteCatalogPathResolver` | laravel-testing | — |
-| [x] | P | F24.6 — CQ-N40-003: `deleteUser` recarrega lista de usuários após success | laravel-livewire | — |
-| [x] | P | F24.7 — QA-N40-003+004: testes webhook out-of-order + poll integrado webhook→projector | laravel-testing | — |
-
-### Quality Brief (Sprint F24)
-
-- **Resultado**: APROVADA — validation R1 pós-fix
-- **PR**: [#160](https://github.com/SoftwareBeesy/work-platform-api/pull/160) merge `5addd2f` em `main`
-- **Deploy LAB**: SHA `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br` (`.110`); migration `2026_07_08_000002_create_tenant_groups_table` Ran [7]; smoke `/up`+`/login` 200
-- **Findings-alvo**: `CQ-F23-001`..`003`, `CQ-F17-001`..`004`, `CQ-N40-003`, `QA-N40-003`/`QA-N40-004` — **9/9 validados**
-- **Novos non-blocking**: `CQ-F24-001`..`003` LOW + `INT-F24-001` LOW (poll messaging cross-job)
-- **Testes**: CI PR #160 verde (Pest, Lint, Security, OpenAPI, Docker production, coverage, security-review); validation-stamp + auditor-senior APROVADA
-- **Brief**: `docs/.briefs/F24.brief.md`
-- **Verifier**: `docs/.briefs/F24.verifier.md`
-- **Tasks**: 7 (2M + 5P)
-
-<details>
-<summary>F24.1 — Shared TenantGroupNameRules (CQ-F23-001)</summary>
-
-**Fonte(s)**: `docs/FINDINGS.md` CQ-F23-001 (MEDIUM); duplicação pós-F23.3.
-
-**Estado atual**: `OccPanel::groupNameRules()` duplica regex `^[a-zA-Z0-9._\- ]+$`, max length e closure de nome reservado `admin` já presentes em `CreateGroupRequest`. Comportamento correto hoje, mas duas fontes podem divergir em mudanças futuras.
-
-**Estado desejado**: classe/trait único `TenantGroupNameRules::forAttribute('name'|'groupName')` consumido por `CreateGroupRequest` e `OccPanel`; zero duplicação de regras.
-
-**Módulo(s) afetado(s)**: novo `app/Modules/Customers/Support/TenantGroupNameRules.php`, `CreateGroupRequest.php`, `OccPanel.php` (+ Pest se regressão)
-
-**Task size**: M (≤5 files)
-
-**executor_prompt**:
-```
-Context: F23 fixed group name validation in API and OccPanel separately; CQ-F23-001 flags DRY violation.
-BEFORE:
-- CreateGroupRequest rules(): regex, max:256, reserved admin closure inline
-- OccPanel::groupNameRules() duplicates same regex, max, admin check
-- Two sources can drift on future rule changes
-
-AFTER:
-1. Create TenantGroupNameRules (Support) with static forAttribute(string $attribute): array
-2. CreateGroupRequest uses TenantGroupNameRules::forAttribute('name')
-3. OccPanel::groupNameRules() delegates to TenantGroupNameRules::forAttribute('groupName')
-4. Preserve case-insensitive admin block and regex exactly as today
-5. Pest: existing CreateGroup/OccPanel group validation tests still pass (add focused test if none)
-
-Acceptance:
-- Single source of truth for group name validation rules
-- API and Livewire reject invalid names and reserved admin identically
-- No behavior change beyond consolidation
-- ≤5 files touched
-
-Test scenarios:
-1. Happy path: valid group name passes API + OccPanel
-2. Edge: reserved admin (case variants) rejected both paths
-3. Edge: invalid chars rejected both paths
-4. Regression: membership/group flows unchanged
-```
-</details>
-
-<details>
-<summary>F24.4 — Empty groups stdin + null inherits template (CQ-F17-001 / CQ-F17-002 / CQ-F17-003)</summary>
-
-**Fonte(s)**: `docs/FINDINGS.md` CQ-F17-001 (MEDIUM), CQ-F17-002 (MEDIUM), CQ-F17-003 (LOW); gaps pós-F17.
-
-**Estado atual**: emissão de `groups: []` depende de override pós-`build()` em controller e OccPanel; `UserCreateStdinPayload::build()` omite groups vazio via `if ($groups !== [])`. API trata `groups: null` como `[]` explícito (`$request->has` + cast). OccPanel sem teste de override vazio.
-
-**Estado desejado**: `UserCreateStdinPayload` emite `groups: []` nativamente (tri-state `?array` + flag ou helper `withGroups`); call sites removem overrides duplicados; API distingue omitido/null (herda template) de `[]` explícito; Pest OccPanel cobre template+groups vazio.
-
-**Módulo(s) afetado(s)**: `UserCreateStdinPayload.php`, `CustomerLifecycleController.php`, `OccPanel.php`, `UserCreateTemplateResolver.php` (se necessário), `OccPanelUserTemplateTest.php`, `LifecycleTest.php` ou equivalente API
-
-**Task size**: M (≤5 files)
-
-**executor_prompt**:
-```
-Context: F17 delivered groups override but left fragile call-site overrides and API null semantics.
-BEFORE:
-- UserCreateStdinPayload::build() skips empty groups array (if $groups !== [])
-- CustomerLifecycleController + OccPanel post-build override to force groups: []
-- CustomerLifecycleController: groups:null coerced to [] via has()+cast
-- API has empty-groups test; OccPanel lacks empty override test
-
-AFTER:
-1. UserCreateStdinPayload: tri-state groups (?array) — null=omit/inherit upstream, []=emit "groups": []
-   Use emitEmptyGroups flag or withGroups() helper; remove post-build overrides at call sites
-2. CustomerLifecycleController resolve groups:
-   $request->exists('groups') && is_array($request->input('groups')) ? $request->array('groups') : null
-3. OccPanel createUser path uses payload builder without manual override hack
-4. Pest OccPanelUserTemplateTest: template with groups + userGroups parsing to [] (e.g. ',')
-   asserts stdin contains "groups": []
-5. API test: groups:null inherits template groups; groups:[] clears template
-
-Acceptance:
-- New entry point using UserCreateTemplateResolver cannot silently skip empty groups emission
-- groups:null ≠ groups:[] in API contract
-- OccPanel parity with API for empty override
-- Existing non-empty override tests still pass
-- ≤5 files (split follow-up if needed)
-
-Test scenarios:
-1. API: template groups ['a'] + body groups:null → upstream gets template groups
-2. API: template groups ['a'] + body groups:[] → upstream gets groups:[]
-3. OccPanel: same empty override via UI fields → stdin groups:[]
-4. Regression: non-empty explicit groups still override template
-5. Regression: omit groups key entirely still inherits template
-```
-</details>
-
----
-
-## Sprint F25 — OccPanel poll messaging + naming polish
-
-> Categoria: F
-> Status: **concluída** (2026-07-09) — PR [#161](https://github.com/SoftwareBeesy/work-platform-api/pull/161) merge `8021124`; sem deploy LAB (polish sprint)
-> Gate executável: `projectUserJobIntoReadModel` nome neutro (create+delete); `TenantGroupNameRules::forAttribute` usa `$attribute` em regras/mensagens; poll OccPanel preserva mensagens entre jobs de grupo (dual-success) e entre grupo+usuário no mesmo tick; Pest cobre INT-F24-001 e CQ-F24-003; CI verde.
-> review: senior+qa
-> Gerado via `/pmo plan` em 2026-07-09. Fonte: `/rock resolve` — 4 findings LOW pós-F24 (`INT-F24-001`, `CQ-F24-001`..`003`) em `docs/FINDINGS.md`.
-> Pré-execução: Quality Brief (`docs/.briefs/F25.brief.md`) + verifier via pipeline `/pmo sprint F25`. Pós-sprint: closeout docs-only (deploy LAB opcional).
-
-| Status | Tamanho | Tarefa | Skill/Command | Depende de |
-|--------|---------|--------|---------------|------------|
-| [x] | P | F25.1 — CQ-F24-001: renomear `projectUserCreateIntoReadModel` → `projectUserJobIntoReadModel` | laravel-livewire | — |
-| [x] | P | F25.2 — CQ-F24-002: usar `$attribute` em `TenantGroupNameRules::forAttribute` (regras/mensagens) | api-rest-patterns | — |
-| [x] | M | F25.3 — INT-F24-001 + CQ-F24-003: acumular/preservar mensagens poll grupo+usuário e dual-success grupo | laravel-livewire | — |
-
-### Quality Brief (Sprint F25)
-
-- **Resultado**: APROVADA — validation R1 pós-merge
-- **PR**: [#161](https://github.com/SoftwareBeesy/work-platform-api/pull/161) merge `8021124` em `main`
-- **Deploy LAB**: não requerido (polish sprint; opcional para smoke manual)
-- **Brief**: `docs/.briefs/F25.brief.md`
-- **Verifier**: `docs/.briefs/F25.verifier.md` (PASS)
-- **Findings-alvo validados**: `INT-F24-001`, `CQ-F24-001`..`003` — **4/4 LOW**
-- **Testes**: CI PR #161 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review); local 14 filter + 50 OccPanelTest passed
-- **Tasks**: 3 (1M + 2P)
-
-<details>
-<summary>F25.3 — Cross-job poll messaging (INT-F24-001 / CQ-F24-003)</summary>
-
-**Fonte(s)**: `docs/FINDINGS.md` INT-F24-001 (LOW), CQ-F24-003 (LOW); gaps pós-F24.3 `preserveMessages`.
-
-**Estado atual**: `pollPendingUserJob()` chama `pollPendingGroupJob()` e depois handlers de usuário que fazem `clearMessages()` incondicionalmente — mensagem de grupo pode sumir no mesmo tick. Com `preserveMessages`, dual success create+delete de grupo no mesmo tick ainda sobrescreve `successMessage` (teste existente cobre success+error, não dual-success).
-
-**Estado desejado**: mensagens de feedback acumuladas ou preservadas quando múltiplos jobs terminam no mesmo tick (grupo+grupo, grupo+usuário); sem regressão no cenário success+error já coberto por CQ-F23-003.
-
-**Módulo(s) afetado(s)**: `OccPanel.php`, `OccPanelTest.php` (+ `occ-panel.blade.php` somente se necessário)
-
-**Task size**: M (≤5 files)
-
-**executor_prompt**:
-```
-Context: F24 added preserveMessages for group create+delete but left cross-job clobber (user poll wipes group) and dual-success overwrite (CQ-F24-003).
-BEFORE:
-- pollPendingUserJob() → pollPendingGroupJob() then user handlers
-- handleUserCreateJobTerminal / handleUserDeleteJobTerminal call clearMessages() unconditionally
-- pollSingleGroupJob with preserveMessages skips clear but assigns successMessage = $successText (overwrites prior success)
-- OccPanelTest CQ-F23-003 asserts success+error preserved; no dual-success or cross-job test
-
-AFTER:
-1. Introduce message accumulation helper (e.g. appendSuccess/appendError or merge terminal messages) used by pollSingleGroupJob and user terminal handlers
-2. pollPendingUserJob: when group poll produced messages this tick, user handlers must not clear them — extend preserveMessages pattern or pass tick-scoped flag
-3. Dual group success same tick: both success texts visible (concat with separator or stacked messages property — keep UX simple, pt-BR strings)
-4. Do NOT regress CQ-F23-003 success+error same tick
-5. Pest: test pollPendingUserJob preserves group message when user job terminals same tick (INT-F24-001)
-6. Pest: test pollPendingGroupJob dual-success same tick shows both messages (CQ-F24-003)
-
-Acceptance:
-- Group terminal message survives when user job terminals in same pollPendingUserJob tick
-- Dual group success in same tick shows both success messages (not last-wins)
-- Existing CQ-F23-003 test still passes
-- ≤5 files touched
-
-Test scenarios:
-1. Group create success + user create success same tick → both messages visible
-2. Group create success + group delete success same tick → both success texts visible
-3. Regression: group create success + group delete failed same tick → success + error preserved
-4. Regression: single job terminal still clears appropriately when alone
-5. Timeout paths unchanged
-```
-</details>
+| Sprint | Escopo | Findings / Issues | Status |
+|--------|--------|-------------------|--------|
+| **F27** | Sucesso silencioso (parser JSON embutido + aviso OCC) | ISSUE-058 · ARQ-B1..B3, A5 | stub |
+| **F28** | **Opção A** — `ProvisioningReadinessContract` + 422 + OpenAPI | ISSUE-057 A · ARQ-A1..A3, A6..A8 | stub |
+| **N47** | Matriz status × ações + `failure_reason` exposto | ISSUE-061 · ARQ-D1..D3, A4 | stub |
+| **N48** | **Opção B** — suíte me360 no suite-catalog (cross-repo `work-platform-scripts`) | ISSUE-057 B | stub — bloqueada até upstream |
 
 ---
 
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| 2026-07-09 | 0.61   | Sprint F25 concluída — INT-F24-001 + CQ-F24-001..003 validados; PR #161 merge `8021124`; sem deploy LAB | sprint-finalizer |
-| 2026-07-09 | 0.60   | Sprint F25 planejada — INT-F24-001 + CQ-F24-001..003 (OccPanel poll messaging + naming polish) pós `/rock resolve` | `/pmo plan` |
-| 2026-07-08 | 0.59   | Sprint F24 concluída — CQ-F23/F17/N40 validados; PR #160 merge `5addd2f`; deploy LAB `5addd2f` | sprint-finalizer |
-| 2026-07-08 | 0.58   | Sprint F24 planejada — CQ-F23-001..003 + CQ-F17-001..004 + N40 LOW backlog (Escopo A Rock); N45/N46 índice → concluída | `/pmo plan` |
-| 2026-07-08 | 0.57   | Sprint F23 concluída — CQ-N46-001..008 validados; PR #159 merge `32bd75a`; 3 follow-ups non-blocking CQ-F23 | sprint-finalizer |
-| 2026-07-08 | 0.56   | Sprint F23 planejada — CQ-N46-001..008 pós REPROVADA N45+N46 | `/pmo plan` |
-| 2026-07-08 | 0.55   | Sprints N45+N46 implementadas — ISSUE-056 UX OCC Grupos (DESIGN.md §9); aguarda VERIFY CI. | `/rock` |
+| 2026-07-09 | 0.55   | Sprint F26 planejada — recovery `failed` + poll terminal (ISSUE-059/060, ARQ-C1..C5): 5 tasks (3P+2M); stubs F27/F28/N47/N48; decisão ARQ-C1 timeout sem soft-delete. | `/rock f26 + stubs` |
 | 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |
 | 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |
 | 2026-07-08 | 0.52   | Sprint F22-q concluída — ISSUE-054 contraste dark theme Planos; deploy LAB `308fec4`. Sprint F21 marcada concluída (`95d1152`). | `/rock` |
