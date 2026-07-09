@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T05:56:39Z",
+  "ultimo_update": "2026-07-09T06:16:27Z",
   "next_sprint_planned": "N47",
   "modulos": [
     "Core",
@@ -314,12 +314,52 @@
   },
   "sprint_tasks": [
     {
-      "id": "F27.1",
+      "id": "N47.1",
+      "status": "in_progress",
+      "size": "M",
+      "title": "CustomerLifecycleAction + CustomerLifecycleMatrix (fonte única)",
+      "file": "app/Modules/Customers/Support/CustomerLifecycleMatrix.php"
+    },
+    {
+      "id": "N47.2",
       "status": "pending",
       "size": "M",
-      "title": "JobSummaryParser: envelopes JSON occ_command_failed + effectiveTerminalState",
-      "file": "app/Modules/Jobs/Support/JobSummaryParser.php"
+      "title": "Migration failure_reason + persistência WebhookHandler/Probe",
+      "file": "database/migrations/2026_07_09_000001_add_failure_reason_to_customers_table.php",
+      "depends": []
     },
+    {
+      "id": "N47.3",
+      "status": "pending",
+      "size": "P",
+      "title": "LifecycleAsyncAction + Show blade via matriz",
+      "file": "app/Modules/Customers/Actions/LifecycleAsyncAction.php",
+      "depends": [
+        "N47.1"
+      ]
+    },
+    {
+      "id": "N47.4",
+      "status": "pending",
+      "size": "P",
+      "title": "CustomerResource + OpenAPI + painel failure_reason",
+      "file": "app/Http/Resources/CustomerResource.php",
+      "depends": [
+        "N47.2"
+      ]
+    },
+    {
+      "id": "N47.5",
+      "status": "pending",
+      "size": "P",
+      "title": "OccPanel mount gate via matriz",
+      "file": "app/Http/Livewire/Customers/OccPanel.php",
+      "depends": [
+        "N47.1"
+      ]
+    }
+  ],
+  "sprint_tasks_f27_archived": [
     {
       "id": "F27.2",
       "status": "pending",
