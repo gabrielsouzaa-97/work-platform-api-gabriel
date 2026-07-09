@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "F28 VERIFY green — merge pending",
-  "sprint_atual": "F28",
-  "previous_sprint": "F27",
-  "sprint_branch": "campanha/fix-f28-readiness-contract",
+  "fase_nome": "F28 merged — next N47",
+  "sprint_atual": null,
+  "previous_sprint": "F28",
+  "sprint_branch": null,
   "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T05:51:37Z",
+  "ultimo_update": "2026-07-09T05:56:39Z",
   "next_sprint_planned": "N47",
   "modulos": [
     "Core",
@@ -79,9 +79,9 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/git merge F28",
     "/rock n47",
-    "/rock n48"
+    "/rock n48",
+    "deploy LAB"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -224,12 +224,12 @@
     "messages_lost": 298
   },
   "compact_count": 11,
-  "sprint_pr": 164,
+  "sprint_pr": null,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "F28.5"
+    "last_completed_task": "F28"
   },
   "checkpoint_f26_archived": {
     "phase": "done",
