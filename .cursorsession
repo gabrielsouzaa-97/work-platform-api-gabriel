@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T03:50:00Z",
+  "ultimo_update": "2026-07-09T04:26:43Z",
   "next_sprint_planned": "F27",
   "modulos": [
     "Core",
@@ -236,27 +236,13 @@
     "started_at": "2026-07-09T03:50:00Z",
     "validation_gate": {
       "produced_by": "validation-stamp.py",
-      "result": "BLOQUEADA_ARVORE_SUJA",
-      "validation_mode": "blocked",
+      "result": "APROVADA",
+      "validation_mode": "full",
       "gates": [],
-      "dirty_production_paths": [
-        "app/Http/Controllers/Api/CustomerLifecycleController.php",
-        "app/Http/Livewire/Customers/OccPanel.php",
-        "app/Modules/Customers/Services/TenantUserProjector.php",
-        "app/Modules/Jobs/Services/WebhookHandler.php",
-        "app/Modules/Jobs/Support/JobSummaryParser.php",
-        "app/Modules/Onboarding/Saga/OnboardingSaga.php",
-        "tests/Feature/Jobs/WebhookTenantUserProjectionTest.php",
-        "tests/Feature/Livewire/Customers/OccPanelTest.php",
-        "tests/Feature/Livewire/Customers/OccPanelUserTemplateTest.php",
-        "tests/Feature/Product/UserCreateTemplateResolverTest.php",
-        "tests/Unit/Onboarding/OnboardingSagaTest.php",
-        "app/Modules/Customers/Validation/ResolvedTenantGroupsValidator.php",
-        "tests/Unit/Jobs/"
-      ],
+      "dirty_production_paths": [],
       "missing_backends": [],
-      "last_validated_sha": "7e709436eb80e0e5c4b2cad493c0c8426b5178f2",
-      "stamped_at": "2026-07-09T04:14:35Z"
+      "last_validated_sha": "3104ab41caa96b4cbd1997962c26c12fdf18bc5d",
+      "stamped_at": "2026-07-09T04:14:58Z"
     }
   },
   "checkpoint_f26_archived": {

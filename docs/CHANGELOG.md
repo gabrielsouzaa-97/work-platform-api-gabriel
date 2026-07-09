@@ -495,3 +495,4 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-08 22:55** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
 - **2026-07-08 23:02** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
 - **2026-07-08 23:48** `3631f45` — chore(sprint-F26): validation stamp at HEAD after session gate update
+- **2026-07-09 01:26** `3579c21` — style(sprint-F27): fix ordered imports in OnboardingSagaTest
