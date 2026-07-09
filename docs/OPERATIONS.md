@@ -1,5 +1,15 @@
 # Operations log
 
+## 2026-07-09T00:10:00Z — Deploy LAB F24 (PR #160 merged — OCC groups polish + F17/N40 backlog)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `5addd2f99794732d4f89e774deb04366882e7490` (merge PR #160 `campanha/fix-f24-occ-polish` → `main`; `TenantGroupNameRules` DRY, groups `[]`/`null` stdin, sync `updated`, poll UX, `deleteUser` reload, SuiteCatalog + N40 integration tests).
+- **CI:** PR #160 checks green (Pest, Lint, Security, OpenAPI, Docker production, coverage, security-review).
+- **Deploy:** SSH `mecloud360@128.201.61.110`; sync `git archive` tar (`.env` preservado; host sem `.git`); `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker && up -d`.
+- **Migration:** `2026_07_08_000002_create_tenant_groups_table` — Ran [7].
+- **Containers:** app/worker/nginx/db/redis healthy pós-deploy.
+- **Smoke:** `GET https://api.lab.mework360.com.br/up` → **200** (`ok`); `/login` → **200**.
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-08T22:15:00Z — Deploy LAB N44.5 (PR #157 merged — readiness test harness + objectstore migration)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `cf9d7b0` (merge PR #157 `campanha/n56-objectstore-s3` → `main`; inclui `fix(sprint-N44): isolate readiness probe DI in test harness` + migration `add_objectstore_to_customers_table`).

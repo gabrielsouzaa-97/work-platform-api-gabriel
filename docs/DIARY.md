@@ -374,3 +374,32 @@ Canário `canario-n36e`: job `9904497b-ad3c-4390-ba61-c5f433cd00c1` success ~5m4
 - [x] Pest F23 suites **103 passed**; CI required checks verde
 - [x] Senior review **PASS_WITH_NOTES** (0 HIGH; 3 non-blocking em backlog)
 
+---
+
+## Sprint F24 — OCC groups polish + F17/N40 backlog
+
+**Data**: 2026-07-08
+**Status**: CONCLUÍDA (7/7)
+**Tasks**: F24.1–F24.7
+**PR**: [#160](https://github.com/SoftwareBeesy/work-platform-api/pull/160) merge `5addd2f`
+**Deploy LAB**: `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br`
+
+### Entregas
+
+- **F24.1**: `TenantGroupNameRules` DRY compartilhado entre API e OccPanel.
+- **F24.2–F24.3**: sync `updated` em cenário misto; poll de grupo sem clobber de mensagem concorrente.
+- **F24.4**: `groups: []` no `UserCreateStdinPayload`; `groups: null` herda template na API.
+- **F24.5**: unit tests dedicados `SuiteCatalogPathResolver`.
+- **F24.6–F24.7**: `deleteUser` recarrega lista; testes webhook out-of-order + poll integrado.
+
+### Decisões / Aprendizados
+
+1. **Tri-state groups**: `null` (herda template) ≠ `[]` (override vazio) — contrato explícito evita regressão silenciosa em novos call sites.
+2. **Poll UX residual**: dual-success grupo e poll user×group no mesmo tick ainda podem sobrescrever mensagem — backlog `CQ-F24-001`..`003` + `INT-F24-001`.
+
+### Gate da Sprint
+
+- [x] CQ-F23-001..003 + CQ-F17-001..004 + CQ-N40-003 + QA-N40-003/004 validados (9/9)
+- [x] CI PR #160 verde; validation-stamp + auditor-senior APROVADA
+- [x] Deploy LAB `5addd2f`; migration `tenant_groups` Ran [7]; smoke `/up`+`/login` 200
+

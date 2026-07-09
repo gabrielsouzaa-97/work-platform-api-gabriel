@@ -4,6 +4,7 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **docs(sprint-F24)**: Sprint F24 concluída — `TenantGroupNameRules` DRY, groups `[]`/`null` stdin, sync `updated`, poll UX, `deleteUser` reload, SuiteCatalog + N40 integration tests; PR #160 merge `5addd2f`; deploy LAB `5addd2f99794732d4f89e774deb04366882e7490`.
 - **feat(sprint-N45-N46)**: ISSUE-056 — OCC groups UX governance (multi-select, pickers, wire:confirm, membership 501 hidden) + read model `tenant_groups` (webhook projection, sync command, API validation via `TenantGroupMembership`).
 - **fix(sprint-F22-q.4)**: ISSUE-054 definitivo — componente `x-select-menu` (Blade + Alpine listbox) substitui `<select>` nativo em `/plans` e `/customers/create`; popup nativo OS-rendered ignora CSS da página (PR #153, merge `c50c9ea`); validado pelo operador no LAB.
 - **fix(sprint-F22-q.2/q.3)**: modais `max-w-lg`→`max-w-[32rem]` (Tailwind v4 `--spacing-lg` sobrescrevia utilitário para 24px); `select option` + `color-scheme: light`; apps picker com container (PRs #150/#151).

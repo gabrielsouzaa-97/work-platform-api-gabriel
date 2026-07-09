@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "Sprint F24 — validação APROVADA (aguarda CI)",
-  "sprint_atual": "F24",
-  "previous_sprint": "F23",
-  "sprint_branch": "campanha/fix-f24-occ-polish",
+  "fase_nome": "F24 validada",
+  "sprint_atual": null,
+  "previous_sprint": "F24",
+  "sprint_branch": null,
   "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
@@ -228,47 +228,9 @@
   "sprint_pr": 160,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "auditing",
-    "sprint": "F24",
+    "phase": "validated",
     "current_task": null,
-    "last_completed_task": "F24.7",
-    "branch": "campanha/fix-f24-occ-polish",
-    "started_at": "2026-07-08T23:34:26Z",
-    "validation_gate": {
-      "produced_by": "validation-stamp.py",
-      "result": "APROVADA",
-      "validation_mode": "full",
-      "gates": [
-        {
-          "cmd": "docker compose exec -T app php artisan test --filter=TenantGroupNameRules",
-          "exit_code": 0
-        }
-      ],
-      "dirty_production_paths": [],
-      "missing_backends": [],
-      "last_validated_sha": "2c3ab9512430986c7a2d013ed84fd99f9eaf54d2",
-      "stamped_at": "2026-07-08T23:54:30Z"
-    },
-    "validation_gate_qa": {
-      "produced_by": "validation-stamp.py",
-      "result": "APROVADA",
-      "validation_mode": "full",
-      "gates": [
-        {
-          "cmd": "docker compose exec -T app php artisan test --filter=TenantGroupNameRules\\|CQ-F23-002\\|CQ-F23-003\\|CQ-F17-001\\|CQ-F17-002\\|CQ-F17-003\\|CQ-F17-004\\|CQ-N40-003\\|QA-N40-003\\|QA-N40-004",
-          "exit_code": 0
-        }
-      ],
-      "dirty_production_paths": [],
-      "missing_backends": [],
-      "last_validated_sha": "4c8cf0aae9e87c6c6c28a4366e27f7874ba35f90",
-      "stamped_at": "2026-07-08T23:54:09Z",
-      "sprint": "F24",
-      "validation_round": 1,
-      "notes": "auditor-senior APROVADA; 9/9 findings-alvo; 3 LOW new CQ-F24-001..003 + INT-F24-001 non-blocking"
-    },
-    "pr_number": 160,
-    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/160"
+    "last_completed_task": "F24.7"
   },
   "checkpoint_n36_archived": {
     "phase": "done",
@@ -335,57 +297,7 @@
       "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
-  "sprint_tasks": [
-    {
-      "id": "F24.1",
-      "status": "completed",
-      "size": "M",
-      "title": "CQ-F23-001 TenantGroupNameRules DRY",
-      "file": "app/Modules/Customers/Support/TenantGroupNameRules.php"
-    },
-    {
-      "id": "F24.2",
-      "status": "completed",
-      "size": "P",
-      "title": "CQ-F23-002 sync updated mixed",
-      "file": "app/Modules/Customers/Services/TenantGroupSyncService.php"
-    },
-    {
-      "id": "F24.3",
-      "status": "completed",
-      "size": "P",
-      "title": "CQ-F23-003 poll message clobber",
-      "file": "app/Http/Livewire/Customers/OccPanel.php"
-    },
-    {
-      "id": "F24.4",
-      "status": "completed",
-      "size": "M",
-      "title": "CQ-F17-001+002+003 empty groups + null",
-      "file": "app/Modules/Customers/Support/UserCreateStdinPayload.php"
-    },
-    {
-      "id": "F24.5",
-      "status": "completed",
-      "size": "P",
-      "title": "CQ-F17-004 SuiteCatalogPathResolver tests",
-      "file": "tests/Unit/Integration/SuiteCatalogPathResolverTest.php"
-    },
-    {
-      "id": "F24.6",
-      "status": "completed",
-      "size": "P",
-      "title": "CQ-N40-003 deleteUser reload",
-      "file": "app/Http/Livewire/Customers/OccPanel.php"
-    },
-    {
-      "id": "F24.7",
-      "status": "completed",
-      "size": "P",
-      "title": "QA-N40-003+004 webhook/poll integration",
-      "file": "tests/Feature/Jobs/WebhookTenantUserProjectionTest.php"
-    }
-  ],
+  "sprint_tasks": [],
   "sprint_tasks_n36_archived": [
     {
       "id": "N36.3",
@@ -1743,5 +1655,99 @@
       "tests_evidence": "CI green PR #135 (Lint, Pest, OpenAPI, Security); LAB deploy 8e58fed, /up 200, docs-api manifest",
       "stamped_at": "2026-07-05T18:56:00Z"
     }
-  }
+  },
+  "checkpoint_f24_archived": {
+    "phase": "auditing",
+    "sprint": "F24",
+    "current_task": null,
+    "last_completed_task": "F24.7",
+    "branch": "campanha/fix-f24-occ-polish",
+    "started_at": "2026-07-08T23:34:26Z",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose exec -T app php artisan test --filter=TenantGroupNameRules",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "2c3ab9512430986c7a2d013ed84fd99f9eaf54d2",
+      "stamped_at": "2026-07-08T23:54:30Z"
+    },
+    "validation_gate_qa": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose exec -T app php artisan test --filter=TenantGroupNameRules\\|CQ-F23-002\\|CQ-F23-003\\|CQ-F17-001\\|CQ-F17-002\\|CQ-F17-003\\|CQ-F17-004\\|CQ-N40-003\\|QA-N40-003\\|QA-N40-004",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "4c8cf0aae9e87c6c6c28a4366e27f7874ba35f90",
+      "stamped_at": "2026-07-08T23:54:09Z",
+      "sprint": "F24",
+      "validation_round": 1,
+      "notes": "auditor-senior APROVADA; 9/9 findings-alvo; 3 LOW new CQ-F24-001..003 + INT-F24-001 non-blocking"
+    },
+    "pr_number": 160,
+    "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/160"
+  },
+  "sprint_tasks_f24_archived": [
+    {
+      "id": "F24.1",
+      "status": "completed",
+      "size": "M",
+      "title": "CQ-F23-001 TenantGroupNameRules DRY",
+      "file": "app/Modules/Customers/Support/TenantGroupNameRules.php"
+    },
+    {
+      "id": "F24.2",
+      "status": "completed",
+      "size": "P",
+      "title": "CQ-F23-002 sync updated mixed",
+      "file": "app/Modules/Customers/Services/TenantGroupSyncService.php"
+    },
+    {
+      "id": "F24.3",
+      "status": "completed",
+      "size": "P",
+      "title": "CQ-F23-003 poll message clobber",
+      "file": "app/Http/Livewire/Customers/OccPanel.php"
+    },
+    {
+      "id": "F24.4",
+      "status": "completed",
+      "size": "M",
+      "title": "CQ-F17-001+002+003 empty groups + null",
+      "file": "app/Modules/Customers/Support/UserCreateStdinPayload.php"
+    },
+    {
+      "id": "F24.5",
+      "status": "completed",
+      "size": "P",
+      "title": "CQ-F17-004 SuiteCatalogPathResolver tests",
+      "file": "tests/Unit/Integration/SuiteCatalogPathResolverTest.php"
+    },
+    {
+      "id": "F24.6",
+      "status": "completed",
+      "size": "P",
+      "title": "CQ-N40-003 deleteUser reload",
+      "file": "app/Http/Livewire/Customers/OccPanel.php"
+    },
+    {
+      "id": "F24.7",
+      "status": "completed",
+      "size": "P",
+      "title": "QA-N40-003+004 webhook/poll integration",
+      "file": "tests/Feature/Jobs/WebhookTenantUserProjectionTest.php"
+    }
+  ]
 }
