@@ -29,6 +29,7 @@ use App\Modules\Customers\Support\TenantGroupNameRules;
 use App\Modules\Customers\Support\TenantKnownGroups;
 use App\Modules\Customers\Support\TenantUserListParser;
 use App\Modules\Customers\Support\UserCreateStdinPayload;
+use App\Modules\Customers\Validation\ResolvedTenantGroupsValidator;
 use App\Modules\Customers\Validation\TenantGroupMembership;
 use App\Modules\Integration\Exceptions\CapabilityBlockedException;
 use App\Modules\Jobs\Support\JobSummaryParser;
@@ -452,6 +453,14 @@ class OccPanel extends Component
                 ? $explicitGroups
                 : ($resolved->groups !== [] ? $resolved->groups : null);
 
+            try {
+                ResolvedTenantGroupsValidator::validate($this->customer->slug, $groupsForPayload);
+            } catch (ValidationException $e) {
+                $this->errorMessage = collect($e->errors())->flatten()->first() ?? 'Grupos inválidos.';
+
+                return;
+            }
+
             $stdinPayload = UserCreateStdinPayload::build(
                 password: $this->userPasswordPlain,
                 email: $this->userEmail !== '' ? $this->userEmail : null,
@@ -853,11 +862,18 @@ class OccPanel extends Component
         }
 
         if ($job->state === 'success') {
-            $this->projectUserJobIntoReadModel($job);
+            $effectiveState = JobSummaryParser::effectiveTerminalStateFor('success', $job->summary);
+            $hasEmbedded = JobSummaryParser::hasEmbeddedFailureIn($job->summary);
+            $this->projectUserJobIntoReadModel($job, $effectiveState);
+
+            $message = $hasEmbedded
+                ? JobSummaryParser::failureMessage($job)
+                : 'Usuário criado com sucesso.';
+
             if ($preserveMessages) {
-                $this->appendSuccess('Usuário criado com sucesso.');
+                $this->appendSuccess($message);
             } else {
-                $this->successMessage = 'Usuário criado com sucesso.';
+                $this->successMessage = $message;
             }
             $this->loadUsers();
 
@@ -911,10 +927,10 @@ class OccPanel extends Component
         }
     }
 
-    private function projectUserJobIntoReadModel(Job $job): void
+    private function projectUserJobIntoReadModel(Job $job, string $effectiveState = 'success'): void
     {
         try {
-            app(TenantUserProjector::class)->handleTerminalJob($job, 'success');
+            app(TenantUserProjector::class)->handleTerminalJob($job, $effectiveState);
         } catch (\Throwable $e) {
             Log::warning('tenant_users.projection.poll_failed', [
                 'job_id' => $job->job_id,

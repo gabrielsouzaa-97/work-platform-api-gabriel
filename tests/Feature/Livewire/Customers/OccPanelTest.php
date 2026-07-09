@@ -1275,6 +1275,36 @@ it('createUser poll após webhook terminal projeta usuário sem seed manual (QA-
         ->exists())->toBeTrue();
 });
 
+it('createUser poll job success with embedded failure shows warning not plain success message', function () {
+    $cluster = makeOccPanelCluster();
+    $customer = makeOccPanelCustomer($cluster);
+    $operator = makeOccPanelOperator();
+    $jobId = Str::uuid()->toString();
+    bindSshAsyncSuccess($jobId);
+
+    $component = Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'partialuser')
+        ->set('userEmail', 'partial@example.com')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->call('createUser')
+        ->assertSet('pendingUserCreateJobId', $jobId);
+
+    Job::query()->where('job_id', $jobId)->update([
+        'state' => 'success',
+        'summary' => ['{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}'],
+        'finished_at' => now(),
+    ]);
+
+    $component->call('pollPendingUserJob')
+        ->assertSet('pendingUserCreateJobId', '');
+
+    $successMessage = $component->get('successMessage');
+
+    expect($successMessage)->not->toBe('Usuário criado com sucesso.')
+        ->and($successMessage)->toContain('group:adduser');
+});
+
 it('createUser poll job failed com summary → errorMessage inline', function () {
     $cluster = makeOccPanelCluster();
     $customer = makeOccPanelCustomer($cluster);

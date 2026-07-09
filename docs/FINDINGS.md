@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
 synced_at: 2026-07-09
 open_critical: 0
-open_high: 14
-open_medium: 59
+open_high: 11
+open_medium: 58
 open_low: 45
 sprints_with_open_blockers: []
-notes: F26 PR #162 CI verde — ARQ-C1..C5 corrigidos (await merge/closeout). ARQ restantes: A* (ISSUE-057→F28), B*+A5 (ISSUE-058→F27), D*+A4 (ISSUE-061→N47).
+notes: F27 PR #163 CI verde — ARQ-B1..B3 + A5 corrigidos (await merge). Restantes: A* (ISSUE-057→F28), D*+A4 (ISSUE-061→N47), A2/A3/A6..A8.
 FINDINGS-INDEX -->
 
 
@@ -56,8 +56,9 @@ FINDINGS-INDEX -->
 | F23 | 0 | 0 | 0 | 0 | 0 | 0 | 3 |
 | F24 | 0 | 0 | 0 | 4 | 0 | 0 | 9 |
 | F25 | 0 | 0 | 0 | 4 | 0 | 0 | 4 |
-| ARQ (audit 2026-07-09) | 1 | 8 | 9 | 1 | 14 | 5 | 0 |
+| ARQ (audit 2026-07-09) | 1 | 8 | 9 | 1 | 10 | 9 | 0 |
 | F26 | 1 | 1 | 3 | 0 | 0 | 5 | 0 |
+| F27 | 0 | 3 | 1 | 0 | 0 | 4 | 0 |
 
 > **Validação F25 R1** (2026-07-09, `/qa validar F25`): scope = PR #161 merge `8021124` (branch `campanha/fix-f25-poll-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #161 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review); local 14 filter + 50 OccPanelTest passed. **Findings-alvo validados**: INT-F24-001, CQ-F24-001..003 (4/4). **Deploy LAB**: não requerido (polish sprint). **Resultado: APROVADA** — 0 CRITICAL/HIGH; 0 novos non-blocking.
 
@@ -115,10 +116,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Modules/Customers/Validation/TenantGroupMembership.php:29-36`, `app/Http/Controllers/Api/CustomerLifecycleController.php:65-73`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
-- **Status**: pendente
+- **Status**: corrigido (F27)
 - **Esforço**: P
 **Descrição**: `TenantGroupMembership` valida grupos explícitos do request, mas grupos herdados de `user_template_slug` são resolvidos depois da validação e enviados no stdin sem checagem contra `tenant_groups`. Alimenta o cenário ARQ-B1 (`group:adduser` falha upstream com job success).
-**Correção sugerida**: Validar grupos resolvidos (explícitos + template) contra `tenant_groups` antes do dispatch.
+**Correção (F27)**: `ResolvedTenantGroupsValidator` valida grupos resolvidos (explícitos + template) pré-dispatch na API e no painel.
 
 #### [ARQ-A6] — Painel Create bypassa PlanAppResolver e SuiteCatalogValidator
 - **Severidade**: MEDIUM
@@ -159,10 +160,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Modules/Jobs/Services/WebhookHandler.php:149-151,235-256`, `app/Modules/Customers/Services/TenantUserProjector.php:18-28`, `app/Modules/Customers/Services/TenantGroupProjector.php:18-28`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
-- **Status**: pendente
+- **Status**: corrigido (F27)
 - **Esforço**: M
 **Descrição**: `WebhookHandler` persiste `state` do payload como canônico e projeta em `success` sem inspecionar summary. Evidência real: `users:create` com `state=success, exit_code=0` e summary `{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}` → `tenant_users` mostra grupos que não existem upstream; nenhum erro na UI.
-**Correção sugerida**: Parsear summary por falhas de subcomando no handler; degradar para estado `partial`/`failed` ou registrar divergência antes de projetar.
+**Correção (F27)**: `JobSummaryParser` + `effectiveState` no handler; `TenantUserProjector` omite grupos em `partial`.
 
 #### [ARQ-B2] — OnboardingSaga avança steps sem parse de falha parcial
 - **Severidade**: HIGH
@@ -170,10 +171,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Modules/Onboarding/Saga/OnboardingSaga.php:115-123,158-202`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
-- **Status**: pendente
+- **Status**: corrigido (F27)
 - **Esforço**: P
 **Descrição**: `CreateAdmin` e `EnableApps` avançam exclusivamente em `canonicalState === 'success'`; `apps:enable` parcial com erro embutido marca o step completed e o onboarding termina `Completed` com apps faltando.
-**Correção sugerida**: Mesmo parser de summary do ARQ-B1 aplicado à saga.
+**Correção (F27)**: Saga marca step `failed` quando summary contém `occ_command_failed`.
 
 #### [ARQ-B3] — JobSummaryParser só detecta prefixo `[ERROR]`
 - **Severidade**: MEDIUM
@@ -181,10 +182,10 @@ FINDINGS-INDEX -->
 - **Auditoria**: Arquiteto (senior)
 - **Arquivo**: `app/Modules/Jobs/Support/JobSummaryParser.php:28-43`, `app/Http/Livewire/Customers/OccPanel.php:855-864`
 - **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
-- **Status**: pendente
+- **Status**: corrigido (F27)
 - **Esforço**: P
 **Descrição**: JSON embutido (`occ_command_failed`) é ignorado pelo parser; o painel OCC trata `state === 'success'` como sucesso total e mostra "criado com sucesso" com subcomando falho.
-**Correção sugerida**: Estender parser para envelopes JSON de erro e surfar aviso no painel.
+**Correção (F27)**: Parser detecta envelopes JSON; OccPanel surfa aviso de falha parcial.
 
 #### [ARQ-C1] — `failed` por readiness timeout bloqueia retry do slug
 - **Severidade**: CRITICAL
