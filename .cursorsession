@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T00:13:01Z",
+  "ultimo_update": "2026-07-09T00:13:03Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -228,12 +228,45 @@
   "sprint_pr": 160,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "testing",
+    "phase": "auditing",
     "sprint": "F25",
     "current_task": null,
     "last_completed_task": "F25.3",
     "branch": "campanha/fix-f25-poll-polish",
-    "started_at": "2026-07-09T00:09:49Z"
+    "started_at": "2026-07-09T00:09:49Z",
+    "validation_gate": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
+          "cmd": "docker compose exec -T app php artisan test --filter=CQ-F24-001\\|CQ-F24-002\\|CQ-F24-003\\|INT-F24-001\\|TenantGroupNameRules",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "5b5108014b14c5cf539c758b2db29c13b546dce8",
+      "stamped_at": "2026-07-09T00:13:03Z",
+      "sprint": "F25",
+      "validation_round": 1,
+      "notes": "F25 LOWs INT-F24-001 CQ-F24-001..003"
+    },
+    "validation_gate_qa": {
+      "sprint": "F25",
+      "produced_by": "/rock resolve F24 LOWs",
+      "result": "APROVADA",
+      "validation_round": 1,
+      "findings_validated": [
+        "INT-F24-001",
+        "CQ-F24-001",
+        "CQ-F24-002",
+        "CQ-F24-003"
+      ],
+      "findings_high_pending": [],
+      "tests_evidence": "Pest filter 14 passed; OccPanelTest 50 passed",
+      "stamped_at": "2026-07-09T00:13:03Z"
+    }
   },
   "checkpoint_n36_archived": {
     "phase": "done",
