@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
 synced_at: 2026-07-09
 open_critical: 0
-open_high: 9
-open_medium: 52
-open_low: 44
+open_high: 14
+open_medium: 59
+open_low: 45
 sprints_with_open_blockers: []
-notes: Sprint F25 APROVADA — INT-F24-001 + CQ-F24-001..003 validados (PR #161 merge 8021124). Sem deploy LAB (polish sprint).
+notes: F26 PR #162 CI verde — ARQ-C1..C5 corrigidos (await merge/closeout). ARQ restantes: A* (ISSUE-057→F28), B*+A5 (ISSUE-058→F27), D*+A4 (ISSUE-061→N47).
 FINDINGS-INDEX -->
 
 
@@ -56,8 +56,223 @@ FINDINGS-INDEX -->
 | F23 | 0 | 0 | 0 | 0 | 0 | 0 | 3 |
 | F24 | 0 | 0 | 0 | 4 | 0 | 0 | 9 |
 | F25 | 0 | 0 | 0 | 4 | 0 | 0 | 4 |
+| ARQ (audit 2026-07-09) | 1 | 8 | 9 | 1 | 14 | 5 | 0 |
+| F26 | 1 | 1 | 3 | 0 | 0 | 5 | 0 |
 
 > **Validação F25 R1** (2026-07-09, `/qa validar F25`): scope = PR #161 merge `8021124` (branch `campanha/fix-f25-poll-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #161 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review); local 14 filter + 50 OccPanelTest passed. **Findings-alvo validados**: INT-F24-001, CQ-F24-001..003 (4/4). **Deploy LAB**: não requerido (polish sprint). **Resultado: APROVADA** — 0 CRITICAL/HIGH; 0 novos non-blocking.
+
+> **Auditoria Arquitetural — Provisioning Lifecycle** (2026-07-09, `/arquiteto`): 2 subagentes read-only (auditor-senior invariantes + explore contrato de produto) a partir do incidente "tenant failed com URL viva" (ISSUE-046 camada 3). 19 findings consolidados (1 CRITICAL, 8 HIGH, 9 MEDIUM, 1 LOW) em 4 classes: A=contrato de borda vs readiness gate, B=sucesso silencioso, C=estados terminais sem recovery, D=matriz de estados. Issues guarda-chuva: ISSUE-057..061.
+
+### Findings — Auditoria Arquitetural Provisioning Lifecycle (ARQ, 2026-07-09)
+
+#### [ARQ-A1] — Nenhum entry point valida payload contra o readiness gate
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior + explore)
+- **Arquivo**: `app/Http/Requests/ProvisionCustomerRequest.php:87-144`, `app/Modules/Integration/Support/TenantReadinessGateChecker.php:83-86`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: pendente
+- **Esforço**: M
+**Descrição**: Os 5 entry points de criação (API legacy, API v1, Livewire Create, onboarding, WHMCS) validam formato/plano/catálogo mas nunca cruzam `apps`/`image_mode` com os requisitos do gate legado (`mework360_memail` + `me360_theme` + SSO). O payload default `{}` já é condenado; os apps me360 nem existem no suite catalog (pedir explicitamente dá 422). Incidente real: `apps:["mail"]` → 202 → infra viva → `failed` após ~25min.
+**Correção sugerida**: Validação readiness-aware na borda (rejeitar ou exigir `image_mode`/caminho que garanta a suíte) + decisão de produto sobre instalação da suíte me360 no fluxo suite-catalog.
+
+#### [ARQ-A2] — Plano com `plan_apps` vazio produz tenant condenado
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Product/Services/PlanAppResolver.php:27-28`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: Plano sem apps faz o resolver retornar `[]` sem erro; provision aceita e repassa lista vazia — readiness legado nunca passa.
+**Correção sugerida**: Rejeitar (422) provision não-image-mode cujo plano resolve para zero apps, ou alertar na criação do plano.
+
+#### [ARQ-A3] — Contrato de onboarding não expõe flags e habilita apps tarde demais
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior + explore)
+- **Arquivo**: `app/Http/Requests/V1/CreateOnboardingRequest.php:37-38`, `app/Http/Controllers/Api/V1/OnboardingV1Controller.php:86-99`, `app/Modules/Onboarding/Saga/OnboardingSaga.php:55-74`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: pendente
+- **Esforço**: M
+**Descrição**: `POST /v1/onboarding` não expõe `image_mode`/`suite_catalog`/`plan_slug`; `fullApps` hardcoded `false`; `apps_enabled` não é validado contra catálogo no request. O step `enable_apps` roda **após** `wait_readiness` — tarde demais para apps exigidos pelo gate.
+**Correção sugerida**: Expor flags no contrato, validar `apps_enabled` na borda e reavaliar ordem dos steps ou requisitos do gate para onboarding.
+
+#### [ARQ-A4] — Lifecycle async permitido em tenant pré-active (exceto users)
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php:115-123`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: Só `users:create`/`users:delete` são bloqueados em `provisioning`/`provisioning_finishing`; `groups:create`, `apps:enable` etc. passam e rodam em tenant que pode nunca chegar a `active`, divergindo read-model do estado real.
+**Correção sugerida**: Matriz central de operações permitidas por status (ver ARQ-D2) aplicada no `LifecycleAsyncAction`.
+
+#### [ARQ-A5] — Grupos herdados de template não são validados contra o tenant
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Customers/Validation/TenantGroupMembership.php:29-36`, `app/Http/Controllers/Api/CustomerLifecycleController.php:65-73`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `TenantGroupMembership` valida grupos explícitos do request, mas grupos herdados de `user_template_slug` são resolvidos depois da validação e enviados no stdin sem checagem contra `tenant_groups`. Alimenta o cenário ARQ-B1 (`group:adduser` falha upstream com job success).
+**Correção sugerida**: Validar grupos resolvidos (explícitos + template) contra `tenant_groups` antes do dispatch.
+
+#### [ARQ-A6] — Painel Create bypassa PlanAppResolver e SuiteCatalogValidator
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (explore)
+- **Arquivo**: `app/Http/Livewire/Customers/Create.php:38,188-199`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: O painel constrói `ProvisionPayload` direto: não herda apps do plano quando o picker está vazio, não valida `apps ⊆ plano` no request e aceita `plan_slug` sem filtro `status=active` (API filtra). Divergência painel vs API.
+**Correção sugerida**: Rotear o painel pela mesma validação da API (`PlanAppResolver` + regras do `ProvisionCustomerRequest`).
+
+#### [ARQ-A7] — WHMCS provisiona com defaults condenados e sem validação
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (explore)
+- **Arquivo**: `app/Modules/Billing/Services/WhmcsProvisionService.php:54-63`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: O fluxo de billing não passa por FormRequest nem resolver; webhook mínimo produz os mesmos defaults condenados (`suite_catalog=true`, `image_mode=false`, apps parciais).
+**Correção sugerida**: Reusar a validação central de provision no caminho WHMCS.
+
+#### [ARQ-A8] — OpenAPI externo documenta o payload condenado como exemplo
+- **Severidade**: MEDIUM
+- **Tipo**: docs_drift
+- **Auditoria**: Arquiteto (explore)
+- **Arquivo**: `docs/openapi-external.yaml:84-90,1692,1696`, `docs/openapi.yaml`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: Exemplo `minimal` usa `apps: [files, calendar]` (inválido com suite catalog default); mutual exclusivity `apps`×`full_apps` documentada mas não enforced; a doc não avisa que tenant legado exige suíte me360 para sair de `provisioning_finishing`. Um dev externo seguindo a doc reproduz o incidente.
+**Correção sugerida**: Corrigir exemplos, enforcar exclusividade no request e documentar o contrato de readiness por modo.
+
+#### [ARQ-B1] — Webhook `success` com erro embutido projeta estado falso
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Jobs/Services/WebhookHandler.php:149-151,235-256`, `app/Modules/Customers/Services/TenantUserProjector.php:18-28`, `app/Modules/Customers/Services/TenantGroupProjector.php:18-28`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: pendente
+- **Esforço**: M
+**Descrição**: `WebhookHandler` persiste `state` do payload como canônico e projeta em `success` sem inspecionar summary. Evidência real: `users:create` com `state=success, exit_code=0` e summary `{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}` → `tenant_users` mostra grupos que não existem upstream; nenhum erro na UI.
+**Correção sugerida**: Parsear summary por falhas de subcomando no handler; degradar para estado `partial`/`failed` ou registrar divergência antes de projetar.
+
+#### [ARQ-B2] — OnboardingSaga avança steps sem parse de falha parcial
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Onboarding/Saga/OnboardingSaga.php:115-123,158-202`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `CreateAdmin` e `EnableApps` avançam exclusivamente em `canonicalState === 'success'`; `apps:enable` parcial com erro embutido marca o step completed e o onboarding termina `Completed` com apps faltando.
+**Correção sugerida**: Mesmo parser de summary do ARQ-B1 aplicado à saga.
+
+#### [ARQ-B3] — JobSummaryParser só detecta prefixo `[ERROR]`
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Jobs/Support/JobSummaryParser.php:28-43`, `app/Http/Livewire/Customers/OccPanel.php:855-864`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: JSON embutido (`occ_command_failed`) é ignorado pelo parser; o painel OCC trata `state === 'success'` como sucesso total e mostra "criado com sucesso" com subcomando falho.
+**Correção sugerida**: Estender parser para envelopes JSON de erro e surfar aviso no painel.
+
+#### [ARQ-C1] — `failed` por readiness timeout bloqueia retry do slug
+- **Severidade**: CRITICAL
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Jobs/ProbeCustomerReadinessJob.php:118-120`, `app/Modules/Jobs/Services/WebhookHandler.php:197-199`, `app/Http/Requests/ProvisionCustomerRequest.php:58`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: O fix do ISSUE-018 (F11) só soft-deleta o customer quando o webhook `provision.failed` chega. `readiness_timeout` seta `status=failed` **sem** `delete()` — a unique rule de `slug` retorna 422 e não há caminho de retry nem na API nem na UI. Exatamente o dead-end do incidente reportado.
+**Correção (F26)**: Decisão produto — NÃO soft-delete no timeout; Remover no painel + soft-delete em `deprovision` success libera o slug.
+
+#### [ARQ-C2] — UI sem cleanup/deprovision para customer `failed`
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `resources/views/livewire/customers/show.blade.php:37-56`, `app/Modules/Customers/Actions/RemoveCustomerAction.php:51-53`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: `RemoveCustomerAction` aceita `failed`/`provisioning_finishing` via API, mas o painel só mostra "Remover" para `active`/`provisioning` — operador vê beco sem saída com Nextcloud vivo upstream.
+**Correção (F26)**: Botão Remover visível para `failed` e `provisioning_finishing`.
+
+#### [ARQ-C3] — `jobs:poll-stuck` não replica efeitos do WebhookHandler
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Console/Commands/JobsPollStuckCommand.php:56-61`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-060)
+- **Status**: corrigido (F26)
+- **Esforço**: M
+**Descrição**: O poll de fallback atualiza `job.state`/`exit_code` mas não dispara transição de status do customer, `ProbeCustomerReadinessJob` nem projectors. Webhook perdido (`callback_failed`) → job `success`, customer `provisioning` para sempre.
+**Correção (F26)**: Poll terminal roteia pela pipeline do `WebhookHandler` (idempotente).
+
+#### [ARQ-C4] — Sem override manual `provisioning_finishing → active`
+- **Severidade**: MEDIUM
+- **Tipo**: product_gap
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Jobs/ProbeCustomerReadinessJob.php:47-53`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: Não há comando artisan nem endpoint para operador promover tenant verificado manualmente; se o gate estiver desatualizado, o tenant morre no timeout sem escape.
+**Correção (F26)**: `php artisan customers:promote {slug}` + AuditLog `customer_promoted_manual`.
+
+#### [ARQ-C5] — Saga de onboarding fica `Running` eterno após customer `failed`
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Jobs/ProbeCustomerReadinessJob.php:118-136`, `app/Modules/Onboarding/Saga/OnboardingSaga.php:76-88`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: Timeout de readiness marca o customer `failed` mas nenhum handler terminaliza o onboarding correlacionado — integrador vê saga `Running`/`tenant_not_ready` indefinidamente.
+**Correção (F26)**: Timeout marca onboarding `Failed` com reason `customer_readiness_timeout`.
+
+#### [ARQ-D1] — Motivo do `failed` não exposto em API/UI
+- **Severidade**: MEDIUM
+- **Tipo**: product_gap
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Http/Livewire/Customers/Show.php:132-143`, `app/Http/Resources/CustomerResource.php:14-21`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: Card de readiness/último erro só aparece em `provisioning_finishing`; após `failed`, resta o badge — o motivo (`customer_readiness_timeout`) fica só no audit trail e a API não expõe `failure_reason`.
+**Correção sugerida**: Persistir/expor `failure_reason` no resource e no painel.
+
+#### [ARQ-D2] — Sem matriz canônica status × ações permitidas
+- **Severidade**: MEDIUM
+- **Tipo**: maintainability
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Customers/Support/CustomerLifecycleStatus.php:7-20`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: pendente
+- **Esforço**: M
+**Descrição**: `CustomerLifecycleStatus` documenta 3 constantes; estados reais (`failed`, `removing`, `removed`, `error`) têm regras ad hoc espalhadas em UI/actions. Nenhuma fonte única define o que cada estado permite.
+**Correção sugerida**: Enum/matriz central consumida por UI, controllers e `LifecycleAsyncAction` (resolve também ARQ-A4/D3).
+
+#### [ARQ-D3] — Painel OCC acessível por URL direta em tenant não-active
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:160-164`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: pendente
+- **Esforço**: P
+**Descrição**: `mount()` só faz `Gate::authorize`; o link some da UI para não-`active`, mas a URL direta abre o painel OCC em tenant `failed`/`provisioning_finishing`.
+**Correção sugerida**: Checar status no mount usando a matriz do ARQ-D2.
 
 > **Validação F24 R1** (2026-07-08, `/qa validar F24`): scope = PR #160 merge `5addd2f` (branch `campanha/fix-f24-occ-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #160 verde (Pest/Lint/Security/OpenAPI/Docker production/coverage/security-review). **auditor-senior** → APROVADA (9/9 findings-alvo). **Findings-alvo validados**: CQ-F23-001..003, CQ-F17-001..004, CQ-N40-003, QA-N40-003/004 (9/9). **Deploy LAB**: SHA `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br`; migration `tenant_groups` Ran [7]; smoke `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 4 novos non-blocking (`CQ-F24-001`..`003` + `INT-F24-001`).
 
