@@ -240,6 +240,21 @@
       "validation_mode": "full",
       "gates": [
         {
+          "cmd": "docker compose exec -T app vendor/bin/pint --test app/Modules/Customers/Support/TenantGroupNameRules.php",
+          "exit_code": 0
+        }
+      ],
+      "dirty_production_paths": [],
+      "missing_backends": [],
+      "last_validated_sha": "44a420a6aac4d11d8ee4a9a809cfa0a0489a22ac",
+      "stamped_at": "2026-07-09T00:18:40Z"
+    },
+    "validation_gate_qa": {
+      "produced_by": "validation-stamp.py",
+      "result": "APROVADA",
+      "validation_mode": "full",
+      "gates": [
+        {
           "cmd": "docker compose exec -T app php artisan test --filter=CQ-F24-001\\|CQ-F24-002\\|CQ-F24-003\\|INT-F24-001\\|TenantGroupNameRules",
           "exit_code": 0
         }
@@ -251,21 +266,6 @@
       "sprint": "F25",
       "validation_round": 1,
       "notes": "F25 LOWs INT-F24-001 CQ-F24-001..003"
-    },
-    "validation_gate_qa": {
-      "sprint": "F25",
-      "produced_by": "/rock resolve F24 LOWs",
-      "result": "APROVADA",
-      "validation_round": 1,
-      "findings_validated": [
-        "INT-F24-001",
-        "CQ-F24-001",
-        "CQ-F24-002",
-        "CQ-F24-003"
-      ],
-      "findings_high_pending": [],
-      "tests_evidence": "Pest filter 14 passed; OccPanelTest 50 passed",
-      "stamped_at": "2026-07-09T00:13:03Z"
     },
     "pr_number": 161,
     "pr_url": "https://github.com/SoftwareBeesy/work-platform-api/pull/161"
