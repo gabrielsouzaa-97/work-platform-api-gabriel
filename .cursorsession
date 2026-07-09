@@ -33,11 +33,11 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "N47 PR pending — next N48",
-  "sprint_atual": "N47",
-  "previous_sprint": "F28",
-  "sprint_branch": "sprint/N47",
-  "sprint_pending_merge": "N47",
+  "fase_nome": "N47+N48 merged — ARQ campaign done (B upstream pending)",
+  "sprint_atual": null,
+  "previous_sprint": "N48",
+  "sprint_branch": null,
+  "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
     "branch": "campanha/v2-platform",
@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T06:45:00Z",
-  "next_sprint_planned": "N48",
+  "ultimo_update": "2026-07-09T07:19:38Z",
+  "next_sprint_planned": null,
   "modulos": [
     "Core",
     "ClusterServers",
@@ -79,9 +79,8 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/rock n48",
-    "VERIFY + merge PR N47",
-    "deploy LAB"
+    "deploy LAB main f7dd52a",
+    "upstream ISSUE-057-B work-platform-scripts"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -229,17 +228,7 @@
   "checkpoint": {
     "phase": "validated",
     "current_task": null,
-    "last_completed_task": "N47",
-    "validation_gate": {
-      "produced_by": "validation-stamp.py",
-      "result": "APROVADA",
-      "validation_mode": "full",
-      "gates": [],
-      "dirty_production_paths": [],
-      "missing_backends": [],
-      "last_validated_sha": "3336f770b437d6f826050b3c369bbe0da291e9d3",
-      "stamped_at": "2026-07-09T07:11:16Z"
-    }
+    "last_completed_task": "N48"
   },
   "checkpoint_f26_archived": {
     "phase": "done",
