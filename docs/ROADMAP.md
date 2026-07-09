@@ -6189,7 +6189,7 @@ Test scenarios:
 ## Sprint F25 — OccPanel poll messaging + naming polish
 
 > Categoria: F
-> Status: **planejada** (2026-07-09)
+> Status: **implementada** — aguarda VERIFY CI (2026-07-09)
 > Gate executável: `projectUserJobIntoReadModel` nome neutro (create+delete); `TenantGroupNameRules::forAttribute` usa `$attribute` em regras/mensagens; poll OccPanel preserva mensagens entre jobs de grupo (dual-success) e entre grupo+usuário no mesmo tick; Pest cobre INT-F24-001 e CQ-F24-003; CI verde.
 > review: senior+qa
 > Gerado via `/pmo plan` em 2026-07-09. Fonte: `/rock resolve` — 4 findings LOW pós-F24 (`INT-F24-001`, `CQ-F24-001`..`003`) em `docs/FINDINGS.md`.
@@ -6197,9 +6197,9 @@ Test scenarios:
 
 | Status | Tamanho | Tarefa | Skill/Command | Depende de |
 |--------|---------|--------|---------------|------------|
-| [ ] | P | F25.1 — CQ-F24-001: renomear `projectUserCreateIntoReadModel` → `projectUserJobIntoReadModel` | laravel-livewire | — |
-| [ ] | P | F25.2 — CQ-F24-002: usar `$attribute` em `TenantGroupNameRules::forAttribute` (regras/mensagens) | api-rest-patterns | — |
-| [ ] | M | F25.3 — INT-F24-001 + CQ-F24-003: acumular/preservar mensagens poll grupo+usuário e dual-success grupo | laravel-livewire | — |
+| [x] | P | F25.1 — CQ-F24-001: renomear `projectUserCreateIntoReadModel` → `projectUserJobIntoReadModel` | laravel-livewire | — |
+| [x] | P | F25.2 — CQ-F24-002: usar `$attribute` em `TenantGroupNameRules::forAttribute` (regras/mensagens) | api-rest-patterns | — |
+| [x] | M | F25.3 — INT-F24-001 + CQ-F24-003: acumular/preservar mensagens poll grupo+usuário e dual-success grupo | laravel-livewire | — |
 
 ### Quality Brief (Sprint F25)
 

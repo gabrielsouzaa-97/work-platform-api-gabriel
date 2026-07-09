@@ -102,7 +102,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Integrator
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php` (pollPendingUserJob)
 - **Sprint origem**: F24 (integration check)
-- **Status**: pendente
+- **Status**: corrigido (F25)
 - **Esforço**: P
 **Descrição**: `pollPendingUserJob` chama poll de grupo e depois handlers de usuário que fazem `clearMessages()` incondicionalmente — mensagem de grupo pode sumir se job de usuário termina no mesmo tick.
 **Correção sugerida**: Estender `preserveMessages` aos handlers de usuário ou não limpar quando outro job do tick ainda não finalizou.
@@ -113,7 +113,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
 - **Sprint origem**: F24 (validação R1)
-- **Status**: pendente
+- **Status**: corrigido (F25)
 - **Esforço**: P
 **Descrição**: `handleUserDeleteJobTerminal` chama `projectUserCreateIntoReadModel()` (nome enganoso); projector roteia delete corretamente.
 **Correção sugerida**: Renomear para `projectUserJobIntoReadModel`.
@@ -124,7 +124,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Modules/Customers/Support/TenantGroupNameRules.php`
 - **Sprint origem**: F24 (validação R1)
-- **Status**: pendente
+- **Status**: corrigido (F25)
 - **Esforço**: P
 **Descrição**: `$attribute` não é usado; API e painel compartilham o mesmo array.
 **Correção sugerida**: Remover parâmetro ou documentar reserva futura.
@@ -135,7 +135,7 @@ FINDINGS-INDEX -->
 - **Auditoria**: Senior
 - **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
 - **Sprint origem**: F24 (validação R1)
-- **Status**: pendente
+- **Status**: corrigido (F25)
 - **Esforço**: P
 **Descrição**: Com `preserveMessages`, dual success no mesmo tick ainda sobrescreve `successMessage` (teste cobre success+error).
 **Correção sugerida**: Acumular/concatenar mensagens quando preserveMessages.

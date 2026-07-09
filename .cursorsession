@@ -33,7 +33,7 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "Sprint F25 — implementação",
+  "fase_nome": "Sprint F25 — desenvolvimento concluído",
   "sprint_atual": "F25",
   "previous_sprint": "F24",
   "sprint_branch": "campanha/fix-f25-poll-polish",
@@ -68,7 +68,7 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T00:09:49Z",
+  "ultimo_update": "2026-07-09T00:13:01Z",
   "next_sprint_planned": null,
   "modulos": [
     "Core",
@@ -79,9 +79,9 @@
     "Customers"
   ],
   "proximos_passos": [
-    "AgentCoder F25",
-    "/qa validar",
-    "PR+CI",
+    "validation-stamp",
+    "PR",
+    "CI",
     "merge"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
@@ -228,10 +228,10 @@
   "sprint_pr": 160,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "implementation",
+    "phase": "testing",
     "sprint": "F25",
-    "current_task": "F25.1",
-    "last_completed_task": null,
+    "current_task": null,
+    "last_completed_task": "F25.3",
     "branch": "campanha/fix-f25-poll-polish",
     "started_at": "2026-07-09T00:09:49Z"
   },
@@ -303,21 +303,21 @@
   "sprint_tasks": [
     {
       "id": "F25.1",
-      "status": "in_progress",
+      "status": "completed",
       "size": "P",
       "title": "CQ-F24-001 rename projector helper",
       "file": "app/Http/Livewire/Customers/OccPanel.php"
     },
     {
       "id": "F25.2",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
       "title": "CQ-F24-002 TenantGroupNameRules attribute",
       "file": "app/Modules/Customers/Support/TenantGroupNameRules.php"
     },
     {
       "id": "F25.3",
-      "status": "pending",
+      "status": "completed",
       "size": "M",
       "title": "INT-F24-001+CQ-F24-003 poll message accumulate",
       "file": "app/Http/Livewire/Customers/OccPanel.php"
