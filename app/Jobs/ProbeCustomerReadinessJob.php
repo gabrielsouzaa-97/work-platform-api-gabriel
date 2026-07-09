@@ -61,7 +61,10 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
         $report = $probe->probe($customer);
 
         if ($report->ready) {
-            $customer->update(['status' => CustomerLifecycleStatus::ACTIVE]);
+            $customer->update([
+                'status' => CustomerLifecycleStatus::ACTIVE,
+                'failure_reason' => null,
+            ]);
 
             AuditLog::create([
                 'id' => Str::uuid()->toString(),
@@ -117,7 +120,15 @@ final class ProbeCustomerReadinessJob implements ShouldQueue
 
     private function markTimedOut(Customer $customer): void
     {
-        $customer->update(['status' => 'failed']);
+        $customer->update([
+            'status' => CustomerLifecycleStatus::FAILED,
+            'failure_reason' => 'customer_readiness_timeout',
+        ]);
+
+        app(OnboardingSaga::class)->failWaitReadinessForSlug(
+            $customer->slug,
+            'customer_readiness_timeout',
+        );
 
         AuditLog::create([
             'id' => Str::uuid()->toString(),

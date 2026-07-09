@@ -12,6 +12,7 @@ use App\Modules\Core\Ssh\Exceptions\SshRemoteException;
 use App\Modules\Core\Ssh\SshClientInterface;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Dto\ProvisionPayload;
+use App\Modules\Jobs\Services\WebhookHandler;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -444,6 +445,62 @@ it('re-provisionar slug após provision.failed → ghost restaurado, 201 + novo 
 
     // Velhos jobs do ghost NÃO foram deletados (audit trail preservado)
     expect(Job::find($ghostJobId))->not->toBeNull();
+});
+
+it('re-provisionar slug após deprovision success soft-delete → 201 sem violação de unique', function () {
+    $cluster = makeProvisionCluster();
+    $operator = makeOperator();
+    $slug = 'deprovisioned-tenant';
+    $deprovisionJobId = Str::uuid()->toString();
+
+    Customer::create([
+        'slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'domain' => "{$slug}.example.com",
+        'status' => 'failed',
+    ]);
+
+    Job::create([
+        'job_id' => $deprovisionJobId,
+        'customer_slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'cmd_canonical' => 'nextcloud-manage '.$slug.' _ deprovision',
+        'job_type' => 'deprovision',
+        'state' => 'running',
+        'idempotency_key' => Str::uuid()->toString(),
+        'queued_at' => now()->subMinutes(10),
+    ]);
+
+    $noopSsh = Mockery::mock(SshClientInterface::class);
+    $noopSsh->shouldReceive('run')->andReturn(new SshResponse(stdout: '[]', stderr: '', exitCode: 0, parsedJson: []));
+    $this->app->instance(SshClientInterface::class, $noopSsh);
+
+    app(WebhookHandler::class)->handle($cluster, [
+        'event' => 'job.finished',
+        'job_id' => $deprovisionJobId,
+        'state' => 'finished',
+        'finished_at' => now()->toIso8601String(),
+        'exit_code' => 0,
+    ]);
+
+    expect(Customer::withTrashed()->where('slug', $slug)->whereNotNull('deleted_at')->exists())->toBeTrue();
+
+    $newJobId = Str::uuid()->toString();
+    $sshMock = Mockery::mock(SshClientInterface::class);
+    $sshMock->shouldReceive('runAsync')->once()->andReturn(sshProvisionSuccess($newJobId));
+    $this->app->instance(SshClientInterface::class, $sshMock);
+
+    $response = $this->actingAs($operator)->postJson('/api/customers', [
+        'slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'domain' => "{$slug}.example.com",
+    ]);
+
+    $response->assertSuccessful();
+    expect(Customer::find($slug))->not->toBeNull()
+        ->and(Customer::find($slug)->status)->toBe('provisioning')
+        ->and(Customer::find($slug)->deleted_at)->toBeNull();
+    expect(Job::find($newJobId))->not->toBeNull();
 });
 
 it('slug de customer ativo (não soft-deleted) → 422 (unique constraint mantém rejeição)', function () {

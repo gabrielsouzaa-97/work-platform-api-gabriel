@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Jobs\ProbeCustomerReadinessJob;
 use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\Job;
@@ -17,6 +18,7 @@ use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 function makeObsCluster(): ClusterServer
@@ -69,6 +71,7 @@ it('emits transport.webhook_missing when queued job exceeds missing webhook SLA'
 
 it('emits transport.job_stuck_sla when poll-stuck finds running job beyond SLA', function (): void {
     Config::set('observability.stuck_job_sla_seconds', 60);
+    Queue::fake();
 
     $cluster = makeObsCluster();
     $job = makeObsJob($cluster, [
@@ -86,6 +89,10 @@ it('emits transport.job_stuck_sla when poll-stuck finds running job beyond SLA',
     ));
     $this->app->instance(SshClientInterface::class, $sshMock);
 
+    $securityLog = Mockery::mock();
+    $securityLog->shouldReceive('warning')->zeroOrMoreTimes();
+    Log::shouldReceive('channel')->with('security')->andReturn($securityLog);
+
     Log::shouldReceive('warning')
         ->once()
         ->with('transport.job_stuck_sla', Mockery::on(
@@ -93,7 +100,12 @@ it('emits transport.job_stuck_sla when poll-stuck finds running job beyond SLA',
                 && $context['sla_seconds'] === 60,
         ));
 
+    Log::shouldReceive('warning')->zeroOrMoreTimes();
+    Log::shouldReceive('info')->zeroOrMoreTimes();
+
     $this->artisan('jobs:poll-stuck')->assertSuccessful();
+
+    Queue::assertPushed(ProbeCustomerReadinessJob::class, 1);
 });
 
 it('emits transport.parity_divergence when SSH and Agent success rates diverge by job_type', function (): void {

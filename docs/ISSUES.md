@@ -60,6 +60,137 @@
 | ISSUE-052 | bug | `/docs/api/spec` retorna 404 na imagem Docker de produção/LAB — `openapi-external.yaml` ausente após `rm -rf docs` no Dockerfile | DevOps, Livewire, docs | HIGH | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
 | ISSUE-053 | bug | Rotas admin entregues (`/plans`, `/farms`) sem link na sidebar — operador não descobre features deployadas | Livewire, Product | MEDIUM | **fixed (2026-07-08)** — Sprint F21; deploy LAB `95d1152` |
 | ISSUE-054 | bug | Painéis Product admin (Planos etc.) com texto ilegível no dark theme — inputs/selects sem `text-on-surface`; popup nativo do `<select>` renderizado pelo OS (GTK dark) ignora CSS | Livewire, Product, CSS | MEDIUM | **fixed (2026-07-08)** — Sprint F22-q (+q.2/q.3/q.4); deploy LAB `7492358`; merge `c50c9ea` (PRs #149/#150/#151/#153); validado pelo operador |
+| ISSUE-055 | change_request | `POST /api/v1/tenants` com `objectstore: { enabled, bucket? }` — S3 primary storage MeStorage no provision image-mode (ENH-014 Fase B; credenciais resolvem no host, D8) | Customers, API v1, Livewire, Cross-repo (work-platform-scripts ENH-014) | HIGH | **planned — Sprint N44** (2026-07-08); bloqueada pelo gate da Sprint N56 upstream (Fase A) |
+| ISSUE-056 | change_request | UX OCC Grupos — governança explícita, projeção `tenant_groups`, pickers e confirmações (DESIGN.md §9) | Livewire, Customers, Occ, DB, API v1 | HIGH | **implemented — Sprints N45+N46** (2026-07-08); aguarda VERIFY CI |
+| ISSUE-057 | change_request | Contrato de provisionamento desacoplado do readiness gate — os 5 entry points aceitam payloads que nunca chegam a `active` (payload default `{}` incluso); OpenAPI documenta o exemplo condenado | Customers, Product, Onboarding, Billing, Livewire, docs | HIGH | **partial (F28 + N48 API)** — opção A entregue (fail-fast 422 + contract); opção B fatia API N48 entregue (`legacy_me360_capable` + catalog contract); install upstream `work-platform-scripts` pendente (`ISSUE-057-B-upstream`) |
+| ISSUE-058 | bug | Sucesso silencioso: webhook `state=success` com `occ_command_failed` embutido no summary projeta read-model falso (users/groups/saga); grupos de template não validados | Jobs, Webhook, Customers, Onboarding, Occ | HIGH | **fixed (F27)** — PR #163; parser JSON + effectiveState + ResolvedTenantGroupsValidator |
+| ISSUE-059 | bug | `failed` por readiness timeout é beco sem saída: slug bloqueado p/ retry (gap do ISSUE-018/F11), sem cleanup na UI, sem override manual, saga onboarding presa em `Running` | Customers, Jobs, Livewire, Onboarding | CRITICAL | **fixed (F26)** — PR #162; Remover UI + soft-delete deprovision + promote + onboarding Failed |
+| ISSUE-060 | bug | `jobs:poll-stuck` atualiza job mas não replica efeitos do `WebhookHandler` (transição de customer, probe, projectors) — webhook perdido deixa customer em `provisioning` eterno | Jobs, Customers, Webhook | HIGH | **fixed (F26)** — PR #162; poll terminal → WebhookHandler pipeline |
+| ISSUE-061 | change_request | Matriz canônica de estados do customer (status × ações permitidas) + `failure_reason` exposto em API/UI + gate de status no OCC mount e lifecycle async | Customers, Livewire, Occ, API | MEDIUM | **fixed — Sprint N47** (PR pending) |
+
+---
+
+## ISSUE-057 — Contrato de provisionamento desacoplado do readiness gate
+
+- **Tipo**: change_request
+- **Prioridade**: HIGH
+- **Módulos**: Customers, Product, Onboarding, Billing, Livewire, docs
+- **Origem**: Auditoria arquitetural 2026-07-09 (incidente "tenant failed com URL viva" — ISSUE-046 camada 3 generalizada)
+- **Findings**: ARQ-A1, ARQ-A2, ARQ-A3, ARQ-A6, ARQ-A7, ARQ-A8 (docs/FINDINGS.md)
+
+**Problema**: Os 5 entry points de criação de tenant (API legacy, API v1, Livewire Create, `POST /v1/onboarding`, WHMCS) validam formato/plano/catálogo, mas nenhum cruza o payload com os requisitos do `TenantReadinessGateChecker`. Em cluster legado (`image_mode=false`), o gate exige `mework360_memail` + `me360_theme` + SSO — apps que não estão no suite catalog e que nenhum payload aceito pela API consegue instalar. Resultado: tenant provisionado (infra viva) que expira `failed` após ~1200s. O payload default `{}` e o exemplo `minimal` do `openapi-external.yaml` já reproduzem o problema.
+
+**Decisão de produto (2026-07-09, `/deliberar` Tier 2)**: **`ADOPT_A_WITH_B`**
+- **A** (contenção): rejeitar na borda (422) payloads *determinísticamente impossíveis* de passar no readiness gate legado — fail-fast, sem infra órfã.
+- **B** (causa raiz): garantir instalação da suíte me360 (`mework360_memail` + `me360_theme` + SSO) no fluxo suite-catalog — sprint cross-repo separada (`work-platform-scripts`); decompor se risco-G.
+- **C** rejeitada como política de provisionamento (máscara falha; não cobre WHMCS/onboarding). Escape auditado só depois de ARQ-C1/ISSUE-059.
+- **Condições**: contrato compartilhado `ProvisioningReadinessContract` (borda + gate, sem duplicar lista de apps / sem importar checker SSH na HTTP); avaliar payload **resolvido** (defaults+plano+catálogo); um validador nos 5 entry points; 422 acionável (`LEGACY_READINESS_UNSATISFIABLE`) + OpenAPI (ARQ-A8); ponte operacional = `image_mode=true` (já entregue N36.5); flag opcional `legacy_me360_capable` por cluster para reabrir legado pós-B.
+- **Escopo de sprint**: A → F28; B → stub N (cross-repo); recovery CRITICAL (ISSUE-059) → F26 primeiro.
+
+**Critério de aceite**: nenhum entry point aceita payload que o gate correspondente não pode aprovar; OpenAPI com exemplos válidos e contrato de readiness documentado; painel/WHMCS/onboarding roteados pela mesma validação da API; B entregue ou legado bloqueado até `legacy_me360_capable`.
+
+**Progresso N48 (2026-07-09):** fatia API entregue — migration `legacy_me360_capable`, `SuiteCatalogAppLister`, bypass readiness quando cluster capaz + catálogo local com me360 ativos, fixture/testes, runbook `docs/runbooks/me360-suite-catalog-b.md`. **Pendente:** `ISSUE-057-B-upstream` em `work-platform-scripts` (`--suite-catalog` deve instalar suíte me360 no host).
+
+---
+
+## ISSUE-058 — Sucesso silencioso em webhooks e projeções
+
+- **Tipo**: bug
+- **Prioridade**: HIGH
+- **Módulos**: Jobs, Webhook, Customers, Onboarding, Occ
+- **Origem**: Auditoria arquitetural 2026-07-09
+- **Findings**: ARQ-B1, ARQ-B2, ARQ-B3, ARQ-A5 (docs/FINDINGS.md)
+
+**Problema**: O upstream retorna `state=success, exit_code=0` mesmo quando um subcomando embutido falhou (evidência real: `users:create` com summary `{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}`). `WebhookHandler`, projectors (`TenantUserProjector`/`TenantGroupProjector`), `OnboardingSaga` e o poll do OccPanel confiam no estado canônico sem inspecionar o summary — read-model e UI reportam sucesso com upstream inconsistente. Relacionado ao ISSUE-028 (upstream honesto), mas o lado API precisa se defender independentemente.
+
+**Critério de aceite**: parser de summary detecta envelopes de erro embutidos; jobs parciais não projetam como sucesso pleno; saga não avança step com falha parcial; painel surfa o aviso; grupos herdados de template validados antes do dispatch.
+
+---
+
+## ISSUE-059 — `failed` por readiness timeout é beco sem saída
+
+- **Tipo**: bug
+- **Prioridade**: CRITICAL
+- **Módulos**: Customers, Jobs, Livewire, Onboarding
+- **Origem**: Auditoria arquitetural 2026-07-09 (incidente do operador: tenant `failed` com URL viva e painel travado)
+- **Findings**: ARQ-C1, ARQ-C2, ARQ-C4, ARQ-C5 (docs/FINDINGS.md)
+
+**Problema**: `readiness_timeout` seta `status=failed` sem soft-delete — o fix do ISSUE-018 (F11) só cobre o webhook `provision.failed`, então re-provisionar o mesmo slug retorna 422 `slug.unique`. A UI não oferece remover/deprovisionar `failed` (a action aceita via API), não existe override manual `provisioning_finishing → active`, e a saga de onboarding correlacionada fica `Running` para sempre. Infra órfã viva no upstream sem caminho de recovery.
+
+**Critério de aceite**: retry de slug possível após `failed` por timeout (com política explícita para a infra órfã); painel expõe cleanup para `failed`; override manual auditado; saga terminalizada com motivo estruturado.
+
+---
+
+## ISSUE-060 — `jobs:poll-stuck` não fecha o ciclo do WebhookHandler
+
+- **Tipo**: bug
+- **Prioridade**: HIGH
+- **Módulos**: Jobs, Customers, Webhook
+- **Origem**: Auditoria arquitetural 2026-07-09
+- **Findings**: ARQ-C3 (docs/FINDINGS.md)
+
+**Problema**: O fallback agendado (5min) atualiza `job.state`/`exit_code`/`last_poll_at` mas não dispara nada do que o `WebhookHandler` faria no terminal: sem transição de status do customer, sem `ProbeCustomerReadinessJob`, sem projectors. Webhook perdido (`callback_failed` upstream) deixa o job `success` e o customer `provisioning` eterno.
+
+**Critério de aceite**: resultado do poll roteado pela mesma pipeline terminal do webhook (transições + probe + projeções), idempotente com o webhook que possa chegar depois.
+
+---
+
+## ISSUE-061 — Matriz canônica de estados do customer
+
+- **Tipo**: change_request
+- **Prioridade**: MEDIUM
+- **Status**: **fixed — Sprint N47** (2026-07-09); aguarda merge PR
+- **Módulos**: Customers, Livewire, Occ, API
+- **Origem**: Auditoria arquitetural 2026-07-09
+- **Findings**: ARQ-D1, ARQ-D2, ARQ-D3, ARQ-A4 (docs/FINDINGS.md)
+
+**Problema**: `CustomerLifecycleStatus` documenta 3 constantes; os estados reais (`failed`, `removing`, `removed`, `error`) têm regras ad hoc espalhadas por views, actions e controllers. Consequências: OCC acessível por URL direta em tenant não-`active`, lifecycle async parcialmente bloqueado (`groups:*`/`apps:*` passam pré-active), motivo do `failed` invisível fora do audit trail.
+
+**Critério de aceite**: enum/matriz central (status × ações permitidas) consumida por UI, controllers e `LifecycleAsyncAction`; `failure_reason` persistido e exposto em `CustomerResource` + painel; OCC mount valida status.
+
+---
+
+## ISSUE-055 — Objectstore S3 no `POST /api/v1/tenants` (ENH-014 Fase B)
+
+- **Tipo**: change_request
+- **Prioridade**: HIGH
+- **Status**: **planned — Sprint N44** (2026-07-08); **bloqueada** pelo gate da Sprint **N56** do `work-platform-scripts` (Fase A: entrypoint + `manage.sh --objectstore`)
+- **Origem**: piloto `s3pilot` 2026-07-08 — tenant criado via API (job `f1bee7f1` success) mas objectstore pós-install quebrou leitura; plano completo em `work-platform-scripts/docs/planning/PLAN-OBJECTSTORE-S3-PROVISION.md` (decisões D1–D9)
+- **Descrição**: `POST /api/v1/tenants` (e Livewire `Customers\Create`) aceita `objectstore: { enabled: bool, bucket?: string }`; quando `enabled` + `image_mode` → argv inclui `--objectstore` (+ `--objectstore-bucket=` se informado). Credenciais/endpoint **não transitam** pela API — resolvem no host via `secrets/objectstore.env` (decisão D8). `objectstore.enabled` sem `image_mode` → 422.
+- **Contrato**: OpenAPI `CreateTenantRequest.objectstore` (`enabled`, `bucket` opcional); persistência `customers.objectstore_enabled` (bool) + bucket em metadado não-secreto
+- **Critério de aceite**: testes Pest argv (com/sem flag, bucket override, 422 sem image_mode); sanitização (`jobs.summary` sem credencial — padrão SEC-N30); OpenAPI atualizado; deploy LAB; canário `s3pilot2` **via API only** com gates G1–G6 do plano
+- **Reportado em**: 2026-07-08 (`/pmo plan` cross-repo)
+
+---
+
+## ISSUE-056 — UX OCC Grupos: governança explícita, projeção local e pickers (DESIGN.md §9)
+
+- **Tipo**: change_request / melhoria UX
+- **Prioridade**: HIGH
+- **Status**: **implemented — Sprints N45 + N46** (2026-07-08); aguarda VERIFY CI + deploy LAB
+- **Registrado em**: 2026-07-08 (audit `/designer` + execução `/rock`)
+- **Módulos afetados**: OccPanel, `tenant_groups`, `CreateUserRequest`, webhook projector, sync commands
+
+### Decisão âncora
+
+Grupo só nasce em fluxo **explícito** (aba Grupos / API). Na criação de usuário: **multi-select** de grupos existentes (vazio = herdar template).
+
+### Entregas
+
+| Sprint | Entregue |
+|--------|----------|
+| **N45** | Membership 501 oculto; confirmações destrutivas; pickers username; multi-select interim; polish quota/manutenção |
+| **N46** | `tenant_groups` + projector + `tenant-groups:sync` + aba Grupos + validação API/UI |
+
+### Fora de escopo
+
+- `groups:add`/`groups:remove` operacional (upstream 501)
+- CRUD admin templates/apps (ISSUE-051 item 7)
+
+### Fontes
+
+- `docs/design/DESIGN.md` §9
+- Espelho arquitetural N40 (`tenant_users`)
 
 ---
 

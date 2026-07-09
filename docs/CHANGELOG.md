@@ -4,6 +4,11 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 
 ## Unreleased
 
+- **feat(sprint-N47)**: Matriz canônica `CustomerLifecycleMatrix` (status × ações) + `failure_reason` persistido/exposto em API/UI; gate `LifecycleAsyncAction` pré-active (ARQ-A4); `OccPanel` mount 403 fora de `active` (ISSUE-061, ARQ-D1..D3).
+- **feat(sprint-F28)**: ProvisioningReadinessContract fail-fast 422 — contrato único consumido pelo gate checker e validador HTTP; `LEGACY_READINESS_UNSATISFIABLE` nos 5 entry points (API, Livewire, WHMCS, onboarding); `image_mode=true` como ponte operacional; OpenAPI minimal corrigido (ISSUE-057 A, ARQ-A1..A3,A6..A8).
+- **docs(sprint-F25)**: Sprint F25 concluída — poll messaging cross-job (`appendTerminalMessage`), `projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute` com `$attribute`; INT-F24-001 + CQ-F24-001..003 validados; PR #161 merge `8021124`; sem deploy LAB (polish sprint).
+- **docs(sprint-F24)**: Sprint F24 concluída — `TenantGroupNameRules` DRY, groups `[]`/`null` stdin, sync `updated`, poll UX, `deleteUser` reload, SuiteCatalog + N40 integration tests; PR #160 merge `5addd2f`; deploy LAB `5addd2f99794732d4f89e774deb04366882e7490`.
+- **feat(sprint-N45-N46)**: ISSUE-056 — OCC groups UX governance (multi-select, pickers, wire:confirm, membership 501 hidden) + read model `tenant_groups` (webhook projection, sync command, API validation via `TenantGroupMembership`).
 - **fix(sprint-F22-q.4)**: ISSUE-054 definitivo — componente `x-select-menu` (Blade + Alpine listbox) substitui `<select>` nativo em `/plans` e `/customers/create`; popup nativo OS-rendered ignora CSS da página (PR #153, merge `c50c9ea`); validado pelo operador no LAB.
 - **fix(sprint-F22-q.2/q.3)**: modais `max-w-lg`→`max-w-[32rem]` (Tailwind v4 `--spacing-lg` sobrescrevia utilitário para 24px); `select option` + `color-scheme: light`; apps picker com container (PRs #150/#151).
 - **fix(sprint-F22-q)**: ISSUE-054 — contraste dark theme em painéis Product (`/plans`): CSS global para `input`/`select`/`textarea` + classes M3 nos modais; deploy LAB `308fec4`.
@@ -477,3 +482,18 @@ Apêndice automático mantido pelo hook `pmo-update.sh`.
 - **2026-07-07 22:24** `1b6a216` — docs(sprint-F22-q): close ISSUE-054 and mark F21/F22-q complete
 - **2026-07-07 22:36** `28f39e2` — fix(sprint-F22-q.3): use light color-scheme on native select dropdowns
 - **2026-07-07 23:14** `071096b` — fix(sprint-F22-q.3): replace native selects with custom Alpine dropdown
+- **2026-07-08 17:39** `9644864` — fix(sprint-N44): harden readiness HTTP fakes and CI test env isolation
+- **2026-07-08 18:10** `8862258` — style(sprint-N44): remove unused imports in readiness tests
+- **2026-07-08 18:41** `8862258` — style(sprint-N44): remove unused imports in readiness tests
+- **2026-07-08 18:44** `c908216` — chore: register CI failure on main
+- **2026-07-08 21:27** `e313f32` — docs(sprint-F25): closeout after PR #161 merge
+- **2026-07-08 21:30** `e313f32` — docs(sprint-F25): closeout after PR #161 merge
+- **2026-07-08 21:33** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 21:54** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:11** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:15** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:18** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 22:55** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 23:02** `056a3d9` — docs(ops): LAB deploy F25 main e313f32
+- **2026-07-08 23:48** `3631f45` — chore(sprint-F26): validation stamp at HEAD after session gate update
+- **2026-07-09 01:26** `3579c21` — style(sprint-F27): fix ordered imports in OnboardingSagaTest

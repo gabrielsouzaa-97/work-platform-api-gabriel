@@ -89,7 +89,8 @@ it('customers occ-panel renders without inline style block and uses M3 tokens (N
 
 it('customer views mount flows remain intact after M3 retrofit (N39.6 scenario 3)', function (): void {
     $cluster = m3ViewsCluster();
-    $customer = m3ViewsCustomer($cluster, 'provisioning');
+    $provisioningCustomer = m3ViewsCustomer($cluster, 'provisioning');
+    $activeCustomer = m3ViewsCustomer($cluster, 'active');
     $operator = m3ViewsOperator('admin');
 
     Livewire::actingAs($operator)
@@ -98,13 +99,13 @@ it('customer views mount flows remain intact after M3 retrofit (N39.6 scenario 3
         ->assertSee('Provisionar Customer');
 
     Livewire::actingAs($operator)
-        ->test(Show::class, ['slug' => $customer->slug])
-        ->assertSet('customer.slug', $customer->slug)
+        ->test(Show::class, ['slug' => $provisioningCustomer->slug])
+        ->assertSet('customer.slug', $provisioningCustomer->slug)
         ->assertSeeHtml('wire:poll.5s="refreshProgress"');
 
     Livewire::actingAs($operator)
-        ->test(OccPanel::class, ['slug' => $customer->slug])
-        ->assertSet('customer.slug', $customer->slug)
+        ->test(OccPanel::class, ['slug' => $activeCustomer->slug])
+        ->assertSet('customer.slug', $activeCustomer->slug)
         ->assertSet('tab', 'quota')
         ->assertSee('Definir Quota');
 });

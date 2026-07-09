@@ -8,12 +8,15 @@ use App\Models\Customer;
 use App\Models\Operator;
 use App\Modules\Customers\Actions\ProvisionCustomerAction;
 use App\Modules\Customers\Dto\ProvisionPayload;
+use App\Modules\Customers\Dto\ResolvedProvisionContext;
 use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\IdempotencyConflictException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Customers\Validation\ProvisioningReadinessValidator;
 use App\Modules\Farms\Dto\PlacementCriteria;
 use App\Modules\Farms\Services\PlacementService;
 use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
+use App\Modules\Product\Services\PlanAppResolver;
 
 final class WhmcsProvisionService
 {
@@ -51,15 +54,28 @@ final class WhmcsProvisionService
         }
 
         $clusterServerId = $this->resolveClusterServerId($payload);
+        $rawApps = is_array($payload['apps'] ?? null) ? $payload['apps'] : [];
+        $planSlug = isset($payload['plan_slug']) && is_string($payload['plan_slug']) && $payload['plan_slug'] !== ''
+            ? $payload['plan_slug']
+            : null;
+        $resolvedApps = app(PlanAppResolver::class)->resolve($planSlug, $rawApps);
+
+        $readinessContext = ResolvedProvisionContext::fromWhmcsPayload($payload, $resolvedApps);
+        app(ProvisioningReadinessValidator::class)->assertValid($readinessContext);
+
         $provisionPayload = new ProvisionPayload(
             slug: $slug,
             domain: $domain,
             clusterServerId: $clusterServerId,
-            apps: is_array($payload['apps'] ?? null) ? $payload['apps'] : [],
+            apps: $resolvedApps,
             fullApps: (bool) ($payload['full_apps'] ?? false),
             logoPath: null,
             backgroundPath: null,
             mail: is_array($payload['mail'] ?? null) ? $payload['mail'] : null,
+            planSlug: $planSlug,
+            imageMode: $readinessContext->imageMode,
+            suiteCatalog: $readinessContext->suiteCatalog,
+            legacyVendor: $readinessContext->legacyVendor,
         );
 
         // N22.1: provision only after InvoicePaid; welcome email stays in ProbeCustomerReadinessJob.

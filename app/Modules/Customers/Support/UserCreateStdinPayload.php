@@ -13,7 +13,7 @@ namespace App\Modules\Customers\Support;
 final class UserCreateStdinPayload
 {
     /**
-     * @param  list<string>  $groups
+     * @param  list<string>|null  $groups  null omits key; [] emits empty array
      * @param  list<string>  $subadminGroups
      * @return array<string, mixed>
      */
@@ -22,7 +22,7 @@ final class UserCreateStdinPayload
         ?string $displayName = null,
         ?string $email = null,
         ?string $quota = null,
-        array $groups = [],
+        ?array $groups = null,
         array $subadminGroups = [],
     ): array {
         $payload = ['password' => $password];
@@ -39,12 +39,11 @@ final class UserCreateStdinPayload
             $payload['quota'] = self::normalizeQuota($quota);
         }
 
-        $groups = array_values(array_filter(
-            $groups,
-            static fn (mixed $g): bool => is_string($g) && $g !== '',
-        ));
-        if ($groups !== []) {
-            $payload['groups'] = $groups;
+        if ($groups !== null) {
+            $payload['groups'] = array_values(array_filter(
+                $groups,
+                static fn (mixed $g): bool => is_string($g) && $g !== '',
+            ));
         }
 
         $subadminGroups = array_values(array_filter(

@@ -62,7 +62,7 @@ return [
     ],
 
     'agent' => [
-        'transport_enabled' => env('AGENT_TRANSPORT_ENABLED', false),
+        'transport_enabled' => filter_var(env('AGENT_TRANSPORT_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         'poll_timeout_seconds' => env('AGENT_POLL_TIMEOUT_SEC', 55),
         'rate_limit_per_minute' => env('AGENT_RATE_LIMIT_PER_MINUTE', 120),
         'online_threshold_seconds' => env('AGENT_ONLINE_THRESHOLD_SEC', 120),

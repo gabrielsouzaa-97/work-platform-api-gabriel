@@ -1,0 +1,43 @@
+{
+  "schema_version": "1",
+  "apps": [
+    {
+      "app_id": "dashboard",
+      "status": "active"
+    },
+    {
+      "app_id": "mail",
+      "status": "active"
+    },
+    {
+      "app_id": "spreed",
+      "status": "active"
+    },
+    {
+      "app_id": "deck",
+      "status": "active"
+    },
+    {
+      "app_id": "richdocuments",
+      "status": "planned"
+    },
+    {
+      "app_id": "mework360_memail",
+      "status": "active"
+    },
+    {
+      "app_id": "me360_theme",
+      "status": "active"
+    }
+  ],
+  "deploy_order": [
+    "shell",
+    "dashboard",
+    "mail",
+    "spreed",
+    "deck",
+    "richdocuments",
+    "mework360_memail",
+    "me360_theme"
+  ]
+}

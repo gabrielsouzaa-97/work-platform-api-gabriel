@@ -1,11 +1,11 @@
 <!-- FINDINGS-INDEX
-synced_at: 2026-07-06
+synced_at: 2026-07-09
 open_critical: 0
-open_high: 9
-open_medium: 51
-open_low: 46
-sprints_with_open_blockers:
-notes: F20 concluída — CQ-F19-001/002 corrigidos; deploy LAB 2313ea1. F19 R1 APROVADA — 7 findings F18 validados; 259 testes. F18 R1 APROVADA — max_apps removido (ARCH-7); deploy LAB e8b1ad6. ISSUE-051 fase 1 entregue (N41–N43 + F16–F20).
+open_high: 11
+open_medium: 58
+open_low: 45
+sprints_with_open_blockers: []
+notes: N47 PR pending — ARQ-D1..D3+A4 corrigidos (ISSUE-061). Restantes: ISSUE-057 B→N48.
 FINDINGS-INDEX -->
 
 
@@ -43,14 +43,412 @@ FINDINGS-INDEX -->
 | N21 | 0 | 5 | 0 | 0 | 0 | 0 | 5 |
 | N29 | 0 | 3 | 0 | 0 | 0 | 0 | 3 |
 | PMO | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
-| N40 | 0 | 0 | 4 | 5 | 3 | 6 | 0 |
+| N40 | 0 | 0 | 4 | 5 | 0 | 6 | 9 |
 | N41 | 0 | 2 | 1 | 1 | 4 | 0 | 0 |
 | N42 | 0 | 0 | 1 | 1 | 2 | 0 | 0 |
 | N43 | 0 | 3 | 5 | 2 | 10 | 0 | 0 |
-| F17 | 0 | 0 | 3 | 2 | 4 | 0 | 3 |
+| F17 | 0 | 0 | 0 | 0 | 0 | 0 | 7 |
 | F18 | 0 | 0 | 2 | 5 | 0 | 0 | 7 |
 | F19 | 0 | 0 | 0 | 2 | 0 | 0 | 2 |
 | F20 | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
+| N45 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| N46 | 0 | 0 | 0 | 0 | 0 | 8 | 8 |
+| F23 | 0 | 0 | 0 | 0 | 0 | 0 | 3 |
+| F24 | 0 | 0 | 0 | 4 | 0 | 0 | 9 |
+| F25 | 0 | 0 | 0 | 4 | 0 | 0 | 4 |
+| ARQ (audit 2026-07-09) | 1 | 8 | 9 | 1 | 10 | 9 | 0 |
+| F26 | 1 | 1 | 3 | 0 | 0 | 5 | 0 |
+| F27 | 0 | 3 | 1 | 0 | 0 | 4 | 0 |
+
+> **Validação F25 R1** (2026-07-09, `/qa validar F25`): scope = PR #161 merge `8021124` (branch `campanha/fix-f25-poll-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #161 verde (Pest/Lint/Security/OpenAPI/Docker/coverage/security-review); local 14 filter + 50 OccPanelTest passed. **Findings-alvo validados**: INT-F24-001, CQ-F24-001..003 (4/4). **Deploy LAB**: não requerido (polish sprint). **Resultado: APROVADA** — 0 CRITICAL/HIGH; 0 novos non-blocking.
+
+> **Auditoria Arquitetural — Provisioning Lifecycle** (2026-07-09, `/arquiteto`): 2 subagentes read-only (auditor-senior invariantes + explore contrato de produto) a partir do incidente "tenant failed com URL viva" (ISSUE-046 camada 3). 19 findings consolidados (1 CRITICAL, 8 HIGH, 9 MEDIUM, 1 LOW) em 4 classes: A=contrato de borda vs readiness gate, B=sucesso silencioso, C=estados terminais sem recovery, D=matriz de estados. Issues guarda-chuva: ISSUE-057..061.
+
+### Findings — Auditoria Arquitetural Provisioning Lifecycle (ARQ, 2026-07-09)
+
+#### [ARQ-A1] — Nenhum entry point valida payload contra o readiness gate
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior + explore)
+- **Arquivo**: `app/Http/Requests/ProvisionCustomerRequest.php:87-144`, `app/Modules/Integration/Support/TenantReadinessGateChecker.php:83-86`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: corrigido (F28)
+- **Esforço**: M
+**Descrição**: Os 5 entry points de criação (API legacy, API v1, Livewire Create, onboarding, WHMCS) validam formato/plano/catálogo mas nunca cruzam `apps`/`image_mode` com os requisitos do gate legado (`mework360_memail` + `me360_theme` + SSO). O payload default `{}` já é condenado; os apps me360 nem existem no suite catalog (pedir explicitamente dá 422). Incidente real: `apps:["mail"]` → 202 → infra viva → `failed` após ~25min.
+**Correção sugerida**: Validação readiness-aware na borda (rejeitar ou exigir `image_mode`/caminho que garanta a suíte) + decisão de produto sobre instalação da suíte me360 no fluxo suite-catalog.
+
+#### [ARQ-A2] — Plano com `plan_apps` vazio produz tenant condenado
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Product/Services/PlanAppResolver.php:27-28`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: corrigido (F28)
+- **Esforço**: P
+**Descrição**: Plano sem apps faz o resolver retornar `[]` sem erro; provision aceita e repassa lista vazia — readiness legado nunca passa.
+**Correção sugerida**: Rejeitar (422) provision não-image-mode cujo plano resolve para zero apps, ou alertar na criação do plano.
+
+#### [ARQ-A3] — Contrato de onboarding não expõe flags e habilita apps tarde demais
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior + explore)
+- **Arquivo**: `app/Http/Requests/V1/CreateOnboardingRequest.php:37-38`, `app/Http/Controllers/Api/V1/OnboardingV1Controller.php:86-99`, `app/Modules/Onboarding/Saga/OnboardingSaga.php:55-74`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: corrigido (F28)
+- **Esforço**: M
+**Descrição**: `POST /v1/onboarding` não expõe `image_mode`/`suite_catalog`/`plan_slug`; `fullApps` hardcoded `false`; `apps_enabled` não é validado contra catálogo no request. O step `enable_apps` roda **após** `wait_readiness` — tarde demais para apps exigidos pelo gate.
+**Correção sugerida**: Expor flags no contrato, validar `apps_enabled` na borda e reavaliar ordem dos steps ou requisitos do gate para onboarding.
+
+#### [ARQ-A4] — Lifecycle async permitido em tenant pré-active (exceto users)
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php:115-123`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: corrigido (N47)
+- **Esforço**: P
+**Descrição**: Só `users:create`/`users:delete` são bloqueados em `provisioning`/`provisioning_finishing`; `groups:create`, `apps:enable` etc. passam e rodam em tenant que pode nunca chegar a `active`, divergindo read-model do estado real.
+**Correção (N47)**: `CustomerLifecycleMatrix` aplicada no `LifecycleAsyncAction` para todos os cmds lifecycle async.
+
+#### [ARQ-A5] — Grupos herdados de template não são validados contra o tenant
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Customers/Validation/TenantGroupMembership.php:29-36`, `app/Http/Controllers/Api/CustomerLifecycleController.php:65-73`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: corrigido (F27)
+- **Esforço**: P
+**Descrição**: `TenantGroupMembership` valida grupos explícitos do request, mas grupos herdados de `user_template_slug` são resolvidos depois da validação e enviados no stdin sem checagem contra `tenant_groups`. Alimenta o cenário ARQ-B1 (`group:adduser` falha upstream com job success).
+**Correção (F27)**: `ResolvedTenantGroupsValidator` valida grupos resolvidos (explícitos + template) pré-dispatch na API e no painel.
+
+#### [ARQ-A6] — Painel Create bypassa PlanAppResolver e SuiteCatalogValidator
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (explore)
+- **Arquivo**: `app/Http/Livewire/Customers/Create.php:38,188-199`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: corrigido (F28)
+- **Esforço**: P
+**Descrição**: O painel constrói `ProvisionPayload` direto: não herda apps do plano quando o picker está vazio, não valida `apps ⊆ plano` no request e aceita `plan_slug` sem filtro `status=active` (API filtra). Divergência painel vs API.
+**Correção sugerida**: Rotear o painel pela mesma validação da API (`PlanAppResolver` + regras do `ProvisionCustomerRequest`).
+
+#### [ARQ-A7] — WHMCS provisiona com defaults condenados e sem validação
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (explore)
+- **Arquivo**: `app/Modules/Billing/Services/WhmcsProvisionService.php:54-63`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: corrigido (F28)
+- **Esforço**: P
+**Descrição**: O fluxo de billing não passa por FormRequest nem resolver; webhook mínimo produz os mesmos defaults condenados (`suite_catalog=true`, `image_mode=false`, apps parciais).
+**Correção sugerida**: Reusar a validação central de provision no caminho WHMCS.
+
+#### [ARQ-A8] — OpenAPI externo documenta o payload condenado como exemplo
+- **Severidade**: MEDIUM
+- **Tipo**: docs_drift
+- **Auditoria**: Arquiteto (explore)
+- **Arquivo**: `docs/openapi-external.yaml:84-90,1692,1696`, `docs/openapi.yaml`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-057)
+- **Status**: corrigido (F28)
+- **Esforço**: P
+**Descrição**: Exemplo `minimal` usa `apps: [files, calendar]` (inválido com suite catalog default); mutual exclusivity `apps`×`full_apps` documentada mas não enforced; a doc não avisa que tenant legado exige suíte me360 para sair de `provisioning_finishing`. Um dev externo seguindo a doc reproduz o incidente.
+**Correção sugerida**: Corrigir exemplos, enforcar exclusividade no request e documentar o contrato de readiness por modo.
+
+#### [ARQ-B1] — Webhook `success` com erro embutido projeta estado falso
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Jobs/Services/WebhookHandler.php:149-151,235-256`, `app/Modules/Customers/Services/TenantUserProjector.php:18-28`, `app/Modules/Customers/Services/TenantGroupProjector.php:18-28`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: corrigido (F27)
+- **Esforço**: M
+**Descrição**: `WebhookHandler` persiste `state` do payload como canônico e projeta em `success` sem inspecionar summary. Evidência real: `users:create` com `state=success, exit_code=0` e summary `{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}` → `tenant_users` mostra grupos que não existem upstream; nenhum erro na UI.
+**Correção (F27)**: `JobSummaryParser` + `effectiveState` no handler; `TenantUserProjector` omite grupos em `partial`.
+
+#### [ARQ-B2] — OnboardingSaga avança steps sem parse de falha parcial
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Onboarding/Saga/OnboardingSaga.php:115-123,158-202`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: corrigido (F27)
+- **Esforço**: P
+**Descrição**: `CreateAdmin` e `EnableApps` avançam exclusivamente em `canonicalState === 'success'`; `apps:enable` parcial com erro embutido marca o step completed e o onboarding termina `Completed` com apps faltando.
+**Correção (F27)**: Saga marca step `failed` quando summary contém `occ_command_failed`.
+
+#### [ARQ-B3] — JobSummaryParser só detecta prefixo `[ERROR]`
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Jobs/Support/JobSummaryParser.php:28-43`, `app/Http/Livewire/Customers/OccPanel.php:855-864`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-058)
+- **Status**: corrigido (F27)
+- **Esforço**: P
+**Descrição**: JSON embutido (`occ_command_failed`) é ignorado pelo parser; o painel OCC trata `state === 'success'` como sucesso total e mostra "criado com sucesso" com subcomando falho.
+**Correção (F27)**: Parser detecta envelopes JSON; OccPanel surfa aviso de falha parcial.
+
+#### [ARQ-C1] — `failed` por readiness timeout bloqueia retry do slug
+- **Severidade**: CRITICAL
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Jobs/ProbeCustomerReadinessJob.php:118-120`, `app/Modules/Jobs/Services/WebhookHandler.php:197-199`, `app/Http/Requests/ProvisionCustomerRequest.php:58`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: O fix do ISSUE-018 (F11) só soft-deleta o customer quando o webhook `provision.failed` chega. `readiness_timeout` seta `status=failed` **sem** `delete()` — a unique rule de `slug` retorna 422 e não há caminho de retry nem na API nem na UI. Exatamente o dead-end do incidente reportado.
+**Correção (F26)**: Decisão produto — NÃO soft-delete no timeout; Remover no painel + soft-delete em `deprovision` success libera o slug.
+
+#### [ARQ-C2] — UI sem cleanup/deprovision para customer `failed`
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `resources/views/livewire/customers/show.blade.php:37-56`, `app/Modules/Customers/Actions/RemoveCustomerAction.php:51-53`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: `RemoveCustomerAction` aceita `failed`/`provisioning_finishing` via API, mas o painel só mostra "Remover" para `active`/`provisioning` — operador vê beco sem saída com Nextcloud vivo upstream.
+**Correção (F26)**: Botão Remover visível para `failed` e `provisioning_finishing`.
+
+#### [ARQ-C3] — `jobs:poll-stuck` não replica efeitos do WebhookHandler
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Console/Commands/JobsPollStuckCommand.php:56-61`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-060)
+- **Status**: corrigido (F26)
+- **Esforço**: M
+**Descrição**: O poll de fallback atualiza `job.state`/`exit_code` mas não dispara transição de status do customer, `ProbeCustomerReadinessJob` nem projectors. Webhook perdido (`callback_failed`) → job `success`, customer `provisioning` para sempre.
+**Correção (F26)**: Poll terminal roteia pela pipeline do `WebhookHandler` (idempotente).
+
+#### [ARQ-C4] — Sem override manual `provisioning_finishing → active`
+- **Severidade**: MEDIUM
+- **Tipo**: product_gap
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Jobs/ProbeCustomerReadinessJob.php:47-53`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: Não há comando artisan nem endpoint para operador promover tenant verificado manualmente; se o gate estiver desatualizado, o tenant morre no timeout sem escape.
+**Correção (F26)**: `php artisan customers:promote {slug}` + AuditLog `customer_promoted_manual`.
+
+#### [ARQ-C5] — Saga de onboarding fica `Running` eterno após customer `failed`
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Jobs/ProbeCustomerReadinessJob.php:118-136`, `app/Modules/Onboarding/Saga/OnboardingSaga.php:76-88`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-059)
+- **Status**: corrigido (F26)
+- **Esforço**: P
+**Descrição**: Timeout de readiness marca o customer `failed` mas nenhum handler terminaliza o onboarding correlacionado — integrador vê saga `Running`/`tenant_not_ready` indefinidamente.
+**Correção (F26)**: Timeout marca onboarding `Failed` com reason `customer_readiness_timeout`.
+
+#### [ARQ-D1] — Motivo do `failed` não exposto em API/UI
+- **Severidade**: MEDIUM
+- **Tipo**: product_gap
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Http/Livewire/Customers/Show.php:132-143`, `app/Http/Resources/CustomerResource.php:14-21`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: corrigido (N47)
+- **Esforço**: P
+**Descrição**: Card de readiness/último erro só aparece em `provisioning_finishing`; após `failed`, resta o badge — o motivo (`customer_readiness_timeout`) fica só no audit trail e a API não expõe `failure_reason`.
+**Correção (N47)**: Coluna `failure_reason` persistida; exposta em `CustomerResource`/`TenantResource` e card no painel quando `status=failed`.
+
+#### [ARQ-D2] — Sem matriz canônica status × ações permitidas
+- **Severidade**: MEDIUM
+- **Tipo**: maintainability
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Modules/Customers/Support/CustomerLifecycleStatus.php:7-20`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: corrigido (N47)
+- **Esforço**: M
+**Descrição**: `CustomerLifecycleStatus` documenta 3 constantes; estados reais (`failed`, `removing`, `removed`, `error`) têm regras ad hoc espalhadas em UI/actions. Nenhuma fonte única define o que cada estado permite.
+**Correção (N47)**: `CustomerLifecycleAction` + `CustomerLifecycleMatrix::allows()` consumidos por UI, `LifecycleAsyncAction`, `RemoveCustomerAction` e `customers:promote`.
+
+#### [ARQ-D3] — Painel OCC acessível por URL direta em tenant não-active
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Arquiteto (senior)
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:160-164`
+- **Sprint origem**: auditoria 2026-07-09 (ISSUE-061)
+- **Status**: corrigido (N47)
+- **Esforço**: P
+**Descrição**: `mount()` só faz `Gate::authorize`; o link some da UI para não-`active`, mas a URL direta abre o painel OCC em tenant `failed`/`provisioning_finishing`.
+**Correção (N47)**: `OccPanel::mount` aborta 403 quando `CustomerLifecycleMatrix` não permite `occ_panel`.
+
+> **Validação F24 R1** (2026-07-08, `/qa validar F24`): scope = PR #160 merge `5addd2f` (branch `campanha/fix-f24-occ-polish`). **Preflight**: PROC-025/027 PASS. **Testes**: validation-stamp APROVADA; CI PR #160 verde (Pest/Lint/Security/OpenAPI/Docker production/coverage/security-review). **auditor-senior** → APROVADA (9/9 findings-alvo). **Findings-alvo validados**: CQ-F23-001..003, CQ-F17-001..004, CQ-N40-003, QA-N40-003/004 (9/9). **Deploy LAB**: SHA `5addd2f99794732d4f89e774deb04366882e7490` @ `api.lab.mework360.com.br`; migration `tenant_groups` Ran [7]; smoke `/up`+`/login` 200. **Resultado: APROVADA** — 0 CRITICAL/HIGH; 4 novos non-blocking (`CQ-F24-001`..`003` + `INT-F24-001`).
+
+### Findings — Sprint F23 (validação R1)
+
+#### [CQ-F23-001] — Regras de nome de grupo duplicadas (DRY)
+- **Severidade**: MEDIUM
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:673-686` + `app/Http/Requests/Lifecycle/CreateGroupRequest.php:19-29`
+- **Sprint origem**: F23 (post-fix review)
+- **Status**: validado (F24)
+- **Esforço**: P
+**Descrição**: `groupNameRules()` duplica regex, max length e closure de nome reservado `admin` já presentes em `CreateGroupRequest`. Comportamento correto, mas duas fontes podem divergir.
+**Correção sugerida**: Extrair regras compartilhadas (ex. `TenantGroupNameRules::forAttribute('name'|'groupName')`) e reutilizar em API + Livewire.
+
+#### [CQ-F23-002] — Métrica `updated` do sync subreporta em cenário misto
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Services/TenantGroupSyncService.php:77-79`
+- **Sprint origem**: F23 (post-fix review)
+- **Status**: validado (F24)
+- **Esforço**: P
+**Descrição**: `updated` só incrementa quando `inserted === 0`. Sync com inserts e backfill de `synced_at` simultâneos subreporta refreshes.
+**Correção sugerida**: Sempre `$report->updated += $refreshedExisting` ou incrementar por row no loop.
+
+#### [CQ-F23-003] — Poll concorrente de grupo pode sobrescrever feedback
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:566-589`, `688-718`
+- **Sprint origem**: F23 (post-fix review)
+- **Status**: validado (F24)
+- **Esforço**: P
+**Descrição**: `pollPendingGroupJob()` executa create e delete em sequência; cada `pollSingleGroupJob()` chama `clearMessages()` no terminal. Se ambos jobs terminam no mesmo tick de 3s, a segunda mensagem apaga a primeira.
+**Correção sugerida**: Acumular mensagens, poll de um job por tick, ou handlers `wire:poll` separados por tipo.
+
+#### [INT-F24-001] — Poll de usuário pode apagar mensagem de grupo no mesmo tick
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Integrator
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php` (pollPendingUserJob)
+- **Sprint origem**: F24 (integration check)
+- **Status**: validado (F25)
+- **Esforço**: P
+**Descrição**: `pollPendingUserJob` chama poll de grupo e depois handlers de usuário que fazem `clearMessages()` incondicionalmente — mensagem de grupo pode sumir se job de usuário termina no mesmo tick.
+**Correção sugerida**: Estender `preserveMessages` aos handlers de usuário ou não limpar quando outro job do tick ainda não finalizou.
+
+#### [CQ-F24-001] — handleUserDeleteJobTerminal reutiliza projector de create
+- **Severidade**: LOW
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: validado (F25)
+- **Esforço**: P
+**Descrição**: `handleUserDeleteJobTerminal` chama `projectUserCreateIntoReadModel()` (nome enganoso); projector roteia delete corretamente.
+**Correção sugerida**: Renomear para `projectUserJobIntoReadModel`.
+
+#### [CQ-F24-002] — TenantGroupNameRules::forAttribute ignora parâmetro
+- **Severidade**: LOW
+- **Tipo**: maintainability
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Support/TenantGroupNameRules.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: validado (F25)
+- **Esforço**: P
+**Descrição**: `$attribute` não é usado; API e painel compartilham o mesmo array.
+**Correção sugerida**: Remover parâmetro ou documentar reserva futura.
+
+#### [CQ-F24-003] — Poll grupo dual-success ainda sobrescreve mensagem
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php`
+- **Sprint origem**: F24 (validação R1)
+- **Status**: validado (F25)
+- **Esforço**: P
+**Descrição**: Com `preserveMessages`, dual success no mesmo tick ainda sobrescreve `successMessage` (teste cobre success+error).
+**Correção sugerida**: Acumular/concatenar mensagens quando preserveMessages.
+
+
+
+> **Validação N45+N46 R1** (2026-07-08, `/qa validar`): scope = PR #158 merge `f465768` (delta `8262408..f465768`, ISSUE-056). **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **118 passed, 366 assertions** (WebhookTenantGroupProjection + TenantGroupSync + OccPanel + Lifecycle + CreateUserPolicy + UserCreateTemplateResolver); CI PR #158 verde (Pest/Lint/Security/OpenAPI). **auditor-senior** ([`9a3dbedd`](9a3dbedd-f056-4565-952f-759ca30652d8)) → 0 CRITICAL, **1 HIGH**, 5 MEDIUM, 2 LOW. **Resultado: REPROVADA** — `CQ-N46-001` HIGH: projector só aceita `groups:create`/`groups:delete` mas jobs persistem `group_create`/`group_delete` via `JobTypeTranslator` (padrão correto já existe em `TenantUserProjector`).
+
+### Findings — Sprint N46 (validação R1)
+
+#### [CQ-N46-001] — TenantGroupProjector ignora job_type persistido
+- **Severidade**: HIGH
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Services/TenantGroupProjector.php:13-31`
+- **Sprint origem**: N46 (task N46.2 — TenantGroupProjector + webhook hooks)
+- **Status**: validado (F23)
+- **Esforço**: P
+**Descrição**: `LifecycleAsyncAction` persiste `job_type` via `JobTypeTranslator::cmdToJobType()` como `group_create`/`group_delete`, mas o projector só trata `groups:create`/`groups:delete`. Webhook terminal não projeta `tenant_groups` até sync manual.
+**Correção sugerida**: Alinhar ao `TenantUserProjector`: `GROUP_CREATE_TYPES = ['group_create', 'groups:create']` e `GROUP_DELETE_TYPES = ['group_delete', 'groups:delete']`.
+
+#### [CQ-N46-002] — Testes de projeção usam job_type incorreto (falso verde)
+- **Severidade**: MEDIUM
+- **Tipo**: test_fragility
+- **Auditoria**: Senior
+- **Arquivo**: `tests/Feature/Jobs/WebhookTenantGroupProjectionTest.php`
+- **Sprint origem**: N46 (task N46.2)
+- **Status**: validado (F23)
+- **Esforço**: P
+**Descrição**: Fixtures injetam `job_type => 'groups:create'|'groups:delete'`, mas jobs reais usam `group_create`/`group_delete`. Suite passa com CQ-N46-001 ativo.
+**Correção sugerida**: Fixtures com `group_create`/`group_delete` + teste integrado LifecycleAsyncAction → webhook → assert row.
+
+#### [CQ-N46-003] — Validação membership painel case-sensitive vs API
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:404-405`
+- **Sprint origem**: N46 (task N46.5)
+- **Status**: validado (F23)
+- **Esforço**: P
+**Descrição**: Painel usa `in_array(..., true)` case-sensitive; API `TenantGroupMembership` compara `LOWER(name)`.
+**Correção sugerida**: Reutilizar `TenantGroupMembership` ou lookup case-insensitive idêntico.
+
+#### [CQ-N46-004] — createGroup/deleteGroup painel sem regex da API
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:521-543`
+- **Sprint origem**: N45 (task N45.2/N45.5)
+- **Status**: validado (F23)
+- **Esforço**: P
+**Descrição**: Painel aceita `required|string|max:256` sem `regex:/^[a-zA-Z0-9._\- ]+$/` da API.
+**Correção sugerida**: Extrair regras compartilhadas e aplicar no OccPanel.
+
+#### [CQ-N46-005] — Criação de grupo não bloqueia nome reservado admin
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Requests/Lifecycle/CreateGroupRequest.php` + `OccPanel::createGroup`
+- **Sprint origem**: N46
+- **Status**: validado (F23)
+- **Esforço**: P
+**Descrição**: Membership bloqueia atribuir `admin`, mas create group não rejeita nome `admin`.
+**Correção sugerida**: Rule case-insensitive `strtolower($name) === 'admin'` em CreateGroupRequest e OccPanel.
+
+#### [CQ-N46-006] — Sem poll/refresh pós-create de grupo no painel
+- **Severidade**: MEDIUM
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Http/Livewire/Customers/OccPanel.php:519-536`
+- **Sprint origem**: N45/N46
+- **Status**: validado (F23)
+- **Esforço**: M
+**Descrição**: Após createGroup sucesso não há poll do job nem `loadGroups()` (assimetria com users).
+**Correção sugerida**: Após fix CQ-N46-001, poll terminal group_create/delete ou reload no success.
+
+#### [CQ-N46-007] — TenantGroupSyncReport.updated nunca incrementado
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Modules/Customers/Services/TenantGroupSyncService.php:52-72`
+- **Sprint origem**: N46 (task N46.3)
+- **Status**: validado (F23)
+- **Esforço**: P
+**Motivo LOW**: métrica operacional enganosa; sync funcional.
+**Correção sugerida**: Incrementar `$report->updated++` em row existente ou remover campo.
+
+#### [CQ-N46-008] — tenant-groups:sync exit 0 com falhas parciais
+- **Severidade**: LOW
+- **Tipo**: product_bug
+- **Auditoria**: Senior
+- **Arquivo**: `app/Console/Commands/TenantGroupsSyncCommand.php:35-44`
+- **Sprint origem**: N46 (task N46.3)
+- **Status**: validado (F23)
+- **Esforço**: P
+**Motivo LOW**: cron não alerta; drift detectável via logs.
+**Correção sugerida**: Retornar FAILURE se qualquer customer falhar.
 
 > **Validação F19 R1** (2026-07-06, `/qa validar F19`): scope = delta `a623f8e...887b53f` (PR #144 — correção dos 7 findings F18). **Review**: senior+qa. **Preflight**: PROC-025/027 PASS; parity gate skip. **Testes**: Pest Docker **259 passed, 1075 assertions** (`Product/`, `Api/V1/`, `Database/`, `Customers/`). **auditor-senior** ([`d14c0e14`](d14c0e14-31da-447b-b86b-4bc58d4df922)) → 0 CRITICAL, 0 HIGH, 0 MEDIUM, 2 LOW. **Findings F18 validados**: CQ-F18-001, QA-F18-002, CQ-F18-002, CQ-F18-003, QA-F18-003, QA-F18-004, QA-F18-005 (7/7). **Resultado: APROVADA** — 0 CRITICAL/HIGH/MEDIUM; 2 LOW novos non-blocking.
 
@@ -78,10 +476,10 @@ FINDINGS-INDEX -->
 ### Findings — Sprint F17 (validação R1)
 
 - **[OPS-F16-001] MEDIUM — validado (F17.1)**: `app-catalog:sync` quebrava no container quando `platform.suite_catalog.path` apontava para sibling `work-platform-scripts` inexistente na imagem. Fix: `SuiteCatalogPathResolver` com fallback `storage/app/suite_catalog.json` + env `NC_SUITE_CATALOG_JSON`; `AppCatalogSyncService` e `SuiteCatalogValidator` adotam o resolver. Validado no deploy LAB `661033e` (sync 11 apps sem `docker compose cp`).
-- **[CQ-F17-001] MEDIUM — pendente**: emissão de `groups: []` depende de override pós-`build()` nos call sites, não de `UserCreateStdinPayload::build()` (que ainda omite `groups` vazio via `if ($groups !== [])`). Novo entry point que use `UserCreateTemplateResolver` sem o override regride silenciosamente. **Correção sugerida**: mover a emissão de groups vazio para `UserCreateStdinPayload` (flag tri-state `?array $groups` + `bool $emitEmptyGroups` ou helper `withGroups`), removendo os overrides duplicados de controller+Livewire. `app/Modules/Customers/Support/UserCreateStdinPayload.php:46-48`.
-- **[CQ-F17-002] MEDIUM — pendente**: OccPanel sem teste para override explícito de groups vazio (API tem cobertura; Livewire só cobre merge + override não-vazio). **Correção sugerida**: teste Pest em `OccPanelUserTemplateTest` com template com groups + `userGroups` que parseia para `[]` (ex.: `','`) asserindo stdin `"groups": []`. `app/Http/Livewire/Customers/OccPanel.php:356-368`.
-- **[CQ-F17-003] LOW — pendente**: `groups: null` no JSON é tratado como `[]` explícito (via `$request->has` + cast `(array) null`) em vez de herdar template. **Correção sugerida**: `$request->exists('groups') && is_array($request->input('groups')) ? $request->array('groups') : null`. `app/Http/Controllers/Api/CustomerLifecycleController.php:60`.
-- **[CQ-F17-004] LOW — pendente**: `SuiteCatalogPathResolver` sem unit test dedicado (só coberto indiretamente via `AppCatalogSyncCommandTest`). **Correção sugerida**: teste Pest stubando `config()` + temp files em `storage/app/` asserindo first-readable-wins, fallthrough de path inexistente, `RuntimeException` quando todos ilegíveis. `app/Modules/Integration/Support/SuiteCatalogPathResolver.php:11-29`.
+- **[CQ-F17-001] MEDIUM — validado (F24)**: emissão de `groups: []` depende de override pós-`build()` nos call sites, não de `UserCreateStdinPayload::build()` (que ainda omite `groups` vazio via `if ($groups !== [])`). Novo entry point que use `UserCreateTemplateResolver` sem o override regride silenciosamente. **Correção sugerida**: mover a emissão de groups vazio para `UserCreateStdinPayload` (flag tri-state `?array $groups` + `bool $emitEmptyGroups` ou helper `withGroups`), removendo os overrides duplicados de controller+Livewire. `app/Modules/Customers/Support/UserCreateStdinPayload.php:46-48`.
+- **[CQ-F17-002] MEDIUM — validado (F24)**: OccPanel sem teste para override explícito de groups vazio (API tem cobertura; Livewire só cobre merge + override não-vazio). **Correção sugerida**: teste Pest em `OccPanelUserTemplateTest` com template com groups + `userGroups` que parseia para `[]` (ex.: `','`) asserindo stdin `"groups": []`. `app/Http/Livewire/Customers/OccPanel.php:356-368`.
+- **[CQ-F17-003] LOW — validado (F24)**: `groups: null` no JSON é tratado como `[]` explícito (via `$request->has` + cast `(array) null`) em vez de herdar template. **Correção sugerida**: `$request->exists('groups') && is_array($request->input('groups')) ? $request->array('groups') : null`. `app/Http/Controllers/Api/CustomerLifecycleController.php:60`.
+- **[CQ-F17-004] LOW — validado (F24)**: `SuiteCatalogPathResolver` sem unit test dedicado (só coberto indiretamente via `AppCatalogSyncCommandTest`). **Correção sugerida**: teste Pest stubando `config()` + temp files em `storage/app/` asserindo first-readable-wins, fallthrough de path inexistente, `RuntimeException` quando todos ilegíveis. `app/Modules/Integration/Support/SuiteCatalogPathResolver.php:11-29`.
 
 > **Validação F16 R1** (2026-07-06, `/qa validar F16` via `/rock`): scope = sprint/F16 pós-merge PR #140. **Testes**: Pest Docker **33 passed** (suite F16) + **135 passed** regressão Product/Livewire/Jobs (402 assertions). **Fixes**: F16.1 sync `plan_apps` via API; F16.2 `is_default` lockForUpdate; F16.3 `max_users` inflight jobs + re-check no persist; F16.4/F16.5 testes legacy+OccPanel. **5 HIGH** N41–N43 → corrigido. **Resultado: APROVADA** — 0 HIGH pendentes da campanha ISSUE-051.
 
@@ -111,9 +509,9 @@ FINDINGS-INDEX -->
 
 ### Backlog LOW N40 (non-blocking)
 
-- **[CQ-N40-003 ≡ QA-N40-005] LOW — pendente**: `OccPanel::deleteUser` não recarrega lista pós-success (create tem poll; delete fica stale até "Atualizar"). `app/Http/Livewire/Customers/OccPanel.php:395-413`.
-- **[QA-N40-003] LOW — pendente**: falta teste cruzando webhook out-of-order (`job.started` após terminal) com projeção `tenant_users` intacta.
-- **[QA-N40-004] LOW — pendente**: teste de poll create success usa seed manual em vez de integração webhook→projector→poll.
+- **[CQ-N40-003 ≡ QA-N40-005] LOW — validado (F24)**: `OccPanel::deleteUser` não recarrega lista pós-success (create tem poll; delete fica stale até "Atualizar"). `app/Http/Livewire/Customers/OccPanel.php:395-413`.
+- **[QA-N40-003] LOW — validado (F24)**: falta teste cruzando webhook out-of-order (`job.started` após terminal) com projeção `tenant_users` intacta.
+- **[QA-N40-004] LOW — validado (F24)**: teste de poll create success usa seed manual em vez de integração webhook→projector→poll.
 
 > **Validação F15 R2** (2026-06-17, `/qa validar F15` via `/rock`): scope = follow-up `ce86325` (campanha `f15-authz-followup`). **Testes**: `ApiKeyAuthorizationTest` 9 passed + `CancelJobTest` 4 passed, 29 assertions (SQLite local). **auditor-senior R2** → **PASS** (0 HIGH). **Findings validados**: `CQ-F15-001`, `CQ-F15-002`, `CQ-F15-003`, `CQ-F15-005`, `SEC-V1-001`. **Backlog non-blocking**: `CQ-F15-007`, `CQ-F15-008` (LOW). **Hard Rule #2**: OK (0 arquivos fora whitelist). **Resultado: APROVADA**.
 

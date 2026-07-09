@@ -46,6 +46,7 @@ class ClusterServer extends Model
         'schema_version',
         'status',
         'tier',
+        'legacy_me360_capable',
         'last_health_at',
     ];
 
@@ -55,6 +56,7 @@ class ClusterServer extends Model
             'ssh_private_key_encrypted' => 'encrypted',
             'sftp_private_key_encrypted' => 'encrypted',
             'webhook_secret_encrypted' => 'encrypted',
+            'legacy_me360_capable' => 'boolean',
             'last_health_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];

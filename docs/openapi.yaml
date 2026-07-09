@@ -1672,6 +1672,43 @@ components:
               format: date-time
               description: ISO-8601
 
+    Customer:
+      type: object
+      required: [slug, cluster_server_id, domain, status]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9-]+$"
+        cluster_server_id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+          maxLength: 253
+        status:
+          type: string
+          enum:
+            - provisioning
+            - provisioning_finishing
+            - active
+            - failed
+            - removing
+            - removed
+            - error
+        failure_reason:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Motivo sanitizado da falha; presente apenas quando status=failed.
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+
     # ------ Request bodies ------
 
     CreateCustomerRequest:

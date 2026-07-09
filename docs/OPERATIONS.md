@@ -1,5 +1,55 @@
 # Operations log
 
+## Cluster admin — `legacy_me360_capable`
+
+Flag booleana em `cluster_servers.legacy_me360_capable` (default `false`, Sprint N48 / ISSUE-057 B).
+
+| Valor | Efeito |
+|-------|--------|
+| `false` | Comportamento F28: provision legado `suite_catalog` sem `image_mode` exige apps resolvidos compatíveis com o readiness gate; payload default `{}` → `422 LEGACY_READINESS_UNSATISFIABLE`. |
+| `true` | Permite provision legado `suite_catalog` quando o catálogo local (`SuiteCatalogPathResolver`) contém `mework360_memail` e `me360_theme` com `status: active`. **Não** substitui upstream: o host ainda precisa instalar a suíte (ver `docs/runbooks/me360-suite-catalog-b.md`). |
+
+**Quando habilitar:** somente após `work-platform-scripts` entregar `suite_catalog.json` com me360 no bundle do cluster e canário LAB com readiness PASS.
+
+**Como definir (exemplo SQL):**
+
+```sql
+UPDATE cluster_servers
+SET legacy_me360_capable = 1
+WHERE id = '<cluster-uuid>';
+```
+
+Reverta para `0` se o catálogo do host for rolled back ou o canário falhar no gate legado.
+
+## 2026-07-09T00:35:00Z — Deploy LAB F25 (main @ e313f32 — poll messaging polish)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `e313f329e3f0656b182d2fecf4b223d25091db4b` (closeout F25 após merge PR #161 `8021124`; inclui `projectUserJobIntoReadModel`, `TenantGroupNameRules::forAttribute`, acumulação de mensagens poll grupo+usuário).
+- **Deploy:** SSH `mecloud360@128.201.61.110`; sync `git archive` tar (`.env` preservado; host sem `.git`); `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker && up -d`.
+- **Migration:** Nothing to migrate (`tenant_groups` já Ran).
+- **Containers:** app/worker/nginx/db/redis healthy pós-deploy.
+- **Smoke:** `GET https://api.lab.mework360.com.br/up` → **200**; `/login` → **200**.
+- **Credenciais/secrets:** [REDACTED]
+
+## 2026-07-09T00:10:00Z — Deploy LAB F24 (PR #160 merged — OCC groups polish + F17/N40 backlog)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `5addd2f99794732d4f89e774deb04366882e7490` (merge PR #160 `campanha/fix-f24-occ-polish` → `main`; `TenantGroupNameRules` DRY, groups `[]`/`null` stdin, sync `updated`, poll UX, `deleteUser` reload, SuiteCatalog + N40 integration tests).
+- **CI:** PR #160 checks green (Pest, Lint, Security, OpenAPI, Docker production, coverage, security-review).
+- **Deploy:** SSH `mecloud360@128.201.61.110`; sync `git archive` tar (`.env` preservado; host sem `.git`); `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker && up -d`.
+- **Migration:** `2026_07_08_000002_create_tenant_groups_table` — Ran [7].
+- **Containers:** app/worker/nginx/db/redis healthy pós-deploy.
+- **Smoke:** `GET https://api.lab.mework360.com.br/up` → **200** (`ok`); `/login` → **200**.
+- **Credenciais/secrets:** [REDACTED]
+
+## 2026-07-08T22:15:00Z — Deploy LAB N44.5 (PR #157 merged — readiness test harness + objectstore migration)
+
+- **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `cf9d7b0` (merge PR #157 `campanha/n56-objectstore-s3` → `main`; inclui `fix(sprint-N44): isolate readiness probe DI in test harness` + migration `add_objectstore_to_customers_table`).
+- **CI:** PR #157 checks green (run `28979263228`) — Characterization, `--group readiness-isolated`, suite completa PASS.
+- **Deploy:** SSH `mecloud360@128.201.61.110`; sync `git archive` tar (`.env` preservado); `docker compose -f docker-compose.yml -f docker-compose.lab.yml build app worker nginx && up -d`.
+- **Migration:** `2026_07_08_000001_add_objectstore_to_customers_table` — DONE.
+- **Containers:** app/worker/nginx/db/redis healthy pós-deploy.
+- **Smoke:** `GET https://api.lab.mework360.com.br/up` → **200** (`ok`).
+- **Credenciais/secrets:** [REDACTED]
+
 ## 2026-07-08T03:40:00Z — Deploy LAB F22-q.2→q.4 (ISSUE-054 follow-ups: modal width + dropdown custom)
 
 - **Control plane LAB:** `api.lab.mework360.com.br` (`.110`) — SHA `7492358` (conteúdo = `main` `c50c9ea` pós-merge PRs #150/#151/#153): fix `max-w-[32rem]` nos modais (Tailwind v4 `--spacing-lg` colapsava `max-w-lg` para 24px); componente `x-select-menu` (Alpine) substitui `<select>` nativo em `/plans` e `/customers/create` — popup nativo OS-rendered (GTK dark) ignora CSS da página.

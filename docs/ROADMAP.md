@@ -5863,8 +5863,481 @@ Proibido: servir openapi.yaml interno/legado; copiar spec para public/.
 
 ---
 
+## Sprint N44 — Objectstore S3 no provision via API (ISSUE-055 / ENH-014 Fase B)
+
+> Categoria: N
+> Status: planejada — **BLOQUEADA** pelo gate da Sprint **N56** do `work-platform-scripts` (Fase A: imagem com autoconfig S3 + `manage.sh --objectstore` deployados no `.120`)
+> Gate: `POST /api/v1/tenants` com `objectstore: { enabled: true }` + `image_mode: true` → argv do dispatch contém `--objectstore` (+ `--objectstore-bucket=` quando informado); `enabled` sem `image_mode` → **422** `validation_error`; **zero** credencial S3 em payload/argv/`jobs.summary`/AuditLog (grep negativo nos testes); OpenAPI `openapi-external.yaml` atualizado + Scalar renderiza; Pest verde no CI; deploy LAB e canário `s3pilot2` criado **exclusivamente via API** com WebDAV 201/200 + `urn:oid:*` no bucket dedicado
+> Gerado via `/pmo plan` (2026-07-08). Fonte: **ISSUE-055**; plano cross-repo `work-platform-scripts/docs/planning/PLAN-OBJECTSTORE-S3-PROVISION.md` (D1–D9).
+> review: senior+qa — superfície de contrato externo (`/api/v1`) + fluxo de provisionamento; secrets nunca na API (D8) é o invariante central.
+> **Execução (operador, 2026-07-08)**: tasks executadas pelo operador com **Composer 2.5** — este planejamento entrega apenas blueprints/`executor_prompt`.
+> Pré-execução: Quality Brief + verifier (`docs/.briefs/N44.brief.md`) antes da primeira task.
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | P | N44.1 — Migration `customers.objectstore_enabled` (bool default false) + `objectstore_bucket` (string nullable, metadado não-secreto) + cast no model | laravel-migration | — |
+| [ ] | M | N44.2 — `ProvisionPayload.objectstore` + FormRequest (`enabled` bool, `bucket` regex slug-safe; 422 se `enabled` sem `image_mode`) + `ProvisionCustomerAction`/translator argv `--objectstore[/-bucket=]` + Pest | api-rest-patterns | N44.1 |
+| [ ] | P | N44.3 — OpenAPI `CreateTenantRequest.objectstore` (`enabled`, `bucket` opcional; descrição: credenciais resolvem no cluster) + exemplo + Scalar smoke | docs | N44.2 |
+| [ ] | P | N44.4 — Livewire `Customers\Create`: toggle "Armazenamento S3 (MeStorage)" visível só com image-mode + persistência + badge no show | laravel-livewire | N44.2 |
+| [ ] | P, gated | N44.5 — Deploy LAB + canário `s3pilot2` via API only: job success + gates WebDAV/bucket (subconjunto G1–G6); evidência em OPERATIONS; ISSUE-055 → fixed | cloud-ops (manual) | N44.2, N44.3, N44.4, Sprint N56 (upstream) |
+
+<details>
+<summary>N44.2 — Payload objectstore + translator argv (núcleo do contrato)</summary>
+
+**Fonte(s)**: ISSUE-055; PLAN-OBJECTSTORE-S3-PROVISION §6 (contrato v1 simplificado — D8).
+
+**Estado atual**: `ProvisionPayload` (app/Modules/Customers/Dto/ProvisionPayload.php) não tem campo objectstore; translator cmd→argv (padrão F5/N36 com `--image-mode`/`--suite-catalog`) não emite `--objectstore`; criação sem objectstore = storage local.
+**Estado desejado**: request com `objectstore.enabled=true` + `image_mode=true` produz dispatch upstream com `--objectstore` (e `--objectstore-bucket=<b>` quando `bucket` presente); flags **posicionadas com as demais flags de image-mode** (regressão ISSUE-045: flags devem sobreviver ao `args_json` Redis). Nunca aceitar/propagar key/secret/hostname — se o cliente enviar chaves desconhecidas dentro de `objectstore`, rejeitar com 422 (`prohibited`).
+**Módulo(s) afetado(s)**: `app/Modules/Customers/Dto/ProvisionPayload.php`, FormRequest de create, `ProvisionCustomerAction`/translator argv, Pest (`ProvisionTest` + novo).
+**Risco**: MEDIUM — toca translator usado por todo provision; mitigado por Pest de regressão argv sem objectstore (byte-idêntico ao atual).
+**Task size**: M (4-5 files)
+
+**executor_prompt**:
+### Quality Brief (Sprint N44)
+Melhoria: contrato `objectstore` no provision API v1.
+Contexto: Fase A (work-platform-scripts N56) entrega `manage.sh create --image-mode --objectstore [--objectstore-bucket=]` com credenciais resolvidas no host (`secrets/objectstore.env`, D8). A API só liga a feature.
+Objetivo: (1) `ProvisionPayload::objectstore` (`?array{enabled: bool, bucket: ?string}`); (2) validação FormRequest: `objectstore.enabled` boolean, `objectstore.bucket` opcional `regex:/^[a-z0-9][a-z0-9-]{2,62}$/`, chaves extras em `objectstore.*` proibidas, regra condicional `objectstore.enabled=true` requer `image_mode=true` senão 422; (3) translator argv acrescenta `--objectstore` (+ bucket) junto das flags image-mode; (4) persistir `objectstore_enabled`/`objectstore_bucket` no customer.
+Arquivos: DTO, FormRequest, Action/translator, model/migration (N44.1), tests Pest.
+Critério de pronto: Pest — argv com flag; argv com bucket override; argv sem objectstore inalterado (regressão); 422 enabled sem image_mode; 422 chave desconhecida em objectstore (ex.: `key`); grep negativo `OBJECTSTORE_S3_KEY|SECRET` em app/ (invariante D8). CI verde.
+Cenários de teste: 1. normal enabled+image_mode; 2. bucket override; 3. edge enabled sem image_mode → 422; 4. edge `objectstore.key` enviado → 422 prohibited; 5. regressão payload sem objectstore → argv atual intacto; 6. sanitização: `jobs.summary`/AuditLog do dispatch sem termo `objectstore` além do bool/bucket.
+guardrail_contract:
+  - class: secrets
+    convergence_check: "! rg -i 'OBJECTSTORE_S3_(KEY|SECRET)' app/"
+reuse_targets:
+  - component: translator argv `--image-mode`/`--suite-catalog` (padrão N36, regressão ISSUE-045)
+    reuse_as: extend
+    convergence_check: rg -- "--objectstore" app/Modules/Customers/
+</details>
+
+---
+
+## Sprint F26 — Recovery do `failed` + poll terminal
+
+> Categoria: F
+> Status: concluída
+> Gate: customer `failed` por readiness timeout pode ser removido no painel; após deprovision `success` o slug fica livre para re-provision (soft-delete); `jobs:poll-stuck` em job terminal dispara a mesma pipeline do `WebhookHandler` (status + probe + projectors); saga de onboarding correlacionada termina `Failed` com motivo; `customers:promote` (artisan) com audit; Pest + CI verdes.
+> Fonte: **ISSUE-059** + **ISSUE-060** · findings **ARQ-C1**, **ARQ-C2**, **ARQ-C3**, **ARQ-C4**, **ARQ-C5**
+> review: **comprehensive** (senior+qa — lifecycle customer + webhook/poll parity + onboarding saga)
+> Gerado via `/rock f26 + stubs` (2026-07-09). Decisão produto **ARQ-C1**: **NÃO** soft-delete no timeout (infra órfã sem handle); manter `status=failed` + expor Remover no painel; soft-delete **somente** em `deprovision` success.
+> Pré-execução: Quality Brief (`docs/.briefs/F26.brief.md`) + verifier (`docs/.briefs/F26.verifier.md`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | P | F26.1 — Painel: botão Remover para `failed` (+ `provisioning_finishing`) | laravel-livewire | — |
+| [ ] | M | F26.2 — Soft-delete no `deprovision` success → libera slug; testes retry pós-cleanup | api-rest-patterns | F26.1 |
+| [ ] | P | F26.3 — Timeout readiness terminaliza onboarding correlacionado (`Failed` + motivo) | laravel-api | — |
+| [ ] | M | F26.4 — `jobs:poll-stuck` roteia resultado terminal pela pipeline do WebhookHandler (idempotente) | api-rest-patterns | — |
+| [ ] | P | F26.5 — Artisan `customers:promote {slug}` (`provisioning_finishing`→`active`) + AuditLog | laravel-api | — |
+
+### Ajuste produto ARQ-C1 (timeout vs cleanup)
+
+| Caminho | Comportamento |
+|---------|---------------|
+| Readiness timeout | `status=failed` **sem** soft-delete (infra pode existir upstream) |
+| Painel | Botão **Remover** visível para `failed` e `provisioning_finishing` |
+| Deprovision success | `status=removed` + **soft-delete** → slug liberado (`whereNull(deleted_at)` na unique rule) |
+| Retry | Operador remove tenant falho → deprovision → re-provision com mesmo slug |
+
+### Task F26.1 — Botão Remover para estados terminais/intermediários
+
+**Estado atual**: `show.blade.php:46` só exibe Remover para `active|provisioning`; `RemoveCustomerAction` já aceita `failed|provisioning_finishing` via API.
+**Estado desejado**: operador vê Remover para `failed` e `provisioning_finishing`; Pest confirma botão/modal para esses status.
+**Findings**: ARQ-C2
+**Arquivos**: `resources/views/livewire/customers/show.blade.php`, `tests/Feature/Livewire/Customers/CustomerShowTest.php`
+
+### Task F26.2 — Soft-delete após deprovision success
+
+**Estado atual**: `WebhookHandler.php:187-198` — deprovision success seta `status=removed` mas **não** soft-delete; provision failed/cancelled soft-delete (F11/ISSUE-018). Teste em `WebhookHandlerTest.php:313` documenta que deprovision NÃO soft-delete.
+**Estado desejado**: deprovision success → `status=removed` + `Customer::delete()` (soft-delete); slug reutilizável após cleanup; Pest cobre retry pós-deprovision.
+**Findings**: ARQ-C1 (CRITICAL)
+**Arquivos**: `app/Modules/Jobs/Services/WebhookHandler.php`, `tests/Feature/Jobs/WebhookHandlerTest.php`, `tests/Feature/Customers/ProvisionTest.php` (retry slug)
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-C1 — slug bloqueado após readiness timeout porque customer fica `failed` sem soft-delete
+e sem UI de cleanup. Decisão produto: NÃO soft-delete no timeout; liberar slug via deprovision success.
+
+ANTES: deprovision success → status=removed, registro permanece (deleted_at null) → unique slug bloqueia retry.
+DEPOIS: deprovision success → status=removed + soft-delete (mesmo padrão provision failed F11).
+
+Objetivo:
+1. WebhookHandler branch deprovision+success: após update status=removed, chamar delete() no Customer.
+2. Manter provision failed/cancelled soft-delete intacto (regressão F11).
+3. NÃO alterar ProbeCustomerReadinessJob::markTimedOut — continua só status=failed.
+4. Atualizar WebhookHandlerTest linha ~313: deprovision success DEVE soft-delete.
+5. Novo teste: customer failed → deprovision success → slug disponível para novo provision (422 ausente).
+
+Critério de pronto: Pest verde; provision retry com mesmo slug após deprovision; zero soft-delete em readiness timeout.
+```
+
+### Task F26.3 — Saga onboarding em falha de readiness
+
+**Estado atual**: `ProbeCustomerReadinessJob::markTimedOut` seta customer `failed` + audit `customer_readiness_timeout` mas onboarding em `WaitReadiness` fica `Running`.
+**Estado desejado**: timeout marca onboarding correlacionado `Failed` com step `wait_readiness` reason `customer_readiness_timeout`.
+**Findings**: ARQ-C5
+**Arquivos**: `app/Jobs/ProbeCustomerReadinessJob.php`, `app/Modules/Onboarding/Saga/OnboardingSaga.php`, `tests/Unit/Onboarding/OnboardingReadinessGateTest.php` ou `tests/Feature/Api/V1/OnboardingSagaTest.php`
+
+### Task F26.4 — Poll-stuck → pipeline WebhookHandler
+
+**Estado atual**: `JobsPollStuckCommand.php:56-61` só atualiza job state/exit_code; sem transição customer, probe, projectors, onboarding.
+**Estado desejado**: quando poll retorna estado terminal, invocar mesma pipeline idempotente do `WebhookHandler` (synthetic `job.finished` ou método extraído).
+**Findings**: ARQ-C3 (HIGH)
+**Arquivos**: `app/Console/Commands/JobsPollStuckCommand.php`, `app/Modules/Jobs/Services/WebhookHandler.php`, `tests/Feature/Console/JobsPollStuckTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-C3 — webhook perdido deixa job terminal via poll mas customer preso em provisioning.
+
+ANTES: JobsPollStuckCommand atualiza job.state/finished_at/exit_code direto; sem efeitos colaterais.
+DEPOIS: estado terminal do poll roteia pela pipeline do WebhookHandler (customer status, ProbeCustomerReadinessJob,
+tenant projectors, onboarding saga) — idempotente se webhook chegar depois.
+
+Objetivo:
+1. Após poll retornar canonical ∈ {success, failed, cancelled}, chamar WebhookHandler com payload synthetic
+   job.finished (state upstream → canonical via StateTranslator já usado).
+2. Preservar AuditLog job_polled existente + audit webhook_received (ou flag from_polling no payload).
+3. Idempotência: segundo poll/webhook não duplica transições (WebhookHandler já guarda terminal).
+4. Pest: stuck provision job → poll success → customer provisioning_finishing + probe dispatched;
+   stuck job já terminal → poll no-op.
+
+Proibido: duplicar lógica de transição customer fora do WebhookHandler.
+Critério de pronto: characterization JobsPollStuckTest + novo teste efeitos customer/probe; CI verde.
+```
+
+### Task F26.5 — Comando `customers:promote`
+
+**Estado atual**: sem escape manual para tenant em `provisioning_finishing` quando readiness gate desatualizado (ARQ-C4).
+**Estado desejado**: `php artisan customers:promote {slug}` promove `provisioning_finishing`→`active` com AuditLog; rejeita outros status; **não** confundir com `TenantResumeAction` (billing WHMCS suspend/resume).
+**Findings**: ARQ-C4
+**Arquivos**: `app/Console/Commands/CustomersPromoteCommand.php` (novo), `tests/Feature/Console/CustomersPromoteCommandTest.php`
+
+---
+
+## Sprint F27 — Sucesso silencioso (parser JSON embutido + validação grupos)
+
+> Categoria: F
+> Status: concluída
+> Gate: summary com `occ_command_failed` detectado; webhook `success` com erro embutido não projeta grupos falsos; saga não avança step em falha parcial; OccPanel avisa em vez de sucesso cego; `user_template_slug` com grupo inexistente → 422 pré-dispatch; Pest + CI verdes.
+> Fonte: **ISSUE-058** · findings **ARQ-B1**, **ARQ-B2**, **ARQ-B3**, **ARQ-A5**
+> review: **comprehensive** (senior+qa — webhook projection + OCC UX + validação API/painel)
+> Gerado via `/rock f27` (2026-07-09). Pós-merge F26 PR #162. Parser único DRY; **fora de escopo**: F28 readiness contract, N47 matriz estados.
+> Pré-execução: Quality Brief (`docs/.briefs/F27.brief.md`) + verifier (`docs/.briefs/F27.verifier.md`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F27.1 — `JobSummaryParser`: envelopes JSON `occ_command_failed` + `effectiveTerminalState` | api-rest-patterns | — |
+| [ ] | M | F27.2 — `WebhookHandler` + `TenantUserProjector`: estado efetivo; não projetar grupos falsos | api-rest-patterns | F27.1 |
+| [ ] | P | F27.3 — `OnboardingSaga`: falha parcial embutida em `success` → step failed | laravel-api | F27.1 |
+| [ ] | P | F27.4 — `OccPanel`: aviso em `success` com erro embutido | laravel-livewire | F27.1 |
+| [ ] | P | F27.5 — Validar grupos resolvidos (template+explícitos) contra `tenant_groups` pré-dispatch | api-rest-patterns | — |
+
+### Evidência ISSUE-058
+
+| Campo | Valor |
+|-------|-------|
+| job_type | `users:create` |
+| state upstream | `success` (exit_code 0) |
+| summary | `{"error":"occ_command_failed","subcommand":"group:adduser","stdout":"group not found"}` |
+| efeito atual | `tenant_users` com grupos inexistentes; UI “criado com sucesso” |
+
+### Task F27.1 — Parser único de falha embutida
+
+**Estado atual**: `JobSummaryParser` só detecta prefixo `[ERROR]` em linhas de texto.
+**Estado desejado**: detectar JSON `occ_command_failed` em qualquer linha do summary; expor `hasEmbeddedFailure`, `embeddedFailure`, `effectiveTerminalState`.
+**Findings**: ARQ-B1, ARQ-B2, ARQ-B3
+**Arquivos**: `app/Modules/Jobs/Support/JobSummaryParser.php`, `tests/Unit/Jobs/JobSummaryParserTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ISSUE-058 — upstream envia state=success com erro JSON embutido no summary
+(occ_command_failed em subcomandos OCC). Fonte única para WebhookHandler, OnboardingSaga, OccPanel.
+
+ANTES: JobSummaryParser::failureMessage só procura [ERROR]; JSON ignorado.
+DEPOIS:
+1. embeddedFailure(summary): ?array{error, subcommand?, stdout?} quando linha JSON válida com error=occ_command_failed.
+2. hasEmbeddedFailure(summary): bool.
+3. effectiveTerminalState(canonical, summary): canonical exceto success+embedded → 'partial' (interno; não alterar StateTranslator MAP).
+4. failureMessage também retorna mensagem legível para embedded failure (subcomando + stdout).
+5. Pest unitário: JSON puro, JSON em array de linhas, [ERROR] legado regressão, success limpo.
+
+Critério de pronto: testes unitários verdes; zero duplicação de parse nos consumidores.
+```
+
+### Task F27.2 — WebhookHandler estado efetivo honesto
+
+**Estado atual**: projectors chamados com `canonical === 'success'` sem inspecionar summary.
+**Estado desejado**: `effectiveState` antes de projectors; `users:create` partial projeta user sem grupos do payload.
+**Findings**: ARQ-B1
+**Arquivos**: `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Modules/Customers/Services/TenantUserProjector.php`, `tests/Feature/Jobs/WebhookHandlerTest.php`, `tests/Feature/Jobs/WebhookTenantUserProjectionTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-B1 — WebhookHandler projeta tenant_users em success cego.
+
+Objetivo:
+1. Após job->update, calcular effectiveState = JobSummaryParser::effectiveTerminalState(canonical, summary final).
+2. Passar effectiveState aos projectors e onboarding saga (não canonical cego).
+3. TenantUserProjector: em users:create + partial → upsert user mas groups=null (não grupos do payload).
+4. Log/audit job.partial_success quando effective partial.
+5. Regressão: success limpo continua projetando grupos; failed/cancelled inalterados.
+
+Critério de pronto: Pest com summary occ_command_failed → tenant_users sem grupos falsos; CI verde.
+```
+
+### Task F27.3 — OnboardingSaga falha parcial
+
+**Estado atual**: `handleTerminalJob` avança CreateAdmin/EnableApps em `success` exclusivo.
+**Estado desejado**: `success` + embedded failure → markStepFailed com reason do parser.
+**Findings**: ARQ-B2
+**Arquivos**: `app/Modules/Onboarding/Saga/OnboardingSaga.php`, `tests/Unit/Onboarding/OnboardingSagaTest.php`
+
+### Task F27.4 — OccPanel aviso em success parcial
+
+**Estado atual**: `handleUserCreateJobTerminal` mostra "Usuário criado com sucesso" em qualquer success.
+**Estado desejado**: success + embedded failure → mensagem de aviso (subcomando falhou); não sucesso pleno.
+**Findings**: ARQ-B3
+**Arquivos**: `app/Http/Livewire/Customers/OccPanel.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`
+
+### Task F27.5 — Validar grupos resolvidos (template)
+
+**Estado atual**: `TenantGroupMembership` só valida `groups.*` do request; template groups bypass.
+**Estado desejado**: após `UserCreateTemplateResolver::resolve`, validar grupos finais + subadmin contra `tenant_groups`; 422 antes dispatch.
+**Findings**: ARQ-A5
+**Arquivos**: `app/Modules/Customers/Validation/ResolvedTenantGroupsValidator.php` (novo), `app/Http/Controllers/Api/CustomerLifecycleController.php`, `app/Http/Livewire/Customers/OccPanel.php`, `tests/Feature/Product/UserCreateTemplateResolverTest.php`
+
+---
+
+## Sprint F28 — ProvisioningReadinessContract (fail-fast 422 + OpenAPI)
+
+> Categoria: F
+> Status: planejada
+> Gate: contrato único consumido por gate checker e validador HTTP; payload default `{}` e cenários legado impossíveis → 422 `LEGACY_READINESS_UNSATISFIABLE` nos 5 entry points; `image_mode=true` allow; OpenAPI exemplos válidos; Pest + CI verdes.
+> Fonte: **ISSUE-057** opção A (**ADOPT_A_WITH_B**) · findings **ARQ-A1**, **ARQ-A2**, **ARQ-A3**, **ARQ-A6**, **ARQ-A7**, **ARQ-A8**
+> review: **comprehensive** (senior+qa — contrato de produto + 5 entry points)
+> Gerado via `/rock f28` (2026-07-09). Pós-merge F27 PR #163. **Fora de escopo**: N48/B (suite-catalog me360), N47, `legacy_me360_capable` (defer N48).
+> Pré-execução: Quality Brief (`docs/.briefs/F28.brief.md`) + verifier (`docs/.briefs/F28.verifier.md`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [ ] | M | F28.1 — `ProvisioningReadinessContract` (fonte única) + refactor `TenantReadinessGateChecker` | api-rest-patterns | — |
+| [ ] | M | F28.2 — `ProvisioningReadinessValidator` + `ResolvedProvisionContext` + API legacy/v1 | api-rest-patterns | F28.1 |
+| [ ] | P | F28.3 — Livewire Create + WHMCS: mesma validação da API | laravel-livewire | F28.2 |
+| [ ] | M | F28.4 — Onboarding: flags no contrato + validação na borda | laravel-api | F28.2 |
+| [ ] | P | F28.5 — OpenAPI: exemplos válidos + contrato readiness documentado | api-rest-patterns | F28.2 |
+
+### Evidência ISSUE-057
+
+| Campo | Valor |
+|-------|-------|
+| payload | `{}` ou `apps: ["mail"]` com `image_mode=false`, `suite_catalog=true` |
+| resposta atual | 202 → provision → `failed` ~25min |
+| gate legado | exige `mework360_memail` + `me360_theme` + SSO — apps fora do suite catalog |
+| decisão | A: fail-fast 422; ponte operacional = `image_mode=true` (N36.5) |
+
+### Task F28.1 — Contrato compartilhado readiness
+
+**Estado atual**: `TenantReadinessGateChecker` hardcoded `mework360_memail`/`me360_theme`; HTTP não valida vs gate.
+**Estado desejado**: `ProvisioningReadinessContract` define apps/política legado; gate checker delega ao contract; HTTP **não** importa checker SSH.
+**Findings**: ARQ-A1 (foundation)
+**Arquivos**: `app/Modules/Customers/Contracts/ProvisioningReadinessContract.php` (novo), `app/Modules/Integration/Support/TenantReadinessGateChecker.php`, `tests/Unit/Customers/ProvisioningReadinessContractTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ISSUE-057 A — uma fonte de verdade para requisitos de readiness legado.
+
+ANTES: TenantReadinessGateChecker hardcoded isAppEnabled('mework360_memail'/'me360_theme'); HTTP sem validação.
+DEPOIS:
+1. ProvisioningReadinessContract: legacyRequiredAppIds(): list<string>; isSatisfiedByImageMode(): true policy.
+2. TenantReadinessGateChecker::evaluateAppList usa contract->legacyRequiredAppIds() — zero duplicação de nomes.
+3. Contract é classe pura (sem SSH, sem HTTP, sem import de TenantReadinessGateChecker).
+4. Pest unitário: contract retorna apps esperados; gate checker mock continua funcionando.
+
+Proibido: importar TenantReadinessGateChecker em Requests/Controllers/Livewire.
+Critério de pronto: CustomerReadinessTest regressão verde; contract testado isoladamente.
+```
+
+### Task F28.2 — Validador + contexto resolvido + API
+
+**Estado atual**: `ProvisionCustomerRequest` resolve apps via PlanAppResolver mas não cruza com gate; plano vazio → apps=[] aceito.
+**Estado desejado**: `ResolvedProvisionContext` + `ProvisioningReadinessValidator` avaliam payload resolvido; 422 estruturado `LEGACY_READINESS_UNSATISFIABLE`.
+**Findings**: ARQ-A1, ARQ-A2
+**Arquivos**: `app/Modules/Customers/Validation/ProvisioningReadinessValidator.php`, `app/Modules/Customers/Dto/ResolvedProvisionContext.php`, `app/Http/Requests/ProvisionCustomerRequest.php`, `tests/Feature/Customers/ProvisioningReadinessValidationTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-A1/A2 — validar payload RESOLVIDO (defaults+plan+catalog), não JSON cru.
+
+Objetivo:
+1. ResolvedProvisionContext DTO: imageMode, suiteCatalog, fullApps, legacyVendor, resolvedApps, planSlug.
+2. Factory from ProvisionCustomerRequest após PlanAppResolver (mesmos defaults que resolvesImageMode/usesSuiteCatalogMode).
+3. ProvisioningReadinessValidator usa ProvisioningReadinessContract:
+   - imageMode=true → pass
+   - legacy + resolvedApps vazio (plano sem apps) → fail ARQ-A2
+   - legacy + suite_catalog + apps sem suíte me360 → fail LEGACY_READINESS_UNSATISFIABLE
+4. ValidationException com errors estruturados: code, missing_preconditions[], hint image_mode=true
+5. ProvisionCustomerRequest::withValidator chama validator após merge apps.
+6. Pest: {} default legado → 422; image_mode=true → 202 path; plano vazio legado → 422; apps mail only → 422.
+
+Critério de pronto: API legacy + v1 cobertos (ProvisionTenantRequest herda); SSH não chamado em 422.
+```
+
+### Task F28.3 — Livewire + WHMCS
+
+**Estado atual**: Create.php bypassa PlanAppResolver; WhmcsProvisionService defaults condenados.
+**Estado desejado**: mesma resolução + validator antes de dispatch.
+**Findings**: ARQ-A6, ARQ-A7
+**Arquivos**: `app/Http/Livewire/Customers/Create.php`, `app/Modules/Billing/Services/WhmcsProvisionService.php`, `tests/Feature/Livewire/Customers/CreateReadinessTest.php`, `tests/Feature/Billing/WhmcsProvisionReadinessTest.php`
+
+### Task F28.4 — Onboarding border validation
+
+**Estado atual**: sem image_mode/suite_catalog/plan_slug; apps_enabled sem readiness check.
+**Estado desejado**: flags no request; validator na borda antes saga.
+**Findings**: ARQ-A3
+**Arquivos**: `app/Http/Requests/V1/CreateOnboardingRequest.php`, `app/Http/Controllers/Api/V1/OnboardingV1Controller.php`, `app/Modules/Onboarding/Dto/OnboardingSpec.php`, `tests/Feature/Api/V1/OnboardingReadinessTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-A3 — onboarding não expõe flags e valida tarde.
+
+Objetivo:
+1. CreateOnboardingRequest: tenant.image_mode, tenant.suite_catalog, tenant.plan_slug (opcionais, defaults config).
+2. Resolver apps_enabled via PlanAppResolver quando plan_slug presente.
+3. ProvisioningReadinessValidator na borda (FormRequest after ou controller).
+4. OnboardingSpec propaga imageMode/suiteCatalog/planSlug para provision step.
+5. Pest: onboarding legado impossível → 422; image_mode=true → 202.
+
+Nota: enable_apps step permanece pós-readiness; contenção é na borda (decisão A).
+```
+
+### Task F28.5 — OpenAPI readiness contract
+
+**Estado atual**: exemplo minimal condenado; sem doc de readiness.
+**Estado desejado**: exemplos válidos; seção readiness; mutual exclusivity apps×full_apps.
+**Findings**: ARQ-A8
+**Arquivos**: `docs/openapi-external.yaml`, `docs/openapi.yaml`, `tests/Feature/Api/V1/OpenApiReadinessExamplesTest.php` (opcional characterization)
+
+---
+
+## Sprint N47 — Matriz canônica de estados (ISSUE-061)
+
+> Categoria: N
+> Status: **concluída** (branch `sprint/N47`, PR pending VERIFY)
+> Gate: matriz central `CustomerLifecycleMatrix` consumida por `LifecycleAsyncAction`, `OccPanel`, `Show` e `CustomerResource`; `failure_reason` persistido em transições terminais e exposto em API/UI; OCC bloqueado por URL em não-`active`; lifecycle async bloqueado pré-`active` (ARQ-A4); Pest + CI verdes.
+> Fonte: **ISSUE-061** · findings **ARQ-D1**, **ARQ-D2**, **ARQ-D3**, **ARQ-A4**
+> review: **comprehensive** (senior+qa — matriz de produto + API/UI)
+> Gerado via `/rock n47` (2026-07-09). Pós-merge F28 PR #164. **Fora de escopo**: N48 (suite-catalog me360 cross-repo).
+> Pré-execução: Quality Brief (`docs/.briefs/N47.brief.md`).
+
+| Status | Tamanho | Tarefa | Skill/Command | Depende de |
+|--------|---------|--------|---------------|------------|
+| [x] | M | N47.1 — `CustomerLifecycleAction` + `CustomerLifecycleMatrix` (fonte única status × ações) | api-rest-patterns | — |
+| [x] | M | N47.2 — Migration `failure_reason` + persistência em `WebhookHandler` e `ProbeCustomerReadinessJob` | laravel-migration | — |
+| [x] | P | N47.3 — `LifecycleAsyncAction` + `Show` blade: consumir matriz (bloquear lifecycle pré-`active`) | api-rest-patterns | N47.1 |
+| [x] | P | N47.4 — `CustomerResource` + OpenAPI + painel: expor `failure_reason` em `failed` | api-rest-patterns | N47.2 |
+| [x] | P | N47.5 — `OccPanel::mount` gate via matriz (`occ_panel` só em `active`) | laravel-livewire | N47.1 |
+
+### Task N47.1 — Matriz canônica
+
+**Estado atual**: `CustomerLifecycleStatus` tem 3 constantes; regras ad hoc em views/actions (`show.blade.php`, `LifecycleAsyncAction` só bloqueia `users:*` pré-active).
+**Estado desejado**: `CustomerLifecycleMatrix::allows(string $status, CustomerLifecycleAction $action): bool` — fonte única para UI, controllers e actions.
+**Findings**: ARQ-D2, ARQ-A4 (foundation)
+**Arquivos**: `app/Modules/Customers/Support/CustomerLifecycleAction.php` (novo), `CustomerLifecycleMatrix.php` (novo), `CustomerLifecycleStatus.php` (estados completos), `tests/Unit/Customers/CustomerLifecycleMatrixTest.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ISSUE-061 — matriz status × ações permitidas.
+
+Ações (enum CustomerLifecycleAction): lifecycle_async, occ_panel, remove, promote_manual.
+Estados: provisioning, provisioning_finishing, active, failed, removing, removed, error.
+
+Matriz mínima (não reabrir deliberação):
+- active: lifecycle_async, occ_panel, remove
+- provisioning: remove
+- provisioning_finishing: remove, promote_manual (sem lifecycle_async — ARQ-A4)
+- failed: remove (exibir failure_reason na UI — N47.4)
+- removing, removed, error: nenhuma ação mutável
+
+Objetivo:
+1. CustomerLifecycleAction backed enum + CustomerLifecycleMatrix com allows().
+2. Estender CustomerLifecycleStatus com constantes de todos os estados reais.
+3. Unit tests cobrindo cada célula da matriz + helper isActive().
+
+Proibido: duplicar checks ad hoc fora da matriz nos consumidores (tasks N47.3–N47.5).
+Critério de pronto: CustomerLifecycleMatrixTest verde; CI lint OK.
+```
+
+### Task N47.2 — failure_reason persistido
+
+**Estado atual**: transição para `failed` não grava motivo; audit trail apenas.
+**Estado desejado**: coluna `customers.failure_reason` preenchida em falhas de provision e timeout readiness; limpa em promoção para `active`.
+**Findings**: ARQ-D1
+**Arquivos**: `database/migrations/*_add_failure_reason_to_customers_table.php`, `app/Models/Customer.php`, `app/Modules/Jobs/Services/WebhookHandler.php`, `app/Jobs/ProbeCustomerReadinessJob.php`
+
+**executor_prompt (M)**:
+```
+Contexto: ARQ-D1 — motivo do failed invisível fora do audit.
+
+Objetivo:
+1. Migration nullable string failure_reason em customers.
+2. WebhookHandler: provision failed/cancelled → status failed + failure_reason do job summary/exit (sanitizado, max 500 chars).
+3. ProbeCustomerReadinessJob::markTimedOut → failure_reason = 'customer_readiness_timeout'.
+4. Transição para active (probe success, customers:promote) → failure_reason = null.
+5. Pest: provision webhook failed persiste reason; timeout persiste reason; promote limpa.
+
+Proibido: expor stack traces ou secrets no failure_reason.
+```
+
+### Task N47.3 — LifecycleAsyncAction via matriz
+
+**Findings**: ARQ-A4
+**Arquivos**: `app/Modules/Customers/Actions/LifecycleAsyncAction.php`, `resources/views/livewire/customers/show.blade.php`, `tests/Feature/Customers/LifecycleMatrixTest.php`
+
+### Task N47.4 — API/UI failure_reason
+
+**Findings**: ARQ-D1
+**Arquivos**: `app/Http/Resources/CustomerResource.php`, `docs/openapi.yaml`, `app/Http/Livewire/Customers/Show.php`, `resources/views/livewire/customers/show.blade.php`, `tests/Feature/Api/CustomerResourceTest.php`
+
+### Task N47.5 — OCC mount gate
+
+**Findings**: ARQ-D3
+**Arquivos**: `app/Http/Livewire/Customers/OccPanel.php`, `tests/Feature/Livewire/Customers/OccPanelTest.php`
+
+---
+
+## Roadmap auditoria provisioning — sprints posteriores (stubs)
+
+> Fonte: auditoria arquitetural 2026-07-09 + `/deliberar` Tier 2 (ISSUE-057 → **ADOPT_A_WITH_B**). Ordem: **F26 → F27 → F28 → N47**; **N48** quando upstream pronto.
+
+| Sprint | Escopo | Findings / Issues | Status |
+|--------|--------|-------------------|--------|
+| **F27** | Sucesso silencioso (parser JSON embutido + aviso OCC) | ISSUE-058 · ARQ-B1..B3, A5 | **concluída** (PR #163) |
+| **F28** | **Opção A** — `ProvisioningReadinessContract` + 422 + OpenAPI | ISSUE-057 A · ARQ-A1..A3, A6..A8 | **concluída** (PR #164) |
+| **N47** | Matriz status × ações + `failure_reason` exposto | ISSUE-061 · ARQ-D1..D3, A4 | **concluída** (PR pending) |
+| **N48** | **Opção B** — suíte me360 no suite-catalog (cross-repo `work-platform-scripts`) | ISSUE-057 B | **parcial (fatia API)** — upstream `ISSUE-057-B-upstream` pendente |
+
+---
+
+## Sprint N48 — ISSUE-057 opção B (fatia API)
+
+> Categoria: N · Status: **parcial (fatia API entregue)** · Gate: `legacy_me360_capable` por cluster; validator permite legado quando catalog contém me360; runbook cross-repo; CI verde. **Parcial** até upstream `work-platform-scripts` entregar install real.
+
+| Status | Tamanho | Tarefa | Depende de |
+|--------|---------|--------|------------|
+| [x] | M | N48.1 — Migration `legacy_me360_capable` em `cluster_servers` + factory | — |
+| [x] | M | N48.2 — `SuiteCatalogAppLister` + validator: cluster capaz + catalog com me360 → allow | N48.1 |
+| [x] | P | N48.3 — Fixture `suite_catalog_me360.json` + testes contrato readiness | N48.2 |
+| [x] | P | N48.4 — Runbook `docs/runbooks/me360-suite-catalog-b.md` + ISSUE upstream | — |
+| [x] | P | N48.5 — OpenAPI notas readiness + `legacy_me360_capable` | N48.1 |
+
+
+---
+
 | Data       | Versao | Alteracao                                                                                        | Autor                                                        |
 | ---------- | ------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 2026-07-09 | 0.57   | Sprint F28 planejada — ProvisioningReadinessContract fail-fast 422 (ISSUE-057 A, ARQ-A1..A3,A6..A8): 5 tasks (2M+3P); F27 concluída pós-merge PR #163; brief+verifier PASS. | `/rock f28` |
+| 2026-07-09 | 0.56   | Sprint F27 planejada — sucesso silencioso (ISSUE-058, ARQ-B1..B3, ARQ-A5): 5 tasks (3P+2M); F26 concluída pós-merge PR #162; brief+verifier PASS. | `/rock f27` |
+| 2026-07-09 | 0.55   | Sprint F26 planejada — recovery `failed` + poll terminal (ISSUE-059/060, ARQ-C1..C5): 5 tasks (3P+2M); stubs F27/F28/N47/N48; decisão ARQ-C1 timeout sem soft-delete. | `/rock f26 + stubs` |
+| 2026-07-08 | 0.54   | Sprint N44 planejada — ISSUE-055 objectstore S3 no provision (ENH-014 Fase B): 5 tasks (4P+1M); bloqueada pelo gate N56 upstream; credenciais nunca na API (D8); execução pelo operador via Composer 2.5. | `/pmo plan` |
 | 2026-07-08 | 0.53   | F22-q fechada com follow-ups q.2–q.4 — modal `max-w` (Tailwind v4 spacing), `x-select-menu` custom (popup nativo OS-rendered); PRs #150/#151/#153; deploy LAB `7492358`; validado pelo operador. | `/rock` |
 | 2026-07-08 | 0.52   | Sprint F22-q concluída — ISSUE-054 contraste dark theme Planos; deploy LAB `308fec4`. Sprint F21 marcada concluída (`95d1152`). | `/rock` |
 | 2026-07-07 | 0.51   | Sprint F21 planejada — ISSUE-052 (`/docs/api/spec` 404: `.dockerignore` exclui docs do build) + ISSUE-053 (sidebar sem Planos/Fazendas); 4 tasks (1M+3P); gate spec 200 no container + sidebar + smoke RUNBOOK. | `/pmo plan` |

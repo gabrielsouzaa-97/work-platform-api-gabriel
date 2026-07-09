@@ -19,5 +19,8 @@ final readonly class OnboardingSpec
         public ?array $brandingFields = null,
         public ?string $logoPath = null,
         public ?string $backgroundPath = null,
+        public bool $suiteCatalog = true,
+        public bool $imageMode = false,
+        public ?string $planSlug = null,
     ) {}
 }

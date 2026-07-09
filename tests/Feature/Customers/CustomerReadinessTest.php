@@ -9,25 +9,47 @@ use App\Models\ClusterServer;
 use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Job;
+use App\Models\Onboarding;
 use App\Models\Operator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
-use App\Modules\Customers\Services\CustomerReadinessProbe;
 use App\Modules\Customers\Services\CustomerSyncService;
 use App\Modules\Customers\Support\CustomerLifecycleStatus;
+use App\Modules\Onboarding\Enums\OnboardingState;
+use App\Modules\Onboarding\Enums\OnboardingStep;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Queue\Jobs\FakeJob;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery\MockInterface;
 
-it('POST users on provisioning_finishing returns 503 tenant_not_ready', function () {
+uses()->group('readiness-isolated');
+
+beforeEach(function (): void {
+    Config::set('services.agent.transport_enabled', false);
+    config([
+        'cache.default' => 'array',
+        'platform.image_mode.default_mode' => false,
+        'services.customer_readiness.probe_timeout_seconds' => 25,
+    ]);
+    beginReadinessIsolatedTest();
+});
+
+afterEach(function (): void {
+    Mockery::close();
+    Http::swap(new Factory);
+});
+
+it('POST users on provisioning_finishing returns 503 tenant_not_ready', function (): void {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
     $customer = Customer::create([
         'slug' => 'ready-gate-'.substr(uniqid(), -6),
         'cluster_server_id' => $cluster->id,
         'domain' => 'ready-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -54,6 +76,7 @@ it('DELETE users on provisioning_finishing returns 503 tenant_not_ready', functi
         'cluster_server_id' => $cluster->id,
         'domain' => 'del-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -76,6 +99,7 @@ it('POST users on provisioning returns 503 tenant_not_ready', function () {
         'cluster_server_id' => $cluster->id,
         'domain' => 'prov-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -89,29 +113,33 @@ it('POST users on provisioning returns 503 tenant_not_ready', function () {
         ]);
 });
 
-it('POST groups:create on provisioning_finishing still returns 202', function () {
+it('POST groups:create on provisioning_finishing returns 503 tenant_not_ready per N47 matrix', function () {
     $cluster = ClusterServer::factory()->create(['status' => 'active']);
     $customer = Customer::create([
         'slug' => 'grp-gate-'.substr(uniqid(), -6),
         'cluster_server_id' => $cluster->id,
         'domain' => 'grp-gate.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
-    $jobId = Str::uuid()->toString();
 
     $ssh = Mockery::mock(SshClientInterface::class);
-    $ssh->shouldReceive('runAsync')->once()->andReturn(new SshResponse(
-        stdout: json_encode(['job_id' => $jobId]),
-        stderr: '',
-        exitCode: 0,
-        parsedJson: ['job_id' => $jobId],
-    ));
+    $ssh->shouldNotReceive('runAsync');
+    $ssh->shouldNotReceive('run');
     app()->instance(SshClientInterface::class, $ssh);
 
     $this->actingAs($operator)->postJson("/api/customers/{$customer->slug}/groups", [
         'name' => 'marketing',
-    ])->assertStatus(202)->assertJson(['job_id' => $jobId]);
+    ])->assertStatus(503)
+        ->assertHeader('Retry-After', '60')
+        ->assertJson([
+            'error' => 'tenant_not_ready',
+            'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        ]);
+
+    expect(Job::count())->toBe(0)
+        ->and(IdempotencyKey::count())->toBe(0);
 });
 
 it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', function () {
@@ -121,11 +149,10 @@ it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', fu
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-ok.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
-    Http::fake([
-        'https://probe-ok.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldReceive('run')->times(4)->andReturnUsing(function (
@@ -168,8 +195,7 @@ it('ProbeCustomerReadinessJob promotes tenant to active when probe succeeds', fu
 
         return new SshResponse(stdout: '', stderr: 'unexpected occ', exitCode: 1, parsedJson: null);
     });
-    app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE)
@@ -183,14 +209,13 @@ it('ProbeCustomerReadinessJob keeps finishing when R6 meMail HTTP gate fails', f
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-r6.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
-    Http::fake([
-        'https://probe-r6.example.com/apps/mework360_memail/*' => Http::response('Service Unavailable', 503),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 503);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -212,14 +237,13 @@ it('ProbeCustomerReadinessJob promotes to active when R6 meMail HTTP returns 200
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-r6-ok.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
-    Http::fake([
-        'https://probe-r6-ok.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/apps/mework360_memail/'));
@@ -233,6 +257,7 @@ it('ProbeCustomerReadinessJob keeps finishing when memail externalLocation gate 
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-r4.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -266,8 +291,7 @@ it('ProbeCustomerReadinessJob keeps finishing when memail externalLocation gate 
 
         return new SshResponse(stdout: '', stderr: 'unexpected', exitCode: 1, parsedJson: null);
     });
-    app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -281,6 +305,7 @@ it('ProbeCustomerReadinessJob keeps finishing when probe returns non-zero exit',
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-nz.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -290,8 +315,7 @@ it('ProbeCustomerReadinessJob keeps finishing when probe returns non-zero exit',
         exitCode: 1,
         parsedJson: null,
     ));
-    app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -305,16 +329,49 @@ it('ProbeCustomerReadinessJob marks failed when deadline exceeded', function () 
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-dead.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $ssh = Mockery::mock(SshClientInterface::class);
     $ssh->shouldNotReceive('run');
-    app()->instance(SshClientInterface::class, $ssh);
-    $probe = app(CustomerReadinessProbe::class);
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     (new ProbeCustomerReadinessJob($customer->slug, now()->subSecond()->timestamp))->handle($probe);
 
     expect($customer->fresh()->status)->toBe('failed')
+        ->and($customer->fresh()->deleted_at)->toBeNull()
         ->and(AuditLog::where('action', 'customer_readiness_timeout')->where('resource_id', $customer->slug)->exists())->toBeTrue();
+});
+
+it('ProbeCustomerReadinessJob timeout fails correlated onboarding at wait_readiness', function () {
+    $slug = 'probe-timeout-onboard-'.substr(uniqid(), -6);
+    $cluster = ClusterServer::factory()->create(['status' => 'active']);
+    $customer = Customer::create([
+        'slug' => $slug,
+        'cluster_server_id' => $cluster->id,
+        'domain' => "{$slug}.example.com",
+        'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
+    ]);
+
+    Onboarding::factory()->create([
+        'tenant_slug' => $slug,
+        'state' => OnboardingState::Running,
+        'current_step' => OnboardingStep::WaitReadiness,
+        'steps' => [
+            'provision_tenant' => ['status' => 'completed', 'job_id' => 'job-provision-1'],
+            'wait_readiness' => ['status' => 'running'],
+        ],
+    ]);
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('run');
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
+    (new ProbeCustomerReadinessJob($customer->slug, now()->subSecond()->timestamp))->handle($probe);
+
+    $onboarding = Onboarding::query()->where('tenant_slug', $slug)->firstOrFail();
+    expect($onboarding->state)->toBe(OnboardingState::Failed)
+        ->and($onboarding->steps['wait_readiness']['status'])->toBe('failed')
+        ->and($onboarding->steps['wait_readiness']['reason'])->toBe('customer_readiness_timeout');
 });
 
 it('ProbeCustomerReadinessJob deadline defaults to max_wait_seconds from config', function () {
@@ -336,6 +393,7 @@ it('CustomerSyncService does not overwrite provisioning_finishing with active fr
         'cluster_server_id' => $cluster->id,
         'domain' => 'finishing.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
     $payload = [
@@ -370,6 +428,7 @@ it('CustomerSyncService does not overwrite provisioning with active from upstrea
         'cluster_server_id' => $cluster->id,
         'domain' => 'still.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING,
+        'image_mode' => false,
     ]);
 
     $payload = [
@@ -407,12 +466,10 @@ it('ProbeCustomerReadinessJob promotes image-mode tenant when login HTTP gate re
         'image_mode' => true,
     ]);
 
-    Http::fake([
-        'https://probe-img.example.com/login' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/login', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithoutMemailApp());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithoutMemailApp();
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/login'));
@@ -430,12 +487,10 @@ it('ProbeCustomerReadinessJob keeps finishing when image-mode login HTTP gate fa
         'image_mode' => true,
     ]);
 
-    Http::fake([
-        'https://probe-img-fail.example.com/login' => Http::response('Service Unavailable', 500),
-    ]);
+    fakeReadinessHttp($customer->domain, '/login', 500);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     $deadline = now()->addHour()->timestamp;
     (new ProbeCustomerReadinessJob($customer->slug, $deadline))->handle($probe);
 
@@ -456,14 +511,13 @@ it('ProbeCustomerReadinessJob grava dois audits com attempt incremental em falha
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-inc.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
-    Http::fake([
-        'https://probe-inc.example.com/apps/mework360_memail/*' => Http::response('Service Unavailable', 503),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 503);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     $deadline = now()->addHour()->timestamp;
 
     foreach ([1, 2] as $attempt) {
@@ -493,6 +547,7 @@ it('customers show exibe card readiness com ultimo erro em provisioning_finishin
         'cluster_server_id' => $cluster->id,
         'domain' => 'show-ready.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -526,6 +581,7 @@ it('customers show nao exibe card readiness fora de provisioning_finishing', fun
         'cluster_server_id' => $cluster->id,
         'domain' => 'show-no-ready.example.com',
         'status' => CustomerLifecycleStatus::ACTIVE,
+        'image_mode' => false,
     ]);
     $operator = Operator::factory()->create(['role' => 'operador', 'status' => 'active']);
 
@@ -618,14 +674,13 @@ it('ProbeCustomerReadinessJob promotes tenant when occ-exec shim returns envelop
         'cluster_server_id' => $cluster->id,
         'domain' => 'probe-shim.example.com',
         'status' => CustomerLifecycleStatus::PROVISIONING_FINISHING,
+        'image_mode' => false,
     ]);
 
-    Http::fake([
-        'https://probe-shim.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithOccExecShimEnvelopes());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithOccExecShimEnvelopes();
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     expect($customer->fresh()->status)->toBe(CustomerLifecycleStatus::ACTIVE)
@@ -642,12 +697,10 @@ it('ProbeCustomerReadinessJob legacy tenant still probes mework360_memail HTTP g
         'image_mode' => false,
     ]);
 
-    Http::fake([
-        'https://probe-legacy.example.com/apps/mework360_memail/*' => Http::response('OK', 200),
-    ]);
+    fakeReadinessHttp($customer->domain, '/apps/mework360_memail/', 200);
 
-    app()->instance(SshClientInterface::class, readinessSshMockWithGatesR1ToR5());
-    $probe = app(CustomerReadinessProbe::class);
+    $ssh = readinessSshMockWithGatesR1ToR5();
+    $probe = makeCustomerReadinessProbeWithSsh($ssh);
     (new ProbeCustomerReadinessJob($customer->slug))->handle($probe);
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/apps/mework360_memail/'));

@@ -23,6 +23,19 @@ info:
     `provisioning_finishing`. Enquanto nessa janela, `POST /v1/tenants/{slug}/users`
     retorna **503** `tenant_not_ready` com header `Retry-After` (segundos).
 
+    ## Contrato de readiness legado (ISSUE-057)
+    Com `image_mode=false` e `suite_catalog=true` (padrão), o gate legado exige
+    `mework360_memail` e `me360_theme` no tenant. Payloads cujo conjunto resolvido
+    de apps não satisfaz o gate retornam **422** com código
+    `LEGACY_READINESS_UNSATISFIABLE`, `missing_preconditions[]` e hint
+    `image_mode=true` (ponte operacional image-mode).
+
+    Clusters com flag admin `legacy_me360_capable=true` podem aceitar provision
+    legado `suite_catalog` quando o catálogo local inclui `mework360_memail` e
+    `me360_theme` com `status: active` — ver `docs/OPERATIONS.md` e runbook
+    `docs/runbooks/me360-suite-catalog-b.md`. A instalação real no host depende do
+    upstream `work-platform-scripts` (`ISSUE-057-B-upstream`).
+
     ## Autorização (ISSUE-037 — pré-requisito)
     Todas as rotas exigem Bearer token (`Authorization: Bearer <api_key>`).
     Cada operação declara o **scope** mínimo via extensão `x-required-scope`.
@@ -39,7 +52,7 @@ info:
     name: meWork360 Platform
 
 servers:
-  - url: https://deployer.mework360.com.br/api/v1
+  - url: https://deployer.mework360.com.br
     description: Control plane — namespace externo versionado
 
 security:
@@ -62,7 +75,7 @@ tags:
     description: Planos, catálogo de apps e templates de usuário (ISSUE-051)
 
 paths:
-  /tenants:
+  /api/v1/tenants:
     post:
       tags: [Tenants]
       summary: Criar tenant
@@ -82,12 +95,13 @@ paths:
               $ref: "#/components/schemas/CreateTenantRequest"
             examples:
               minimal:
-                summary: Tenant mínimo
+                summary: Tenant mínimo (image-mode)
                 value:
                   slug: acme-corp
                   domain: acme.mework360.com.br
                   cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                  apps: [files, calendar]
+                  image_mode: true
+                  apps: [mail, dashboard]
               suite_catalog:
                 summary: Suite catalog create (shell + apps)
                 value:
@@ -106,6 +120,19 @@ paths:
                   shell: true
                   suite_catalog: true
                   image_mode: true
+                  apps: [mail, spreed, deck, dashboard]
+              image_pilot_objectstore:
+                summary: Image-mode with S3 objectstore (MeStorage)
+                value:
+                  client: s3pilot2
+                  fqdn: s3pilot2.image-pilot.mework360.com.br
+                  cluster_server_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  shell: true
+                  suite_catalog: true
+                  image_mode: true
+                  objectstore:
+                    enabled: true
+                    bucket: s3pilot2-store
                   apps: [mail, spreed, deck, dashboard]
           multipart/form-data:
             schema:
@@ -145,7 +172,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}:
+  /api/v1/tenants/{slug}:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     get:
@@ -234,7 +261,7 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamUnavailable"
 
-  /tenants/{slug}/apps:
+  /api/v1/tenants/{slug}/apps:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     post:
@@ -290,7 +317,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}/users:
+  /api/v1/tenants/{slug}/users:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     get:
@@ -397,7 +424,7 @@ paths:
         "503":
           $ref: "#/components/responses/TenantNotReady"
 
-  /tenants/{slug}/users/{username}:
+  /api/v1/tenants/{slug}/users/{username}:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
       - $ref: "#/components/parameters/Username"
@@ -443,7 +470,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}/users/{username}/quota:
+  /api/v1/tenants/{slug}/users/{username}/quota:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
       - name: username
@@ -500,7 +527,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /tenants/{slug}/maintenance:
+  /api/v1/tenants/{slug}/maintenance:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     post:
@@ -548,7 +575,7 @@ paths:
         "503":
           $ref: "#/components/responses/ClusterUnreachable"
 
-  /jobs/{id}:
+  /api/v1/jobs/{id}:
     parameters:
       - $ref: "#/components/parameters/JobId"
     get:
@@ -595,7 +622,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /tenants/{slug}/branding:
+  /api/v1/tenants/{slug}/branding:
     parameters:
       - $ref: "#/components/parameters/TenantSlug"
     put:
@@ -674,7 +701,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /onboarding:
+  /api/v1/onboarding:
     post:
       tags: [Onboarding]
       summary: Iniciar saga de onboarding
@@ -742,7 +769,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /onboarding/{id}:
+  /api/v1/onboarding/{id}:
     get:
       tags: [Onboarding]
       summary: Status da saga de onboarding
@@ -795,7 +822,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
-  /plans:
+  /api/v1/plans:
     get:
       tags: [Product]
       summary: Listar planos
@@ -848,7 +875,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
-  /plans/{slug}:
+  /api/v1/plans/{slug}:
     get:
       tags: [Product]
       summary: Obter plano
@@ -898,7 +925,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
-  /app-catalog:
+  /api/v1/app-catalog:
     get:
       tags: [Product]
       summary: Listar catálogo de apps
@@ -947,7 +974,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/AppCatalogEntryResource"
 
-  /app-catalog/{app_id}:
+  /api/v1/app-catalog/{app_id}:
     get:
       tags: [Product]
       summary: Obter entrada do catálogo
@@ -993,7 +1020,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/AppCatalogEntryResource"
 
-  /user-templates:
+  /api/v1/user-templates:
     get:
       tags: [Product]
       summary: Listar templates de usuário
@@ -1035,7 +1062,7 @@ paths:
                   data:
                     $ref: "#/components/schemas/UserTemplateResource"
 
-  /user-templates/{slug}:
+  /api/v1/user-templates/{slug}:
     get:
       tags: [Product]
       summary: Obter template de usuário
@@ -1291,6 +1318,12 @@ components:
             - failed
             - removing
             - removed
+            - error
+        failure_reason:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Motivo sanitizado da falha; presente apenas quando status=failed.
         last_sync_at:
           type: string
           format: date-time
@@ -1644,6 +1677,11 @@ components:
         Criação de tenant. Campos `client` e `fqdn` são aliases opcionais de `slug` e `domain`.
         Com `suite_catalog` ativo (padrão), cada item de `apps` deve existir em
         `releases/suite_catalog.json` com `status: active`.
+
+        Readiness legado: sem `image_mode`, o provision `suite_catalog` pode retornar
+        `422 LEGACY_READINESS_UNSATISFIABLE` quando apps resolvidos não cobrem
+        `mework360_memail` + `me360_theme`. Exceção: cluster com
+        `legacy_me360_capable=true` e catálogo local me360 ativo (N48).
       properties:
         slug:
           type: string
@@ -1689,6 +1727,8 @@ components:
           type: boolean
           default: false
           description: Enables image-mode provisioning via upstream `--image-mode` flag.
+        objectstore:
+          $ref: "#/components/schemas/ObjectstoreProvisionRequest"
         legacy_vendor:
           type: boolean
           default: false
@@ -1715,6 +1755,24 @@ components:
               type: string
               format: binary
               description: PNG/JPEG, máx. 5120 KB.
+
+    ObjectstoreProvisionRequest:
+      type: object
+      description: |
+        Enables S3 primary storage (MeStorage) during image-mode provisioning.
+        Credentials and endpoint are resolved on the cluster host — never sent via API (D8).
+        Requires `image_mode: true`; `enabled` without image-mode returns 422.
+      properties:
+        enabled:
+          type: boolean
+          default: false
+          description: When true with image-mode, upstream receives `--objectstore`.
+        bucket:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{2,62}$"
+          description: |
+            Optional dedicated bucket name override. When omitted, upstream uses the default
+            naming convention. Maps to `--objectstore-bucket=` on dispatch.
 
     RemoveTenantRequest:
       type: object

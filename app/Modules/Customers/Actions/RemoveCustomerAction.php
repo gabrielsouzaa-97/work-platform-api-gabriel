@@ -14,6 +14,9 @@ use App\Modules\Customers\Exceptions\ClusterUnreachableException;
 use App\Modules\Customers\Exceptions\ConfirmationMismatchException;
 use App\Modules\Customers\Exceptions\RemoveInProgressException;
 use App\Modules\Customers\Exceptions\StateConflictException;
+use App\Modules\Customers\Support\CustomerLifecycleAction;
+use App\Modules\Customers\Support\CustomerLifecycleMatrix;
+use App\Modules\Customers\Support\CustomerLifecycleStatus;
 use App\Modules\Integration\Dto\RemoveTenantCommand;
 use App\Modules\Integration\Exceptions\PortStateConflictException;
 use App\Modules\Integration\Exceptions\UpstreamUnavailableException;
@@ -48,8 +51,12 @@ final class RemoveCustomerAction
             throw new ConfirmationMismatchException;
         }
 
-        if (in_array($customer->status, ['removing', 'removed'], true)) {
-            throw new RemoveInProgressException;
+        if (! CustomerLifecycleMatrix::allows($customer->status, CustomerLifecycleAction::Remove)) {
+            if (in_array($customer->status, [CustomerLifecycleStatus::REMOVING, CustomerLifecycleStatus::REMOVED], true)) {
+                throw new RemoveInProgressException;
+            }
+
+            throw new StateConflictException(['status' => $customer->status]);
         }
 
         $cluster = $customer->clusterServer;

@@ -2,11 +2,20 @@
 
 use App\Models\ClusterServer;
 use App\Models\Customer;
+use App\Modules\Agents\Services\AgentTransportResolver;
+use App\Modules\Agents\Services\AgentUpstreamGateway;
 use App\Modules\ClusterServers\Actions\SyncWebhookSecretAction;
 use App\Modules\ClusterServers\Services\WebhookSecretGenerator;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
+use App\Modules\Customers\Services\CustomerReadinessProbe;
+use App\Modules\Integration\Adapters\AgentPlatformAdapter;
+use App\Modules\Integration\Adapters\SshPlatformAdapter;
+use App\Modules\Integration\Services\PlatformPortFactory;
+use App\Modules\Jobs\Services\TransportObservability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
 use Mockery\MockInterface;
@@ -26,6 +35,11 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+// F28: provision happy-path tests assume image-mode unless a file overrides (readiness rejection suites set false).
+pest()->beforeEach(function (): void {
+    config(['platform.image_mode.default_mode' => true]);
+})->in('Feature');
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
@@ -47,6 +61,9 @@ pest()->extend(TestCase::class)
 
 pest()->extend(TestCase::class)
     ->in('Unit/Infrastructure');
+
+pest()->extend(TestCase::class)
+    ->in('Unit/Modules/Integration');
 
 pest()->extend(TestCase::class)
     ->in('Unit/Dns');
@@ -129,8 +146,55 @@ function callCreateSaveWithPem(Testable $testable, string $pem): Testable
 function fakeReadinessGateR6Http(string $domain, int $status = 200): void
 {
     Http::fake([
+        "https://{$domain}/login" => Http::response('OK', $status),
         "https://{$domain}/apps/mework360_memail/*" => Http::response('OK', $status),
     ]);
+}
+
+function beginReadinessIsolatedTest(): void
+{
+    resetCustomerReadinessProbeContainer();
+    Http::swap(new Factory);
+    expect((bool) config('services.agent.transport_enabled'))->toBeFalse();
+}
+
+function resetCustomerReadinessProbeContainer(): void
+{
+    app()->forgetInstance(CustomerReadinessProbe::class);
+    app()->forgetInstance(PlatformPortFactory::class);
+    app()->forgetInstance(SshPlatformAdapter::class);
+    app()->forgetInstance(AgentPlatformAdapter::class);
+    app()->forgetInstance(SshClientInterface::class);
+    app()->forgetInstance(AgentTransportResolver::class);
+    app()->forgetInstance(TransportObservability::class);
+    app()->forgetInstance(AgentUpstreamGateway::class);
+}
+
+function makeCustomerReadinessProbeWithSsh(SshClientInterface $ssh): CustomerReadinessProbe
+{
+    $observability = new TransportObservability;
+    $sshAdapter = new SshPlatformAdapter($ssh, $observability);
+    $resolver = new AgentTransportResolver;
+    $agentGateway = Mockery::mock(AgentUpstreamGateway::class);
+    $agentGateway->shouldIgnoreMissing();
+    $agentAdapter = new AgentPlatformAdapter($agentGateway, $resolver, $sshAdapter, $observability);
+    $factory = new PlatformPortFactory($resolver, $sshAdapter, $agentAdapter);
+
+    return new CustomerReadinessProbe($factory);
+}
+
+function fakeReadinessHttp(string $domain, string $path, int $status = 200): void
+{
+    Http::swap(new Factory);
+    $needle = rtrim($path, '/');
+    Http::fake(function (Request $request) use ($domain, $needle, $status) {
+        $url = $request->url();
+        if (! str_contains($url, $domain) || ! str_contains($url, $needle)) {
+            return Http::response('unexpected', 599);
+        }
+
+        return Http::response($status === 200 ? 'OK' : 'Error', $status);
+    });
 }
 
 function readinessGateSshMockWithGatesR1ToR5(): MockInterface

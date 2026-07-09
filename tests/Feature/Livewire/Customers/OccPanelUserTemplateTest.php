@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Job;
 use App\Models\Operator;
 use App\Models\Plan;
+use App\Models\TenantGroup;
 use App\Models\TenantUser;
 use App\Modules\Core\Ssh\Dto\SshResponse;
 use App\Modules\Core\Ssh\SshClientInterface;
@@ -61,6 +62,18 @@ function seedOccUserTemplate(string $slug, array $overrides = []): void
     DB::table('user_templates')->insert($row);
 }
 
+function seedOccTemplateTenantGroups(Customer $customer, array $names): void
+{
+    foreach ($names as $name) {
+        TenantGroup::create([
+            'id' => Str::uuid()->toString(),
+            'customer_slug' => $customer->slug,
+            'name' => $name,
+            'origin' => 'api',
+        ]);
+    }
+}
+
 function bindOccTemplateSsh(string $jobId, ?callable $assertStdin = null): void
 {
     $ssh = Mockery::mock(SshClientInterface::class);
@@ -81,6 +94,31 @@ function bindOccTemplateSsh(string $jobId, ?callable $assertStdin = null): void
         ));
     app()->instance(SshClientInterface::class, $ssh);
 }
+
+it('createUser with template and empty userGroupSelection clears template groups in stdin (CQ-F17-002)', function (): void {
+    $cluster = occTemplateCluster();
+    $customer = occTemplateCustomer($cluster);
+    $operator = occTemplateOperator();
+    seedOccUserTemplate('supervisor');
+    $jobId = Str::uuid()->toString();
+
+    bindOccTemplateSsh($jobId, function (?string $stdin): bool {
+        $decoded = json_decode($stdin ?? '', true);
+
+        return is_array($decoded)
+            && array_key_exists('groups', $decoded)
+            && $decoded['groups'] === [];
+    });
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'cleared')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->set('userTemplateSlug', 'supervisor')
+        ->set('userGroupSelection', [])
+        ->call('createUser')
+        ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
+});
 
 it('OccPanel users tab lists active user templates for selection', function (): void {
     $cluster = occTemplateCluster();
@@ -104,6 +142,7 @@ it('createUser with selected template merges groups into upstream stdin', functi
     $customer = occTemplateCustomer($cluster);
     $operator = occTemplateOperator();
     seedOccUserTemplate('supervisor');
+    seedOccTemplateTenantGroups($customer, ['supervisors', 'staff']);
     $jobId = Str::uuid()->toString();
 
     bindOccTemplateSsh($jobId, function (?string $stdin): bool {
@@ -123,11 +162,17 @@ it('createUser with selected template merges groups into upstream stdin', functi
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
 });
 
-it('createUser explicit userGroups override selected template groups', function (): void {
+it('createUser explicit userGroupSelection override selected template groups', function (): void {
     $cluster = occTemplateCluster();
     $customer = occTemplateCustomer($cluster);
     $operator = occTemplateOperator();
     seedOccUserTemplate('supervisor');
+    TenantGroup::create([
+        'id' => Str::uuid()->toString(),
+        'customer_slug' => $customer->slug,
+        'name' => 'financeiro',
+        'origin' => 'api',
+    ]);
     $jobId = Str::uuid()->toString();
 
     bindOccTemplateSsh($jobId, function (?string $stdin): bool {
@@ -142,7 +187,7 @@ it('createUser explicit userGroups override selected template groups', function 
         ->set('userUsername', 'alice')
         ->set('userPasswordPlain', 'Secret123!')
         ->set('userTemplateSlug', 'supervisor')
-        ->set('userGroups', 'financeiro')
+        ->set('userGroupSelection', ['financeiro'])
         ->call('createUser')
         ->assertSet('successMessage', "Usuário enfileirado — job {$jobId}.");
 });
@@ -151,7 +196,7 @@ it('createUser with selected template merges default_quota into upstream stdin',
     $cluster = occTemplateCluster();
     $customer = occTemplateCustomer($cluster);
     $operator = occTemplateOperator();
-    seedOccUserTemplate('collaborator', ['default_quota' => '12 GB', 'groups' => ['users']]);
+    seedOccUserTemplate('collaborator', ['default_quota' => '12 GB', 'groups' => []]);
     $jobId = Str::uuid()->toString();
 
     bindOccTemplateSsh($jobId, function (?string $stdin): bool {
@@ -175,6 +220,7 @@ it('createUser stores user_template_slug in job payload_sanitized with origin pa
     $customer = occTemplateCustomer($cluster);
     $operator = occTemplateOperator();
     seedOccUserTemplate('supervisor');
+    seedOccTemplateTenantGroups($customer, ['supervisors', 'staff']);
     $jobId = Str::uuid()->toString();
 
     bindOccTemplateSsh($jobId);
@@ -190,6 +236,27 @@ it('createUser stores user_template_slug in job payload_sanitized with origin pa
     expect($job)->not->toBeNull()
         ->and($job->payload_sanitized['user_template_slug'] ?? null)->toBe('supervisor')
         ->and($job->payload_sanitized['origin'] ?? null)->toBe('panel');
+});
+
+it('createUser rejects template groups missing from tenant_groups before SSH', function (): void {
+    $cluster = occTemplateCluster();
+    $customer = occTemplateCustomer($cluster);
+    $operator = occTemplateOperator();
+    seedOccUserTemplate('supervisor');
+
+    $ssh = Mockery::mock(SshClientInterface::class);
+    $ssh->shouldNotReceive('runAsync');
+    app()->instance(SshClientInterface::class, $ssh);
+
+    Livewire::actingAs($operator)
+        ->test(OccPanel::class, ['slug' => $customer->slug])
+        ->set('userUsername', 'partial-tpl')
+        ->set('userPasswordPlain', 'Secret123!')
+        ->set('userTemplateSlug', 'supervisor')
+        ->call('createUser')
+        ->assertSet('pendingUserCreateJobId', '')
+        ->assertSet('errorMessage', fn (string $message): bool => str_contains($message, 'supervisors'))
+        ->assertSet('userPasswordPlain', '');
 });
 
 it('createUser rejects unknown userTemplateSlug before SSH', function (): void {

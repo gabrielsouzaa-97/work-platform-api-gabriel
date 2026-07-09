@@ -22,6 +22,7 @@
 | `cluster_servers` | Gestão dos servidores nextcloud upstream | `has_many Customers`, `has_many Jobs` |
 | `customers` | Réplica de customers instalados (sync) | `belongs_to ClusterServer`, `has_many Jobs`, `has_many TenantUsers` |
 | `tenant_users` | Read model local de usuários de tenant (projeção webhook + sync) | `belongs_to Customer` (FK `customer_slug`) |
+| `tenant_groups` | Read model local de grupos de tenant (projeção webhook + sync) | `belongs_to Customer` (FK `customer_slug`) |
 | `plans` | Planos comerciais/técnicos — quota default e limites | `has_many Customers`, `has_many PlanApps` |
 | `app_catalog_entries` | Catálogo de apps habilitáveis (app_id upstream) | `has_many PlanApps`, `has_many UserTemplateApps` |
 | `user_templates` | Perfis reutilizáveis (Admin, Supervisor, Colaborador) | `has_many UserTemplateApps` |
@@ -51,6 +52,9 @@
  +---------------+                +------------------+
  | tenant_users  |                | idempotency_keys |
  +---------------+                +------------------+
+ +---------------+
+ | tenant_groups |
+ +---------------+
          ^
          | optional user_template_slug
  +---------------+       N:M      +----------------------+
@@ -93,6 +97,21 @@ Read model local de usuários de tenant — alimentado por projeção webhook (`
 | `created_at` / `updated_at` | timestamps | |
 
 Índices: `uniq_tenant_users_customer_username`, `idx_tenant_users_customer_slug`.
+
+### `tenant_groups` (Sprint N46)
+
+Read model local de grupos de tenant — alimentado por projeção webhook (`groups:create`/`groups:delete`/`deprovision`) e reconciliação periódica/on-demand via `tenant-groups:sync`.
+
+| Coluna | Tipo | Notas |
+|--------|------|-------|
+| `id` | uuid PK | Gerado na aplicação |
+| `customer_slug` | varchar(64) FK → `customers.slug` | ON DELETE CASCADE |
+| `name` | varchar(256) | UNIQUE composto com `customer_slug` |
+| `origin` | varchar(20) | `api`, `panel`, `sync` |
+| `synced_at` | timestamp nullable | Preenchido em paths de sync/reconciliação |
+| `created_at` / `updated_at` | timestamps | |
+
+Índices: `uniq_tenant_groups_customer_name`, `idx_tenant_groups_customer_slug`.
 
 ### Product Governance (ISSUE-051 — Sprint N41–N43)
 
