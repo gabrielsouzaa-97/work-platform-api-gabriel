@@ -5,7 +5,7 @@ projeto: mework360-deployer
 versao: 0.1.10
 perfil: laravel
 fase: 10
-sprint_atual: F27
+sprint_atual: F28
 findings_criticos_count: 0
 findings_criticos: []
 decisoes_recentes: []

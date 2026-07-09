@@ -33,10 +33,10 @@
     }
   ],
   "fase_atual": "10",
-  "fase_nome": "F27 merged",
-  "sprint_atual": null,
+  "fase_nome": "F28 planned",
+  "sprint_atual": "F28",
   "previous_sprint": "F27",
-  "sprint_branch": null,
+  "sprint_branch": "campanha/fix-f28-readiness-contract",
   "sprint_pending_merge": null,
   "campaign": {
     "slug": "v2-platform",
@@ -68,8 +68,8 @@
   "strategic_context_captured_at": "2026-05-07T18:20:00-03:00",
   "usuarios_alvo": "Operadores internos meWork360: DevOps/SRE (Marina, Rafael) + Suporte N2 (Sofia). Sem self-service externo no MVP.",
   "prazo": "MVP em 4-6 semanas com 1-2 devs",
-  "ultimo_update": "2026-07-09T04:45:47Z",
-  "next_sprint_planned": "F28",
+  "ultimo_update": "2026-07-09T05:10:00Z",
+  "next_sprint_planned": "N47",
   "modulos": [
     "Core",
     "ClusterServers",
@@ -79,8 +79,8 @@
     "Customers"
   ],
   "proximos_passos": [
-    "/rock f28",
-    "deploy LAB F26+F27"
+    "deploy LAB F26+F27+F28",
+    "/rock n47"
   ],
   "contexto_rapido": "Sprint N25 retomada 2026-07-04: N25.1+N25.2+N25.5 done. N25.3 CONCLUÍDA — cluster_server lab-upstream (.108) cadastrado, chave dedicada api-lab-108-2026, R6 PASS. N25.4 BLOQUEADA por ISSUE-046 (novo, CRITICAL): nextcloud-manage create legado falha em .108 (suite-deploy aponta para .112/labwork + apply-lab.sh ausente); webhook de falha também não entrega ao control plane. Canário canario-n25 limpo (soft-deleted + key revogada).",
   "validation_env": {
@@ -226,8 +226,8 @@
   "sprint_pr": null,
   "sprint_pr_repo": "SoftwareBeesy/work-platform-api",
   "checkpoint": {
-    "phase": "validated",
-    "current_task": null,
+    "phase": "implementation",
+    "current_task": "F28.1",
     "last_completed_task": "F27"
   },
   "checkpoint_f26_archived": {
@@ -311,17 +311,17 @@
       "stamped_at": "2026-06-22T15:45:00Z"
     }
   },
-  "sprint_tasks": [
+  "sprint_tasks_f27_archived": [
     {
       "id": "F27.1",
-      "status": "pending",
+      "status": "completed",
       "size": "M",
       "title": "JobSummaryParser: envelopes JSON occ_command_failed + effectiveTerminalState",
       "file": "app/Modules/Jobs/Support/JobSummaryParser.php"
     },
     {
       "id": "F27.2",
-      "status": "pending",
+      "status": "completed",
       "size": "M",
       "title": "WebhookHandler + TenantUserProjector: estado efetivo; não projetar grupos falsos",
       "file": "app/Modules/Jobs/Services/WebhookHandler.php",
@@ -331,7 +331,7 @@
     },
     {
       "id": "F27.3",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
       "title": "OnboardingSaga: falha parcial embutida em success → step failed",
       "file": "app/Modules/Onboarding/Saga/OnboardingSaga.php",
@@ -341,7 +341,7 @@
     },
     {
       "id": "F27.4",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
       "title": "OccPanel: aviso em success com erro embutido",
       "file": "app/Http/Livewire/Customers/OccPanel.php",
@@ -351,10 +351,59 @@
     },
     {
       "id": "F27.5",
-      "status": "pending",
+      "status": "completed",
       "size": "P",
       "title": "Validar grupos resolvidos (template+explícitos) contra tenant_groups pré-dispatch",
       "file": "app/Modules/Customers/Validation/ResolvedTenantGroupsValidator.php"
+    }
+  ],
+  "sprint_tasks": [
+    {
+      "id": "F28.1",
+      "status": "pending",
+      "size": "M",
+      "title": "ProvisioningReadinessContract + refactor TenantReadinessGateChecker",
+      "file": "app/Modules/Customers/Contracts/ProvisioningReadinessContract.php"
+    },
+    {
+      "id": "F28.2",
+      "status": "pending",
+      "size": "M",
+      "title": "ProvisioningReadinessValidator + ResolvedProvisionContext + API",
+      "file": "app/Modules/Customers/Validation/ProvisioningReadinessValidator.php",
+      "depends": [
+        "F28.1"
+      ]
+    },
+    {
+      "id": "F28.3",
+      "status": "pending",
+      "size": "P",
+      "title": "Livewire Create + WHMCS: mesma validação da API",
+      "file": "app/Http/Livewire/Customers/Create.php",
+      "depends": [
+        "F28.2"
+      ]
+    },
+    {
+      "id": "F28.4",
+      "status": "pending",
+      "size": "M",
+      "title": "Onboarding: flags no contrato + validação na borda",
+      "file": "app/Http/Requests/V1/CreateOnboardingRequest.php",
+      "depends": [
+        "F28.2"
+      ]
+    },
+    {
+      "id": "F28.5",
+      "status": "pending",
+      "size": "P",
+      "title": "OpenAPI: exemplos válidos + contrato readiness",
+      "file": "docs/openapi-external.yaml",
+      "depends": [
+        "F28.2"
+      ]
     }
   ],
   "sprint_tasks_f26_archived": [
@@ -511,8 +560,38 @@
   },
   "planning_history": [
     {
-      "timestamp": "2026-07-09T03:50:00Z",
-      "action": "/rock f27 — sucesso silencioso (ISSUE-058)",
+      "timestamp": "2026-07-09T05:10:00Z",
+      "action": "/rock f28 — ProvisioningReadinessContract (ISSUE-057 A)",
+      "sprints_generated": [
+        "F28"
+      ],
+      "sprint_stubs": [
+        "N47",
+        "N48"
+      ],
+      "issues_in_scope": [
+        "ISSUE-057"
+      ],
+      "findings_in_scope": [
+        "ARQ-A1",
+        "ARQ-A2",
+        "ARQ-A3",
+        "ARQ-A6",
+        "ARQ-A7",
+        "ARQ-A8"
+      ],
+      "split_strategy": "F28.1 contract DRY (M) → F28.2 validator+API (M) → F28.3 Livewire+WHMCS (P) ∥ F28.4 onboarding (M) ∥ F28.5 OpenAPI (P); ADOPT_A_WITH_B A only",
+      "tasks_count": {
+        "P": 3,
+        "M": 2,
+        "total": 5
+      },
+      "review_level": "comprehensive",
+      "exec_mode": "pipeline",
+      "brief_path": "docs/.briefs/F28.brief.md",
+      "brief_status": "READY_FOR_PUSH (verifier PASS — docs/.briefs/F28.verifier.md)",
+      "gate": "422 LEGACY_READINESS_UNSATISFIABLE nos 5 entry points; image_mode=true allow; contract único gate+HTTP; OpenAPI válido; CI green"
+    },
       "sprints_generated": [
         "F27"
       ],
